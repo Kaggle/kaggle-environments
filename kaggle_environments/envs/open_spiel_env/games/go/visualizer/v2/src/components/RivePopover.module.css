@@ -1,6 +1,9 @@
 .overlay {
   position: fixed;
-  inset: 0;
+  top: var(--area-top);
+  left: var(--area-left);
+  width: var(--area-width);
+  height: var(--area-height);
   z-index: 30;
   padding: 0;
   border: none;
