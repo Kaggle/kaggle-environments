@@ -1,19 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { motion } from 'motion/react';
 import { useTransition } from '../hooks/useReducedMotion';
 import mynerveFont from '../assets/rives/mynerve.ttf?url';
-import {
-  useRive,
-  Layout,
-  Fit,
-  Alignment,
-  useViewModel,
-  useViewModelInstance,
-  useViewModelInstanceString,
-  useViewModelInstanceEnum,
-  decodeFont,
-  FontAsset,
-} from '@rive-app/react-webgl2';
+import { useRive, Layout, Fit, Alignment, decodeFont, FontAsset } from '@rive-app/react-webgl2';
 import styles from './RivePopover.module.css';
 
 const layout = new Layout({ fit: Fit.Contain, alignment: Alignment.Center });
@@ -26,21 +15,17 @@ interface RivePopoverProps {
 }
 
 export function RivePopover({ src, color, text, onClose }: RivePopoverProps) {
-  const [playing, setPlaying] = useState(false);
+  const [hold, setHold] = useState(true);
   const transition = useTransition({ duration: 0.35 });
   const overlayRef = useCallback((el: HTMLDivElement | null) => {
     if (el && !el.matches(':popover-open')) el.showPopover();
   }, []);
-  const { rive, RiveComponent } = useRive({
+  const { RiveComponent } = useRive({
     src,
     layout,
     stateMachines: 'State Machine 1',
     autoplay: true,
-    onStateChange: (e) => {
-      const data = e.data?.toString();
-      if (data === 'Black' || data === 'White') setPlaying(true);
-      if (data === 'exit') onClose();
-    },
+    autoBind: true,
     assetLoader: (asset) => {
       if (asset.isFont) {
         fetch(mynerveFont).then(async (res) => {
@@ -53,18 +38,18 @@ export function RivePopover({ src, color, text, onClose }: RivePopoverProps) {
       }
       return false;
     },
+    onRiveReady: (rive) => {
+      const textString = rive.viewModelInstance?.string('text');
+      if (textString) textString.value = text;
+      const colorEnum = rive.viewModelInstance?.enum('color');
+      if (colorEnum) colorEnum.value = color;
+    },
+    onStateChange: (event) => {
+      const state = event.data?.toString();
+      if (state === 'Black' || state === 'White') setHold(false);
+      if (state === 'exit') onClose();
+    },
   });
-
-  const viewModel = useViewModel(rive, { name: 'ViewModel1' });
-  const viewModelInstance = useViewModelInstance(viewModel, { useNew: true, rive });
-  const { setValue: setText } = useViewModelInstanceString('text', viewModelInstance);
-  const { setValue: setColor } = useViewModelInstanceEnum('color', viewModelInstance);
-
-  useEffect(() => {
-    if (!rive || !setText || !setColor || !text || !color) return;
-    setText(text);
-    setColor(color);
-  }, [rive, setText, setColor, text, color]);
 
   return (
     <motion.div
@@ -73,7 +58,7 @@ export function RivePopover({ src, color, text, onClose }: RivePopoverProps) {
       className={`grid-pile ${styles.overlay}`}
       aria-hidden="true"
       initial={{ opacity: 0 }}
-      animate={{ opacity: playing ? 1 : 0 }}
+      animate={{ opacity: hold ? 0 : 1 }}
       exit={{ opacity: 0 }}
       transition={transition}
     >
