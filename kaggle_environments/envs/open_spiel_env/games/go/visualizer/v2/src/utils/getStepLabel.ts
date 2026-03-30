@@ -7,7 +7,8 @@ export function getStepLabel(step: BaseGameStep) {
   if (player) {
     const move = player.actionDisplayText?.toUpperCase() ?? '';
     if (move === 'PASS') return `Passes`;
-    return `Plays on ${move}`;
+    const hasCaptures = (step as GoStep).hasCaptures;
+    return hasCaptures ? `Plays on ${move} and captures` : `Plays on ${move}`;
   }
 
   const blackName = step.players.at(0)?.name ?? 'Black';
