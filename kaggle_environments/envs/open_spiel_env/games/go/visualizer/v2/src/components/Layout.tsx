@@ -9,11 +9,13 @@ import GameOver from './GameOver';
 import HeroAnimation from './HeroAnimation';
 import SoundEffects from './SoundEffects';
 import usePreloader from '../stores/usePreloader';
+import useBoardRect from '../hooks/useBoardRect';
 import { assetsReady } from '../utils/preloadAssets';
 import styles from './Layout.module.css';
 
 export default memo(function Layout() {
   const loaded = usePreloader((s) => s.pixiReady && s.assetsReady);
+  useBoardRect();
 
   useEffect(() => {
     assetsReady.then(() => usePreloader.getState().setAssetsReady());

@@ -1,19 +1,12 @@
-:global(#go-playable-area) {
-  anchor-name: --playable-area;
-}
-
 .modal {
   --font-size: 1.25rem;
   --border-size: 2px;
   --cell-padding: 0.75rem 1.5rem;
   --reveal-delay: 1s;
-  position: fixed;
-  position-anchor: --playable-area;
-  inset: unset;
-  top: anchor(top);
-  left: anchor(left);
-  width: anchor-size(width);
-  height: anchor-size(height);
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   margin: 0;
   border: none;
   max-width: none;
