@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { useTransition } from '../hooks/useReducedMotion';
 import mynerveFont from '../assets/rives/mynerve.ttf?url';
@@ -26,6 +26,7 @@ interface RivePopoverProps {
 }
 
 export function RivePopover({ src, color, text, onClose }: RivePopoverProps) {
+  const [playing, setPlaying] = useState(false);
   const transition = useTransition({ duration: 0.35 });
   const overlayRef = useCallback((el: HTMLDivElement | null) => {
     if (el && !el.matches(':popover-open')) el.showPopover();
@@ -36,7 +37,9 @@ export function RivePopover({ src, color, text, onClose }: RivePopoverProps) {
     stateMachines: 'State Machine 1',
     autoplay: true,
     onStateChange: (e) => {
-      if (e.data?.toString() === 'exit') onClose();
+      const data = e.data?.toString();
+      if (data === 'Black' || data === 'White') setPlaying(true);
+      if (data === 'exit') onClose();
     },
     assetLoader: (asset) => {
       if (asset.isFont) {
@@ -70,7 +73,7 @@ export function RivePopover({ src, color, text, onClose }: RivePopoverProps) {
       className={`grid-pile ${styles.overlay}`}
       aria-hidden="true"
       initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      animate={{ opacity: playing ? 1 : 0 }}
       exit={{ opacity: 0 }}
       transition={transition}
     >
