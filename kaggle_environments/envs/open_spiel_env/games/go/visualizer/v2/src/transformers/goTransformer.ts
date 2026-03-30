@@ -71,8 +71,12 @@ export const goTransformer = (environment: any): GoStep[] => {
     players: extraStepPlayers,
     boardState: parseBoardState(firstStep[0].observation.observationString),
     isTerminal: false,
+    hasCaptures: false,
     winner: null,
   });
+
+  let previousBlackStonesCount = 0;
+  let previousWhiteStonesCount = 0;
 
   for (const step of goReplay.steps) {
     if (step.some((p) => p.action?.actionString) === false) continue;
@@ -90,13 +94,22 @@ export const goTransformer = (environment: any): GoStep[] => {
       })
     );
 
+    const boardState = parseBoardState(step[0].observation.observationString);
+    const stones = boardState.board.flat();
+    const blackStonesCount = stones.filter((s) => s === 'B').length;
+    const whiteStonesCount = stones.filter((s) => s === 'W').length;
+
     goSteps.push({
       step: goSteps.length,
       players: stepPlayers,
-      boardState: parseBoardState(step[0].observation.observationString),
+      boardState: boardState,
       isTerminal: false,
+      hasCaptures: blackStonesCount < previousBlackStonesCount || whiteStonesCount < previousWhiteStonesCount,
       winner: null,
     });
+
+    previousBlackStonesCount = blackStonesCount;
+    previousWhiteStonesCount = whiteStonesCount;
   }
 
   const lastReplayStep = goReplay.steps[goReplay.steps.length - 1];
@@ -106,6 +119,7 @@ export const goTransformer = (environment: any): GoStep[] => {
     players: extraStepPlayers,
     boardState: goSteps[goSteps.length - 1].boardState,
     isTerminal: true,
+    hasCaptures: false,
     winner: deriveWinner(lastReplayStep),
   });
 

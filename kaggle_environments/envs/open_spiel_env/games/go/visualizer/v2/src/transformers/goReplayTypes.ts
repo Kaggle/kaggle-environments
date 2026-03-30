@@ -19,6 +19,7 @@ export interface GoStep extends Omit<BaseGameStep, 'players'> {
   players: GoPlayer[];
   boardState: GoBoardState;
   isTerminal: boolean;
+  hasCaptures: boolean;
   winner: string | null;
 }
 
