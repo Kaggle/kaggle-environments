@@ -29,6 +29,7 @@
   background-position: center;
   color: #050001;
   font-size: var(--font-size);
+  z-index: 20;
 }
 
 .heading {
