@@ -15,6 +15,15 @@
   container-type: inline-size;
   padding-inline: 1.25em;
   color: #050001;
+  transition: opacity 400ms ease;
+}
+
+.playableArea:not([data-loaded]) {
+  opacity: 0;
+}
+
+:global([data-reduced-motion]) .playableArea {
+  transition: none;
 }
 
 /* Board layout. */

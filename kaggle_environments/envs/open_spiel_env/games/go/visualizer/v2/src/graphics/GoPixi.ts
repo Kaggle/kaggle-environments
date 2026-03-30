@@ -14,6 +14,7 @@ import {
   animateTerritoryOut,
 } from './animateStones.ts';
 import { Marker } from './marker.ts';
+import usePreloader from '../stores/usePreloader';
 import spritesData from '../assets/sprites/sprites.json';
 import spritesPng from '../assets/sprites/sprites.png';
 
@@ -113,6 +114,7 @@ export class GoPixi {
     this.marker = new Marker(sheet, stoneLayer, boardSize);
 
     this.initialized = true;
+    usePreloader.getState().setPixiReady();
 
     if (this.pendingProps) {
       const props = this.pendingProps;
