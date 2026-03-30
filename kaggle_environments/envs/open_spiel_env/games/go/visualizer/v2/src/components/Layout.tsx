@@ -19,8 +19,6 @@ export default memo(function Layout() {
     assetsReady.then(() => usePreloader.getState().setAssetsReady());
   }, []);
 
-  console.log('renders');
-
   return (
     <main id="go-playable-area" className={styles.playableArea} data-loaded={loaded || undefined}>
       <HiddenHeader />
