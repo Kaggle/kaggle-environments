@@ -44,7 +44,7 @@
   margin-inline: 3em;
 }
 
-@container (max-width: 680px) {
+@media (max-width: 680px) {
   .panel {
     font-size: 11px;
   }
