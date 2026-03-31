@@ -24,16 +24,13 @@ export function RivePopover({ src, color, text, onClose }: RivePopoverProps) {
     autoplay: true,
     autoBind: true,
     assetLoader: (asset) => {
-      if (asset.isFont) {
-        fetch(mynerveFont).then(async (res) => {
-          const arrayBuffer = await res.arrayBuffer();
-          const font = await decodeFont(new Uint8Array(arrayBuffer));
-          (asset as FontAsset).setFont(font);
-          font.unref();
-        });
-        return true;
-      }
-      return false;
+      if (!asset.isFont) return false;
+      fetch(mynerveFont).then(async (res) => {
+        const font = await decodeFont(new Uint8Array(await res.arrayBuffer()));
+        (asset as FontAsset).setFont(font);
+        font.unref();
+      });
+      return true;
     },
     onRiveReady: (rive) => {
       const textString = rive.viewModelInstance?.string('text');
