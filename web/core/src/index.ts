@@ -27,5 +27,8 @@ export * from './episodeAssetUtils';
 // Renderer utilities
 export * from './renderer-utils';
 
+// Analytics
+export * from './analytics';
+
 // Theme and fonts
 export { loadInterFont } from './theme';
