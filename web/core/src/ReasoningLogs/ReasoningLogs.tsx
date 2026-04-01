@@ -1,5 +1,6 @@
 import { ReasoningStep } from './ReasoningStep';
 import { BaseGameStep, InterestingEvent, ReplayMode } from '../types';
+import { postAnalyticsEvent } from '../analytics';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import * as React from 'react';
 import { Virtuoso, VirtuosoHandle, Components } from 'react-virtuoso';
@@ -350,6 +351,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                   aria-label="Previous Step"
                   onClick={() => {
                     if (currentStep > 0) {
+                      postAnalyticsEvent({ game: gameName, action: 'controls_previous_step' });
                       onPlayChange(/* playing= */ false);
                       onStepChange(currentStep - 1);
                       scrollLogs(true);
@@ -361,7 +363,10 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                 <IconButton
                   size={isTablet ? 'medium' : 'large'}
                   aria-label={playing ? 'Pause' : 'Play'}
-                  onClick={() => onPlayChange()}
+                  onClick={() => {
+                    postAnalyticsEvent({ game: gameName, action: playing ? 'controls_pause' : 'controls_play' });
+                    onPlayChange();
+                  }}
                 >
                   <Icon>{playing ? 'pause' : 'play_arrow'}</Icon>
                 </IconButton>
@@ -370,6 +375,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                   aria-label="Next Step"
                   onClick={() => {
                     if (currentStep < totalSteps - 1) {
+                      postAnalyticsEvent({ game: gameName, action: 'controls_next_step' });
                       onPlayChange(/* playing= */ false);
                       onStepChange(currentStep + 1);
                       scrollLogs(true);
@@ -393,6 +399,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                   max={totalSteps > 0 ? totalSteps : 0}
                   onChangeCommitted={(_: Event | React.SyntheticEvent, value: number | number[]) => {
                     if (typeof value === 'number') {
+                      postAnalyticsEvent({ game: gameName, action: 'controls_slider_drag' });
                       onStepChange(value - 1);
                       setIsChangingStep(false);
                     }
