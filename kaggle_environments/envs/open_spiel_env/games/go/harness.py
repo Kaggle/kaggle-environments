@@ -16,7 +16,7 @@ _JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
 # --- Prompt ---
 
 
-GO_PROMPT_TEMPLATE = """Let's play Go on a 9x9 board.
+GO_PROMPT_TEMPLATE = """Let's play Go.
 
 Rules: Tromp-Taylor scoring (area scoring — count stones on the board plus
 empty territory enclosed by a single color; all stones are treated as alive).
@@ -101,7 +101,8 @@ def _extract_move_from_json(response: str) -> str | None:
         return None
     try:
         data = json.loads(match.group(1))
-        return data.get("move", "").strip()
+        move = data.get("move", "").strip()
+        return move or None
     except json.JSONDecodeError:
         return None
 
