@@ -65,10 +65,7 @@ const LogsContainer = styled('div')<{ $dense: boolean }>`
   ${({ theme }) => theme.breakpoints.down('tablet')} {
     border-left: none;
     flex: none;
-    height: ${(p) => {
-      console.log(p.$dense);
-      return p.$dense ? 'min-content' : '40%';
-    }};
+    height: ${(p) => (p.$dense ? 'min-content' : '40%')};
   }
 `;
 

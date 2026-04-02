@@ -109,7 +109,7 @@ const VisualizerContainer = styled('div')<{ $dense?: boolean }>`
     `}
 `;
 
-const ReasoningLogsContainer = styled('div')`
+const ReasoningLogsContainer = styled('div')<{ $dense: boolean }>`
   flex: 0 0 25%;
   min-width: 330px;
   height: 100%;
@@ -118,7 +118,7 @@ const ReasoningLogsContainer = styled('div')`
   ${({ theme }) => theme.breakpoints.down('tablet')} {
     flex: none;
     width: 100%;
-    height: 40%;
+    height: ${(p) => (p.$dense ? 'min-content' : '40%')};
   }
 `;
 
@@ -365,7 +365,7 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
       {ui === 'side-panel' &&
         !parentData.parentHandlesUi &&
         (showLogs ? (
-          <ReasoningLogsContainer>
+          <ReasoningLogsContainer $dense={dense}>
             <ReasoningLogs
               closePanel={handleClosePanel}
               onPlayChange={handlePlayChange}
