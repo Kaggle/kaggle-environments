@@ -31,12 +31,13 @@ export default function BoardControls() {
           placing black and white stones. This game follows Tromp-Taylor rules.
         </p>
       </WithPopover>
-      <label className={`${popoverStyles.trigger} ${styles.soundToggle}`}>
+      <label className={`grid-pile ${styles.soundToggle}`}>
         <input
           type="checkbox"
           checked={soundEnabled}
           onChange={() => toggle('soundEnabled')}
-          className="visually-hidden"
+          className={popoverStyles.trigger}
+          aria-label="Sound"
         />
         <svg
           width="24"
@@ -49,7 +50,6 @@ export default function BoardControls() {
           <use xlinkHref={`${svgSymbolPath}#sound-on`} />
           <use xlinkHref={`${svgSymbolPath}#sound-off`} />
         </svg>
-        <span className="visually-hidden">Sound</span>
       </label>
       <WithPopover id="settings" icon="settings" label="Settings">
         <FeatureToggles />

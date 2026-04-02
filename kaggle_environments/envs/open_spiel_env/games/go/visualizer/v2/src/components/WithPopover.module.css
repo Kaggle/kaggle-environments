@@ -16,6 +16,8 @@
   box-shadow: -0.125rem 0.125rem 0 #000000;
   appearance: none;
   will-change: scale;
+  width: 44px;
+  height: 44px;
 
   &:hover {
     scale: 1.03;

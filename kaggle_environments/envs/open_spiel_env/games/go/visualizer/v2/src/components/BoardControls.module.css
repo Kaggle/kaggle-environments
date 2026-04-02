@@ -6,11 +6,11 @@
   position: relative;
 }
 
-.boardControls :where(button) {
+.boardControls :where(button, input) {
   outline-offset: -2px;
 }
 
-.boardControls :where(button, label) {
+.boardControls :where(button, input) {
   outline-color: #0077ff;
 }
 
@@ -24,13 +24,12 @@
 }
 
 .soundToggle {
-  cursor: pointer;
+  place-items: center;
 }
 
-.soundToggle:has(:focus-visible) {
-  outline-offset: -4px;
-  outline-style: solid;
-  outline-width: 2px;
+.soundToggle svg {
+  pointer-events: none;
+  z-index: 1;
 }
 
 .soundToggle svg use:first-child {
@@ -70,6 +69,11 @@
 }
 
 @container (max-width: 680px) {
+  .soundToggle svg {
+    width: 16px;
+    height: 16px;
+  }
+
   .settingsCta {
     font-size: 10px;
 
