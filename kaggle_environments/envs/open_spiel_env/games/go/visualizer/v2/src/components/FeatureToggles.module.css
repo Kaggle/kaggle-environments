@@ -85,7 +85,7 @@
   }
 }
 
-@container (max-width: 680px) {
+@container (max-width: 600px) {
   .annotationsToggle {
     display: none;
   }
