@@ -145,14 +145,14 @@ const projects = visualizers.map((viz) => ({
 
 const webServers = visualizers.map((viz) => ({
   command:
-    viz.name === 'core'
-      ? `pnpm --filter @kaggle-environments/core dev-with-replay`
-      : `pnpm test-server ${viz.packageFilter}`,
+    viz.name === 'core' ? `pnpm --filter @kaggle-environments/core dev` : `pnpm test-server ${viz.packageFilter}`,
   url: `http://localhost:${viz.port}`,
   reuseExistingServer: !process.env.CI,
   timeout: 120000,
-  // Use the deterministic port
-  env: { VITE_PORT: String(viz.port) },
+  env: {
+    VITE_PORT: String(viz.port),
+    ...(viz.name === 'core' && { VITE_REPLAY_FILE: './replays/test-replay.json' }),
+  },
 }));
 
 if (process.env.DEBUG) {
