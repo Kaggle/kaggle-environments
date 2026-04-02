@@ -65,7 +65,7 @@ const LogsContainer = styled('div')<{ $dense: boolean }>`
   ${({ theme }) => theme.breakpoints.down('tablet')} {
     border-left: none;
     flex: none;
-    height: ${(p) => (p.$dense ? 'min-content' : '40%')};
+    ${(p) => p.$dense && ' height: min-content'};
   }
 `;
 
@@ -484,8 +484,6 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
           </>
         )}
       </SidebarHeader>
-      {/* If we're showing the dense view on a mobile device, skip
-      showing reasoning logs since there's no real estate */}
       {useFullControls &&
         (steps.length > 0 ? (
           <Virtuoso
