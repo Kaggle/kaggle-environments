@@ -22,7 +22,10 @@ export function WithPopover({ children, icon, id, label }: Props) {
   useEffect(() => {
     if (!open) return;
 
-    panelRef.current?.focus();
+    // Wait a frame, then focus the popover.
+    window.requestAnimationFrame(() => {
+      panelRef.current?.focus();
+    });
 
     const handleMouseDown = (e: MouseEvent) => {
       const target = e.target as Node;
@@ -85,6 +88,15 @@ export function WithPopover({ children, icon, id, label }: Props) {
         transition={transition}
         style={{ transformOrigin: 'left center' }}
       >
+        <button
+          className={`${styles.closeButton} visually-hidden-unless-focused`}
+          onClick={() => {
+            setOpen(false);
+            triggerRef.current?.focus();
+          }}
+        >
+          Close
+        </button>
         <div className={styles.panelInner}>
           <div className={styles.panelInnerInner}>{children}</div>
         </div>

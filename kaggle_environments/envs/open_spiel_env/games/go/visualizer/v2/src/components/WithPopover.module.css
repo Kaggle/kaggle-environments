@@ -68,6 +68,16 @@
   height: 100%;
 }
 
+.closeButton {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: white;
+  border: 1px solid;
+  padding: 0.5rem;
+  z-index: 1;
+}
+
 @container (max-width: 680px) {
   .trigger {
     width: 30px;
