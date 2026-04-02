@@ -91,6 +91,7 @@ const PlayerContainer = styled('div')<{ $uiMode?: UiMode }>`
 
   ${({ theme }) => theme.breakpoints.down('tablet')} {
     flex-direction: column;
+    max-height: 500px;
   }
 `;
 
@@ -101,14 +102,10 @@ const VisualizerContainer = styled('div')<{ $dense?: boolean }>`
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  ${({ $dense, theme }) =>
+  ${({ $dense }) =>
     $dense &&
     css`
       max-height: 500px;
-
-      ${theme.breakpoints.down('tablet')} {
-        max-height: 306px;
-      }
     `}
 `;
 

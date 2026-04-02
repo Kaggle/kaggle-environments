@@ -53,7 +53,7 @@ const SPEED_OPTIONS: SelectOption<number>[] = [
   },
 ];
 
-const LogsContainer = styled('div')`
+const LogsContainer = styled('div')<{ $dense: boolean }>`
   border-left: 1px solid ${(p) => p.theme.palette.divider};
   display: flex;
   flex-direction: column;
@@ -65,7 +65,10 @@ const LogsContainer = styled('div')`
   ${({ theme }) => theme.breakpoints.down('tablet')} {
     border-left: none;
     flex: none;
-    height: 100%;
+    height: ${(p) => {
+      console.log(p.$dense);
+      return p.$dense ? 'min-content' : '40%';
+    }};
   }
 `;
 
@@ -198,6 +201,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
 
   const isTablet = useMediaQuery((theme) => theme.breakpoints.down('tablet'));
   const showControls = replayMode !== 'only-stream';
+  const useFullControls = !(dense && isTablet);
 
   const visibleSteps = React.useMemo(() => {
     return steps.slice(0, currentStep + 1);
@@ -285,9 +289,9 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
   }, [currentStep]);
 
   return (
-    <LogsContainer>
+    <LogsContainer $dense={dense}>
       <SidebarHeader>
-        {!dense && (
+        {useFullControls && (
           <GameLogHeader>
             <Typography variant="h6" component="h2">
               Game Log
@@ -391,7 +395,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                 </Typography>
               )}
             </PlayerControlsSection>
-            {!dense && (
+            {useFullControls && (
               <PlayerControlsSection>
                 <PlaybackSlider
                   size="small"
@@ -452,7 +456,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                 </Select>
               </PlayerControlsSection>
             )}
-            {!isTablet && !dense && (
+            {useFullControls && (
               <PlayerControlsSection style={{ justifyContent: 'flex-start', marginTop: '8px' }}>
                 <Button
                   variant="medium"
@@ -483,48 +487,51 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
           </>
         )}
       </SidebarHeader>
-      {steps.length > 0 && !(dense && isTablet) ? (
-        <Virtuoso
-          style={{ flex: 1 }}
-          ref={virtuosoRef}
-          data={visibleSteps}
-          components={virtuosoComponents}
-          scrollerRef={(ref) => {
-            scrollerRef.current = ref as HTMLElement;
-          }}
-          atBottomThreshold={50}
-          atBottomStateChange={(isAtBottom) => {
-            isAtBottomRef.current = isAtBottom;
-          }}
-          // Automatically scrolls to bottom when new items are added if user hasn't scrolled up
-          // Scroll to the first step in the case where one was included as a URL param
-          initialTopMostItemIndex={currentStep > 0 ? currentStep : 0}
-          itemContent={(index, turn) => {
-            return (
-              <ReasoningStep
-                key={index}
-                expandByDefault={replayMode === 'condensed' ? expandAll : true}
-                showExpandButton={replayMode === 'condensed'}
-                step={turn}
-                stepNumber={index + 1}
-                scrollLogs={scrollLogs}
-                replayMode={replayMode}
-                playing={playing}
-                isCurrentStep={index === currentStep}
-                gameName={gameName}
-                onStepChange={onStepChange}
-                getStepLabel={getStepLabel}
-                getStepDescription={getStepDescription}
-                getTokenRenderDistribution={getTokenRenderDistribution}
-              />
-            );
-          }}
-        />
-      ) : (
-        <NoStepsContainer>
-          <CircularProgress />
-        </NoStepsContainer>
-      )}
+      {/* If we're showing the dense view on a mobile device, skip
+      showing reasoning logs since there's no real estate */}
+      {useFullControls &&
+        (steps.length > 0 ? (
+          <Virtuoso
+            style={{ flex: 1 }}
+            ref={virtuosoRef}
+            data={visibleSteps}
+            components={virtuosoComponents}
+            scrollerRef={(ref) => {
+              scrollerRef.current = ref as HTMLElement;
+            }}
+            atBottomThreshold={50}
+            atBottomStateChange={(isAtBottom) => {
+              isAtBottomRef.current = isAtBottom;
+            }}
+            // Automatically scrolls to bottom when new items are added if user hasn't scrolled up
+            // Scroll to the first step in the case where one was included as a URL param
+            initialTopMostItemIndex={currentStep > 0 ? currentStep : 0}
+            itemContent={(index, turn) => {
+              return (
+                <ReasoningStep
+                  key={index}
+                  expandByDefault={replayMode === 'condensed' ? expandAll : true}
+                  showExpandButton={replayMode === 'condensed'}
+                  step={turn}
+                  stepNumber={index + 1}
+                  scrollLogs={scrollLogs}
+                  replayMode={replayMode}
+                  playing={playing}
+                  isCurrentStep={index === currentStep}
+                  gameName={gameName}
+                  onStepChange={onStepChange}
+                  getStepLabel={getStepLabel}
+                  getStepDescription={getStepDescription}
+                  getTokenRenderDistribution={getTokenRenderDistribution}
+                />
+              );
+            }}
+          />
+        ) : (
+          <NoStepsContainer>
+            <CircularProgress />
+          </NoStepsContainer>
+        ))}
     </LogsContainer>
   );
 };
