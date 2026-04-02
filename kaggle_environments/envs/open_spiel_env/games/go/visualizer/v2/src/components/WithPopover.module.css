@@ -80,7 +80,7 @@
   z-index: 1;
 }
 
-@container (max-width: 680px) {
+@container (max-width: 600px) {
   .trigger {
     width: 30px;
     height: 30px;
