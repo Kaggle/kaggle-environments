@@ -81,10 +81,21 @@ export default function HeroAnimation() {
   const isVisible = !!hero && !game.gameOver;
 
   return (
-    <AnimatePresence>
-      {isVisible && (
-        <RivePopover key={hero.step} src={hero.src} text={hero.text} color={hero.color} onClose={() => setHero(null)} />
-      )}
-    </AnimatePresence>
+    <>
+      <span aria-live="assertive" className="visually-hidden">
+        {isVisible ? hero?.text : ''}
+      </span>
+      <AnimatePresence>
+        {isVisible && (
+          <RivePopover
+            key={hero.step}
+            src={hero.src}
+            text={hero.text}
+            color={hero.color}
+            onClose={() => setHero(null)}
+          />
+        )}
+      </AnimatePresence>
+    </>
   );
 }
