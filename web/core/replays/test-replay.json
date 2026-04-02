@@ -1,0 +1,160 @@
+{
+  "name": "test-game",
+  "version": "1.0",
+  "isTransformed": true,
+  "configuration": {},
+  "steps": [
+    {
+      "step": 0,
+      "players": [
+        {
+          "id": 0,
+          "name": "Alice",
+          "thumbnail": "",
+          "isTurn": true,
+          "actionDisplayText": "Alice opens with a bold move",
+          "thoughts": "I need to think carefully about my first move. There are many options available, and the best strategy depends on what my opponent might do. Let me consider the possibilities."
+        },
+        {
+          "id": 1,
+          "name": "Bob",
+          "thumbnail": "",
+          "isTurn": false
+        }
+      ]
+    },
+    {
+      "step": 1,
+      "players": [
+        {
+          "id": 0,
+          "name": "Alice",
+          "thumbnail": "",
+          "isTurn": false
+        },
+        {
+          "id": 1,
+          "name": "Bob",
+          "thumbnail": "",
+          "isTurn": true,
+          "actionDisplayText": "Bob responds cautiously",
+          "thoughts": "Alice made an aggressive opening. I should play defensively and wait for a better opportunity. My position is still solid if I maintain composure."
+        }
+      ]
+    },
+    {
+      "step": 2,
+      "players": [
+        {
+          "id": 0,
+          "name": "Alice",
+          "thumbnail": "",
+          "isTurn": true,
+          "actionDisplayText": "Alice presses the advantage",
+          "thoughts": "Bob is playing it safe. I can exploit this by continuing to push forward. The key is to maintain pressure without overextending."
+        },
+        {
+          "id": 1,
+          "name": "Bob",
+          "thumbnail": "",
+          "isTurn": false
+        }
+      ]
+    },
+    {
+      "step": 3,
+      "players": [
+        {
+          "id": 0,
+          "name": "Alice",
+          "thumbnail": "",
+          "isTurn": false
+        },
+        {
+          "id": 1,
+          "name": "Bob",
+          "thumbnail": "",
+          "isTurn": true,
+          "actionDisplayText": "Bob counterattacks",
+          "thoughts": "Now is the time to strike back. Alice has overextended and I can capitalize on the opening. A well-timed counter should shift the momentum."
+        }
+      ]
+    },
+    {
+      "step": 4,
+      "players": [
+        {
+          "id": 0,
+          "name": "Alice",
+          "thumbnail": "",
+          "isTurn": true,
+          "actionDisplayText": "Alice adjusts strategy",
+          "thoughts": "That counter was unexpected. I need to regroup and adapt my approach. Perhaps a more balanced strategy would work better from here."
+        },
+        {
+          "id": 1,
+          "name": "Bob",
+          "thumbnail": "",
+          "isTurn": false
+        }
+      ]
+    },
+    {
+      "step": 5,
+      "players": [
+        {
+          "id": 0,
+          "name": "Alice",
+          "thumbnail": "",
+          "isTurn": false
+        },
+        {
+          "id": 1,
+          "name": "Bob",
+          "thumbnail": "",
+          "isTurn": true,
+          "actionDisplayText": "Bob consolidates position",
+          "thoughts": "Good, the momentum has shifted. I should consolidate my gains and build from this stronger position. No need to rush."
+        }
+      ]
+    },
+    {
+      "step": 6,
+      "players": [
+        {
+          "id": 0,
+          "name": "Alice",
+          "thumbnail": "",
+          "isTurn": true,
+          "actionDisplayText": "Alice makes a decisive move",
+          "thoughts": "This is the critical moment. I have one strong option left that could turn things around. It is risky but the payoff could be huge."
+        },
+        {
+          "id": 1,
+          "name": "Bob",
+          "thumbnail": "",
+          "isTurn": false
+        }
+      ]
+    },
+    {
+      "step": 7,
+      "players": [
+        {
+          "id": 0,
+          "name": "Alice",
+          "thumbnail": "",
+          "isTurn": false
+        },
+        {
+          "id": 1,
+          "name": "Bob",
+          "thumbnail": "",
+          "isTurn": true,
+          "actionDisplayText": "Bob wins the game",
+          "thoughts": "Alice took the risk but it did not pay off. I can now close out the game with a straightforward response. Well played overall."
+        }
+      ]
+    }
+  ]
+}

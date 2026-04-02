@@ -44,6 +44,7 @@ function findPackageMatch(dirName: string): string {
 const testPatterns = [
   'kaggle_environments/envs/*/visualizer/**/*.test.ts',
   'kaggle_environments/envs/open_spiel_env/games/*/visualizer/**/*.test.ts',
+  'web/core/e2e/**/*.test.ts',
 ];
 
 const testFiles = testPatterns.flatMap((pattern) => globSync(pattern));
@@ -119,6 +120,17 @@ for (const testFile of testFiles) {
   }
 }
 
+// Add the core package if it has test files
+const coreTestFiles = testFiles.filter((f) => f.startsWith('web/core/'));
+if (coreTestFiles.length > 0) {
+  visualizerMap.set('core', {
+    name: 'core',
+    testMatch: 'web/core/e2e/**/*.test.ts',
+    port: getPortForVisualizer('core'),
+    packageFilter: '@kaggle-environments/core',
+  });
+}
+
 const visualizers = Array.from(visualizerMap.values());
 
 const projects = visualizers.map((viz) => ({
@@ -132,7 +144,10 @@ const projects = visualizers.map((viz) => ({
 }));
 
 const webServers = visualizers.map((viz) => ({
-  command: `pnpm test-server ${viz.packageFilter}`,
+  command:
+    viz.name === 'core'
+      ? `pnpm --filter @kaggle-environments/core dev-with-replay`
+      : `pnpm test-server ${viz.packageFilter}`,
   url: `http://localhost:${viz.port}`,
   reuseExistingServer: !process.env.CI,
   timeout: 120000,
