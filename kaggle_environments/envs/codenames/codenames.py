@@ -91,12 +91,16 @@ def process_action(state, config):
         opponent_team = "blue" if current_turn == 0 else "red"
         
         is_invalid_clue = False
-        for i in range(25):
-            if not revealed[i]:
-                unrevealed_word = words[i].upper()
-                if unrevealed_word in normalized_clue or normalized_clue in unrevealed_word:
-                    is_invalid_clue = True
-                    break
+        if " " in normalized_clue or "-" in normalized_clue:
+            is_invalid_clue = True
+            
+        if not is_invalid_clue:
+            for i in range(25):
+                if not revealed[i]:
+                    unrevealed_word = words[i].upper()
+                    if unrevealed_word in normalized_clue or normalized_clue in unrevealed_word:
+                        is_invalid_clue = True
+                        break
                     
         if is_invalid_clue:
             # Penalty: Reveal a random opponent word and pass turn
