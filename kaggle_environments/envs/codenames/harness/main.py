@@ -37,6 +37,9 @@ class LLMCodenamesAgent:
             prompt += f"- {words[i]}: {roles[i].upper()} ({status})\n"
             
         prompt += "\nThink step-by-step about which unrevealed words you can connect with a single-word clue. Provide your reasoning in a 'thinking' key.\n"
+        prompt += "VALIDITY RULES FOR CLUES:\n"
+        prompt += "- The clue must be a SINGLE WORD. It CANNOT contain spaces or hyphens.\n"
+        prompt += "- The clue CANNOT contain or be contained within any unrevealed word currently hidden on the board (e.g., if 'DOG' is hidden, your clue cannot be 'DOGS' or 'HOTDOG').\n"
         prompt += "Note: A clue number of 0 means 'unlimited guesses, but 0 words relate to this clue' (often used to help guessers avoid the assassin or opponent words). A clue number of -1 means 'infinity' (unlimited guesses, for when you want them to guess remaining words from previous clues).\n"
         prompt += 'You MUST format your response as valid JSON like this:\n'
         prompt += '{"thinking": "I see CAT and DOG, so ANIMAL connects 2 words...", "clue": "ANIMAL", "number": 2}\n'
