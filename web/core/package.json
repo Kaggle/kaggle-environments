@@ -29,6 +29,7 @@
   "scripts": {
     "build": "tsc && vite build",
     "dev": "vite",
+    "dev-with-replay": "cross-env VITE_REPLAY_FILE=./replays/test-replay.json vite",
     "dev:watch": "tsc --build --watch"
   },
   "dependencies": {
@@ -42,6 +43,7 @@
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.2.0",
+    "cross-env": "^10.1.0",
     "typescript": "^5.0.0",
     "vite": "^5.0.0",
     "vite-plugin-dts": "^4.5.4"
