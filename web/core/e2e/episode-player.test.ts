@@ -9,10 +9,6 @@ import { test, expect, Page } from '@playwright/test';
  * independent of any specific game visualizer.
  */
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 /** Wait for the EpisodePlayer to finish loading and show content. */
 async function waitForPlayer(page: Page) {
   await page.getByRole('heading', { name: 'Game Log' }).waitFor({ timeout: 10_000 });
@@ -28,14 +24,8 @@ async function pauseIfPlaying(page: Page) {
   await page.waitForTimeout(100);
 }
 
-// MUI Slider renders as <input type="range" name="Change Step">, not with an aria role.
-// MUI Select renders a <div role="combobox"> but the aria-label is on the inner input.
 const muiSlider = 'input[type="range"][name="Change Step"]';
 const muiSpeedSelect = '[aria-label="Change Playback Speed"]';
-
-// ---------------------------------------------------------------------------
-// Side-panel UI mode (default)
-// ---------------------------------------------------------------------------
 
 test.describe('EpisodePlayer — side-panel mode', () => {
   test.beforeEach(async ({ page }) => {
@@ -70,7 +60,7 @@ test.describe('EpisodePlayer — side-panel mode', () => {
 
   test('does not render inline PlaybackControls', async ({ page }) => {
     // Inline mode uses a plain <input type="range"> with aria-label "Step slider"
-    await expect(page.locator('[aria-label="Step slider"]')).not.toBeVisible();
+    await expect(page.locator('[aria-label="Step slider"]')).toBeHidden();
   });
 
   test('renders step cards in the log', async ({ page }) => {
@@ -78,10 +68,6 @@ test.describe('EpisodePlayer — side-panel mode', () => {
     await expect(stepCards.first()).toBeVisible();
   });
 });
-
-// ---------------------------------------------------------------------------
-// Playback controls
-// ---------------------------------------------------------------------------
 
 test.describe('ReasoningLogs — playback controls', () => {
   test.beforeEach(async ({ page }) => {
@@ -146,13 +132,9 @@ test.describe('ReasoningLogs — playback controls', () => {
     await page.getByRole('option', { name: /Speed 2/ }).click();
 
     // Menu should close
-    await expect(page.getByRole('option', { name: /Speed 2/ })).not.toBeVisible();
+    await expect(page.getByRole('option', { name: /Speed 2/ })).toBeHidden();
   });
 });
-
-// ---------------------------------------------------------------------------
-// ReasoningLogs — mode toggle & expand/collapse
-// ---------------------------------------------------------------------------
 
 test.describe('ReasoningLogs — mode and expansion', () => {
   test.beforeEach(async ({ page }) => {
@@ -184,7 +166,7 @@ test.describe('ReasoningLogs — mode and expansion', () => {
 
     // Switch to streaming mode — expand/collapse disappears
     await page.getByRole('button', { name: 'Streaming View' }).click();
-    await expect(expandBtn).not.toBeVisible();
+    await expect(expandBtn).toBeHidden();
 
     // Switch back — it reappears
     await page.getByRole('button', { name: 'Log View' }).click();
@@ -200,29 +182,18 @@ test.describe('ReasoningLogs — mode and expansion', () => {
     await thinkingButtons.first().waitFor({ timeout: 5_000 });
 
     const firstBtn = thinkingButtons.first();
-    const initialText = await firstBtn.textContent();
+
+    // In condensed mode, thinking is collapsed by default
+    await expect(firstBtn).toHaveText(/Show thinking/);
 
     await firstBtn.click();
-
-    if (initialText?.includes('Show')) {
-      await expect(firstBtn).toHaveText(/Hide thinking/);
-    } else {
-      await expect(firstBtn).toHaveText(/Show thinking/);
-    }
+    await expect(firstBtn).toHaveText(/Hide thinking/);
 
     // Toggle back
     await firstBtn.click();
-    if (initialText?.includes('Show')) {
-      await expect(firstBtn).toHaveText(/Show thinking/);
-    } else {
-      await expect(firstBtn).toHaveText(/Hide thinking/);
-    }
+    await expect(firstBtn).toHaveText(/Show thinking/);
   });
 });
-
-// ---------------------------------------------------------------------------
-// Close / reopen panel
-// ---------------------------------------------------------------------------
 
 test.describe('ReasoningLogs — close and reopen panel', () => {
   test.beforeEach(async ({ page }) => {
@@ -233,7 +204,7 @@ test.describe('ReasoningLogs — close and reopen panel', () => {
   test('close button hides panel and shows Game Log button', async ({ page }) => {
     await page.getByRole('button', { name: 'Collapse Episodes' }).click();
 
-    await expect(page.getByRole('heading', { name: 'Game Log' })).not.toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Game Log' })).toBeHidden();
 
     const reopenBtn = page.getByRole('button', { name: 'Game Log' });
     await expect(reopenBtn).toBeVisible();
@@ -257,10 +228,6 @@ test.describe('EpisodePlayer — dense mode (desktop)', () => {
     await expect(visualizer).toBeVisible();
   });
 });
-
-// ---------------------------------------------------------------------------
-// Mobile viewport
-// ---------------------------------------------------------------------------
 
 test.describe('EpisodePlayer — mobile viewport', () => {
   test.use({ viewport: { width: 600, height: 800 } });
@@ -289,10 +256,6 @@ test.describe('EpisodePlayer — mobile viewport', () => {
     await expect(page.getByRole('button', { name: /Streaming View|Log View/ })).toBeVisible();
   });
 });
-
-// ---------------------------------------------------------------------------
-// Keyboard shortcuts
-// ---------------------------------------------------------------------------
 
 test.describe('EpisodePlayer — keyboard shortcuts', () => {
   test.beforeEach(async ({ page }) => {
