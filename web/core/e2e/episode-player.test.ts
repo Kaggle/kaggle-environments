@@ -202,7 +202,7 @@ test.describe('EpisodePlayer — dense mode (desktop)', () => {
     await waitForPlayer(page);
 
     // The PlaceholderRenderer shows game name
-    const visualizer = page.locator('h2:has-text("test-game Visualizer")');
+    const visualizer = page.locator('h2:has-text("Visualizer")');
     await expect(visualizer).toBeVisible();
   });
 });
