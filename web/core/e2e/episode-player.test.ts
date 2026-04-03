@@ -14,7 +14,6 @@ async function waitForPlayer(page: Page) {
   await page.getByRole('heading', { name: 'Game Log' }).waitFor({ timeout: 10_000 });
 }
 
-/** Pause playback if currently playing. */
 async function pauseIfPlaying(page: Page) {
   const pauseBtn = page.getByRole('button', { name: 'Pause' });
   if (await pauseBtn.isVisible().catch(() => false)) {
@@ -36,7 +35,6 @@ test.describe('EpisodePlayer — side-panel mode', () => {
   test('renders ReasoningLogs sidebar with controls', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'Game Log' })).toBeVisible();
 
-    // Playback buttons
     await expect(page.getByRole('button', { name: 'Restart' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Previous Step' })).toBeVisible();
     await expect(page.getByRole('button', { name: /Play|Pause/ })).toBeVisible();
@@ -45,16 +43,9 @@ test.describe('EpisodePlayer — side-panel mode', () => {
     // Step counter
     await expect(page.getByText(/\d+\/\d+/)).toBeVisible();
 
-    // MUI Slider
     await expect(page.locator(muiSlider)).toBeVisible();
-
-    // Speed selector
     await expect(page.locator(muiSpeedSelect)).toBeVisible();
-
-    // Mode toggle (default condensed -> shows "Streaming View")
     await expect(page.getByRole('button', { name: 'Streaming View' })).toBeVisible();
-
-    // Expand All button (condensed mode only)
     await expect(page.getByRole('button', { name: /Expand All|Collapse All/ })).toBeVisible();
   });
 
@@ -78,7 +69,6 @@ test.describe('ReasoningLogs — playback controls', () => {
 
   test('play/pause toggles button icon', async ({ page }) => {
     const btn = page.getByRole('button', { name: /Play|Pause/ });
-    // Should be paused
     await expect(btn).toHaveAttribute('aria-label', 'Play');
 
     await btn.click();
@@ -121,17 +111,12 @@ test.describe('ReasoningLogs — playback controls', () => {
   });
 
   test('speed selector opens and has options', async ({ page }) => {
-    // Click the speed select to open the dropdown
     await page.locator(muiSpeedSelect).click();
 
-    // MUI Select renders options as role="option" in a listbox
     await expect(page.getByRole('option', { name: /Speed 2/ })).toBeVisible();
     await expect(page.getByRole('option', { name: /Speed 0\.5/ })).toBeVisible();
 
-    // Select an option
     await page.getByRole('option', { name: /Speed 2/ }).click();
-
-    // Menu should close
     await expect(page.getByRole('option', { name: /Speed 2/ })).toBeHidden();
   });
 });
@@ -176,8 +161,6 @@ test.describe('ReasoningLogs — mode and expansion', () => {
   test('show/hide thinking buttons work on step cards', async ({ page }) => {
     await pauseIfPlaying(page);
 
-    // The step card itself has role="button", so we target the inner MUI Button
-    // which renders as <button> containing "Show thinking" or "Hide thinking".
     const thinkingButtons = page.locator('button:has-text("Show thinking"), button:has-text("Hide thinking")');
     await thinkingButtons.first().waitFor({ timeout: 5_000 });
 
@@ -213,10 +196,6 @@ test.describe('ReasoningLogs — close and reopen panel', () => {
     await expect(page.getByRole('heading', { name: 'Game Log' })).toBeVisible();
   });
 });
-
-// ---------------------------------------------------------------------------
-// Dense mode (desktop)
-// ---------------------------------------------------------------------------
 
 test.describe('EpisodePlayer — dense mode (desktop)', () => {
   test('visualizer renders in default (non-dense) mode', async ({ page }) => {
