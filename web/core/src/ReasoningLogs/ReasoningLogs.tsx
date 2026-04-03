@@ -387,7 +387,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                 </IconButton>
               </PlayerButtons>
               {totalSteps > 0 && currentStep > -1 && (
-                <Typography variant="body1" style={{ marginRight: '8px' }}>
+                <Typography variant="body1" style={{ marginRight: '8px' }} data-testid="step-counter">
                   {currentStep + 1}/{totalSteps}
                 </Typography>
               )}

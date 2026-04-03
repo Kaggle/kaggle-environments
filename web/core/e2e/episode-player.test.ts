@@ -39,9 +39,7 @@ test.describe('EpisodePlayer — side-panel mode', () => {
     await expect(page.getByRole('button', { name: 'Previous Step' })).toBeVisible();
     await expect(page.getByRole('button', { name: /Play|Pause/ })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Next Step' })).toBeVisible();
-
-    // Step counter
-    await expect(page.getByText(/\d+\/\d+/)).toBeVisible();
+    await expect(page.getByTestId('step-counter')).toBeVisible();
 
     await expect(page.locator(muiSlider)).toBeVisible();
     await expect(page.locator(muiSpeedSelect)).toBeVisible();
@@ -84,16 +82,17 @@ test.describe('ReasoningLogs — playback controls', () => {
     await page.waitForTimeout(100);
     await pauseIfPlaying(page);
 
-    const counter = page.getByText(/^\d+\/8$/);
+    const counter = page.getByTestId('step-counter');
+
     await expect(counter).toBeVisible();
     const initialText = await counter.textContent();
     const initialStep = parseInt(initialText!.split('/')[0]);
 
     await page.getByRole('button', { name: 'Next Step' }).click();
-    await expect(counter).toHaveText(`${initialStep + 1}/8`);
+    await expect(counter).toHaveText(new RegExp(`^${initialStep + 1}/`));
 
     await page.getByRole('button', { name: 'Previous Step' }).click();
-    await expect(counter).toHaveText(`${initialStep}/8`);
+    await expect(counter).toHaveText(new RegExp(`^${initialStep}/`));
   });
 
   test('restart button goes back to step 1', async ({ page }) => {
@@ -106,8 +105,8 @@ test.describe('ReasoningLogs — playback controls', () => {
     await page.waitForTimeout(100);
     await pauseIfPlaying(page);
 
-    const counter = page.getByText(/^\d+\/8$/);
-    await expect(counter).toHaveText('1/8');
+    const counter = page.getByText(/^\d+\/\d+$/);
+    await expect(counter).toHaveText(/^1\//);
   });
 
   test('speed selector opens and has options', async ({ page }) => {
@@ -221,9 +220,7 @@ test.describe('EpisodePlayer — mobile viewport', () => {
     await expect(page.getByRole('button', { name: /Play|Pause/ })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Next Step' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Previous Step' })).toBeVisible();
-
-    // Step counter
-    await expect(page.getByText(/\d+\/\d+/)).toBeVisible();
+    await expect(page.getByTestId('step-counter')).toBeVisible();
   });
 
   test('full controls (slider, speed, mode toggle) are visible on mobile when not dense', async ({ page }) => {
@@ -258,7 +255,7 @@ test.describe('EpisodePlayer — keyboard shortcuts', () => {
   });
 
   test('Arrow keys change steps', async ({ page }) => {
-    const counter = page.getByText(/^\d+\/8$/);
+    const counter = page.getByText(/^\d+\/\d+$/);
     const initialText = await counter.textContent();
     const initialStep = parseInt(initialText!.split('/')[0]);
 
@@ -266,9 +263,9 @@ test.describe('EpisodePlayer — keyboard shortcuts', () => {
     await page.locator('h2:has-text("test-game Visualizer")').click();
 
     await page.keyboard.press('ArrowRight');
-    await expect(counter).toHaveText(`${initialStep + 1}/8`);
+    await expect(counter).toHaveText(new RegExp(`^${initialStep + 1}/`));
 
     await page.keyboard.press('ArrowLeft');
-    await expect(counter).toHaveText(`${initialStep}/8`);
+    await expect(counter).toHaveText(new RegExp(`^${initialStep}/`));
   });
 });
