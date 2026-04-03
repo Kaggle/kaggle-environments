@@ -1,0 +1,133 @@
+{
+  "name": "reinforce_tactics",
+  "title": "Reinforce Tactics",
+  "description": "A turn-based tactical strategy game where two players command armies of diverse unit types to capture the enemy headquarters or eliminate all enemy units.",
+  "version": "0.2.0",
+  "agents": [2],
+
+  "configuration": {
+    "episodeSteps": {
+      "description": "Maximum number of turns before the game ends in a draw.",
+      "type": "integer",
+      "default": 200,
+      "minimum": 1
+    },
+    "actTimeout": {
+      "description": "Seconds allowed per agent action.",
+      "type": "number",
+      "default": 5
+    },
+    "runTimeout": {
+      "description": "Seconds allowed per episode.",
+      "type": "number",
+      "default": 1200
+    },
+    "mapWidth": {
+      "description": "Width of the game map.",
+      "type": "integer",
+      "default": 20,
+      "minimum": 10,
+      "maximum": 40
+    },
+    "mapHeight": {
+      "description": "Height of the game map.",
+      "type": "integer",
+      "default": 20,
+      "minimum": 10,
+      "maximum": 40
+    },
+    "mapSeed": {
+      "description": "Random seed for map generation. -1 for random. Only used when mapName is empty.",
+      "type": "integer",
+      "default": -1
+    },
+    "mapName": {
+      "description": "Name of a built-in map to use (e.g. 'beginner', 'crossroads', 'tower_rush'). Leave empty for random generation.",
+      "type": "string",
+      "default": "beginner"
+    },
+    "enabledUnits": {
+      "description": "Comma-separated list of enabled unit types (W=Warrior, M=Mage, C=Cleric, A=Archer, K=Knight, R=Rogue, S=Sorcerer, B=Barbarian).",
+      "type": "string",
+      "default": "W,M,C,A,K,R,S,B"
+    },
+    "fogOfWar": {
+      "description": "Enable fog of war for partial observability.",
+      "type": "boolean",
+      "default": false
+    },
+    "startingGold": {
+      "description": "Starting gold for each player.",
+      "type": "integer",
+      "default": 250,
+      "minimum": 0
+    }
+  },
+
+  "observation": {
+    "board": {
+      "description": "2D array of terrain type codes. Each cell is a single character: p=grass, w=water, m=mountain, f=forest, r=road, b=building, h=headquarters, t=tower, o=ocean.",
+      "type": "array",
+      "shared": true,
+      "default": []
+    },
+    "structures": {
+      "description": "Array of structure dicts with keys: x, y, type, owner, hp, maxHp. Only includes capturable tiles (buildings, towers, HQ).",
+      "type": "array",
+      "shared": true,
+      "default": []
+    },
+    "units": {
+      "description": "Array of unit dicts with keys: type, owner, x, y, hp, maxHp, canMove, canAttack, paralyzedTurns, isHasted, distanceMoved, defenceBuffTurns, attackBuffTurns.",
+      "type": "array",
+      "shared": false,
+      "default": []
+    },
+    "gold": {
+      "description": "Array of gold amounts for each player: [player1_gold, player2_gold].",
+      "type": "array",
+      "shared": true,
+      "default": []
+    },
+    "player": {
+      "description": "The player index for this agent (0 or 1).",
+      "type": "integer",
+      "defaults": [0, 1]
+    },
+    "turnNumber": {
+      "description": "The current turn number (increments after both players have acted).",
+      "type": "integer",
+      "shared": true,
+      "default": 0
+    },
+    "mapWidth": {
+      "description": "Width of the game map.",
+      "type": "integer",
+      "shared": true,
+      "default": 20
+    },
+    "mapHeight": {
+      "description": "Height of the game map.",
+      "type": "integer",
+      "shared": true,
+      "default": 20
+    },
+    "remainingOverageTime": 60
+  },
+
+  "action": {
+    "description": "A list of action command dicts for this turn. Each dict has a 'type' key plus action-specific fields. Valid types: create_unit, move, attack, seize, heal, cure, paralyze, haste, defence_buff, attack_buff, end_turn.",
+    "type": "array",
+    "default": []
+  },
+
+  "reward": {
+    "description": "-1 = Lost, 0 = Draw/Ongoing, 1 = Won",
+    "enum": [-1, 0, 1],
+    "default": 0
+  },
+
+  "status": {
+    "defaults": ["ACTIVE", "INACTIVE"]
+  }
+}
