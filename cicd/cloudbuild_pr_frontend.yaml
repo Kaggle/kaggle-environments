@@ -44,7 +44,7 @@ steps:
       - "-c"
       - |
         set -e
-        npm install -g pnpm
+        npm install -g pnpm@9
         pnpm install
         pnpm --filter @kaggle-environments/core test
     waitFor: ["-"]
