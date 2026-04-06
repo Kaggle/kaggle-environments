@@ -102,6 +102,36 @@ def test_clue_validation():
     assert opp_after == opp_before - 1
     assert state[0].observation.current_turn == (2 if turn == 0 else 0)
 
+def test_space_hyphen_validation():
+    env = make("codenames")
+    state = env.reset()
+    turn = state[0].observation.current_turn
+    
+    opponent_team = "blue" if turn == 0 else "red"
+    opp_before = sum(1 for i in range(25) if state[0].observation.roles[i] == opponent_team and not state[0].observation.revealed[i])
+    
+    # Try clue with space
+    env.step([{"clue": "TWO WORDS", "number": 1} if i == turn else None for i in range(4)])
+    state = env.state
+    
+    opp_after = sum(1 for i in range(25) if state[0].observation.roles[i] == opponent_team and not state[0].observation.revealed[i])
+    assert opp_after == opp_before - 1
+    assert state[0].observation.current_turn == (2 if turn == 0 else 0)
+    
+    # Reset for hyphen test
+    state = env.reset()
+    turn = state[0].observation.current_turn
+    opponent_team = "blue" if turn == 0 else "red"
+    opp_before = sum(1 for i in range(25) if state[0].observation.roles[i] == opponent_team and not state[0].observation.revealed[i])
+    
+    # Try clue with hyphen
+    env.step([{"clue": "HYPHEN-ATED", "number": 1} if i == turn else None for i in range(4)])
+    state = env.state
+    
+    opp_after = sum(1 for i in range(25) if state[0].observation.roles[i] == opponent_team and not state[0].observation.revealed[i])
+    assert opp_after == opp_before - 1
+    assert state[0].observation.current_turn == (2 if turn == 0 else 0)
+
 if __name__ == "__main__":
     test_codenames_completes()
     test_random_start_counts()
@@ -109,4 +139,5 @@ if __name__ == "__main__":
     test_unlimited_clues_require_one_guess()
     test_infinity_clues_require_one_guess()
     test_clue_validation()
+    test_space_hyphen_validation()
     print("All Codenames rule tests passed!")
