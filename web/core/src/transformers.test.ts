@@ -97,7 +97,7 @@ describe('getGameStepDescription', () => {
 });
 
 describe('getGameStepRenderTime', () => {
-  it('delegates to defaultGetStepRenderTime with correct args', () => {
+  it('defaults to defaultGetStepRenderTime in condensed mode', () => {
     const step = makeStep();
     // condensed mode, 1x speed → default 2200
     expect(getGameStepRenderTime(step, 'test-game', 'condensed', 1)).toBe(2200);
@@ -115,20 +115,20 @@ describe('getGameStepRenderTime', () => {
         { id: 1, name: 'Bob', thumbnail: '', isTurn: false },
       ],
     });
-    // 3 words * TIME_PER_CHUNK
+    // Multiplied by 3 since we have 3 words in Alice's thoughts
     expect(getGameStepRenderTime(step, 'test-game', 'zen', 1)).toBe(3 * TIME_PER_CHUNK);
   });
 });
 
 describe('getInterestingEvents', () => {
-  it('returns an empty array (default implementation)', () => {
+  it('returns an empty array by default', () => {
     const steps = [makeStep(), makeStep({ step: 2 })];
     expect(getInterestingEvents(steps, 'test-game')).toEqual([]);
   });
 });
 
 describe('getTokenRenderDistribution', () => {
-  it('returns uniform distribution (delegates to generateDefaultDelayDistribution)', () => {
+  it('returns uniform distribution by default', () => {
     const result = getTokenRenderDistribution(4, 'test-game');
     expect(result).toEqual(Array(4).fill(TIME_PER_CHUNK));
   });

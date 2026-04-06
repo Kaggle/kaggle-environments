@@ -127,7 +127,7 @@ describe('defaultGetStepRenderTime', () => {
         { id: 1, name: 'Bob', thumbnail: '', isTurn: false },
       ],
     });
-    // 5 words → 5 * TIME_PER_CHUNK at 1x
+    // 5 words → 5 chunks → 5 * TIME_PER_CHUNK at 1x
     expect(defaultGetStepRenderTime(step, 'only-stream', 1)).toBe(5 * TIME_PER_CHUNK);
   });
 
