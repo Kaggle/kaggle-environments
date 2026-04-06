@@ -4,12 +4,9 @@ import {
   generateEaseInDelayDistribution,
   generateDefaultDelayDistribution,
   defaultGetStepRenderTime,
+  TIME_PER_CHUNK,
 } from './timing';
 import { BaseGameStep } from './types';
-
-const TIME_PER_CHUNK = 120;
-
-// ── helpers ──────────────────────────────────────────────────────────
 
 const sum = (arr: number[]) => arr.reduce((a, b) => a + b, 0);
 
@@ -22,12 +19,10 @@ const makeStep = (overrides: Partial<BaseGameStep> = {}): BaseGameStep => ({
   ...overrides,
 });
 
-// ── generateDefaultDelayDistribution ─────────────────────────────────
-
 describe('generateDefaultDelayDistribution', () => {
   it('returns an array of equal values', () => {
     const result = generateDefaultDelayDistribution(5);
-    expect(result).toEqual([120, 120, 120, 120, 120]);
+    expect(result).toEqual(Array(5).fill(TIME_PER_CHUNK));
   });
 
   it('returns empty array for 0 chunks', () => {
@@ -35,11 +30,9 @@ describe('generateDefaultDelayDistribution', () => {
   });
 
   it('returns single value for 1 chunk', () => {
-    expect(generateDefaultDelayDistribution(1)).toEqual([120]);
+    expect(generateDefaultDelayDistribution(1)).toEqual([TIME_PER_CHUNK]);
   });
 });
-
-// ── generateEaseInOutDelayDistribution ───────────────────────────────
 
 describe('generateEaseInOutDelayDistribution', () => {
   it('returns empty array for 0 chunks', () => {
@@ -73,8 +66,6 @@ describe('generateEaseInOutDelayDistribution', () => {
   });
 });
 
-// ── generateEaseInDelayDistribution ──────────────────────────────────
-
 describe('generateEaseInDelayDistribution', () => {
   it('returns empty array for 0 chunks', () => {
     expect(generateEaseInDelayDistribution(0)).toEqual([]);
@@ -98,8 +89,6 @@ describe('generateEaseInDelayDistribution', () => {
     }
   });
 });
-
-// ── defaultGetStepRenderTime ─────────────────────────────────────────
 
 describe('defaultGetStepRenderTime', () => {
   it('returns default duration at 1x speed when no thoughts and condensed mode', () => {
@@ -127,8 +116,8 @@ describe('defaultGetStepRenderTime', () => {
         { id: 1, name: 'Bob', thumbnail: '', isTurn: false },
       ],
     });
-    // 3 words → 3 chunks → 3 * 120 = 360ms at 1x
-    expect(defaultGetStepRenderTime(step, 'zen', 1)).toBe(360);
+    // 3 words → 3 chunks → 3 * TIME_PER_CHUNK at 1x
+    expect(defaultGetStepRenderTime(step, 'zen', 1)).toBe(3 * TIME_PER_CHUNK);
   });
 
   it('uses thought-based timing in only-stream mode', () => {
@@ -138,8 +127,8 @@ describe('defaultGetStepRenderTime', () => {
         { id: 1, name: 'Bob', thumbnail: '', isTurn: false },
       ],
     });
-    // 5 words → 5 * 120 = 600ms at 1x
-    expect(defaultGetStepRenderTime(step, 'only-stream', 1)).toBe(600);
+    // 5 words → 5 * TIME_PER_CHUNK at 1x
+    expect(defaultGetStepRenderTime(step, 'only-stream', 1)).toBe(5 * TIME_PER_CHUNK);
   });
 
   it('ignores thoughts in condensed mode', () => {
@@ -160,8 +149,8 @@ describe('defaultGetStepRenderTime', () => {
         { id: 1, name: 'Bob', thumbnail: '', isTurn: false },
       ],
     });
-    // 4 words * 120 / 2x speed = 240
-    expect(defaultGetStepRenderTime(step, 'zen', 2)).toBe(240);
+    // 4 words * TIME_PER_CHUNK / 2x speed
+    expect(defaultGetStepRenderTime(step, 'zen', 2)).toBe((4 * TIME_PER_CHUNK) / 2);
   });
 
   it('falls back to default duration when no players', () => {

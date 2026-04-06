@@ -7,9 +7,8 @@ import {
   getInterestingEvents,
   getTokenRenderDistribution,
 } from './transformers';
+import { TIME_PER_CHUNK } from './timing';
 import { BaseGameStep, ReplayData } from './types';
-
-// ── helpers ──────────────────────────────────────────────────────────
 
 const makeStep = (overrides: Partial<BaseGameStep> = {}): BaseGameStep => ({
   step: 1,
@@ -28,13 +27,11 @@ const makeReplay = (overrides: Partial<ReplayData> = {}): ReplayData => ({
   ...overrides,
 });
 
-// ── processEpisodeData ───────────────────────────────────────────────
-
 describe('processEpisodeData', () => {
   it('returns already-transformed data as-is', () => {
     const data = makeReplay({ isTransformed: true });
     const result = processEpisodeData(data, 'test-game');
-    expect(result).toBe(data); // same reference
+    expect(result).toBe(data);
   });
 
   it('returns untransformed data through (no-op default transformer)', () => {
@@ -50,8 +47,6 @@ describe('processEpisodeData', () => {
     expect(result).toBe(data);
   });
 });
-
-// ── getGameStepLabel ─────────────────────────────────────────────────
 
 describe('getGameStepLabel', () => {
   it('returns actionDisplayText of the active player', () => {
@@ -82,8 +77,6 @@ describe('getGameStepLabel', () => {
   });
 });
 
-// ── getGameStepDescription ───────────────────────────────────────────
-
 describe('getGameStepDescription', () => {
   it('returns thoughts of the active player', () => {
     const step = makeStep();
@@ -102,8 +95,6 @@ describe('getGameStepDescription', () => {
     expect(getGameStepDescription(step, 'test-game')).toBe('');
   });
 });
-
-// ── getGameStepRenderTime ────────────────────────────────────────────
 
 describe('getGameStepRenderTime', () => {
   it('delegates to defaultGetStepRenderTime with correct args', () => {
@@ -124,12 +115,10 @@ describe('getGameStepRenderTime', () => {
         { id: 1, name: 'Bob', thumbnail: '', isTurn: false },
       ],
     });
-    // 3 words * 120ms = 360
-    expect(getGameStepRenderTime(step, 'test-game', 'zen', 1)).toBe(360);
+    // 3 words * TIME_PER_CHUNK
+    expect(getGameStepRenderTime(step, 'test-game', 'zen', 1)).toBe(3 * TIME_PER_CHUNK);
   });
 });
-
-// ── getInterestingEvents ─────────────────────────────────────────────
 
 describe('getInterestingEvents', () => {
   it('returns an empty array (default implementation)', () => {
@@ -138,12 +127,10 @@ describe('getInterestingEvents', () => {
   });
 });
 
-// ── getTokenRenderDistribution ───────────────────────────────────────
-
 describe('getTokenRenderDistribution', () => {
   it('returns uniform distribution (delegates to generateDefaultDelayDistribution)', () => {
     const result = getTokenRenderDistribution(4, 'test-game');
-    expect(result).toEqual([120, 120, 120, 120]);
+    expect(result).toEqual(Array(4).fill(TIME_PER_CHUNK));
   });
 
   it('returns empty array for 0 chunks', () => {

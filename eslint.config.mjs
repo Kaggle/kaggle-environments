@@ -47,7 +47,7 @@ export default defineConfig([
     },
   },
   {
-    files: ["**/*.test.ts", "**/*.spec.ts"],
+    files: ["**/e2e/**/*.test.ts", "**/e2e/**/*.spec.ts"],
     plugins: {
       playwright: eslintPluginPlaywright,
     },
