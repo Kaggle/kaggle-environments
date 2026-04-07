@@ -17,6 +17,15 @@ function getAudioContext(): AudioContext {
   return audioCtx;
 }
 
+/** Replace the current AudioContext with a fresh one and re-decode buffers. */
+function resetAudioContext() {
+  audioCtx?.close().catch(() => {});
+  audioCtx = null;
+  placeBuffer = null;
+  captureBuffer = null;
+  buffersLoading = false;
+}
+
 async function loadBuffers() {
   if (buffersLoading || (placeBuffer && captureBuffer)) return;
   buffersLoading = true;
@@ -53,27 +62,30 @@ export default function SoundEffects() {
   const prevRef = useRef({ move: 0, captures: 0 });
   const lastPlayedRef = useRef(0);
 
-  // Resume a suspended AudioContext and pre-load buffers on first user gesture
-  // (Safari requires AudioContext.resume() to be called within a user gesture)
+  // Some operating systems will kill existing AudioContext instances
+  // unprompted, e.g. on iOS when the browser is backgrounded.
   useEffect(() => {
-    const ctx = getAudioContext();
-
     function unlockAudio() {
-      if (ctx.state === 'suspended') ctx.resume();
-      loadBuffers();
-      document.removeEventListener('click', unlockAudio);
-      document.removeEventListener('touchstart', unlockAudio);
-      document.removeEventListener('keydown', unlockAudio);
-    }
+      let ctx = getAudioContext();
+      if (ctx.state === 'running') {
+        loadBuffers();
+        return;
+      }
 
-    if (ctx.state === 'running') {
+      // If the context is not running, attempt to re-create the context.
+      // This has to happen synchronously for iOS to see it as a
+      // user-interaction.
+      resetAudioContext();
+      ctx = getAudioContext();
+      ctx.resume().catch(() => {});
       loadBuffers();
-      return;
     }
 
     document.addEventListener('click', unlockAudio);
     document.addEventListener('touchstart', unlockAudio);
     document.addEventListener('keydown', unlockAudio);
+
+    if (getAudioContext().state === 'running') loadBuffers();
 
     return () => {
       document.removeEventListener('click', unlockAudio);
