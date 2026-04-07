@@ -37,6 +37,9 @@ async function loadBuffers() {
 
 function playBuffer(buffer: AudioBuffer) {
   const ctx = getAudioContext();
+  // iOS suspends the AudioContext when the browser is backgrounded.
+  // Here we call `resume()` to ensure the audiocontext gets activated again.
+  if (ctx.state !== 'running') ctx.resume();
   const source = ctx.createBufferSource();
   const gain = ctx.createGain();
   gain.gain.value = 0.5;
@@ -53,27 +56,22 @@ export default function SoundEffects() {
   const prevRef = useRef({ move: 0, captures: 0 });
   const lastPlayedRef = useRef(0);
 
-  // Resume a suspended AudioContext and pre-load buffers on first user gesture
-  // (Safari requires AudioContext.resume() to be called within a user gesture)
   useEffect(() => {
     const ctx = getAudioContext();
 
     function unlockAudio() {
-      if (ctx.state === 'suspended') ctx.resume();
+      ctx.resume();
       loadBuffers();
-      document.removeEventListener('click', unlockAudio);
-      document.removeEventListener('touchstart', unlockAudio);
-      document.removeEventListener('keydown', unlockAudio);
     }
 
-    if (ctx.state === 'running') {
-      loadBuffers();
-      return;
-    }
-
+    // When a WebAudio session is suspended by the OS (e.g. by minimising the
+    // app on iOS), a user-interaction has to re-enable it again, even when the
+    // user has interacted with the page prior.
     document.addEventListener('click', unlockAudio);
     document.addEventListener('touchstart', unlockAudio);
     document.addEventListener('keydown', unlockAudio);
+
+    if (ctx.state === 'running') loadBuffers();
 
     return () => {
       document.removeEventListener('click', unlockAudio);
