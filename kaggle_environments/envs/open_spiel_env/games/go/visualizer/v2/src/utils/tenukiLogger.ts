@@ -1,7 +1,7 @@
 import { Game } from 'tenuki';
 
 export function tenukiLogger(game: Game) {
-  if (import.meta.env.DEV === false || !import.meta.env.VITE_TENUKI_LOGGER) return;
+  if (!import.meta.env.DEV || !import.meta.env.VITE_LOG_TENUKI) return;
 
   const state = game.currentState();
   const size = game.boardSize;

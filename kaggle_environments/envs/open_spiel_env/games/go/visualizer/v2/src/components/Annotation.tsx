@@ -4,6 +4,7 @@ import { useTransition } from '../hooks/useReducedMotion';
 import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences';
 import styles from './Annotation.module.css';
+import { trackEvent } from '../utils/analytics';
 
 type Notation = { term: string; title: string; text: string };
 
@@ -72,10 +73,10 @@ function resolveAnnotation(
   const agent = player.name;
 
   if (moveNumber === 1) {
-    return { term: 'goes first', title: `${agent} goes first:`, text: 'Unlike Chess, black plays first.' };
+    return { term: 'black first', title: `${agent} goes first:`, text: 'Unlike Chess, black plays first.' };
   }
   if (moveNumber === 2) {
-    return { term: 'komi', title: `${agent} gets Komi:`, text: `A ${komi} point bonus for playing second.` };
+    return { term: 'white komi', title: `${agent} gets Komi:`, text: `A ${komi} point bonus for playing second.` };
   }
 
   const thoughts = player.thoughts?.toLowerCase();
@@ -117,6 +118,11 @@ export default function Annotation() {
   const player = step?.players.find((player) => player?.isTurn);
   const moveNumber = game.moveNumber();
   const notation = showAnnotations && player ? resolveAnnotation(player, moveNumber, game._scorer._komi) : null;
+
+  if (notation) {
+    const trackingTerm = notation.term.replace(/[^a-z\s]/g, '').replace(/\s/g, '-');
+    trackEvent(`annotation-${trackingTerm}`);
+  }
 
   return (
     <div className={styles.notationSlot} aria-live="polite" ref={inertRef}>

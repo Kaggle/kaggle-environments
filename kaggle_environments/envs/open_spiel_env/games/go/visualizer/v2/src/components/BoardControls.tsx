@@ -7,6 +7,7 @@ import { useTransition } from '../hooks/useReducedMotion';
 import popoverStyles from './WithPopover.module.css';
 import { WithPopover } from './WithPopover.tsx';
 import { FeatureToggles } from './FeatureToggles';
+import { trackEvent } from '../utils/analytics.ts';
 import styles from './BoardControls.module.css';
 
 export default function BoardControls() {
@@ -25,7 +26,14 @@ export default function BoardControls() {
 
   return (
     <div className={styles.boardControls} ref={inertRef}>
-      <WithPopover id="info" icon="info" label="Game info">
+      <WithPopover
+        id="info"
+        icon="info"
+        label="Game info"
+        onChange={(open) => {
+          trackEvent(`info-${open ? 'open' : 'closed'}`);
+        }}
+      >
         <p>
           Go is an ancient, two-player game in which players try to control more territory on a grid by strategically
           placing black and white stones. This game follows Tromp-Taylor rules.
@@ -35,7 +43,10 @@ export default function BoardControls() {
         <input
           type="checkbox"
           checked={soundEnabled}
-          onChange={() => toggle('soundEnabled')}
+          onChange={() => {
+            toggle('soundEnabled');
+            trackEvent(`sound-${soundEnabled ? 'off' : 'on'}`);
+          }}
           className={popoverStyles.trigger}
           aria-label="Sound"
         />
@@ -51,7 +62,14 @@ export default function BoardControls() {
           <use xlinkHref={`${svgSymbolPath}#sound-off`} />
         </svg>
       </label>
-      <WithPopover id="settings" icon="settings" label="Settings">
+      <WithPopover
+        id="settings"
+        icon="settings"
+        label="Settings"
+        onChange={(open) => {
+          trackEvent(`settings-${open ? 'open' : 'closed'}`);
+        }}
+      >
         <FeatureToggles />
       </WithPopover>
 

@@ -10,16 +10,19 @@ interface Props {
   icon: string;
   id: string;
   label: string;
+  onChange?: (open: boolean) => void;
 }
 
-export function WithPopover({ children, icon, id, label }: Props) {
-  const [open, setOpen] = useState(false);
+export function WithPopover({ children, icon, id, label, onChange }: Props) {
+  const [open, setOpen] = useState<boolean | undefined>();
   const transition = useTransition({ duration: 0.2, ease: 'easeOut' });
   const iconPath = `${svgSymbolPath}#${icon}`;
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (open !== undefined && onChange) onChange(open);
+
     if (!open) return;
 
     // Wait a frame, then focus the popover.
