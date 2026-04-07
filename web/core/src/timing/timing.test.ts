@@ -6,18 +6,10 @@ import {
   defaultGetStepRenderTime,
   TIME_PER_CHUNK,
 } from './timing';
-import { BaseGameStep } from './types';
+import { BaseGameStep } from '../types';
+import { makeStep } from '../test-utils';
 
 const sum = (arr: number[]) => arr.reduce((a, b) => a + b, 0);
-
-const makeStep = (overrides: Partial<BaseGameStep> = {}): BaseGameStep => ({
-  step: 1,
-  players: [
-    { id: 0, name: 'Alice', thumbnail: '', isTurn: true },
-    { id: 1, name: 'Bob', thumbnail: '', isTurn: false },
-  ],
-  ...overrides,
-});
 
 describe('generateDefaultDelayDistribution', () => {
   it('returns an array of equal values', () => {

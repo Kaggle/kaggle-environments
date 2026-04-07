@@ -7,25 +7,8 @@ import {
   getInterestingEvents,
   getTokenRenderDistribution,
 } from './transformers';
-import { TIME_PER_CHUNK } from './timing';
-import { BaseGameStep, ReplayData } from './types';
-
-const makeStep = (overrides: Partial<BaseGameStep> = {}): BaseGameStep => ({
-  step: 1,
-  players: [
-    { id: 0, name: 'Alice', thumbnail: '', isTurn: true, actionDisplayText: 'plays X', thoughts: 'I think...' },
-    { id: 1, name: 'Bob', thumbnail: '', isTurn: false },
-  ],
-  ...overrides,
-});
-
-const makeReplay = (overrides: Partial<ReplayData> = {}): ReplayData => ({
-  name: 'test-game',
-  version: '1.0',
-  steps: [makeStep()],
-  configuration: {},
-  ...overrides,
-});
+import { TIME_PER_CHUNK } from '../timing/timing';
+import { makeStep, makeReplay } from '../test-utils';
 
 describe('processEpisodeData', () => {
   it('returns already-transformed data as-is', () => {
@@ -50,7 +33,12 @@ describe('processEpisodeData', () => {
 
 describe('getGameStepLabel', () => {
   it('returns actionDisplayText of the active player', () => {
-    const step = makeStep();
+    const step = makeStep({
+      players: [
+        { id: 0, name: 'Alice', thumbnail: '', isTurn: true, actionDisplayText: 'plays X' },
+        { id: 1, name: 'Bob', thumbnail: '', isTurn: false },
+      ],
+    });
     expect(getGameStepLabel(step, 'test-game')).toBe('plays X');
   });
 
@@ -79,7 +67,12 @@ describe('getGameStepLabel', () => {
 
 describe('getGameStepDescription', () => {
   it('returns thoughts of the active player', () => {
-    const step = makeStep();
+    const step = makeStep({
+      players: [
+        { id: 0, name: 'Alice', thumbnail: '', isTurn: true, thoughts: 'I think...' },
+        { id: 1, name: 'Bob', thumbnail: '', isTurn: false },
+      ],
+    });
     expect(getGameStepDescription(step, 'test-game')).toBe('I think...');
   });
 

@@ -1,5 +1,5 @@
-import { defaultGetStepRenderTime, generateDefaultDelayDistribution } from './timing';
-import { BaseGameStep, InterestingEvent, ReplayData, ReplayMode } from './types';
+import { defaultGetStepRenderTime, generateDefaultDelayDistribution } from '../timing/timing';
+import { BaseGameStep, InterestingEvent, ReplayData, ReplayMode } from '../types';
 
 const defaultGetGameStepLabel = (gameStep: BaseGameStep) => {
   if (!gameStep.players) {

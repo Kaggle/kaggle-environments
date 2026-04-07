@@ -1,25 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { getStepData } from './renderer-utils';
-import { RawReplayData, RawPlayerEntry } from './types';
-
-const makeEntry = (overrides: Partial<RawPlayerEntry> = {}): RawPlayerEntry => ({
-  observation: { board: [0, 0, 0] },
-  reward: 0,
-  status: 'ACTIVE',
-  ...overrides,
-});
-
-const makeReplay = (overrides: Partial<RawReplayData> = {}): RawReplayData => ({
-  name: 'test-game',
-  version: '1.0',
-  steps: [[makeEntry(), makeEntry()]],
-  configuration: {},
-  ...overrides,
-});
+import { getStepData } from './rendererUtils';
+import { RawReplayData } from '../types';
+import { makeEntry, makeRawReplay } from '../test-utils';
 
 describe('getStepData', () => {
   it('returns step data for a valid step index', () => {
-    const replay = makeReplay({
+    const replay = makeRawReplay({
       steps: [
         [makeEntry({ observation: { board: [1, 2, 3] } }), makeEntry()],
         [makeEntry({ observation: { board: [4, 5, 6] } }), makeEntry()],
@@ -31,7 +17,7 @@ describe('getStepData', () => {
   });
 
   it('returns correct data for non-zero step index', () => {
-    const replay = makeReplay({
+    const replay = makeRawReplay({
       steps: [
         [makeEntry({ observation: { turn: 0 } }), makeEntry()],
         [makeEntry({ observation: { turn: 1 } }), makeEntry()],
@@ -58,39 +44,39 @@ describe('getStepData', () => {
   });
 
   it('returns null for negative step index', () => {
-    const replay = makeReplay();
+    const replay = makeRawReplay();
     expect(getStepData(replay, -1)).toBeNull();
   });
 
   it('returns null for step index beyond bounds', () => {
-    const replay = makeReplay({ steps: [[makeEntry()]] });
+    const replay = makeRawReplay({ steps: [[makeEntry()]] });
     expect(getStepData(replay, 1)).toBeNull();
   });
 
   it('returns null when step data is empty array', () => {
-    const replay = makeReplay({ steps: [[]] as any });
+    const replay = makeRawReplay({ steps: [[]] as any });
     expect(getStepData(replay, 0)).toBeNull();
   });
 
   it('returns null when step data is not an array', () => {
-    const replay = makeReplay({ steps: [{ notArray: true }] as any });
+    const replay = makeRawReplay({ steps: [{ notArray: true }] as any });
     expect(getStepData(replay, 0)).toBeNull();
   });
 
   it('returns null when first entry has no observation', () => {
-    const replay = makeReplay({
+    const replay = makeRawReplay({
       steps: [[{ reward: 0, status: 'ACTIVE' }]] as any,
     });
     expect(getStepData(replay, 0)).toBeNull();
   });
 
   it('returns null when first entry is not an object', () => {
-    const replay = makeReplay({ steps: [['string-entry']] as any });
+    const replay = makeRawReplay({ steps: [['string-entry']] as any });
     expect(getStepData(replay, 0)).toBeNull();
   });
 
   it('returns null when first entry is null', () => {
-    const replay = makeReplay({ steps: [[null, makeEntry()]] as any });
+    const replay = makeRawReplay({ steps: [[null, makeEntry()]] as any });
     expect(getStepData(replay, 0)).toBeNull();
   });
 
@@ -122,14 +108,14 @@ describe('getStepData', () => {
   // --- Edge cases ---
 
   it('handles step at index 0 in single-step replay', () => {
-    const replay = makeReplay({ steps: [[makeEntry({ observation: { only: true } })]] });
+    const replay = makeRawReplay({ steps: [[makeEntry({ observation: { only: true } })]] });
     const result = getStepData(replay, 0);
     expect(result).not.toBeNull();
     expect(result![0].observation).toEqual({ only: true });
   });
 
   it('handles last valid step index', () => {
-    const replay = makeReplay({
+    const replay = makeRawReplay({
       steps: [[makeEntry()], [makeEntry()], [makeEntry({ observation: { last: true } })]],
     });
     const result = getStepData(replay, 2);
@@ -138,7 +124,7 @@ describe('getStepData', () => {
   });
 
   it('returns the full step array (all player entries)', () => {
-    const replay = makeReplay({
+    const replay = makeRawReplay({
       steps: [
         [makeEntry({ observation: { player: 0 }, reward: 1 }), makeEntry({ observation: { player: 1 }, reward: -1 })],
       ],

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { styled } from '@mui/material/styles';
 import { usePlayerController } from '../hooks/usePlayerController';
 import { BaseGameStep, InterestingEvent, ReplayData, ReplayMode } from '../types';
-import { getInterestingEvents, getGameStepRenderTime, processEpisodeData } from '../transformers';
+import { getInterestingEvents, getGameStepRenderTime, processEpisodeData } from '../transformers/transformers';
 import { ReasoningLogs } from '../ReasoningLogs';
 import { PlaybackControls } from './PlaybackControls';
 import { Button, css, Icon, useMediaQuery } from '@mui/material';
