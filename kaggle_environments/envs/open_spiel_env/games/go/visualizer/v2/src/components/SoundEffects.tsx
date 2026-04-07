@@ -65,18 +65,19 @@ export default function SoundEffects() {
   // Some operating systems will kill existing AudioContext instances
   // unprompted, e.g. on iOS when the browser is backgrounded.
   useEffect(() => {
-    // If the context is unable to resume, attempt to re-create the context.
-    // If it still fails, do nothing.
-    // TODO(pim-at-stink): See if there is a better way to handle this.
     function unlockAudio() {
-      const ctx = getAudioContext();
-      ctx.resume().catch(() => {
-        resetAudioContext();
-        getAudioContext()
-          .resume()
-          .catch(() => {});
+      let ctx = getAudioContext();
+      if (ctx.state === 'running') {
         loadBuffers();
-      });
+        return;
+      }
+
+      // If the context is not running, attempt to re-create the context.
+      // This has to happen synchronously for iOS to see it as a
+      // user-interaction.
+      resetAudioContext();
+      ctx = getAudioContext();
+      ctx.resume().catch(() => {});
       loadBuffers();
     }
 
