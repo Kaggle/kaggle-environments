@@ -36,6 +36,19 @@ steps:
         pnpm build-ci
     waitFor: ["-"]
 
+  # Run web/core unit tests
+  - id: "run-unit-tests"
+    name: "node:22"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        set -e
+        npm install -g pnpm@9
+        pnpm install
+        pnpm --filter @kaggle-environments/core test
+    waitFor: ["-"]
+
   # Run Playwright e2e tests for visualizers
   - id: "run-e2e-tests"
     name: "mcr.microsoft.com/playwright:v1.50.0-noble"
