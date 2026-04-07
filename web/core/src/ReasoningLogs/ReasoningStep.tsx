@@ -1,5 +1,5 @@
 import { Button, Icon, Typography } from '@mui/material';
-import { getPlayer } from '../utils';
+import { getPlayer } from '../utils/utils';
 import {
   BaseGameStep,
   getGameStepLabel,
