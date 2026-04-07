@@ -125,8 +125,6 @@ describe('rebaseAssetPaths', () => {
   });
 });
 
-// --- Fetch-based tests ---
-
 const mockFetch = vi.fn();
 
 beforeEach(() => {

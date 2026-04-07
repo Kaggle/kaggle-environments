@@ -9,6 +9,14 @@ import {
 } from './transformers';
 import { TIME_PER_CHUNK } from '../timing/timing';
 import { makeStep, makeReplay } from '../test-utils';
+import { BaseGameStep } from '../types';
+
+const step = makeStep({
+  players: [
+    { id: 0, name: 'Alice', thumbnail: '', isTurn: true, actionDisplayText: 'plays X', thoughts: 'I think...' },
+    { id: 1, name: 'Bob', thumbnail: '', isTurn: false },
+  ],
+});
 
 describe('processEpisodeData', () => {
   it('returns already-transformed data as-is', () => {
@@ -33,12 +41,6 @@ describe('processEpisodeData', () => {
 
 describe('getGameStepLabel', () => {
   it('returns actionDisplayText of the active player', () => {
-    const step = makeStep({
-      players: [
-        { id: 0, name: 'Alice', thumbnail: '', isTurn: true, actionDisplayText: 'plays X' },
-        { id: 1, name: 'Bob', thumbnail: '', isTurn: false },
-      ],
-    });
     expect(getGameStepLabel(step, 'test-game')).toBe('plays X');
   });
 
@@ -67,12 +69,6 @@ describe('getGameStepLabel', () => {
 
 describe('getGameStepDescription', () => {
   it('returns thoughts of the active player', () => {
-    const step = makeStep({
-      players: [
-        { id: 0, name: 'Alice', thumbnail: '', isTurn: true, thoughts: 'I think...' },
-        { id: 1, name: 'Bob', thumbnail: '', isTurn: false },
-      ],
-    });
     expect(getGameStepDescription(step, 'test-game')).toBe('I think...');
   });
 

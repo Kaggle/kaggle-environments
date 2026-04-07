@@ -29,8 +29,6 @@ describe('getStepData', () => {
     expect(result![0].observation).toEqual({ turn: 2 });
   });
 
-  // --- Null returns for invalid inputs ---
-
   it('returns null for undefined replay', () => {
     expect(getStepData(undefined, 0)).toBeNull();
   });
@@ -80,8 +78,6 @@ describe('getStepData', () => {
     expect(getStepData(replay, 0)).toBeNull();
   });
 
-  // --- Typed observation ---
-
   it('works with custom observation types', () => {
     interface GoObservation {
       board: number[][];
@@ -104,8 +100,6 @@ describe('getStepData', () => {
     expect(result).not.toBeNull();
     expect(result![0].observation.currentPlayer).toBe(1);
   });
-
-  // --- Edge cases ---
 
   it('handles step at index 0 in single-step replay', () => {
     const replay = makeRawReplay({ steps: [[makeEntry({ observation: { only: true } })]] });
