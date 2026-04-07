@@ -1,4 +1,7 @@
-// @vitest-environment happy-dom
+// jsdom v26+ depends on @asamuzakjp/css-color which uses top-level await in ESM,
+// but jsdom loads it via require(), causing ERR_REQUIRE_ASYNC_MODULE on Node 22.
+// Pinned to jsdom 25 until upstream fixes the CJS/ESM compat issue.
+// @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { usePlayerController, UsePlayerControllerOptions } from './usePlayerController';
