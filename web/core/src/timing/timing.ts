@@ -2,7 +2,7 @@
  * Shoutout to Riley Jones for the first implementations of token streaming helpers. Originals are at:
  * https://github.com/rileyajones/kaggle-gamearena-gamestream-ui/blob/main/ui/src/context/utils.ts
  */
-import { BaseGamePlayer, BaseGameStep, ReplayMode } from './types';
+import { BaseGamePlayer, BaseGameStep, ReplayMode } from '../types';
 
 export const TIME_PER_CHUNK = 120;
 const EASING_INTENSITY = 2;

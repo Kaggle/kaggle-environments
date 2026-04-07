@@ -7,7 +7,7 @@ import { GameAdapter } from './adapter';
 import { BaseGameStep, InterestingEvent, ReplayData, ReplayMode } from './types';
 import { EpisodePlayer, GameRendererProps, UiMode } from './components/EpisodePlayer';
 import { theme, lightTheme } from './theme';
-import { processEpisodeData } from './transformers';
+import { processEpisodeData } from './transformers/transformers';
 
 // Re-export UiMode for consumers
 export type { UiMode } from './components/EpisodePlayer';

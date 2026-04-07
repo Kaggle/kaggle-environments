@@ -9,8 +9,8 @@ export * from './replay-adapter';
 export * from './replay-visualizer-factory';
 
 // Transformers and timing
-export * from './timing';
-export * from './transformers';
+export * from './timing/timing';
+export * from './transformers/transformers';
 
 // Components
 export * from './components';
@@ -22,10 +22,10 @@ export * from './hooks';
 export * from './ReasoningLogs';
 
 // Episode asset utilities
-export * from './episodeAssetUtils';
+export * from './episodeAssetUtils/episodeAssetUtils';
 
 // Renderer utilities
-export * from './renderer-utils';
+export * from './rendererUtils/rendererUtils';
 
 // Analytics
 export * from './analytics';

@@ -1,4 +1,4 @@
-import { ReplayData, RawStep, RawPlayerEntry } from './types';
+import { ReplayData, RawStep, RawPlayerEntry } from '../types';
 
 /**
  * Validates step bounds and returns step data if valid.
