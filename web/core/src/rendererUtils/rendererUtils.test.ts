@@ -79,24 +79,24 @@ describe('getStepData', () => {
   });
 
   it('works with custom observation types', () => {
-    interface GoObservation {
+    interface SomeGame {
       board: number[][];
       currentPlayer: number;
     }
-    const obs: GoObservation = {
+    const obs: SomeGame = {
       board: [
         [0, 1],
         [1, 0],
       ],
       currentPlayer: 1,
     };
-    const replay: RawReplayData<GoObservation> = {
-      name: 'go',
+    const replay: RawReplayData<SomeGame> = {
+      name: 'game',
       version: '1.0',
       steps: [[{ observation: obs, reward: null, status: 'ACTIVE' }]],
       configuration: {},
     };
-    const result = getStepData<GoObservation>(replay, 0);
+    const result = getStepData<SomeGame>(replay, 0);
     expect(result).not.toBeNull();
     expect(result![0].observation.currentPlayer).toBe(1);
   });
