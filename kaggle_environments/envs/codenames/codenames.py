@@ -2,6 +2,8 @@ import json
 import random
 from os import path
 
+BOARD_SIZE = 25
+
 def initialize_game(state, config):
     board_size = config.board_size
     starting_team_words = config.starting_team_words
@@ -48,7 +50,7 @@ def update_visibility(state):
     for i in range(4):
         if i in [1, 3]:  # Guessers
             # Guessers only see roles of revealed cards
-            masked_roles = [roles[j] if revealed[j] else "Unknown" for j in range(25)]
+            masked_roles = [roles[j] if revealed[j] else "Unknown" for j in range(BOARD_SIZE)]
             state[i].observation.roles = masked_roles
         else:
             state[i].observation.roles = roles[:]
@@ -91,16 +93,20 @@ def process_action(state, config):
         opponent_team = "blue" if current_turn == 0 else "red"
         
         is_invalid_clue = False
-        for i in range(25):
-            if not revealed[i]:
-                unrevealed_word = words[i].upper()
-                if unrevealed_word in normalized_clue or normalized_clue in unrevealed_word:
-                    is_invalid_clue = True
-                    break
+        if " " in normalized_clue or "-" in normalized_clue:
+            is_invalid_clue = True
+            
+        if not is_invalid_clue:
+            for i in range(BOARD_SIZE):
+                if not revealed[i]:
+                    unrevealed_word = words[i].upper()
+                    if unrevealed_word in normalized_clue or normalized_clue in unrevealed_word:
+                        is_invalid_clue = True
+                        break
                     
         if is_invalid_clue:
             # Penalty: Reveal a random opponent word and pass turn
-            opponent_unrevealed = [i for i in range(25) if not revealed[i] and roles[i] == opponent_team]
+            opponent_unrevealed = [i for i in range(BOARD_SIZE) if not revealed[i] and roles[i] == opponent_team]
             if opponent_unrevealed:
                 to_reveal = random.choice(opponent_unrevealed)
                 for s in state:
@@ -112,8 +118,8 @@ def process_action(state, config):
                 s.observation.current_turn = 2 if current_turn == 0 else 0
                 
             # Check if penalty won the game for opponent
-            red_left = sum(1 for i in range(25) if roles[i] == "red" and not state[0].observation.revealed[i])
-            blue_left = sum(1 for i in range(25) if roles[i] == "blue" and not state[0].observation.revealed[i])
+            red_left = sum(1 for i in range(BOARD_SIZE) if roles[i] == "red" and not state[0].observation.revealed[i])
+            blue_left = sum(1 for i in range(BOARD_SIZE) if roles[i] == "blue" and not state[0].observation.revealed[i])
             
             if red_left == 0:
                 end_game(winner="red")
@@ -129,7 +135,7 @@ def process_action(state, config):
             clue_num = int(action["number"])
             s.observation.clue = str(action["clue"])
             s.observation.clue_number = clue_num
-            s.observation.guesses_remaining = 25 if clue_num <= 0 else clue_num + 1
+            s.observation.guesses_remaining = BOARD_SIZE if clue_num <= 0 else clue_num + 1
             s.observation.current_turn = 1 if current_turn == 0 else 3
             
         # Set agent statuses
@@ -141,7 +147,7 @@ def process_action(state, config):
         # action is an int (0-24) or -1 (pass) OR a dict with "guess": int
         guess_val = action.get("guess") if isinstance(action, dict) else action
         
-        if not isinstance(guess_val, int) or guess_val < -1 or guess_val > 24:
+        if not isinstance(guess_val, int) or guess_val < -1 or guess_val > BOARD_SIZE - 1:
             active_agent.status = "INVALID"
             end_game(winner="blue" if current_turn == 1 else "red")
             return
@@ -149,7 +155,7 @@ def process_action(state, config):
         # Pass
         if guess_val == -1:
             clue_num = state[0].observation.clue_number
-            expected_remaining = 25 if clue_num <= 0 else clue_num + 1
+            expected_remaining = BOARD_SIZE if clue_num <= 0 else clue_num + 1
             # 0 ("zero") and -1 ("infinity") clues both give unlimited guesses but STILL require at least 1 guess
             if state[0].observation.guesses_remaining == expected_remaining:
                 active_agent.status = "INVALID"
@@ -200,8 +206,8 @@ def process_action(state, config):
         # Win condition check
         revealed = state[0].observation.revealed
         roles = state[0].observation.roles
-        red_left = sum(1 for i in range(25) if roles[i] == "red" and not revealed[i])
-        blue_left = sum(1 for i in range(25) if roles[i] == "blue" and not revealed[i])
+        red_left = sum(1 for i in range(BOARD_SIZE) if roles[i] == "red" and not revealed[i])
+        blue_left = sum(1 for i in range(BOARD_SIZE) if roles[i] == "blue" and not revealed[i])
         
         if red_left == 0:
             end_game(winner="red")

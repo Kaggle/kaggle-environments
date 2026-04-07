@@ -1,5 +1,6 @@
 import { ReasoningStep } from './ReasoningStep';
 import { BaseGameStep, InterestingEvent, ReplayMode } from '../types';
+import { postAnalyticsEvent } from '../analytics';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import * as React from 'react';
 import { Virtuoso, VirtuosoHandle, Components } from 'react-virtuoso';
@@ -52,7 +53,7 @@ const SPEED_OPTIONS: SelectOption<number>[] = [
   },
 ];
 
-const LogsContainer = styled('div')`
+const LogsContainer = styled('div')<{ $dense: boolean }>`
   border-left: 1px solid ${(p) => p.theme.palette.divider};
   display: flex;
   flex-direction: column;
@@ -64,7 +65,7 @@ const LogsContainer = styled('div')`
   ${({ theme }) => theme.breakpoints.down('tablet')} {
     border-left: none;
     flex: none;
-    height: 100%;
+    ${(p) => p.$dense && ' height: min-content'};
   }
 `;
 
@@ -197,6 +198,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
 
   const isTablet = useMediaQuery((theme) => theme.breakpoints.down('tablet'));
   const showControls = replayMode !== 'only-stream';
+  const useFullControls = !(dense && isTablet);
 
   const visibleSteps = React.useMemo(() => {
     return steps.slice(0, currentStep + 1);
@@ -284,9 +286,9 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
   }, [currentStep]);
 
   return (
-    <LogsContainer>
+    <LogsContainer $dense={dense}>
       <SidebarHeader>
-        {!dense && (
+        {useFullControls && (
           <GameLogHeader>
             <Typography variant="h6" component="h2">
               Game Log
@@ -350,6 +352,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                   aria-label="Previous Step"
                   onClick={() => {
                     if (currentStep > 0) {
+                      postAnalyticsEvent({ game: gameName, action: 'controls_previous_step' });
                       onPlayChange(/* playing= */ false);
                       onStepChange(currentStep - 1);
                       scrollLogs(true);
@@ -361,7 +364,10 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                 <IconButton
                   size={isTablet ? 'medium' : 'large'}
                   aria-label={playing ? 'Pause' : 'Play'}
-                  onClick={() => onPlayChange()}
+                  onClick={() => {
+                    postAnalyticsEvent({ game: gameName, action: playing ? 'controls_pause' : 'controls_play' });
+                    onPlayChange();
+                  }}
                 >
                   <Icon>{playing ? 'pause' : 'play_arrow'}</Icon>
                 </IconButton>
@@ -370,6 +376,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                   aria-label="Next Step"
                   onClick={() => {
                     if (currentStep < totalSteps - 1) {
+                      postAnalyticsEvent({ game: gameName, action: 'controls_next_step' });
                       onPlayChange(/* playing= */ false);
                       onStepChange(currentStep + 1);
                       scrollLogs(true);
@@ -380,12 +387,12 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                 </IconButton>
               </PlayerButtons>
               {totalSteps > 0 && currentStep > -1 && (
-                <Typography variant="body1" style={{ marginRight: '8px' }}>
+                <Typography variant="body1" style={{ marginRight: '8px' }} data-testid="step-counter">
                   {currentStep + 1}/{totalSteps}
                 </Typography>
               )}
             </PlayerControlsSection>
-            {!dense && (
+            {useFullControls && (
               <PlayerControlsSection>
                 <PlaybackSlider
                   size="small"
@@ -393,6 +400,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                   max={totalSteps > 0 ? totalSteps : 0}
                   onChangeCommitted={(_: Event | React.SyntheticEvent, value: number | number[]) => {
                     if (typeof value === 'number') {
+                      postAnalyticsEvent({ game: gameName, action: 'controls_slider_drag' });
                       onStepChange(value - 1);
                       setIsChangingStep(false);
                     }
@@ -445,7 +453,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                 </Select>
               </PlayerControlsSection>
             )}
-            {!isTablet && !dense && (
+            {useFullControls && (
               <PlayerControlsSection style={{ justifyContent: 'flex-start', marginTop: '8px' }}>
                 <Button
                   variant="medium"
@@ -476,48 +484,49 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
           </>
         )}
       </SidebarHeader>
-      {steps.length > 0 && !(dense && isTablet) ? (
-        <Virtuoso
-          style={{ flex: 1 }}
-          ref={virtuosoRef}
-          data={visibleSteps}
-          components={virtuosoComponents}
-          scrollerRef={(ref) => {
-            scrollerRef.current = ref as HTMLElement;
-          }}
-          atBottomThreshold={50}
-          atBottomStateChange={(isAtBottom) => {
-            isAtBottomRef.current = isAtBottom;
-          }}
-          // Automatically scrolls to bottom when new items are added if user hasn't scrolled up
-          // Scroll to the first step in the case where one was included as a URL param
-          initialTopMostItemIndex={currentStep > 0 ? currentStep : 0}
-          itemContent={(index, turn) => {
-            return (
-              <ReasoningStep
-                key={index}
-                expandByDefault={replayMode === 'condensed' ? expandAll : true}
-                showExpandButton={replayMode === 'condensed'}
-                step={turn}
-                stepNumber={index + 1}
-                scrollLogs={scrollLogs}
-                replayMode={replayMode}
-                playing={playing}
-                isCurrentStep={index === currentStep}
-                gameName={gameName}
-                onStepChange={onStepChange}
-                getStepLabel={getStepLabel}
-                getStepDescription={getStepDescription}
-                getTokenRenderDistribution={getTokenRenderDistribution}
-              />
-            );
-          }}
-        />
-      ) : (
-        <NoStepsContainer>
-          <CircularProgress />
-        </NoStepsContainer>
-      )}
+      {useFullControls &&
+        (steps.length > 0 ? (
+          <Virtuoso
+            style={{ flex: 1 }}
+            ref={virtuosoRef}
+            data={visibleSteps}
+            components={virtuosoComponents}
+            scrollerRef={(ref) => {
+              scrollerRef.current = ref as HTMLElement;
+            }}
+            atBottomThreshold={50}
+            atBottomStateChange={(isAtBottom) => {
+              isAtBottomRef.current = isAtBottom;
+            }}
+            // Automatically scrolls to bottom when new items are added if user hasn't scrolled up
+            // Scroll to the first step in the case where one was included as a URL param
+            initialTopMostItemIndex={currentStep > 0 ? currentStep : 0}
+            itemContent={(index, turn) => {
+              return (
+                <ReasoningStep
+                  key={index}
+                  expandByDefault={replayMode === 'condensed' ? expandAll : true}
+                  showExpandButton={replayMode === 'condensed'}
+                  step={turn}
+                  stepNumber={index + 1}
+                  scrollLogs={scrollLogs}
+                  replayMode={replayMode}
+                  playing={playing}
+                  isCurrentStep={index === currentStep}
+                  gameName={gameName}
+                  onStepChange={onStepChange}
+                  getStepLabel={getStepLabel}
+                  getStepDescription={getStepDescription}
+                  getTokenRenderDistribution={getTokenRenderDistribution}
+                />
+              );
+            }}
+          />
+        ) : (
+          <NoStepsContainer>
+            <CircularProgress />
+          </NoStepsContainer>
+        ))}
     </LogsContainer>
   );
 };

@@ -6,3 +6,6 @@ packages:
 onlyBuiltDependencies:
   - esbuild
   - lefthook
+
+# 4320 minutes = 3 days
+minimumReleaseAge: 4320
