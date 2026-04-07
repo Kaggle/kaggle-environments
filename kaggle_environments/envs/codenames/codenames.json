@@ -26,6 +26,16 @@
       "type": "number",
       "default": 60,
       "description": "Timeout in seconds for agent actions."
+    },
+    "games_per_episode": {
+      "type": "integer",
+      "default": 1,
+      "description": "Number of games to play in a single episode."
+    },
+    "memory_window_size": {
+      "type": "integer",
+      "default": 0,
+      "description": "Maximum number of past games to keep in history. Set to 0 for unlimited."
     }
   },
   "observation": {
