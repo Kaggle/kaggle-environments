@@ -17,6 +17,15 @@ function getAudioContext(): AudioContext {
   return audioCtx;
 }
 
+/** Replace the current AudioContext with a fresh one and re-decode buffers. */
+function resetAudioContext() {
+  audioCtx?.close().catch(() => {});
+  audioCtx = null;
+  placeBuffer = null;
+  captureBuffer = null;
+  buffersLoading = false;
+}
+
 async function loadBuffers() {
   if (buffersLoading || (placeBuffer && captureBuffer)) return;
   buffersLoading = true;
@@ -37,9 +46,6 @@ async function loadBuffers() {
 
 function playBuffer(buffer: AudioBuffer) {
   const ctx = getAudioContext();
-  // iOS suspends the AudioContext when the browser is backgrounded.
-  // Here we call `resume()` to ensure the audiocontext gets activated again.
-  if (ctx.state !== 'running') ctx.resume();
   const source = ctx.createBufferSource();
   const gain = ctx.createGain();
   gain.gain.value = 0.5;
@@ -56,22 +62,29 @@ export default function SoundEffects() {
   const prevRef = useRef({ move: 0, captures: 0 });
   const lastPlayedRef = useRef(0);
 
+  // Some operating systems will kill existing AudioContext instances
+  // unprompted, e.g. on iOS when the browser is backgrounded.
   useEffect(() => {
-    const ctx = getAudioContext();
-
+    // If the context is unable to resume, attempt to re-create the context.
+    // If it still fails, do nothing.
+    // TODO(pim-at-stink): See if there is a better way to handle this.
     function unlockAudio() {
-      ctx.resume();
+      const ctx = getAudioContext();
+      ctx.resume().catch(() => {
+        resetAudioContext();
+        getAudioContext()
+          .resume()
+          .catch(() => {});
+        loadBuffers();
+      });
       loadBuffers();
     }
 
-    // When a WebAudio session is suspended by the OS (e.g. by minimising the
-    // app on iOS), a user-interaction has to re-enable it again, even when the
-    // user has interacted with the page prior.
     document.addEventListener('click', unlockAudio);
     document.addEventListener('touchstart', unlockAudio);
     document.addEventListener('keydown', unlockAudio);
 
-    if (ctx.state === 'running') loadBuffers();
+    if (getAudioContext().state === 'running') loadBuffers();
 
     return () => {
       document.removeEventListener('click', unlockAudio);
