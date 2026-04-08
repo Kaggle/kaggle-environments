@@ -83,7 +83,7 @@ export default function HeroAnimation() {
       clearTimeout(timeout);
       setHero(null);
     };
-  }, [game]);
+  }, [game, showHeroAnimations]);
 
   const isVisible = !!hero && !game.gameOver;
 
