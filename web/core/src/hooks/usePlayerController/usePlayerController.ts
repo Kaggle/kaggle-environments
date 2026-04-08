@@ -1,5 +1,5 @@
 import { useReducer, useCallback, useRef, useEffect, useLayoutEffect } from 'react';
-import { ReplayData, ReplayMode } from '../types';
+import { ReplayData, ReplayMode } from '../../types';
 
 export interface PlayerState {
   step: number;

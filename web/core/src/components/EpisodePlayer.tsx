@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { styled } from '@mui/material/styles';
-import { usePlayerController } from '../hooks/usePlayerController';
+import { usePlayerController } from '../hooks/usePlayerController/usePlayerController';
 import { BaseGameStep, InterestingEvent, ReplayData, ReplayMode } from '../types';
 import { getInterestingEvents, getGameStepRenderTime, processEpisodeData } from '../transformers/transformers';
 import { ReasoningLogs } from '../ReasoningLogs';
