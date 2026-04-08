@@ -1,7 +1,7 @@
 import { Chessboard } from 'react-chessboard';
 import useGameStore from '../stores/useGameStore';
 
-export default function StyledBoard() {
+export default function GameBoard() {
   const game = useGameStore((state) => state.game);
   const position = game.fen();
 
