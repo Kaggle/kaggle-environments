@@ -86,6 +86,8 @@ export interface GameRendererProps<TSteps extends BaseGameStep[] = BaseGameStep[
   onSetPlaying?: (playing: boolean) => void;
   /** Callback to register playback handlers (for renderers that need to intercept play/pause) */
   onRegisterPlaybackHandlers?: (handlers: { onPlay?: () => boolean | void; onPause?: () => void }) => void;
+  /** Callback to announce a message to screen readers via the aria-live region */
+  onAnnounce?: (message: string) => void;
 }
 
 const PlayerContainer = styled('div')<{ $uiMode?: UiMode; $dense: boolean }>`
@@ -330,6 +332,10 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
     playbackHandlersRef.current = handlers;
   }, []);
 
+  const handleAnnounce = useCallback((message: string) => {
+    setLiveAnnouncement(message);
+  }, []);
+
   const handlePlayChange = useCallback(
     (playing?: boolean) => {
       const handlers = playbackHandlersRef.current;
@@ -384,6 +390,7 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
           onSetStep={actions.setStepOnly}
           onSetPlaying={actions.setPlayingState}
           onRegisterPlaybackHandlers={handleRegisterPlaybackHandlers}
+          onAnnounce={handleAnnounce}
         />
       </VisualizerContainer>
 
