@@ -1,1 +1,1 @@
-export * from './usePlayerController';
+export * from './usePlayerController/usePlayerController';
