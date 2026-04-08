@@ -68,6 +68,10 @@ export interface EpisodePlayerProps<TSteps extends BaseGameStep[] = BaseGameStep
   getTokenRenderDistribution?: (chunkCount: number) => number[];
   /** Whether to use a compact/dense layout for playback controls */
   dense?: boolean;
+  /** Initial value for whether the logs panel is shown. Defaults to true when ui='side-panel'. */
+  initialShowLogs?: boolean;
+  /** Callback when the user opens/closes the logs panel */
+  onShowLogsChange?: (show: boolean) => void;
 }
 
 export interface GameRendererProps<TSteps extends BaseGameStep[] = BaseGameStep[]> {
@@ -172,10 +176,12 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   getInterestingEvents: getInterestingEventsProp,
   getTokenRenderDistribution,
   dense = false,
+  initialShowLogs,
+  onShowLogsChange,
 }: EpisodePlayerProps<TSteps>) {
   const [replay, setReplay] = useState<ReplayData<TSteps> | undefined>(rawReplay);
   const [currentAgents, setCurrentAgents] = useState<any[]>(agents);
-  const [showLogs, setShowLogs] = useState(ui === 'side-panel');
+  const [showLogs, setShowLogs] = useState(initialShowLogs ?? ui === 'side-panel');
   const containerRef = useRef<HTMLDivElement>(null);
   const isTablet = useMediaQuery((theme) => theme.breakpoints.down('tablet'));
 
@@ -324,7 +330,8 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
 
   const handleClosePanel = useCallback(() => {
     setShowLogs(false);
-  }, []);
+    onShowLogsChange?.(false);
+  }, [onShowLogsChange]);
 
   if (!processedReplay) {
     return (
@@ -389,7 +396,10 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
         ) : (
           <GameLogButton
             variant="high"
-            onClick={() => setShowLogs(true)}
+            onClick={() => {
+              setShowLogs(true);
+              onShowLogsChange?.(true);
+            }}
             startIcon={<Icon>{isTablet ? 'bottom_panel_open' : 'left_panel_open'}</Icon>}
           >
             Game Log

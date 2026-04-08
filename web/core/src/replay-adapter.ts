@@ -342,6 +342,7 @@ export class ReplayAdapter<TSteps extends BaseGameStep[] = BaseGameStep[]> imple
   private wrappedRenderer: React.ComponentType<GameRendererProps<TSteps>> | null = null;
   private currentTheme: 'dark' | 'light' = 'dark';
   private dense: boolean = false;
+  private showLogs: boolean = true;
   private themeMessageHandler: ((event: MessageEvent) => void) | null = null;
 
   constructor(options: ReplayAdapterOptions<TSteps>) {
@@ -519,6 +520,12 @@ export class ReplayAdapter<TSteps extends BaseGameStep[] = BaseGameStep[]> imple
             ui: typeof ui === 'string' ? ui : 'side-panel', // Pass ui mode (ignore custom components for now)
             initialSpeed,
             dense: this.dense,
+            // Persist showLogs across root.render() calls so closing the panel
+            // survives prop-driven re-renders (e.g. dense/theme changes via postMessage).
+            initialShowLogs: this.showLogs,
+            onShowLogsChange: (show: boolean) => {
+              this.showLogs = show;
+            },
             // Signal that replay is already transformed
             skipTransform: true,
             // Game-specific overrides for ReasoningLogs and playback
