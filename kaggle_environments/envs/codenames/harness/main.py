@@ -38,6 +38,15 @@ class LLMCodenamesAgent:
             prompt += json.dumps(obs.history[-window_size:], indent=2)
             prompt += "\n\n"
             
+        # Inject full turn log for the current game.
+        # This allows the Spymaster to:
+        # 1. See what clues have already been used.
+        # 2. See what the guesser missed to plan follow-up clues.
+        if hasattr(obs, "current_game_turns") and obs.current_game_turns:
+            prompt += "Clues and guesses in this game so far:\n"
+            prompt += json.dumps(obs.current_game_turns, indent=2)
+            prompt += "\n\n"
+            
         prompt += "Here is the board state:\n"
         
         for i in range(25):
@@ -106,19 +115,31 @@ class LLMCodenamesAgent:
         team = "red" if turn == 1 else "blue"
         
         clue_number = obs.clue_number
-        prompt = f"You are the {team.upper()} Guesser in Codenames.\n"
+        prompt = f"You are the {team.upper()} Guesser in Codenames.\n\n"
+        prompt += f"Your goal is to correctly guess your team's words based on the Spymaster's clues while avoiding the opposite team's words and the assassin.\n"
+        
+        # Inject history if present
+        if hasattr(obs, "history") and obs.history:
+            prompt += "\nHere is the history of past games in this session:\n"
+            window_size = config.get("memory_window_size", 0)
+            prompt += json.dumps(obs.history[-window_size:], indent=2)
+            prompt += "\n\n"
+            
         prompt += f"The clue from your Spymaster is: '{clue}' for {clue_number} words. (You have {remaining} guesses remaining this turn.)\n\n"
+        prompt += f"If you correctly guess {clue_number} words based on this clue, you may make a bonus guess based on all information you've received so far.\n\n"
         
         if clue_number == 0:
             prompt += "A clue number of 0 means NONE of your remaining words relate to this clue (often used to point out the assassin). You get unlimited guesses, but you MUST still make at least one guess.\n\n"
         elif clue_number == -1:
             prompt += "A clue number of -1 means 'Infinity'. You get unlimited guesses based on this clue and previous clues. You must make at least one guess.\n\n"
             
-        # Inject history if present
-        if hasattr(obs, "history") and obs.history:
-            prompt += "Here is the history of past games in this session:\n"
-            window_size = config.get("memory_window_size", 0)
-            prompt += json.dumps(obs.history[-window_size:], indent=2)
+        # Inject full turn log for the current game.
+        # This allows the LLM to:
+        # 1. See guesses made in the current turn (to detect bonus guess state).
+        # 2. See previous clues to help make decisions on bonus guesses.
+        if hasattr(obs, "current_game_turns") and obs.current_game_turns:
+            prompt += "Clues and guesses in this game so far:\n"
+            prompt += json.dumps(obs.current_game_turns, indent=2)
             prompt += "\n\n"
             
         prompt += "Here are the unrevealed words on the board you can choose from:\n"
