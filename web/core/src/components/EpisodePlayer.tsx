@@ -3,7 +3,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { styled } from '@mui/material/styles';
 import { usePlayerController } from '../hooks/usePlayerController';
 import { BaseGameStep, InterestingEvent, ReplayData, ReplayMode } from '../types';
-import { getInterestingEvents, getGameStepRenderTime, processEpisodeData } from '../transformers/transformers';
+import {
+  getInterestingEvents,
+  getGameStepRenderTime,
+  getGameStepLabel,
+  getGameStepDescription,
+  processEpisodeData,
+} from '../transformers/transformers';
 import { ReasoningLogs } from '../ReasoningLogs';
 import { PlaybackControls } from './PlaybackControls';
 import { Button, css, Icon, useMediaQuery } from '@mui/material';
@@ -151,6 +157,18 @@ const GameLogButton = styled(Button)`
   }
 `;
 
+const VisuallyHidden = styled('div')`
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+`;
+
 export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   replay: rawReplay,
   agents = [],
@@ -176,6 +194,7 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   const [replay, setReplay] = useState<ReplayData<TSteps> | undefined>(rawReplay);
   const [currentAgents, setCurrentAgents] = useState<any[]>(agents);
   const [showLogs, setShowLogs] = useState(ui === 'side-panel');
+  const [liveAnnouncement, setLiveAnnouncement] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const isTablet = useMediaQuery((theme) => theme.breakpoints.down('tablet'));
 
@@ -278,6 +297,24 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [actions]);
 
+  // Build aria-live announcement when the step changes
+  useEffect(() => {
+    if (!processedReplay || state.step >= processedReplay.steps.length) {
+      return;
+    }
+    const step = processedReplay.steps[state.step];
+    const label = getStepLabel ? getStepLabel(step) : getGameStepLabel(step, gameName);
+    const streaming = state.replayMode !== 'condensed';
+    let announcement = label;
+    if (streaming) {
+      const description = getStepDescription ? getStepDescription(step) : getGameStepDescription(step, gameName);
+      if (description) {
+        announcement += '. ' + description;
+      }
+    }
+    setLiveAnnouncement(announcement);
+  }, [state.step, state.replayMode, processedReplay, gameName, getStepLabel, getStepDescription]);
+
   useEffect(() => {
     if (rawReplay) {
       setReplay(rawReplay);
@@ -336,6 +373,9 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
 
   return (
     <PlayerContainer ref={containerRef} className={className} style={style} $uiMode={ui} $dense={dense}>
+      <VisuallyHidden aria-live="polite" role="status">
+        {liveAnnouncement}
+      </VisuallyHidden>
       <VisualizerContainer $dense={dense}>
         <GameRenderer
           replay={processedReplay}
