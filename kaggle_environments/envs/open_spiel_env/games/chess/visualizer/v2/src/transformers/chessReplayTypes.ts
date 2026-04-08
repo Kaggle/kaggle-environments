@@ -1,7 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { BaseGamePlayer, BaseGameStep } from '@kaggle-environments/core';
 
 export interface ChessPlayer extends BaseGamePlayer {
   reward: number | null;
+  generateReturns: string[] | null;
 }
 
 export interface FenState {

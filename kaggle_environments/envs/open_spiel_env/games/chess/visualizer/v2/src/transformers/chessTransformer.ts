@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ChessReplay, ChessPlayer, ChessStep, FenState } from './chessReplayTypes';
 
 function parseFen(fen?: string): FenState {
@@ -78,7 +79,7 @@ export function deriveWinnerFromRewards(players: ChessPlayer[]) {
   return `🎉 ${color} (${players[winnerPlayerIndex].name}) Wins!`;
 }
 
-export const chessTransformer = (environment: any) => {
+export const chessTransformer = (environment: any): ChessStep[] => {
   const chessReplay = environment as ChessReplay;
   const agents = environment.info.TeamNames;
 
@@ -95,6 +96,7 @@ export const chessTransformer = (environment: any) => {
         actionDisplayText: player.action?.actionString ?? '',
         thoughts: player.action?.thoughts ?? '',
         reward: player.reward,
+        generateReturns: player.action?.generate_returns ?? null,
       };
     });
 
@@ -125,6 +127,7 @@ export const chessTransformer = (environment: any) => {
         actionDisplayText: '',
         thoughts: '',
         reward: 0,
+        generateReturns: null,
       },
     ],
     isTerminal: true,
