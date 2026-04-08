@@ -1,15 +1,11 @@
-import { useEffect } from 'react';
+import { memo, useEffect } from 'react';
 import { Chess } from 'chess.js';
 import { GameRendererProps } from '@kaggle-environments/core';
 import { ChessStep, ChessPlayer } from '../transformers/chessReplayTypes';
-import StyledBoard from '../components/StyledBoard';
-import Legend from '../components/Legend';
-import Meter from '../components/Meter';
-import Openings from '../components/Openings';
-import GameOver from '../components/GameOver';
 import useGameStore from '../stores/useGameStore';
+import Layout from './Layout';
 
-export default function GameRenderer(options: GameRendererProps<ChessStep[]>) {
+export default memo(function GameRenderer(options: GameRendererProps<ChessStep[]>) {
   const setState = useGameStore((state) => state.setState);
 
   useEffect(() => {
@@ -32,13 +28,5 @@ export default function GameRenderer(options: GameRendererProps<ChessStep[]>) {
     }
   }, [setState, options]);
 
-  return (
-    <div id="renderer">
-      <Meter />
-      <StyledBoard />
-      <Legend />
-      <Openings />
-      <GameOver />
-    </div>
-  );
-}
+  return <Layout />;
+});
