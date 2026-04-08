@@ -18,7 +18,7 @@ def run_llm_game():
         os.environ["MODEL_PROXY_URL"] = "dummy_url"
 
     print("Initializing Codenames Game with LLM Agents...")
-    env = make("codenames", debug=True)
+    env = make("codenames", configuration={"games_per_episode": 3}, debug=True)
     
     # We use our litellm harness for all 4 slots.
     # Kaggle environments requires an absolute or properly relative path
