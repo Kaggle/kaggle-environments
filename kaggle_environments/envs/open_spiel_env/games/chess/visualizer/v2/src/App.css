@@ -9,15 +9,56 @@
   height: 100%;
 }
 
-#board {
-  margin: 0 auto;
-  padding: 1em;
+.squiggle-border {
+  background-image:
+    url("./images/squiggle-solid.png"), url("./images/squiggle-solid.png"),
+    url("./images/squiggle-v.png"), url("./images/squiggle-v.png");
+  background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
+  background-position: top, bottom, left, right;
+  background-size:
+    5rem 2px,
+    5rem 2px,
+    2px 5rem,
+    2px 5rem;
 }
 
-#renderer {
-  max-width: 800px;
-  height: auto;
-  max-height: 80%;
-  aspect-ratio: 1;
-  margin: 0 auto;
+/* Technique to overlap elements without introducing new stacking contexts. */
+.grid-pile {
+  display: grid;
+
+  & > * {
+    grid-area: 1 / 1;
+  }
+}
+
+/* Hide content visually, not semantically. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.visually-hidden-unless-focused:not(:focus-visible) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.viewer canvas {
+  position: relative !important;
+  width: 100% !important;
+  height: auto !important;
+  max-width: 512px;
 }

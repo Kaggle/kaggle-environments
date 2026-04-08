@@ -7,22 +7,22 @@ export default function GameBoard() {
 
   const style = { width: '100%', height: '100%' };
   const pieces = {
-    wP: () => <img src="./images/wP.png" style={style} />,
-    wK: () => <img src="./images/wK.png" style={style} />,
-    wQ: () => <img src="./images/wQ.png" style={style} />,
-    wR: () => <img src="./images/wR.png" style={style} />,
-    wB: () => <img src="./images/wB.png" style={style} />,
-    wN: () => <img src="./images/wN.png" style={style} />,
-    bP: () => <img src="./images/bP.png" style={style} />,
-    bK: () => <img src="./images/bK.png" style={style} />,
-    bQ: () => <img src="./images/bQ.png" style={style} />,
-    bR: () => <img src="./images/bR.png" style={style} />,
-    bB: () => <img src="./images/bB.png" style={style} />,
-    bN: () => <img src="./images/bN.png" style={style} />,
+    wP: () => <img src="./react-chessboard/wP.png" style={style} />,
+    wK: () => <img src="./react-chessboard/wK.png" style={style} />,
+    wQ: () => <img src="./react-chessboard/wQ.png" style={style} />,
+    wR: () => <img src="./react-chessboard/wR.png" style={style} />,
+    wB: () => <img src="./react-chessboard/wB.png" style={style} />,
+    wN: () => <img src="./react-chessboard/wN.png" style={style} />,
+    bP: () => <img src="./react-chessboard/bP.png" style={style} />,
+    bK: () => <img src="./react-chessboard/bK.png" style={style} />,
+    bQ: () => <img src="./react-chessboard/bQ.png" style={style} />,
+    bR: () => <img src="./react-chessboard/bR.png" style={style} />,
+    bB: () => <img src="./react-chessboard/bB.png" style={style} />,
+    bN: () => <img src="./react-chessboard/bN.png" style={style} />,
   };
 
   const lightSquareStyle = {
-    backgroundImage: 'url(./images/wBg.png)',
+    // backgroundImage: 'url(./react-chessboard/wBg.png)',
     backgroundPosition: 'center',
     backgroundSize: 'cover',
     backgroundRepeat: 'no-repeat',
@@ -30,7 +30,7 @@ export default function GameBoard() {
   };
 
   const darkSquareStyle = {
-    backgroundImage: 'url(./images/bBg.png)',
+    backgroundImage: 'url(./react-chessboard/bBg.png)',
     backgroundPosition: 'center',
     backgroundSize: 'cover',
     backgroundRepeat: 'no-repeat',
@@ -38,15 +38,13 @@ export default function GameBoard() {
   };
 
   return (
-    <>
-      {/* Chessboard doesn't render without something extra here so... */}
-      &nbsp;
+    <div id="board" style={{ padding: '2em' }}>
       <Chessboard
         position={position}
         customDarkSquareStyle={darkSquareStyle}
         customLightSquareStyle={lightSquareStyle}
         customPieces={pieces}
       />
-    </>
+    </div>
   );
 }
