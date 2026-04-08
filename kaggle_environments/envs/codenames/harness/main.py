@@ -126,6 +126,10 @@ class LLMCodenamesAgent:
         # Inject memory context (past games and current turns)
         prompt = self._inject_memory_context(prompt, obs, config)
         
+        # Add note to clarify the last entry in current_game_turns
+        if hasattr(obs, "current_game_turns") and obs.current_game_turns:
+            prompt += "Note: The last entry in the 'Clues and guesses in this game so far' list above represents your current turn, showing the guesses you have already made for the current clue.\n\n"
+        
         prompt += f"The clue from your Spymaster is: '{clue}' for {clue_number} words. (You have {remaining} guesses remaining this turn.)\n\n"
         prompt += f"If you correctly guess {clue_number} words based on this clue, you may make a bonus guess based on all information you've received so far.\n\n"
         
