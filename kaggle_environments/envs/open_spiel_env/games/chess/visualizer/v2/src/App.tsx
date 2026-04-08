@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
 import { createReplayVisualizer, ReplayAdapter } from '@kaggle-environments/core';
 import { transformer } from './transformers/transformer';
+import { getStepRenderTime } from './utils/getStepRenderTime';
+import { getStepLabel } from './utils/getStepLabel';
 import GameRenderer from './components/GameRenderer';
 import './App.css';
 
@@ -13,6 +15,8 @@ export default function App() {
       GameRenderer,
       ui,
       transformer,
+      getStepRenderTime,
+      getStepLabel,
     });
     createReplayVisualizer(element, adapter);
   }, []);
