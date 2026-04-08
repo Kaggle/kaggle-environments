@@ -106,16 +106,18 @@ class LLMCodenamesAgent:
         prompt = f"You are the {team.upper()} Guesser in Codenames.\n"
         prompt += f"The clue from your Spymaster is: '{clue}' for {clue_number} words. (You have {remaining} guesses remaining this turn.)\n\n"
         
+        if clue_number == 0:
+            prompt += "A clue number of 0 means NONE of your remaining words relate to this clue (often used to point out the assassin). You get unlimited guesses, but you MUST still make at least one guess.\n\n"
+        elif clue_number == -1:
+            prompt += "A clue number of -1 means 'Infinity'. You get unlimited guesses based on this clue and previous clues. You must make at least one guess.\n\n"
+            
         # Inject history if present
         if hasattr(obs, "history") and obs.history:
             prompt += "Here is the history of past games in this session:\n"
             window_size = config.get("memory_window_size", 0)
             prompt += json.dumps(obs.history[-window_size:], indent=2)
             prompt += "\n\n"
-        if clue_number == 0:
-            prompt += "A clue number of 0 means NONE of your remaining words relate to this clue (often used to point out the assassin). You get unlimited guesses, but you MUST still make at least one guess.\n\n"
-        elif clue_number == -1:
-            prompt += "A clue number of -1 means 'Infinity'. You get unlimited guesses based on this clue and previous clues. You must make at least one guess.\n\n"
+            
         prompt += "Here are the unrevealed words on the board you can choose from:\n"
         
         for i in range(25):
