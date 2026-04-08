@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Chess } from 'chess.js';
-import { ChessStep, GameRendererProps } from '@kaggle-environments/core';
+import { GameRendererProps } from '@kaggle-environments/core';
+import { ChessStep } from '../transformers/chessReplayTypes';
 
 interface GameStore {
   game: Chess;

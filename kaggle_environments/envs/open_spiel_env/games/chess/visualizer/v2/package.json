@@ -26,10 +26,14 @@
   },
   "dependencies": {
     "@kaggle-environments/core": "workspace:*",
-    "chess.js": "^1.4.0",
+    "@rive-app/react-webgl2": "^4.27.0",
+    "gsap": "^3.14.2",
+    "motion": "^12.38.0",
+    "pixi.js": "^8.16.0",
     "react": "^18.2.0",
-    "react-chessboard": "^4.0.0",
     "react-dom": "^18.2.0",
-    "zustand": "^5.0.10"
+    "zustand": "^5.0.10",
+    "chess.js": "^1.4.0",
+    "react-chessboard": "^4.0.0"
   }
 }

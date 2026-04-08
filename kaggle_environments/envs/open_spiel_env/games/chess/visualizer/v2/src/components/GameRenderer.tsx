@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Chess } from 'chess.js';
-import { ChessPlayer, ChessStep, GameRendererProps } from '@kaggle-environments/core';
+import { GameRendererProps } from '@kaggle-environments/core';
+import { ChessStep, ChessPlayer } from '../transformers/chessReplayTypes';
 import StyledBoard from '../components/StyledBoard';
 import Legend from '../components/Legend';
 import Meter from '../components/Meter';
