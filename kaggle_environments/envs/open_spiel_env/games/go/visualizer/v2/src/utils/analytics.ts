@@ -1,4 +1,4 @@
-import { postAnalyticsEvent } from '../../../../../../../../../web/core/src/analytics';
+import { postAnalyticsEvent } from '@kaggle-environments/core';
 
 export function trackEvent(event: string) {
   if (import.meta.env.DEV && import.meta.env.VITE_LOG_ANALYTICS) {
