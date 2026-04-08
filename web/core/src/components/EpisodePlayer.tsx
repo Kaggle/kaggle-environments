@@ -305,9 +305,10 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
       return;
     }
     const step = processedReplay.steps[state.step];
+    const player = step.players?.find((p) => p.isTurn);
     const label = getStepLabel ? getStepLabel(step) : getGameStepLabel(step, gameName);
     const streaming = state.replayMode !== 'condensed';
-    let announcement = label;
+    let announcement = player?.name ? `${player.name}: ${label}` : label;
     if (streaming) {
       const description = getStepDescription ? getStepDescription(step) : getGameStepDescription(step, gameName);
       if (description) {
