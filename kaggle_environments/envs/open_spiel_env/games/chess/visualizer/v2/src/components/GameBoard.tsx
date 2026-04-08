@@ -38,11 +38,15 @@ export default function GameBoard() {
   };
 
   return (
-    <Chessboard
-      position={position}
-      customDarkSquareStyle={darkSquareStyle}
-      customLightSquareStyle={lightSquareStyle}
-      customPieces={pieces}
-    />
+    <>
+      {/* Chessboard doesn't render without something extra here so... */}
+      &nbsp;
+      <Chessboard
+        position={position}
+        customDarkSquareStyle={darkSquareStyle}
+        customLightSquareStyle={lightSquareStyle}
+        customPieces={pieces}
+      />
+    </>
   );
 }
