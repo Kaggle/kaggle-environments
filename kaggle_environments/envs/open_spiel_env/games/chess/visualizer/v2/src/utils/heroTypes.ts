@@ -9,6 +9,6 @@ export enum HeroTypes {
 }
 
 export function detectHeroType(game: Chess): HeroTypes | null {
-  if (game === null) return null;
+  if (game.isCheckmate()) return HeroTypes.CHECKMATE;
   return null;
 }
