@@ -1,4 +1,16 @@
 import { Chessboard } from 'react-chessboard';
+import bishopBlackPath from '../assets/images/bishop-b-small.webp';
+import bishopWhitePath from '../assets/images/bishop-w-small.webp';
+import kingBlackPath from '../assets/images/king-b-small.webp';
+import kingWhitePath from '../assets/images/king-w-small.webp';
+import knightBlackPath from '../assets/images/knight-b-small.webp';
+import knightWhitePath from '../assets/images/knight-w-small.webp';
+import pawnBlackPath from '../assets/images/pawn-b-small.webp';
+import pawnWhitePath from '../assets/images/pawn-w-small.webp';
+import queenBlackPath from '../assets/images/queen-b-small.webp';
+import queenWhitePath from '../assets/images/queen-w-small.webp';
+import rookBlackPath from '../assets/images/rook-b-small.webp';
+import rookWhitePath from '../assets/images/rook-w-small.webp';
 import useGameStore from '../stores/useGameStore';
 
 export default function GameBoard() {
@@ -7,18 +19,18 @@ export default function GameBoard() {
 
   const style = { width: '100%', height: '100%' };
   const pieces = {
-    wP: () => <img src="./react-chessboard/wP.png" style={style} />,
-    wK: () => <img src="./react-chessboard/wK.png" style={style} />,
-    wQ: () => <img src="./react-chessboard/wQ.png" style={style} />,
-    wR: () => <img src="./react-chessboard/wR.png" style={style} />,
-    wB: () => <img src="./react-chessboard/wB.png" style={style} />,
-    wN: () => <img src="./react-chessboard/wN.png" style={style} />,
-    bP: () => <img src="./react-chessboard/bP.png" style={style} />,
-    bK: () => <img src="./react-chessboard/bK.png" style={style} />,
-    bQ: () => <img src="./react-chessboard/bQ.png" style={style} />,
-    bR: () => <img src="./react-chessboard/bR.png" style={style} />,
-    bB: () => <img src="./react-chessboard/bB.png" style={style} />,
-    bN: () => <img src="./react-chessboard/bN.png" style={style} />,
+    wP: () => <img src={pawnWhitePath} style={style} />,
+    wK: () => <img src={kingWhitePath} style={style} />,
+    wQ: () => <img src={queenWhitePath} style={style} />,
+    wR: () => <img src={rookWhitePath} style={style} />,
+    wB: () => <img src={bishopWhitePath} style={style} />,
+    wN: () => <img src={knightWhitePath} style={style} />,
+    bP: () => <img src={pawnBlackPath} style={style} />,
+    bK: () => <img src={kingBlackPath} style={style} />,
+    bQ: () => <img src={queenBlackPath} style={style} />,
+    bR: () => <img src={rookBlackPath} style={style} />,
+    bB: () => <img src={bishopBlackPath} style={style} />,
+    bN: () => <img src={knightBlackPath} style={style} />,
   };
 
   const lightSquareStyle = {
