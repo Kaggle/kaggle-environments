@@ -81,16 +81,35 @@ export function deriveWinnerFromRewards(players: ChessPlayer[]) {
 
 export const chessTransformer = (environment: any): ChessStep[] => {
   const chessReplay = environment as ChessReplay;
-  const agents = environment.info.TeamNames;
-
   const chessSteps: ChessStep[] = [];
+
+  const extraStepPlayers = [0, 1].map(
+    (index): ChessPlayer => ({
+      id: index,
+      name: environment.info.TeamNames[index],
+      thumbnail: '',
+      isTurn: false,
+      actionDisplayText: '',
+      thoughts: '',
+      reward: null,
+      generateReturns: null,
+    })
+  );
+
+  chessSteps.push({
+    step: chessSteps.length,
+    players: extraStepPlayers,
+    fenState: parseFen(''),
+    isTerminal: false,
+    winner: null,
+  });
 
   chessReplay.steps.forEach((step, index) => {
     // Each step contains a tuple of players, one who acted and one who's waiting
     const stepPlayers: ChessPlayer[] = step.map((player, index): ChessPlayer => {
       return {
         id: index,
-        name: agents[index],
+        name: environment.info.TeamNames[index],
         thumbnail: '',
         isTurn: player.action?.submission !== -1,
         actionDisplayText: player.action?.actionString ?? '',
