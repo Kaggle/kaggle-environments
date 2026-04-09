@@ -27,8 +27,8 @@ export default function BoardControls() {
     <div className={styles.boardControls} ref={inertRef}>
       <WithPopover id="info" icon="info" label="Game info">
         <p>
-          Go is an ancient, two-player game in which players try to control more territory on a grid by strategically
-          placing black and white stones. This game follows Tromp-Taylor rules.
+          Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean sed malesuada nulla, ut tempus magna.
+          Suspendisse non consectetur justo, vel fringilla ipsum.
         </p>
       </WithPopover>
       <label className={`grid-pile ${styles.soundToggle}`}>
