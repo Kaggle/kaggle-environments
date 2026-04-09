@@ -17,6 +17,7 @@
     "monkey": "node ./scripts/monkey.js"
   },
   "devDependencies": {
+    "@types/howler": "^2.2.12",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^5.1.2",
@@ -29,6 +30,7 @@
     "@kaggle-environments/core": "workspace:*",
     "@rive-app/react-webgl2": "^4.27.0",
     "gsap": "^3.14.2",
+    "howler": "^2.2.4",
     "motion": "^12.38.0",
     "pixi.js": "^8.16.0",
     "react": "^18.2.0",

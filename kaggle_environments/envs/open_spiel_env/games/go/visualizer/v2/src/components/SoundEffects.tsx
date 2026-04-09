@@ -1,58 +1,12 @@
 import { useEffect, useRef } from 'react';
-import placeSoundUrl from '../assets/audio/go-stone-placing.mp3';
-import captureSoundUrl from '../assets/audio/go-stone-removal.mp3';
+import { Howl } from 'howler';
 import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences';
+import placeSoundUrl from '../assets/audio/go-stone-placing.mp3';
+import captureSoundUrl from '../assets/audio/go-stone-removal.mp3';
 
-// Web Audio API - shared across component mounts
-let audioCtx: AudioContext | null = null;
-let placeBuffer: AudioBuffer | null = null;
-let captureBuffer: AudioBuffer | null = null;
-let buffersLoading = false;
-
-function getAudioContext(): AudioContext {
-  if (!audioCtx) {
-    audioCtx = new AudioContext({ latencyHint: 'interactive' });
-  }
-  return audioCtx;
-}
-
-/** Replace the current AudioContext with a fresh one and re-decode buffers. */
-function resetAudioContext() {
-  audioCtx?.close().catch(() => {});
-  audioCtx = null;
-  placeBuffer = null;
-  captureBuffer = null;
-  buffersLoading = false;
-}
-
-async function loadBuffers() {
-  if (buffersLoading || (placeBuffer && captureBuffer)) return;
-  buffersLoading = true;
-  try {
-    const ctx = getAudioContext();
-    const [placeData, captureData] = await Promise.all([
-      fetch(placeSoundUrl).then((r) => r.arrayBuffer()),
-      fetch(captureSoundUrl).then((r) => r.arrayBuffer()),
-    ]);
-    [placeBuffer, captureBuffer] = await Promise.all([
-      ctx.decodeAudioData(placeData),
-      ctx.decodeAudioData(captureData),
-    ]);
-  } catch {
-    buffersLoading = false;
-  }
-}
-
-function playBuffer(buffer: AudioBuffer) {
-  const ctx = getAudioContext();
-  const source = ctx.createBufferSource();
-  const gain = ctx.createGain();
-  gain.gain.value = 0.5;
-  source.buffer = buffer;
-  source.connect(gain).connect(ctx.destination);
-  source.start();
-}
+const placeSound = new Howl({ src: [placeSoundUrl], volume: 0.5 });
+const captureSound = new Howl({ src: [captureSoundUrl], volume: 0.5 });
 
 const THROTTLE_MS = 150;
 
@@ -62,43 +16,12 @@ export default function SoundEffects() {
   const prevRef = useRef({ move: 0, captures: 0 });
   const lastPlayedRef = useRef(0);
 
-  // Some operating systems will kill existing AudioContext instances
-  // unprompted, e.g. on iOS when the browser is backgrounded.
-  useEffect(() => {
-    function unlockAudio() {
-      let ctx = getAudioContext();
-      if (ctx.state === 'running') {
-        loadBuffers();
-        return;
-      }
-
-      // If the context is not running, attempt to re-create the context.
-      // This has to happen synchronously for iOS to see it as a
-      // user-interaction.
-      resetAudioContext();
-      ctx = getAudioContext();
-      ctx.resume().catch(() => {});
-      loadBuffers();
-    }
-
-    document.addEventListener('click', unlockAudio);
-    document.addEventListener('touchstart', unlockAudio);
-    document.addEventListener('keydown', unlockAudio);
-
-    if (getAudioContext().state === 'running') loadBuffers();
-
-    return () => {
-      document.removeEventListener('click', unlockAudio);
-      document.removeEventListener('touchstart', unlockAudio);
-      document.removeEventListener('keydown', unlockAudio);
-    };
-  }, []);
-
   useEffect(() => {
     const state = game.currentState();
     const move = state.moveNumber;
-    const captures = state.blackStonesCaptured + state.whiteStonesCaptured;
+    const captures = (state.blackStonesCaptured || 0) + (state.whiteStonesCaptured || 0);
     const prev = prevRef.current;
+
     const placed = move > prev.move && state.playedPoint;
     const captured = captures > prev.captures;
 
@@ -111,8 +34,8 @@ export default function SoundEffects() {
     if (now - lastPlayedRef.current < THROTTLE_MS) return;
     lastPlayedRef.current = now;
 
-    if (placed && placeBuffer) playBuffer(placeBuffer);
-    if (captured && captureBuffer) playBuffer(captureBuffer);
+    if (placed) placeSound.play();
+    if (captured) captureSound.play();
   }, [game, soundEnabled]);
 
   return null;
