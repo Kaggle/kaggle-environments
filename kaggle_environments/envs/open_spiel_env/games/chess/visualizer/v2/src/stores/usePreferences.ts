@@ -2,18 +2,16 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 interface Preferences {
-  showTerritory: boolean;
   showHeroAnimations: boolean;
   showAnnotations: boolean;
   soundEnabled: boolean;
   reducedMotion: boolean;
-  toggle: (key: 'showTerritory' | 'showHeroAnimations' | 'showAnnotations' | 'soundEnabled' | 'reducedMotion') => void;
+  toggle: (key: 'showHeroAnimations' | 'showAnnotations' | 'soundEnabled' | 'reducedMotion') => void;
 }
 
 const usePreferences = create<Preferences>()(
   persist(
     (set) => ({
-      showTerritory: true,
       showHeroAnimations: true,
       showAnnotations: true,
       soundEnabled: false,
@@ -24,7 +22,6 @@ const usePreferences = create<Preferences>()(
       name: 'go-visualizer-preferences',
       // Explicitly define which keys should persist across sessions.
       partialize: (state) => ({
-        showTerritory: state.showTerritory,
         showHeroAnimations: state.showHeroAnimations,
         showAnnotations: state.showAnnotations,
         reducedMotion: state.reducedMotion,
