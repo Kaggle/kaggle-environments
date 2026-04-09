@@ -1,0 +1,72 @@
+{
+  "name": "orbit_wars",
+  "title": "Orbit Wars",
+  "description": "Conquer planets rotating around a black hole in a continuous space.",
+  "version": "1.0.0",
+  "agents": [2, 4],
+  "configuration": {
+    "episodeSteps": 500,
+    "actTimeout": 1,
+    "agentTimeout": {
+      "description": "Obsolete field kept for backwards compatibility, please use observation.remainingOverageTime.",
+      "type": "number",
+      "minimum": 0,
+      "default": 2
+    },
+    "shipSpeed": {
+      "description": "Flight speed of ships per turn.",
+      "type": "number",
+      "default": 5.0
+    },
+    "blackHoleRadius": {
+      "description": "Radius of the black hole event horizon.",
+      "type": "number",
+      "default": 10.0
+    },
+    "boardSize": {
+      "description": "Size of the continuous board.",
+      "type": "number",
+      "default": 100.0
+    }
+  },
+  "reward": {
+    "description": "Score at the end of the game.",
+    "type": "number",
+    "default": 0
+  },
+  "observation": {
+    "planets": {
+      "description": "List of planets: [id, x, y, radius, owner, ships]",
+      "type": "array",
+      "default": []
+    },
+    "fleets": {
+      "description": "List of active fleets: [id, owner, from_planet_id, to_planet_id, x, y, ships]",
+      "type": "array",
+      "default": []
+    },
+    "player": {
+      "description": "Player ID (0, 1, 2, or 3)",
+      "type": "integer"
+    },
+    "remainingOverageTime": 2
+  },
+  "action": {
+    "description": "List of moves to make. Each move is [from_planet_id, direction_angle, num_ships]",
+    "type": "array",
+    "items": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": [
+        {"type": "integer", "description": "Source planet ID"},
+        {"type": "number", "description": "Angle in radians"},
+        {"type": "integer", "description": "Number of ships"}
+      ]
+    },
+    "default": []
+  },
+  "status": {
+    "defaults": ["ACTIVE", "ACTIVE"]
+  }
+}
