@@ -50,61 +50,119 @@ async function renderer(context) {
         c.fillText(text, x * scale, y * scale);
     }
 
-    // Draw Background
-    c.fillStyle = "#F0F0F0";
+    // Draw Background (space!)
+    c.fillStyle = "#000000";
     c.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw Black Hole
-    drawCircle(50, 50, 10, "#111111", true);
-    drawCircle(50, 50, 10, "#ff0000", false); // Event horizon line
+    // Draw Sun
+    const sunX = 50 * scale;
+    const sunY = 50 * scale;
+    const sunR = 10 * scale;
+    // Glow effect
+    const glow = c.createRadialGradient(sunX, sunY, sunR * 0.5, sunX, sunY, sunR * 2.5);
+    glow.addColorStop(0, "rgba(255, 200, 50, 0.6)");
+    glow.addColorStop(0.5, "rgba(255, 150, 20, 0.2)");
+    glow.addColorStop(1, "rgba(255, 100, 0, 0)");
+    c.fillStyle = glow;
+    c.fillRect(0, 0, canvas.width, canvas.height);
+    // Sun body
+    drawCircle(50, 50, 10, "#FFB800", true);
+    drawCircle(50, 50, 10, "#FFD700", false);
 
     const current_step = environment.steps[step];
     const obs = current_step[0].observation;
 
     const colors = ["#FF4444", "#4444FF", "#44FF44", "#FFFF44", "#888888"]; // P0, P1, P2, P3, Neutral
 
+    // Draw Comet tails (before planets so tails render behind)
+    const cometPidSet = new Set(obs.comet_planet_ids || []);
+    if (obs.comets) {
+        obs.comets.forEach(group => {
+            const idx = group.path_index;
+            group.planet_ids.forEach((pid, i) => {
+                const path = group.paths[i];
+                const tailLen = Math.min(idx + 1, path.length, 3);
+                if (tailLen < 2) return;
+                for (let t = 1; t < tailLen; t++) {
+                    const pi = idx - t;
+                    if (pi < 0) break;
+                    const alpha = 0.5 * (1 - t / tailLen);
+                    const x0 = path[pi][0] * scale;
+                    const y0 = path[pi][1] * scale;
+                    const x1 = path[pi + 1][0] * scale;
+                    const y1 = path[pi + 1][1] * scale;
+                    const width = (3 - 2 * t / tailLen) * scale;
+                    c.beginPath();
+                    c.moveTo(x1, y1);
+                    c.lineTo(x0, y0);
+                    c.strokeStyle = `rgba(200, 220, 255, ${alpha})`;
+                    c.lineWidth = width;
+                    c.lineCap = "round";
+                    c.stroke();
+                }
+            });
+        });
+    }
+
     // Draw Planets
     if (obs.planets) {
         obs.planets.forEach(p => {
             const id = p[0];
-            const x = p[1];
-            const y = p[2];
-            const r = p[3];
-            const owner = p[4];
+            const owner = p[1];
+            const x = p[2];
+            const y = p[3];
+            const r = p[4];
             const ships = p[5];
-            
+
             const color = owner === -1 ? colors[4] : colors[owner];
-            
-            // Draw planet body
-            drawCircle(x, y, r, color, false);
-            c.fillStyle = color + "22"; // Transparent fill
-            c.fill();
-            
+
+            // Draw planet body (solid fill)
+            drawCircle(x, y, r, color, true);
+            // Comet border
+            if (cometPidSet.has(id)) {
+                drawCircle(x, y, r, "#FFFFFF", false);
+            }
+
             // Draw ship count
-            drawText(ships.toString(), x, y, "#000000", 16);
-            // Draw ID
-            drawText(`P${id}`, x, y - r - 3, "#555555", 10);
+            drawText(Math.floor(ships).toString(), x, y, "#FFFFFF", 12);
         });
     }
 
-    // Draw Fleets
+    // Draw Fleets as chevrons pointed in direction of travel
     if (obs.fleets) {
         obs.fleets.forEach(f => {
             const owner = f[1];
-            const x = f[4];
-            const y = f[5];
+            const x = f[2] * scale;
+            const y = f[3] * scale;
+            const angle = f[4];
             const ships = f[6];
-            
+
             const color = colors[owner];
-            // Draw fleet as a triangle or small dot
-            drawCircle(x, y, 1.5, color, true);
-            // Draw ship count above fleet
-            drawText(ships.toString(), x, y - 3, color, 8);
+            // Scale chevron size by ship count: log scale, 1 ship = 0.5, 1000 = 3.0
+            const sz = (0.5 + 2.5 * Math.log(ships) / Math.log(1000)) * scale;
+
+            c.save();
+            c.translate(x, y);
+            c.rotate(angle);
+            c.beginPath();
+            // Chevron: tip at front, two wings swept back
+            c.moveTo(sz, 0);           // tip
+            c.lineTo(-sz, -sz * 0.7);  // top wing
+            c.lineTo(-sz * 0.3, 0);    // inner notch
+            c.lineTo(-sz, sz * 0.7);   // bottom wing
+            c.closePath();
+            c.fillStyle = color;
+            c.fill();
+            c.restore();
+
+            // Draw ship count: north side if fleet is in south half, south side if north
+            const labelOffset = f[3] >= 50 ? -3 : 3;
+            drawText(ships.toString(), f[2], f[3] + labelOffset, color, 8);
         });
     }
-    
+
     // Draw Step Info
-    c.fillStyle = "#000000";
+    c.fillStyle = "#FFFFFF";
     c.font = "16px sans-serif";
     c.textAlign = "left";
     c.textBaseline = "top";

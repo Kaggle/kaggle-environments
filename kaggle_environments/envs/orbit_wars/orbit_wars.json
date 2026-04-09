@@ -1,8 +1,8 @@
 {
   "name": "orbit_wars",
   "title": "Orbit Wars",
-  "description": "Conquer planets rotating around a black hole in a continuous space.",
-  "version": "1.0.0",
+  "description": "Conquer planets rotating around a sun in a continuous space.",
+  "version": "1.0.8",
   "agents": [2, 4],
   "configuration": {
     "episodeSteps": 500,
@@ -14,12 +14,12 @@
       "default": 2
     },
     "shipSpeed": {
-      "description": "Flight speed of ships per turn.",
+      "description": "Maximum fleet speed per turn. Speed scales with fleet size: 1 ship moves at 1/turn, larger fleets approach this max.",
       "type": "number",
-      "default": 5.0
+      "default": 6.0
     },
-    "blackHoleRadius": {
-      "description": "Radius of the black hole event horizon.",
+    "sunRadius": {
+      "description": "Radius of the sun.",
       "type": "number",
       "default": 10.0
     },
@@ -36,18 +36,44 @@
   },
   "observation": {
     "planets": {
-      "description": "List of planets: [id, x, y, radius, owner, ships]",
+      "description": "List of planets: [id, owner, x, y, radius, ships, production]",
       "type": "array",
       "default": []
     },
     "fleets": {
-      "description": "List of active fleets: [id, owner, from_planet_id, to_planet_id, x, y, ships]",
+      "description": "List of active fleets: [id, owner, x, y, angle, from_planet_id, ships]",
       "type": "array",
       "default": []
     },
     "player": {
       "description": "Player ID (0, 1, 2, or 3)",
-      "type": "integer"
+      "type": "integer",
+      "default": 0
+    },
+    "angular_velocity": {
+      "description": "Rotation speed of planets in radians per turn.",
+      "type": "number",
+      "default": 0
+    },
+    "initial_planets": {
+      "description": "Initial planet positions at game start: [id, owner, x, y, radius, ships, production]",
+      "type": "array",
+      "default": []
+    },
+    "next_fleet_id": {
+      "description": "Next available fleet ID.",
+      "type": "integer",
+      "default": 0
+    },
+    "comets": {
+      "description": "Active comet groups with planet_ids, paths, and path_index.",
+      "type": "array",
+      "default": []
+    },
+    "comet_planet_ids": {
+      "description": "Planet IDs that are comets (temporary extra-solar objects).",
+      "type": "array",
+      "default": []
     },
     "remainingOverageTime": 2
   },
