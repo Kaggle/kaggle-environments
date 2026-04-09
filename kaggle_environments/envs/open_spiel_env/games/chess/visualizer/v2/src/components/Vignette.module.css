@@ -21,10 +21,10 @@
   height: 100%;
   will-change: transform;
   transform-origin: var(--vignette-cx) var(--vignette-cy);
-  filter: blur(0.5px);
+  filter: blur(0.5rem);
   background: radial-gradient(
     circle farthest-corner at var(--vignette-cx) var(--vignette-cy),
-    transparent 50%,
-    rgb(0 0 0 / 55%) 100%
+    transparent 70%,
+    rgb(0 0 0 / 55%) 75%
   );
 }

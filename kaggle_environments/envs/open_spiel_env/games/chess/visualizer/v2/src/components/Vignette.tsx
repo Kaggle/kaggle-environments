@@ -10,7 +10,7 @@ export function Vignette() {
 
   return (
     <div className={styles.vignetteOuter}>
-      <motion.div className={styles.vignette} animate={{ scale: isCheck ? 1 : 2.5 }} transition={transition} />
+      <motion.div className={styles.vignette} animate={{ scale: isCheck ? 1.1 : 2 }} transition={transition} />
     </div>
   );
 }
