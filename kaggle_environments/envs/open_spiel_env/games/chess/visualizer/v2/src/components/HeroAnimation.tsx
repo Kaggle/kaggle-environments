@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence } from 'motion/react';
 import checkmateRiv from '../assets/rives/checkmate.riv?url';
+import queenLossRiv from '../assets/rives/queen-loss.riv?url';
+import promotionRiv from '../assets/rives/promotion.riv?url';
+import castlingRiv from '../assets/rives/castling.riv?url';
+import firstCaptureRiv from '../assets/rives/first-capture.riv?url';
 import { HeroTypes, detectHeroType } from '../utils/heroTypes';
 import { RivePopover } from './RivePopover';
 import useGameStore from '../stores/useGameStore';
@@ -33,13 +37,30 @@ export default function HeroAnimation() {
     if (heroType === null) return;
 
     const color = game.turn() === 'b' ? 'black' : 'white';
-    // const player = color === 'black' ? 'Black' : 'White';
+    const player = color === 'black' ? 'Black' : 'White';
+    const opponent = color === 'black' ? 'White' : 'Black';
 
     let src, text;
     switch (heroType) {
       case HeroTypes.CHECKMATE:
         src = checkmateRiv;
-        text = `Checkmate`;
+        text = 'Checkmate';
+        break;
+      case HeroTypes.QUEEN_LOSS:
+        src = queenLossRiv;
+        text = `${opponent} Loses their queen`;
+        break;
+      case HeroTypes.PROMOTION:
+        src = promotionRiv;
+        text = `${player} Queens`;
+        break;
+      case HeroTypes.CASTLING:
+        src = castlingRiv;
+        text = `${player} Castles`;
+        break;
+      case HeroTypes.FIRST_CAPTURE:
+        src = firstCaptureRiv;
+        text = `${player} Captures First`;
         break;
       default:
         return;
