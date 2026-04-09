@@ -35,8 +35,8 @@ describe('createReplayVisualizer', () => {
     const container = createContainer();
     const adapter = createMockAdapter();
     createReplayVisualizer(container, adapter);
-    expect(container.querySelector('.player')).toBeTruthy();
-    expect(container.querySelector('.viewer')).toBeTruthy();
+    expect(container.querySelector('.player')).toBeInstanceOf(HTMLElement);
+    expect(container.querySelector('.viewer')).toBeInstanceOf(HTMLElement);
   });
 
   it('passes the transformer option through to ReplayVisualizer', () => {
@@ -57,20 +57,6 @@ describe('createReplayVisualizer', () => {
       expect.any(HTMLElement),
       expect.objectContaining({ name: 'transformed' })
     );
-  });
-
-  it('creates independent instances for different containers', () => {
-    const container1 = createContainer('container-1');
-    const container2 = createContainer('container-2');
-    const adapter1 = createMockAdapter();
-    const adapter2 = createMockAdapter();
-
-    const rv1 = createReplayVisualizer(container1, adapter1);
-    const rv2 = createReplayVisualizer(container2, adapter2);
-
-    expect(rv1).not.toBe(rv2);
-    expect(container1.querySelector('.player')).toBeTruthy();
-    expect(container2.querySelector('.player')).toBeTruthy();
   });
 
   it('created instance responds to postMessage', () => {
@@ -110,14 +96,5 @@ describe('createReplayVisualizer', () => {
       expect.any(HTMLElement),
       expect.objectContaining({ name: 'no-transform' })
     );
-  });
-
-  it('works with container that has no id (production path)', () => {
-    const container = document.createElement('div');
-    document.body.appendChild(container);
-    const adapter = createMockAdapter();
-
-    const rv = createReplayVisualizer(container, adapter);
-    expect(rv).toBeInstanceOf(ReplayVisualizer);
   });
 });

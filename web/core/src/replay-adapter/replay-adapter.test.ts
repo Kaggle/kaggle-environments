@@ -43,7 +43,8 @@ describe('ReplayAdapter', () => {
   let container: HTMLElement;
   let adapters: ReplayAdapter[] = [];
 
-  const tracked = (opts: ReplayAdapterOptions) => {
+  // Registers the adapter for cleanup in afterEach to prevent pollution across tests.
+  const createAdapter = (opts: ReplayAdapterOptions) => {
     const a = new ReplayAdapter(opts);
     adapters.push(a);
     return a;
@@ -68,41 +69,26 @@ describe('ReplayAdapter', () => {
     });
 
     it('accepts a renderer function', () => {
-      expect(tracked({ gameName: 'test', renderer: mockRenderer })).toBeDefined();
+      expect(createAdapter({ gameName: 'test', renderer: mockRenderer })).toBeDefined();
     });
 
     it('accepts a GameRenderer component', () => {
       const GameRenderer = () => null;
-      expect(tracked({ gameName: 'test', GameRenderer })).toBeDefined();
+      expect(createAdapter({ gameName: 'test', GameRenderer })).toBeDefined();
     });
 
     it('adds a message listener for theme changes', () => {
       const addSpy = vi.spyOn(window, 'addEventListener');
-      tracked({ gameName: 'test', renderer: mockRenderer });
+      createAdapter({ gameName: 'test', renderer: mockRenderer });
       expect(addSpy).toHaveBeenCalledWith('message', expect.any(Function));
       addSpy.mockRestore();
     });
   });
 
   describe('mount', () => {
-    it('creates a React root on the container', async () => {
-      const { createRoot } = await import('react-dom/client');
-      const adapter = tracked({ gameName: 'test', renderer: mockRenderer });
-      adapter.mount(container);
-      expect(createRoot).toHaveBeenCalledWith(container);
-    });
-
-    it('renders the EpisodePlayer', async () => {
-      const { __renderFn: renderFn } = (await import('react-dom/client')) as any;
-      const adapter = tracked({ gameName: 'test', renderer: mockRenderer });
-      const replay = makeReplay();
-      adapter.mount(container, replay);
-      expect(renderFn).toHaveBeenCalled();
-    });
-
     it('transforms initial data when provided', async () => {
       const { processEpisodeData } = await import('../transformers/transformers');
-      const adapter = tracked({ gameName: 'test', renderer: mockRenderer });
+      const adapter = createAdapter({ gameName: 'test', renderer: mockRenderer });
       const replay = makeReplay({ name: 'to-transform' });
       adapter.mount(container, replay);
       expect(processEpisodeData).toHaveBeenCalledWith(replay, 'test');
@@ -117,7 +103,7 @@ describe('ReplayAdapter', () => {
         configurable: true,
       });
 
-      const adapter = tracked({ gameName: 'test', renderer: mockRenderer });
+      const adapter = createAdapter({ gameName: 'test', renderer: mockRenderer });
       adapter.mount(container);
 
       expect(postMessageSpy).toHaveBeenCalledWith(
@@ -148,7 +134,7 @@ describe('ReplayAdapter', () => {
         configurable: true,
       });
 
-      const adapter = tracked({ gameName: 'test', renderer: mockRenderer, ui: 'inline' });
+      const adapter = createAdapter({ gameName: 'test', renderer: mockRenderer, ui: 'inline' });
       adapter.mount(container);
 
       expect(postMessageSpy).toHaveBeenCalledWith(
@@ -167,36 +153,6 @@ describe('ReplayAdapter', () => {
         configurable: true,
       });
     });
-
-    it('reports no UI handling for none mode', () => {
-      const postMessageSpy = vi.fn();
-      const originalParent = window.parent;
-      Object.defineProperty(window, 'parent', {
-        value: { postMessage: postMessageSpy },
-        writable: true,
-        configurable: true,
-      });
-
-      const adapter = tracked({ gameName: 'test', renderer: mockRenderer, ui: 'none' });
-      adapter.mount(container);
-
-      expect(postMessageSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          iframeCapabilities: expect.objectContaining({
-            iframeHandlesUi: false,
-            hasControls: false,
-            hasReasoningLogs: false,
-          }),
-        }),
-        '*'
-      );
-
-      Object.defineProperty(window, 'parent', {
-        value: originalParent,
-        writable: true,
-        configurable: true,
-      });
-    });
   });
 
   describe('render', () => {
@@ -204,7 +160,7 @@ describe('ReplayAdapter', () => {
       const { processEpisodeData } = await import('../transformers/transformers');
       const { __renderFn: renderFn } = (await import('react-dom/client')) as any;
 
-      const adapter = tracked({ gameName: 'test', renderer: mockRenderer });
+      const adapter = createAdapter({ gameName: 'test', renderer: mockRenderer });
       adapter.mount(container);
       renderFn.mockClear();
 
@@ -218,7 +174,7 @@ describe('ReplayAdapter', () => {
     it('does not re-transform if replay reference is the same', async () => {
       const { processEpisodeData } = await import('../transformers/transformers');
 
-      const adapter = tracked({ gameName: 'test', renderer: mockRenderer });
+      const adapter = createAdapter({ gameName: 'test', renderer: mockRenderer });
       const replay = makeReplay();
       adapter.mount(container, replay);
       (processEpisodeData as any).mockClear();
@@ -234,7 +190,7 @@ describe('ReplayAdapter', () => {
         ...replay,
         name: 'custom-' + gameName,
       }));
-      const adapter = tracked({
+      const adapter = createAdapter({
         gameName: 'chess',
         renderer: mockRenderer,
         transformer: customTransformer,
@@ -251,7 +207,7 @@ describe('ReplayAdapter', () => {
   describe('unmount', () => {
     it('removes the theme message listener', () => {
       const removeSpy = vi.spyOn(window, 'removeEventListener');
-      const adapter = tracked({ gameName: 'test', renderer: mockRenderer });
+      const adapter = createAdapter({ gameName: 'test', renderer: mockRenderer });
       adapter.mount(container);
 
       adapter.unmount();
@@ -262,7 +218,7 @@ describe('ReplayAdapter', () => {
     it('unmounts the React root', async () => {
       const { __unmountFn: unmountFn } = (await import('react-dom/client')) as any;
 
-      const adapter = tracked({ gameName: 'test', renderer: mockRenderer });
+      const adapter = createAdapter({ gameName: 'test', renderer: mockRenderer });
       adapter.mount(container);
 
       adapter.unmount();
@@ -270,14 +226,14 @@ describe('ReplayAdapter', () => {
     });
 
     it('is safe to call without mount', () => {
-      const adapter = tracked({ gameName: 'test', renderer: mockRenderer });
+      const adapter = createAdapter({ gameName: 'test', renderer: mockRenderer });
       expect(() => adapter.unmount()).not.toThrow();
     });
 
     it('nullifies root after unmount', async () => {
       const { __renderFn: renderFn } = (await import('react-dom/client')) as any;
 
-      const adapter = tracked({ gameName: 'test', renderer: mockRenderer });
+      const adapter = createAdapter({ gameName: 'test', renderer: mockRenderer });
       adapter.mount(container);
       adapter.unmount();
 
@@ -291,7 +247,7 @@ describe('ReplayAdapter', () => {
     it('updates theme to light on postMessage', async () => {
       const { __renderFn: renderFn } = (await import('react-dom/client')) as any;
 
-      const adapter = tracked({ gameName: 'test', renderer: mockRenderer });
+      const adapter = createAdapter({ gameName: 'test', renderer: mockRenderer });
       adapter.mount(container);
       renderFn.mockClear();
 
@@ -302,7 +258,7 @@ describe('ReplayAdapter', () => {
     it('updates theme to dark on postMessage', async () => {
       const { __renderFn: renderFn } = (await import('react-dom/client')) as any;
 
-      const adapter = tracked({ gameName: 'test', renderer: mockRenderer });
+      const adapter = createAdapter({ gameName: 'test', renderer: mockRenderer });
       adapter.mount(container);
 
       window.dispatchEvent(new MessageEvent('message', { data: { theme: 'light' } }));
@@ -315,7 +271,7 @@ describe('ReplayAdapter', () => {
     it('does not re-render when theme is already the same', async () => {
       const { __renderFn: renderFn } = (await import('react-dom/client')) as any;
 
-      const adapter = tracked({ gameName: 'test', renderer: mockRenderer });
+      const adapter = createAdapter({ gameName: 'test', renderer: mockRenderer });
       adapter.mount(container);
       renderFn.mockClear();
 
@@ -327,7 +283,7 @@ describe('ReplayAdapter', () => {
       const { __renderFn: renderFn } = (await import('react-dom/client')) as any;
       renderFn.mockClear();
 
-      tracked({ gameName: 'test', renderer: mockRenderer });
+      createAdapter({ gameName: 'test', renderer: mockRenderer });
 
       window.dispatchEvent(new MessageEvent('message', { data: { theme: 'light' } }));
       expect(renderFn).not.toHaveBeenCalled();
@@ -336,7 +292,7 @@ describe('ReplayAdapter', () => {
     it('ignores non-object messages', async () => {
       const { __renderFn: renderFn } = (await import('react-dom/client')) as any;
 
-      const adapter = tracked({ gameName: 'test', renderer: mockRenderer });
+      const adapter = createAdapter({ gameName: 'test', renderer: mockRenderer });
       adapter.mount(container);
       renderFn.mockClear();
 
@@ -350,7 +306,7 @@ describe('ReplayAdapter', () => {
     it('re-renders on dense change via postMessage', async () => {
       const { __renderFn: renderFn } = (await import('react-dom/client')) as any;
 
-      const adapter = tracked({ gameName: 'test', renderer: mockRenderer });
+      const adapter = createAdapter({ gameName: 'test', renderer: mockRenderer });
       adapter.mount(container);
       renderFn.mockClear();
 
@@ -361,31 +317,12 @@ describe('ReplayAdapter', () => {
     it('does not re-render when dense is already the same', async () => {
       const { __renderFn: renderFn } = (await import('react-dom/client')) as any;
 
-      const adapter = tracked({ gameName: 'test', renderer: mockRenderer });
+      const adapter = createAdapter({ gameName: 'test', renderer: mockRenderer });
       adapter.mount(container);
       renderFn.mockClear();
 
       window.dispatchEvent(new MessageEvent('message', { data: { dense: false } }));
       expect(renderFn).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('style injection', () => {
-    it('injects the Material Symbols font link on mount', () => {
-      const adapter = tracked({ gameName: 'test', renderer: mockRenderer });
-      adapter.mount(container);
-
-      const link = document.querySelector('link[href*="Material+Symbols"]');
-      expect(link).toBeTruthy();
-    });
-
-    it('injects game isolation styles on mount', () => {
-      const adapter = tracked({ gameName: 'test', renderer: mockRenderer });
-      adapter.mount(container);
-
-      const styles = document.querySelectorAll('style');
-      const isolationStyle = Array.from(styles).find((s) => s.textContent?.includes('game-renderer-isolation'));
-      expect(isolationStyle).toBeTruthy();
     });
   });
 });

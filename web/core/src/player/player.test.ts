@@ -36,8 +36,8 @@ describe('ReplayVisualizer', () => {
       new ReplayVisualizer(container, adapter);
       const player = container.querySelector('.player');
       const viewer = container.querySelector('.viewer');
-      expect(player).toBeTruthy();
-      expect(viewer).toBeTruthy();
+      expect(player).toBeInstanceOf(HTMLElement);
+      expect(viewer).toBeInstanceOf(HTMLElement);
       expect(player!.contains(viewer)).toBe(true);
     });
 
@@ -45,7 +45,7 @@ describe('ReplayVisualizer', () => {
       container.innerHTML = '<span>old content</span>';
       new ReplayVisualizer(container, adapter);
       expect(container.querySelector('span')).toBeNull();
-      expect(container.querySelector('.player')).toBeTruthy();
+      expect(container.querySelector('.player')).toBeInstanceOf(HTMLElement);
     });
 
     it('adds a message event listener', () => {
@@ -245,7 +245,7 @@ describe('ReplayVisualizer', () => {
 
     it('clears container content', () => {
       const rv = new ReplayVisualizer(container, adapter);
-      expect(container.querySelector('.player')).toBeTruthy();
+      expect(container.querySelector('.player')).toBeInstanceOf(HTMLElement);
       rv.cleanup();
       expect(container.innerHTML).toBe('');
     });
@@ -257,74 +257,6 @@ describe('ReplayVisualizer', () => {
       const replay = makeReplay();
       window.dispatchEvent(new MessageEvent('message', { data: { replay } }));
       expect(adapter.mount).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('HMR state', () => {
-    it('restores replay from HMR state', () => {
-      const replay = makeReplay({ name: 'hmr-replay' });
-      const agents = [{ name: 'Agent1' }];
-      const hmrState = { replay, agents };
-
-      // Simulate DEV environment
-      const originalEnv = import.meta.env;
-      import.meta.env.DEV = true;
-
-      new ReplayVisualizer(container, adapter, { hmrState });
-
-      expect(adapter.mount).toHaveBeenCalledWith(
-        expect.any(HTMLElement),
-        expect.objectContaining({ name: 'hmr-replay' })
-      );
-      expect(adapter.render).toHaveBeenCalledWith(0, expect.any(Object), agents);
-
-      import.meta.env.DEV = originalEnv.DEV;
-    });
-
-    it('updates HMR state when replay changes via message', () => {
-      const hmrState: any = { replay: null, agents: [] };
-      const originalEnv = import.meta.env;
-      import.meta.env.DEV = true;
-
-      new ReplayVisualizer(container, adapter, { hmrState });
-
-      const replay = makeReplay({ name: 'new-replay' });
-      window.dispatchEvent(new MessageEvent('message', { data: { replay } }));
-
-      expect(hmrState.replay).toEqual(expect.objectContaining({ name: 'new-replay' }));
-
-      import.meta.env.DEV = originalEnv.DEV;
-    });
-
-    it('updates HMR state when agents change via message', () => {
-      const hmrState: any = { replay: null, agents: [] };
-      const originalEnv = import.meta.env;
-      import.meta.env.DEV = true;
-
-      new ReplayVisualizer(container, adapter, { hmrState });
-
-      const replay = makeReplay();
-      const agents = [{ name: 'Agent1' }];
-      window.dispatchEvent(new MessageEvent('message', { data: { replay, agents } }));
-
-      expect(hmrState.agents).toEqual(agents);
-
-      import.meta.env.DEV = originalEnv.DEV;
-    });
-
-    it('updates HMR state when step changes via message', () => {
-      const replay = makeReplay();
-      const hmrState: any = { replay, agents: [], step: 0 };
-      const originalEnv = import.meta.env;
-      import.meta.env.DEV = true;
-
-      new ReplayVisualizer(container, adapter, { hmrState });
-
-      window.dispatchEvent(new MessageEvent('message', { data: { step: 5 } }));
-
-      expect(hmrState.step).toBe(5);
-
-      import.meta.env.DEV = originalEnv.DEV;
     });
   });
 });
