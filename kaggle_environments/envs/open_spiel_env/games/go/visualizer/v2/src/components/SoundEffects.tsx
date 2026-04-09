@@ -11,43 +11,68 @@ let captureBuffer: AudioBuffer | null = null;
 let buffersLoading = false;
 
 function getAudioContext(): AudioContext {
-  if (!audioCtx) {
+  if (!audioCtx || audioCtx.state === 'closed') {
     audioCtx = new AudioContext({ latencyHint: 'interactive' });
   }
   return audioCtx;
 }
 
-/** Replace the current AudioContext with a fresh one and re-decode buffers. */
-function resetAudioContext() {
-  audioCtx?.close().catch(() => {});
+// Replace the current AudioContext with a fresh one and re-decode buffers.
+async function resetAudioContext() {
+  if (audioCtx) {
+    try {
+      await audioCtx.close();
+    } catch (e) {
+      console.warn('Failed to close AudioContext', e);
+    }
+  }
   audioCtx = null;
   placeBuffer = null;
   captureBuffer = null;
   buffersLoading = false;
 }
 
+/**
+ * Fetches and decodes audio.
+ * Note: We fetch fresh data each time because decodeAudioData
+ * detaches (neuters) the ArrayBuffer.
+ */
 async function loadBuffers() {
   if (buffersLoading || (placeBuffer && captureBuffer)) return;
+
+  const ctx = getAudioContext();
   buffersLoading = true;
+
   try {
-    const ctx = getAudioContext();
-    const [placeData, captureData] = await Promise.all([
-      fetch(placeSoundUrl).then((r) => r.arrayBuffer()),
-      fetch(captureSoundUrl).then((r) => r.arrayBuffer()),
-    ]);
-    [placeBuffer, captureBuffer] = await Promise.all([
+    const [placeRes, captureRes] = await Promise.all([fetch(placeSoundUrl), fetch(captureSoundUrl)]);
+    const [placeData, captureData] = await Promise.all([placeRes.arrayBuffer(), captureRes.arrayBuffer()]);
+
+    // decodeAudioData consumes the buffer; it cannot be reused.
+    const [decodedPlace, decodedCapture] = await Promise.all([
       ctx.decodeAudioData(placeData),
       ctx.decodeAudioData(captureData),
     ]);
-  } catch {
+
+    placeBuffer = decodedPlace;
+    captureBuffer = decodedCapture;
+  } catch (error) {
+    console.error('Failed to load or decode game sounds:', error);
+    // Reset loading state so we can try again on next interaction
     buffersLoading = false;
   }
 }
 
 function playBuffer(buffer: AudioBuffer) {
   const ctx = getAudioContext();
+
+  // Browsers often suspend context even after interaction if it's been idle
+  if (ctx.state === 'suspended') {
+    ctx.resume().catch(() => {});
+  }
+
   const source = ctx.createBufferSource();
   const gain = ctx.createGain();
+
   gain.gain.value = 0.5;
   source.buffer = buffer;
   source.connect(gain).connect(ctx.destination);
@@ -59,45 +84,47 @@ const THROTTLE_MS = 150;
 export default function SoundEffects() {
   const game = useGameStore((state) => state.game);
   const soundEnabled = usePreferences((state) => state.soundEnabled);
+
   const prevRef = useRef({ move: 0, captures: 0 });
   const lastPlayedRef = useRef(0);
 
-  // Some operating systems will kill existing AudioContext instances
-  // unprompted, e.g. on iOS when the browser is backgrounded.
   useEffect(() => {
-    function unlockAudio() {
-      let ctx = getAudioContext();
-      if (ctx.state === 'running') {
-        loadBuffers();
-        return;
+    async function unlockAudio() {
+      const ctx = getAudioContext();
+
+      if (ctx.state === 'suspended') {
+        await ctx.resume().catch(() => {});
       }
 
-      // If the context is not running, attempt to re-create the context.
-      // This has to happen synchronously for iOS to see it as a
-      // user-interaction.
-      resetAudioContext();
-      ctx = getAudioContext();
-      ctx.resume().catch(() => {});
+      // If context is still not running (e.g. dead on iOS background), reset and try once more
+      if (ctx.state === 'closed') {
+        await resetAudioContext();
+        getAudioContext();
+      }
+
       loadBuffers();
     }
 
-    document.addEventListener('click', unlockAudio);
-    document.addEventListener('touchstart', unlockAudio);
-    document.addEventListener('keydown', unlockAudio);
+    const events = ['click', 'touchstart', 'keydown'];
 
-    if (getAudioContext().state === 'running') loadBuffers();
+    for (const event of events) document.addEventListener(event, unlockAudio);
+
+    // Initial check if context is already available
+    if (getAudioContext().state === 'running') {
+      loadBuffers();
+    }
 
     return () => {
-      document.removeEventListener('click', unlockAudio);
-      document.removeEventListener('touchstart', unlockAudio);
-      document.removeEventListener('keydown', unlockAudio);
+      for (const event of events) document.removeEventListener(event, unlockAudio);
     };
   }, []);
 
+  // Effect 2: Watch game state and trigger sounds
   useEffect(() => {
     const state = game.currentState();
     const move = state.moveNumber;
-    const captures = state.blackStonesCaptured + state.whiteStonesCaptured;
+    const captures = (state.blackStonesCaptured || 0) + (state.whiteStonesCaptured || 0);
+
     const prev = prevRef.current;
     const placed = move > prev.move && state.playedPoint;
     const captured = captures > prev.captures;
