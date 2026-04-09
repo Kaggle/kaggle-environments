@@ -2,8 +2,9 @@ import useGameStore from '../stores/useGameStore';
 
 export default function HiddenHeader() {
   const game = useGameStore((state) => state.game);
-  const whiteName = game.getHeaders()['w'];
-  const blackName = game.getHeaders()['b'];
+  const headers = game.getHeaders();
+  const whiteName = headers['w'];
+  const blackName = headers['b'];
 
   return (
     <h1 className="visually-hidden">

@@ -38,7 +38,7 @@ export default function GameBoard() {
   };
 
   return (
-    <div id="board" style={{ padding: '2em' }}>
+    <div id="board" style={{ padding: '0.5em' }}>
       <Chessboard
         position={position}
         customDarkSquareStyle={darkSquareStyle}
