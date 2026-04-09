@@ -1,0 +1,30 @@
+.vignetteOuter {
+  position: fixed;
+  top: var(--area-top);
+  left: var(--area-left);
+  width: var(--area-width);
+  height: var(--area-height);
+  overflow: clip;
+  z-index: 5;
+  pointer-events: none;
+  contain: paint;
+}
+
+.vignette {
+  --vignette-cx: calc(
+    var(--board-left) - var(--area-left) + var(--board-width) / 2
+  );
+  --vignette-cy: calc(
+    var(--board-top) - var(--area-top) + var(--board-height) / 2
+  );
+  width: 100%;
+  height: 100%;
+  will-change: transform;
+  transform-origin: var(--vignette-cx) var(--vignette-cy);
+  filter: blur(0.5px);
+  background: radial-gradient(
+    circle farthest-corner at var(--vignette-cx) var(--vignette-cy),
+    transparent 50%,
+    rgb(0 0 0 / 55%) 100%
+  );
+}
