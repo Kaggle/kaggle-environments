@@ -1,6 +1,6 @@
-import { GameAdapter } from './adapter';
-import { BaseGameStep, ReplayData } from './types';
-import './style.css';
+import { GameAdapter } from '../adapter';
+import { BaseGameStep, ReplayData } from '../types';
+import '../style.css';
 
 /**
  * ReplayVisualizer is a thin shell that:
