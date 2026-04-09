@@ -15,6 +15,7 @@ interface Hero {
 
 export default function HeroAnimation() {
   const game = useGameStore((state) => state.game);
+  const options = useGameStore((state) => state.options);
   const showHeroAnimations = usePreferences((state) => state.showHeroAnimations);
   const prevStepRef = useRef<number | null>(null);
   const [hero, setHero] = useState<Hero | null>(null);
@@ -55,7 +56,7 @@ export default function HeroAnimation() {
     };
   }, [game, showHeroAnimations]);
 
-  const isVisible = !!hero;
+  const isVisible = !!hero && !options.replay.steps.at(options.step)?.winner;
 
   return (
     <AnimatePresence>

@@ -5,13 +5,13 @@ import { ChessStep } from '../transformers/chessReplayTypes';
 
 interface GameStore {
   game: Chess;
-  options: GameRendererProps<ChessStep[]> | null;
+  options: GameRendererProps<ChessStep[]>;
   setState: (chess: Chess, options: GameRendererProps<ChessStep[]>) => void;
 }
 
 const useGameStore = create<GameStore>((set) => ({
   game: new Chess(),
-  options: null,
+  options: { replay: { name: '', version: '', steps: [], configuration: {} }, step: 0, agents: [] },
   setState: (game: Chess, options: GameRendererProps<ChessStep[]>) => set({ game, options }),
 }));
 
