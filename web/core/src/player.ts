@@ -1,5 +1,5 @@
-import { GameAdapter } from '../adapter';
-import { BaseGameStep, ReplayData } from '../types';
+import { GameAdapter } from './adapter';
+import { BaseGameStep, ReplayData } from './types';
 import './style.css';
 
 /**

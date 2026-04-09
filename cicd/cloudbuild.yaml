@@ -61,7 +61,7 @@ steps:
       - |
         set -e
         apt-get update && apt-get install -y jq
-        npm install -g pnpm@9
+        npm install -g pnpm
         pnpm install
         node web/scripts/sync-version.js
         pnpm build-ci

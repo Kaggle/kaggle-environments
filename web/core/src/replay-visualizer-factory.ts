@@ -1,6 +1,6 @@
-import { GameAdapter } from '../adapter';
-import { BaseGameStep, ReplayData } from '../types';
-import { ReplayVisualizer } from '../player/player';
+import { GameAdapter } from './adapter';
+import { BaseGameStep, ReplayData } from './types';
+import { ReplayVisualizer } from './player';
 
 /**
  * The shape of the persistent state for a single ReplayVisualizer instance.
@@ -17,13 +17,15 @@ interface ReplayVisualizerState {
 let hmrReplayVisualizerStates: Map<string, ReplayVisualizerState>;
 let hmrReplayVisualizerInstances: Map<string, ReplayVisualizer>;
 
-if (import.meta.env?.DEV && import.meta.hot && import.meta.hot.data) {
-  if (!import.meta.hot.data.replayVisualizerStates) {
+if (import.meta.env?.DEV && import.meta.hot) {
+  // 2. Initialize or retrieve the persistent state Map
+  if (!import.meta.hot?.data?.replayVisualizerStates) {
     import.meta.hot.data.replayVisualizerStates = new Map<string, ReplayVisualizerState>();
   }
-  hmrReplayVisualizerStates = import.meta.hot.data.replayVisualizerStates;
+  hmrReplayVisualizerStates = import.meta.hot?.data?.replayVisualizerStates;
 
-  if (!import.meta.hot.data.replayVisualizerInstances) {
+  // 3. Initialize or retrieve the instance Map (for cleanup)
+  if (!import.meta.hot?.data?.replayVisualizerInstances) {
     import.meta.hot.data.replayVisualizerInstances = new Map<string, ReplayVisualizer>();
   }
   hmrReplayVisualizerInstances = import.meta.hot.data.replayVisualizerInstances;
@@ -43,7 +45,8 @@ export function createReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameS
   adapter: GameAdapter<TSteps>,
   options: { transformer?: (replay: ReplayData) => ReplayData } = {}
 ): ReplayVisualizer<TSteps> {
-  if (!import.meta.env?.DEV || !import.meta.hot?.data) {
+  // --- Production Build ---
+  if (!import.meta.env?.DEV || !import.meta.hot) {
     return new ReplayVisualizer(container, adapter, options);
   }
 
