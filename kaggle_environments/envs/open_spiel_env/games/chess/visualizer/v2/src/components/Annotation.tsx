@@ -11,35 +11,23 @@ const LONG_THINKING_MINUTES = 5;
 
 const THOUGHT_ANNOTATIONS: { term: string; label: string | null; description: string }[] = [
   { term: 'rethink', label: null, description: 'rethinks their decision.' },
-  { term: 'monkey jump', label: 'Monkey Jump', description: `Reducing opposition territory at the boards edge.` },
-  { term: 'ladder', label: 'Ladder', description: 'Capturing stones in a zigzag pattern.' },
-  { term: "tiger's mouth", label: "Tiger's Mouth", description: 'A three-stone shape that creates a "trap".' },
-  { term: "horse's head", label: "Horse's Head", description: 'An L shaped flexible attacking position.' },
-  { term: 'wedge', label: 'Wedge', description: 'Playing between two opponent stones.' },
-  { term: "crane's nest", label: "Crane's Nest", description: 'A group trap that resembles a "nest".' },
-  { term: 'three crows', label: "Three Crow's", description: 'Guarding a corner with three stones.' },
-  { term: 'false eye', label: 'False Eye', description: "A space that looks safe, but isn't." },
-  { term: 'clamp', label: 'Clamp', description: "Playing both sides of an opponent's stone." },
-  { term: 'iron pillar', label: 'Iron Pillar', description: 'A defensive, vertical two-stone tower.' },
-  { term: 'snapback', label: 'Snapback', description: 'Sacrificing a stone to recapture several.' },
-  { term: 'tortoise shell', label: 'Tortoise Shell', description: 'A powerful wall formed by two captures.' },
+  { term: "boden's mate", label: "Boden's mate", description: 'Checkmated by two criss-crossed bishops.' },
+  { term: 'castling', label: 'Castling', description: 'Strategically moving a king and rook at the same time.' },
   {
-    term: 'bamboo joint',
-    label: 'Bamboo Joint',
-    description: 'Two parallel pairs of stones in an unbreakable connection',
+    term: 'discovered attack',
+    label: 'Discovered Attack',
+    description: 'Attacking after a piece is moved out of the way.',
   },
-  { term: 'flower', label: 'Flower', description: 'Diamond shape left after capturing one stone.' },
-  { term: 'golden chicken', label: 'Golden Chicken', description: 'Neither player can move.' },
-  { term: 'peep', label: 'Peep', description: 'A move that threatens to cut through enemy stones.' },
-  { term: 'hane', label: 'Hane', description: '"Bending" a stone around an enemy stone.' },
-  { term: 'nobi', label: 'Nobi', description: 'An extension move from your own stone.' },
-  { term: 'kiri', label: 'Kiri', description: 'A move separating two enemy stones.' },
-  { term: 'osae', label: 'Osae', description: 'Blocking the opponent from extending further.' },
-  { term: 'seki', label: 'Seki', description: 'A non-capture stalemate.' },
-  { term: 'shimari', label: 'Shimari', description: 'Two stones securing a corner area.' },
-  { term: 'moyo', label: 'Moyo', description: 'A large, potential, unsecured territory.' },
-  { term: 'dango', label: 'Dango', description: 'An inefficient group lacking the potential for safety.' },
-  { term: 'akisankaku', label: 'Akisankaku', description: 'Three stones connected in an inefficient L-shape.' },
+  { term: 'gambit', label: 'Gambit', description: 'Sacrificing a piece for early game advantage.' },
+  { term: 'interpose', label: 'Interpose', description: 'Moving a piece between an attacking piece and its target.' },
+  { term: 'mating attack', label: 'Mating Attack', description: 'A move that aims to achieve checkmate.' },
+  { term: 'royal fork', label: 'Royal Fork', description: 'A fork that threatens the king and queen.' },
+  {
+    term: 'stalemate',
+    label: 'Stalemate',
+    description: 'A draw when the active player has no legal moves and their king is not in check.',
+  },
+  { term: 'zugzwang', label: 'Zugzwang', description: 'Forced to move when any movement weakens your position.' },
 ];
 
 function formatThoughtMatch(entry: (typeof THOUGHT_ANNOTATIONS)[number], agent: string): Notation {
@@ -71,7 +59,7 @@ function resolveAnnotation(
   const agent = player.name;
 
   if (moveNumber === 1) {
-    return { term: 'goes first', title: `${agent} goes first:`, text: 'Unlike Chess, black plays first.' };
+    return { term: 'moves first', title: `${agent} moves first:`, text: 'In chess, white always goes first.' };
   }
 
   const thoughts = player.thoughts?.toLowerCase();
@@ -127,7 +115,7 @@ export default function Annotation() {
             exit={{ opacity: 0, y: '-10%', rotate: -4 }}
             transition={transition}
           >
-            {moveNumber > 2 && <span className={styles.checkLog}>*Check Log*</span>}
+            {moveNumber > 1 && <span className={styles.checkLog}>*Check Log*</span>}
             {notation.title && (
               <h2>
                 {notation.title.split(' ').map((word, i) => (
