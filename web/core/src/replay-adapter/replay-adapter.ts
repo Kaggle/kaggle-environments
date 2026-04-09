@@ -3,14 +3,11 @@ import { useRef, useEffect, useState } from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { GameAdapter } from './adapter';
-import { BaseGameStep, InterestingEvent, ReplayData, ReplayMode } from './types';
-import { EpisodePlayer, GameRendererProps, UiMode } from './components/EpisodePlayer';
-import { theme, lightTheme } from './theme';
-import { processEpisodeData } from './transformers/transformers';
-
-// Re-export UiMode for consumers
-export type { UiMode } from './components/EpisodePlayer';
+import { GameAdapter } from '../adapter';
+import { BaseGameStep, InterestingEvent, ReplayData, ReplayMode } from '../types';
+import { EpisodePlayer, GameRendererProps, UiMode } from '../components/EpisodePlayer';
+import { theme, lightTheme } from '../theme';
+import { processEpisodeData } from '../transformers/transformers';
 
 /** Transformer function type for processing replay data */
 export type ReplayTransformer<TSteps = BaseGameStep[]> = (replay: ReplayData, gameName: string) => ReplayData<TSteps>;

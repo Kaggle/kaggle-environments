@@ -1,5 +1,6 @@
 {
   "private": true,
+  "packageManager": "pnpm@9.15.3",
   "scripts": {
     "dev": "node ./web/scripts/find-games.js dev",
     "build": "node ./web/scripts/find-games.js build",
