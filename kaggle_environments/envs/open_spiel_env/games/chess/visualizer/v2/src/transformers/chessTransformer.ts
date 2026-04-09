@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { ChessReplay, ChessPlayer, ChessStep, FenState } from './chessReplayTypes';
+import { ChessReplay, ChessPlayer, ChessStep, FenState, ChessReplayStep } from './chessReplayTypes';
 
 function parseFen(fen?: string): FenState {
   if (!fen || typeof fen !== 'string') {
@@ -63,20 +63,10 @@ export function getChessStepDescription(step: ChessStep) {
   return step.players.find((player) => player.isTurn)?.thoughts ?? '';
 }
 
-export function deriveWinnerFromRewards(players: ChessPlayer[]) {
-  if (players.length < 2) return '';
-
-  const player0Reward = players[0].reward;
-  const player1Reward = players[1].reward;
-
-  if (player0Reward === player1Reward) {
-    return 'Draw';
-  }
-
-  const winnerPlayerIndex = player0Reward === 1 ? 0 : 1;
-  const color = winnerPlayerIndex === 0 ? 'Black' : 'White';
-
-  return `🎉 ${color} (${players[winnerPlayerIndex].name}) Wins!`;
+function deriveWinner(step: ChessReplayStep[]): string | null {
+  if (step[0].observation.isTerminal === false) return null;
+  if (step[0].reward === step[1].reward) return null;
+  return step[0].reward === 1 ? 'white' : 'black';
 }
 
 export const chessTransformer = (environment: any): ChessStep[] => {
@@ -132,27 +122,14 @@ export const chessTransformer = (environment: any): ChessStep[] => {
     }
   });
 
-  const lastStep = chessSteps[chessSteps.length - 1];
-  const winDescription = deriveWinnerFromRewards(lastStep.players);
+  const lastReplayStep = chessReplay.steps[chessReplay.steps.length - 1];
 
-  // Artificially insert a step at the end to emphasize the win state
   chessSteps.push({
-    players: [
-      {
-        id: -1,
-        name: 'System',
-        thumbnail: '',
-        isTurn: false,
-        actionDisplayText: '',
-        thoughts: '',
-        reward: 0,
-        generateReturns: null,
-      },
-    ],
+    players: extraStepPlayers,
     isTerminal: true,
-    fenState: lastStep.fenState,
-    step: lastStep.step + 1,
-    winner: winDescription,
+    fenState: chessSteps[chessSteps.length - 1].fenState,
+    step: chessSteps.length,
+    winner: deriveWinner(lastReplayStep),
   });
 
   return chessSteps;
