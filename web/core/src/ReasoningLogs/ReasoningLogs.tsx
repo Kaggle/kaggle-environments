@@ -1,6 +1,6 @@
 import { ReasoningStep } from './ReasoningStep';
 import { BaseGameStep, InterestingEvent, ReplayMode } from '../types';
-import { postAnalyticsEvent } from '../analytics';
+import { postAnalyticsEvent } from '../analytics/analytics';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import * as React from 'react';
 import { Virtuoso, VirtuosoHandle, Components } from 'react-virtuoso';

@@ -1,6 +1,7 @@
 import json
 import random
 from os import path
+from .memory import initialize_memory, track_turn, save_game_to_history
 
 BOARD_SIZE = 25
 
@@ -41,6 +42,8 @@ def initialize_game(state, config):
         agent_state.observation.clue = ""
         agent_state.observation.guesses_remaining = 0
         agent_state.observation.clue_number = 0
+        
+        initialize_memory(agent_state.observation, board_size)
 
 def update_visibility(state):
     # Mask roles for guessers (agents 1 and 3)
@@ -236,6 +239,38 @@ def interpreter(state, env):
     process_action(state, env.configuration)
     update_visibility(state)
     
+    # Custom Memory Logic
+    obs = state[0].observation
+    games_per_episode = env.configuration.get("games_per_episode", 1)
+    
+    if games_per_episode > 1:
+        track_turn(obs, state)
+        
+        is_done = all(s.status in ["DONE", "INVALID"] for s in state)
+        if is_done:
+            winner = None
+            if state[0].reward == 1: winner = "red"
+            elif state[2].reward == 1: winner = "blue"
+            
+            window_size = env.configuration.get("memory_window_size", 0)
+            save_game_to_history(obs, winner, window_size)
+            
+            if obs.current_game + 1 < games_per_episode:
+                # Continue to next game
+                obs.current_game += 1
+                obs.current_game_turns = []
+                obs._last_clue = ""
+                obs._last_revealed = [False] * len(obs.revealed)
+                
+                # Reset board (re-init)
+                initialize_game(state, env.configuration)
+                
+                # Reset agent statuses based on new current_turn
+                active_agent = state[0].observation.current_turn
+                for i in range(4):
+                    state[i].status = "ACTIVE" if i == active_agent else "INACTIVE"
+                    state[i].reward = 0
+                    
     return state
 
 

@@ -3,10 +3,10 @@ export * from './types';
 
 // Adapters
 export * from './adapter';
-export * from './replay-adapter';
+export * from './replay-adapter/replay-adapter';
 
 // Player (legacy, still exported)
-export * from './replay-visualizer-factory';
+export * from './replay-visualizer-factory/replay-visualizer-factory';
 
 // Transformers and timing
 export * from './timing/timing';
@@ -28,7 +28,7 @@ export * from './episodeAssetUtils/episodeAssetUtils';
 export * from './rendererUtils/rendererUtils';
 
 // Analytics
-export * from './analytics';
+export * from './analytics/analytics';
 
 // Theme and fonts
 export { loadInterFont } from './theme';
