@@ -418,8 +418,8 @@ def interpreter(state, env):
         fleet[3] += math.sin(angle) * speed
         new_pos = (fleet[2], fleet[3])
         
-        # Check if fleet went out of bounds (with margin for planets near edge)
-        if not (-10 <= fleet[2] <= BOARD_SIZE + 10 and -10 <= fleet[3] <= BOARD_SIZE + 10):
+        # Check if fleet went out of bounds
+        if not (0 <= fleet[2] <= BOARD_SIZE and 0 <= fleet[3] <= BOARD_SIZE):
             fleets_to_remove.append(fleet)
             continue
             
