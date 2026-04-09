@@ -13,7 +13,7 @@ export default function VersusBanner() {
 
   return (
     <AnimatePresence>
-      {game.moveNumber() === 1 && game.turn() === 'b' && (
+      {game.moveNumber() === 1 && game.turn() === 'w' && (
         <motion.div
           className={styles.versusBanner}
           aria-hidden="true"
