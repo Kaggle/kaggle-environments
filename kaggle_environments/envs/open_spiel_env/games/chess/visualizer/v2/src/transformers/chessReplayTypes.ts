@@ -61,7 +61,7 @@ export interface ChessReplay {
  * Only used internally as part of the type for replay data,
  * do not use elsewhere.
  */
-interface ChessReplayStep {
+export interface ChessReplayStep {
   action?: {
     actionString?: string;
     generate_returns?: string[];

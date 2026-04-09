@@ -2,22 +2,11 @@ import usePreferences from '../stores/usePreferences';
 import styles from './FeatureToggles.module.css';
 
 export function FeatureToggles() {
-  const { toggle, showHeroAnimations, showTerritory, showAnnotations, reducedMotion } = usePreferences();
+  const { toggle, showHeroAnimations, showAnnotations, reducedMotion } = usePreferences();
   return (
     <fieldset className={styles.fieldset}>
       <legend className="visually-hidden">Preferences</legend>
       <ul>
-        <li>
-          <label>
-            Live Territory
-            <input
-              type="checkbox"
-              className={styles.switch}
-              checked={showTerritory}
-              onChange={() => toggle('showTerritory')}
-            />
-          </label>
-        </li>
         <li>
           <label>
             Pop Up Animations

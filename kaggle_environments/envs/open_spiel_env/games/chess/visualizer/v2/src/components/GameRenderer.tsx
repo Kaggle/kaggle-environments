@@ -12,20 +12,18 @@ export default memo(function GameRenderer(options: GameRendererProps<ChessStep[]
     const step = options.replay.steps.at(options.step);
     const player = step!.players.find((player: ChessPlayer) => player.isTurn);
 
-    if (player) {
-      const history = options.replay.info!.stateHistory;
-      const fen = history.at(options.step);
-      const game = new Chess(fen);
-      const move = game.move(player.actionDisplayText!);
+    const history = options.replay.info!.stateHistory;
+    const fen = history[options.step - 1] ?? undefined;
+    const game = new Chess(fen);
 
-      step!.players.map((p) => {
-        const opposite = { w: 'b', b: 'w' };
-        const color = p.isTurn ? move.color : opposite[move.color];
-        game.setHeader(color, p.name);
-      });
+    if (player?.actionDisplayText) game.move(player.actionDisplayText);
 
-      setState(game, options);
-    }
+    step!.players.map((p, i) => {
+      const color = i ? 'b' : 'w';
+      game.setHeader(color, p.name);
+    });
+
+    setState(game, options);
   }, [setState, options]);
 
   return <Layout />;
