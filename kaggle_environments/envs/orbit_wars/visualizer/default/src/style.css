@@ -15,26 +15,25 @@ html, body, #app {
   width: 100%;
   height: 100%;
   min-height: 0;
-  background-color: #f5f1e2;
+  background-color: #0a0a14;
   overflow: hidden;
   font-family: 'Inter', sans-serif;
-  box-sizing: border-box;
+  box-sizing: border-box !important;
   padding: 12px;
-  color: #050001;
+  color: #e0e0e0;
   container-type: inline-size;
 }
 
-.renderer-container canvas {
+.canvas-wrapper {
   position: relative;
-  flex-grow: 1;
+  flex: 1 1 0;
   width: 100%;
-  max-width: 512px;
   min-height: 0;
-  aspect-ratio: 1;
 }
 
-.sketched-border {
-  border: 1px dashed #3c3b37;
+.renderer-container canvas {
+  display: block;
+  flex-shrink: 0;
 }
 
 .header {
@@ -54,13 +53,16 @@ html, body, #app {
   align-items: center;
   gap: 8px;
   padding: 4px 12px;
-  background-color: white;
+  background-color: #1a1a2e;
+  border: 1px solid #333;
   font-weight: 700;
-  transition: scale 300ms, background-color 300ms;
+  color: #e0e0e0;
+  transition: scale 300ms, background-color 300ms, border-color 300ms;
 }
 
 .header .player-card.active {
-  background-color: #bdeeff;
+  background-color: #1a2a3e;
+  border-color: #4a9eff;
   scale: 1.1;
 }
 
@@ -71,19 +73,28 @@ html, body, #app {
   flex-shrink: 0;
 }
 
+.header .player-card .ship-count {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: #aaa;
+  margin-left: 4px;
+}
+
 .status-container {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 24px;
   padding: 5px 16px;
-  background-color: white;
+  background-color: #1a1a2e;
+  border: 1px solid #333;
   font-size: 0.9rem;
   font-weight: 600;
   min-height: 18px;
   min-width: 200px;
   margin-top: 8px;
   flex-shrink: 0;
+  color: #e0e0e0;
 }
 
 .status-container .score-item {
@@ -117,7 +128,7 @@ html, body, #app {
 
 .controls-bar .ctrl-label {
   font-size: 0.75rem;
-  color: #444343;
+  color: #888;
   margin-right: 2px;
 }
 
@@ -126,19 +137,22 @@ html, body, #app {
   font-size: 0.7rem;
   font-weight: 600;
   padding: 2px 8px;
-  background-color: #f1f1f1;
-  color: #050001;
+  background-color: #1a1a2e;
+  color: #ccc;
+  border: 1px solid #444;
   cursor: pointer;
-  transition: background-color 150ms;
-  box-shadow: -0.125rem 0.125rem 0 #000;
+  transition: background-color 150ms, border-color 150ms;
 }
 
 .ctrl-btn:hover {
-  background-color: #e0dfda;
+  background-color: #252540;
+  border-color: #666;
 }
 
 .ctrl-btn.active {
-  background-color: #bdeeff;
+  background-color: #1a2a3e;
+  border-color: #4a9eff;
+  color: #8ac4ff;
 }
 
 .game-over-overlay {
@@ -154,21 +168,23 @@ html, body, #app {
 }
 
 .game-over-modal {
-  background-color: #f5f1e2;
-  border: 1px dashed #3c3b37;
+  background-color: #12122a;
+  border: 1px solid #4a9eff;
   padding: 16px 32px;
   text-align: center;
-  box-shadow: -0.75rem 0.75rem 0 #000;
+  box-shadow: 0 0 20px rgba(74, 158, 255, 0.3);
   font-family: 'Inter', sans-serif;
+  color: #e0e0e0;
 }
 
 .game-over-modal h2 {
   margin: 0 0 8px 0;
   font-size: 1.3rem;
+  color: #ffffff;
 }
 
 .game-over-modal .result-text {
   font-family: 'Mynerve', cursive;
   font-size: 1.1rem;
-  color: #444343;
+  color: #8ac4ff;
 }

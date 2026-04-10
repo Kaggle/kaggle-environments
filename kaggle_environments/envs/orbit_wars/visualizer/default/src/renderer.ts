@@ -6,9 +6,9 @@ const BOARD_SIZE = 100;
 const CENTER = 50;
 const SUN_RADIUS = 10;
 
-// Player colors (warm, paper-friendly)
-const PLAYER_COLORS = ['#c0392b', '#2471a3', '#27ae60', '#d4ac0d'];
-const NEUTRAL_COLOR = '#888888';
+// Player colors (bright for dark background)
+const PLAYER_COLORS = ['#FF4444', '#4a9eff', '#44FF44', '#FFFF44'];
+const NEUTRAL_COLOR = '#666666';
 
 // Text size presets: [planetFont, deltaFont, fleetFont, stepFont]
 const TEXT_SIZES: Record<string, number> = {
@@ -53,12 +53,14 @@ function parseFleet(f: number[]): Fleet {
 // --- Settings persistence via data attributes on parent ---
 interface Settings {
   showFleetNumbers: boolean;
+  showProductionDots: boolean;
   textSize: string; // 'small' | 'medium' | 'large'
 }
 
 function getSettings(parent: HTMLElement): Settings {
   return {
     showFleetNumbers: parent.dataset.showFleetNumbers !== 'false',
+    showProductionDots: parent.dataset.showProductionDots !== 'false',
     textSize: parent.dataset.textSize || 'medium',
   };
 }
@@ -129,31 +131,32 @@ export function renderer(options: RendererOptions) {
     <div class="renderer-container">
       <div class="header"></div>
       <div class="controls-bar"></div>
-      <div style="position: relative; flex-grow: 1; width: 100%; max-width: 512px; min-height: 0; display: flex; align-items: center; justify-content: center;">
+      <div class="canvas-wrapper">
         <canvas></canvas>
       </div>
-      <div class="status-container sketched-border"></div>
     </div>
   `;
 
   const header = parent.querySelector('.header') as HTMLDivElement;
   const controlsBar = parent.querySelector('.controls-bar') as HTMLDivElement;
   const canvas = parent.querySelector('canvas') as HTMLCanvasElement;
-  const statusContainer = parent.querySelector('.status-container') as HTMLDivElement;
   const canvasWrapper = canvas.parentElement as HTMLDivElement;
   if (!canvas || !replay) return;
 
   // --- Controls bar ---
   const fleetBtnActive = settings.showFleetNumbers ? ' active' : '';
+  const prodBtnActive = settings.showProductionDots ? ' active' : '';
   controlsBar.innerHTML =
-    `<button class="ctrl-btn sketched-border${fleetBtnActive}" data-action="toggle-fleet-numbers">` +
+    `<button class="ctrl-btn${fleetBtnActive}" data-action="toggle-fleet-numbers">` +
     `Fleet #</button>` +
+    `<button class="ctrl-btn${prodBtnActive}" data-action="toggle-production-dots">` +
+    `Production</button>` +
     `<span class="ctrl-group">` +
     `<span class="ctrl-label">Text:</span>` +
     ['small', 'medium', 'large']
       .map((sz) => {
         const active = settings.textSize === sz ? ' active' : '';
-        return `<button class="ctrl-btn sketched-border${active}" data-action="text-size" data-value="${sz}">${sz[0].toUpperCase() + sz.slice(1)}</button>`;
+        return `<button class="ctrl-btn${active}" data-action="text-size" data-value="${sz}">${sz[0].toUpperCase() + sz.slice(1)}</button>`;
       })
       .join('') +
     `</span>`;
@@ -166,29 +169,33 @@ export function renderer(options: RendererOptions) {
     if (action === 'toggle-fleet-numbers') {
       setSetting(parent, 'showFleetNumbers', settings.showFleetNumbers ? 'false' : 'true');
       renderer(options);
+    } else if (action === 'toggle-production-dots') {
+      setSetting(parent, 'showProductionDots', settings.showProductionDots ? 'false' : 'true');
+      renderer(options);
     } else if (action === 'text-size') {
       setSetting(parent, 'textSize', btn.dataset.value || 'medium');
       renderer(options);
     }
   });
 
-  // Size canvas
-  canvas.width = 0;
-  canvas.height = 0;
-  const rect = canvas.getBoundingClientRect();
-  const size = Math.min(rect.width, rect.height);
-  if (size === 0) {
-    canvas.width = 512;
-    canvas.height = 512;
-  } else {
-    canvas.width = size;
-    canvas.height = size;
-  }
+  // Size canvas: always square, fill available space, handle DPR
+  const dpr = window.devicePixelRatio || 1;
+  const wrapperRect = canvasWrapper.getBoundingClientRect();
+  const cssSize = Math.max(100, Math.floor(Math.min(wrapperRect.width, wrapperRect.height)));
+  canvas.style.width = `${cssSize}px`;
+  canvas.style.height = `${cssSize}px`;
+  canvas.style.position = 'absolute';
+  canvas.style.left = `${(wrapperRect.width - cssSize) / 2}px`;
+  canvas.style.top = `${(wrapperRect.height - cssSize) / 2}px`;
+  canvas.width = Math.round(cssSize * dpr);
+  canvas.height = Math.round(cssSize * dpr);
 
   const c = canvas.getContext('2d');
   if (!c) return;
+  c.scale(dpr, dpr);
 
-  const w = canvas.width;
+  // All drawing uses CSS pixels; the DPR scaling handles sharpness
+  const w = cssSize;
   const scale = w / BOARD_SIZE;
 
   // --- Header: player cards ---
@@ -203,42 +210,42 @@ export function renderer(options: RendererOptions) {
     const isActive = activePlayers.has(i);
     const activeClass = isActive ? ' active' : '';
     headerParts.push(
-      `<span class="player-card sketched-border${activeClass}">` +
+      `<span class="player-card${activeClass}">` +
         `<span class="color-dot" style="background-color: ${PLAYER_COLORS[i]}"></span>` +
         `${playerNames[i]}` +
+        `<span class="ship-count">${playerScores[i]}</span>` +
         `</span>`
     );
     if (i < numAgents - 1) {
-      headerParts.push(`<span style="color: #444343;">vs</span>`);
+      headerParts.push(`<span style="color: #666;">vs</span>`);
     }
   }
   header.innerHTML = headerParts.join('');
 
   // --- Draw game board on canvas ---
-  c.clearRect(0, 0, w, w);
+  c.fillStyle = '#000000';
+  c.fillRect(0, 0, w, w);
 
-  // Draw sun with warm glow
+  // Draw sun with glow
   const sunX = CENTER * scale;
   const sunY = CENTER * scale;
   const sunR = SUN_RADIUS * scale;
 
-  const glow = c.createRadialGradient(sunX, sunY, sunR * 0.3, sunX, sunY, sunR * 2);
-  glow.addColorStop(0, 'rgba(255, 200, 80, 0.4)');
-  glow.addColorStop(0.5, 'rgba(255, 180, 50, 0.15)');
-  glow.addColorStop(1, 'rgba(255, 150, 30, 0)');
+  const glow = c.createRadialGradient(sunX, sunY, sunR * 0.5, sunX, sunY, sunR * 2.5);
+  glow.addColorStop(0, 'rgba(255, 200, 50, 0.6)');
+  glow.addColorStop(0.5, 'rgba(255, 150, 20, 0.2)');
+  glow.addColorStop(1, 'rgba(255, 100, 0, 0)');
   c.fillStyle = glow;
   c.fillRect(0, 0, w, w);
 
   // Sun body
   c.beginPath();
   c.arc(sunX, sunY, sunR, 0, Math.PI * 2);
-  c.fillStyle = '#e8a735';
+  c.fillStyle = '#FFB800';
   c.fill();
-  c.strokeStyle = '#3c3b37';
+  c.strokeStyle = '#FFD700';
   c.lineWidth = 1;
-  c.setLineDash([3, 3]);
   c.stroke();
-  c.setLineDash([]);
 
   // Draw comet trails
   if (obs.comets) {
@@ -255,7 +262,7 @@ export function renderer(options: RendererOptions) {
           c.beginPath();
           c.moveTo(path[pi + 1][0] * scale, path[pi + 1][1] * scale);
           c.lineTo(path[pi][0] * scale, path[pi][1] * scale);
-          c.strokeStyle = `rgba(100, 140, 180, ${alpha})`;
+          c.strokeStyle = `rgba(200, 220, 255, ${alpha})`;
           c.lineWidth = ((2.5 - (1.5 * t) / tailLen) * scale) / 5;
           c.lineCap = 'round';
           c.stroke();
@@ -287,11 +294,9 @@ export function renderer(options: RendererOptions) {
     // Border
     c.beginPath();
     c.arc(px, py, pr, 0, Math.PI * 2);
-    c.strokeStyle = isComet ? '#4488aa' : '#3c3b37';
+    c.strokeStyle = isComet ? '#88ccff' : '#555';
     c.lineWidth = isComet ? 2 : 1;
-    c.setLineDash(isComet ? [] : [2, 2]);
     c.stroke();
-    c.setLineDash([]);
 
     // Ownership change highlight
     if (ownerChanged) {
@@ -299,13 +304,11 @@ export function renderer(options: RendererOptions) {
       c.arc(px, py, pr + 3, 0, Math.PI * 2);
       c.strokeStyle = color;
       c.lineWidth = 2;
-      c.setLineDash([4, 2]);
       c.stroke();
-      c.setLineDash([]);
     }
 
     // Production dots (small dots around planet)
-    if (planet.owner >= 0 && planet.production > 0) {
+    if (settings.showProductionDots && planet.owner >= 0 && planet.production > 0) {
       const dotR = Math.max(1, scale * 0.3);
       for (let d = 0; d < planet.production; d++) {
         const dotAngle = (d / planet.production) * Math.PI * 2 - Math.PI / 2;
@@ -314,7 +317,7 @@ export function renderer(options: RendererOptions) {
         const dy = py + Math.sin(dotAngle) * dotDist;
         c.beginPath();
         c.arc(dx, dy, dotR, 0, Math.PI * 2);
-        c.fillStyle = '#3c3b37';
+        c.fillStyle = '#aaa';
         c.fill();
       }
     }
@@ -340,7 +343,7 @@ export function renderer(options: RendererOptions) {
     c.globalAlpha = 0.85;
     c.fill();
     c.globalAlpha = 1;
-    c.strokeStyle = '#3c3b37';
+    c.strokeStyle = '#222';
     c.lineWidth = 0.5;
     c.stroke();
     c.restore();
@@ -358,20 +361,22 @@ export function renderer(options: RendererOptions) {
     const shipText = Math.floor(planet.ships).toString();
 
     c.font = `bold ${planetFontSize}px Inter, sans-serif`;
-    c.fillStyle = '#ffffff';
+    c.fillStyle = '#000000';
     c.fillText(shipText, px + 0.5, py + 0.5);
-    c.fillStyle = '#050001';
+    c.fillStyle = '#ffffff';
     c.fillText(shipText, px, py);
 
-    // Ship count delta
-    const prev = prevPlanetMap.get(planet.id);
-    if (prev) {
-      const delta = Math.floor(planet.ships) - Math.floor(prev.ships);
-      if (delta !== 0) {
-        const deltaText = delta > 0 ? `+${delta}` : `${delta}`;
-        c.font = `bold ${deltaFontSize}px Inter, sans-serif`;
-        c.fillStyle = delta > 0 ? '#27ae60' : '#c0392b';
-        c.fillText(deltaText, px, py - planet.radius * scale - deltaFontSize);
+    // Ship count delta (only when production display is on)
+    if (settings.showProductionDots) {
+      const prev = prevPlanetMap.get(planet.id);
+      if (prev) {
+        const delta = Math.floor(planet.ships) - Math.floor(prev.ships);
+        if (delta !== 0) {
+          const deltaText = delta > 0 ? `+${delta}` : `${delta}`;
+          c.font = `bold ${deltaFontSize}px Inter, sans-serif`;
+          c.fillStyle = delta > 0 ? '#44FF44' : '#FF4444';
+          c.fillText(deltaText, px, py - planet.radius * scale - deltaFontSize);
+        }
       }
     }
   }
@@ -396,20 +401,8 @@ export function renderer(options: RendererOptions) {
   c.font = `${stepFontSize}px Inter, sans-serif`;
   c.textAlign = 'left';
   c.textBaseline = 'top';
-  c.fillStyle = '#444343';
+  c.fillStyle = '#888';
   c.fillText(`Step ${step}`, 6, 6);
-
-  // --- Status container: scores ---
-  const scoreParts: string[] = [];
-  for (let i = 0; i < numAgents; i++) {
-    scoreParts.push(
-      `<span class="score-item">` +
-        `<span class="score-dot" style="background-color: ${PLAYER_COLORS[i]}"></span>` +
-        `${playerNames[i]}: ${playerScores[i]} ships` +
-        `</span>`
-    );
-  }
-  statusContainer.innerHTML = scoreParts.join('');
 
   // Game over overlay
   if (isGameOver) {
@@ -426,7 +419,7 @@ export function renderer(options: RendererOptions) {
       <div class="game-over-modal">
         <h2>Game Over</h2>
         <div class="result-text">${winnerText}</div>
-        <div style="margin-top: 8px; font-size: 0.85rem; color: #444343;">
+        <div style="margin-top: 8px; font-size: 0.85rem; color: #888;">
           ${playerScores.map((s, i) => `${playerNames[i]}: ${s}`).join(' &mdash; ')}
         </div>
       </div>
