@@ -244,16 +244,16 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   });
 
   useEffect(() => {
-    if (parentData.replay) {
+    if (parentData.replay && !skipTransform) {
       setReplay(parentData.replay as ReplayData<TSteps>);
     }
-  }, [parentData.replay]);
+  }, [parentData.replay, skipTransform]);
 
   useEffect(() => {
-    if (parentData.agents) {
+    if (parentData.agents && !skipTransform) {
       setCurrentAgents(parentData.agents);
     }
-  }, [parentData.agents]);
+  }, [parentData.agents, skipTransform]);
 
   // Calculate interesting events for the slider
   const interestingEvents = useMemo<InterestingEvent[]>(() => {
