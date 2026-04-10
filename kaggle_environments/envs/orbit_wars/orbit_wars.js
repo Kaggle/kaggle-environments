@@ -10,17 +10,17 @@ async function renderer(context) {
         parent,
         step,
         update,
-        width = 400,
+        width = 400
     } = context;
 
     // Canvas Setup.
-    let canvas = parent.querySelector("canvas");
+    let canvas = parent.querySelector('canvas');
     if (!canvas) {
-        canvas = document.createElement("canvas");
+        canvas = document.createElement('canvas');
         parent.appendChild(canvas);
     }
 
-    let c = canvas.getContext("2d");
+    let c = canvas.getContext('2d');
     const size = Math.min(width, height);
     canvas.width = size;
     canvas.height = size;
@@ -43,15 +43,15 @@ async function renderer(context) {
     }
 
     function drawText(text, x, y, color, size_pt = 12) {
-        c.font = `${size_pt * scale / 4}px sans-serif`;
+        c.font = `${(size_pt * scale) / 4}px sans-serif`;
         c.fillStyle = color;
-        c.textAlign = "center";
-        c.textBaseline = "middle";
+        c.textAlign = 'center';
+        c.textBaseline = 'middle';
         c.fillText(text, x * scale, y * scale);
     }
 
     // Draw Background (space!)
-    c.fillStyle = "#000000";
+    c.fillStyle = '#000000';
     c.fillRect(0, 0, canvas.width, canvas.height);
 
     // Draw Sun
@@ -60,24 +60,24 @@ async function renderer(context) {
     const sunR = 10 * scale;
     // Glow effect
     const glow = c.createRadialGradient(sunX, sunY, sunR * 0.5, sunX, sunY, sunR * 2.5);
-    glow.addColorStop(0, "rgba(255, 200, 50, 0.6)");
-    glow.addColorStop(0.5, "rgba(255, 150, 20, 0.2)");
-    glow.addColorStop(1, "rgba(255, 100, 0, 0)");
+    glow.addColorStop(0, 'rgba(255, 200, 50, 0.6)');
+    glow.addColorStop(0.5, 'rgba(255, 150, 20, 0.2)');
+    glow.addColorStop(1, 'rgba(255, 100, 0, 0)');
     c.fillStyle = glow;
     c.fillRect(0, 0, canvas.width, canvas.height);
     // Sun body
-    drawCircle(50, 50, 10, "#FFB800", true);
-    drawCircle(50, 50, 10, "#FFD700", false);
+    drawCircle(50, 50, 10, '#FFB800', true);
+    drawCircle(50, 50, 10, '#FFD700', false);
 
     const current_step = environment.steps[step];
     const obs = current_step[0].observation;
 
-    const colors = ["#FF4444", "#4444FF", "#44FF44", "#FFFF44", "#888888"]; // P0, P1, P2, P3, Neutral
+    const colors = ['#FF4444', '#4444FF', '#44FF44', '#FFFF44', '#888888']; // P0, P1, P2, P3, Neutral
 
     // Draw Comet tails (before planets so tails render behind)
     const cometPidSet = new Set(obs.comet_planet_ids || []);
     if (obs.comets) {
-        obs.comets.forEach(group => {
+        obs.comets.forEach((group) => {
             const idx = group.path_index;
             group.planet_ids.forEach((pid, i) => {
                 const path = group.paths[i];
@@ -91,13 +91,13 @@ async function renderer(context) {
                     const y0 = path[pi][1] * scale;
                     const x1 = path[pi + 1][0] * scale;
                     const y1 = path[pi + 1][1] * scale;
-                    const width = (3 - 2 * t / tailLen) * scale;
+                    const width = (3 - (2 * t) / tailLen) * scale;
                     c.beginPath();
                     c.moveTo(x1, y1);
                     c.lineTo(x0, y0);
                     c.strokeStyle = `rgba(200, 220, 255, ${alpha})`;
                     c.lineWidth = width;
-                    c.lineCap = "round";
+                    c.lineCap = 'round';
                     c.stroke();
                 }
             });
@@ -106,7 +106,7 @@ async function renderer(context) {
 
     // Draw Planets
     if (obs.planets) {
-        obs.planets.forEach(p => {
+        obs.planets.forEach((p) => {
             const id = p[0];
             const owner = p[1];
             const x = p[2];
@@ -120,17 +120,17 @@ async function renderer(context) {
             drawCircle(x, y, r, color, true);
             // Comet border
             if (cometPidSet.has(id)) {
-                drawCircle(x, y, r, "#FFFFFF", false);
+                drawCircle(x, y, r, '#FFFFFF', false);
             }
 
             // Draw ship count
-            drawText(Math.floor(ships).toString(), x, y, "#FFFFFF", 12);
+            drawText(Math.floor(ships).toString(), x, y, '#FFFFFF', 12);
         });
     }
 
     // Draw Fleets as chevrons pointed in direction of travel
     if (obs.fleets) {
-        obs.fleets.forEach(f => {
+        obs.fleets.forEach((f) => {
             const owner = f[1];
             const x = f[2] * scale;
             const y = f[3] * scale;
@@ -139,17 +139,17 @@ async function renderer(context) {
 
             const color = colors[owner];
             // Scale chevron size by ship count: log scale, 1 ship = 0.5, 1000 = 3.0
-            const sz = (0.5 + 2.5 * Math.log(ships) / Math.log(1000)) * scale;
+            const sz = (0.5 + (2.5 * Math.log(ships)) / Math.log(1000)) * scale;
 
             c.save();
             c.translate(x, y);
             c.rotate(angle);
             c.beginPath();
             // Chevron: tip at front, two wings swept back
-            c.moveTo(sz, 0);           // tip
-            c.lineTo(-sz, -sz * 0.7);  // top wing
-            c.lineTo(-sz * 0.3, 0);    // inner notch
-            c.lineTo(-sz, sz * 0.7);   // bottom wing
+            c.moveTo(sz, 0); // tip
+            c.lineTo(-sz, -sz * 0.7); // top wing
+            c.lineTo(-sz * 0.3, 0); // inner notch
+            c.lineTo(-sz, sz * 0.7); // bottom wing
             c.closePath();
             c.fillStyle = color;
             c.fill();
@@ -162,9 +162,9 @@ async function renderer(context) {
     }
 
     // Draw Step Info
-    c.fillStyle = "#FFFFFF";
-    c.font = "16px sans-serif";
-    c.textAlign = "left";
-    c.textBaseline = "top";
+    c.fillStyle = '#FFFFFF';
+    c.font = '16px sans-serif';
+    c.textAlign = 'left';
+    c.textBaseline = 'top';
     c.fillText(`Step: ${step}`, 10, 10);
 }
