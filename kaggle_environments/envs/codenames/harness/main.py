@@ -30,6 +30,14 @@ class LLMCodenamesAgent:
         
         prompt = f"You are the {team.upper()} Spymaster in Codenames.\n\n"
         prompt += f"Your goal is to get your team to guess all your {team.upper()} words while avoiding the opposite team's words and the assassin.\n"
+        
+        # Inject history if present
+        if hasattr(obs, "history") and obs.history:
+            prompt += "\nHere is the history of past games in this session:\n"
+            window_size = config.get("memory_window_size", 0)
+            prompt += json.dumps(obs.history[-window_size:], indent=2)
+            prompt += "\n\n"
+            
         prompt += "Here is the board state:\n"
         
         for i in range(25):
@@ -100,10 +108,19 @@ class LLMCodenamesAgent:
         clue_number = obs.clue_number
         prompt = f"You are the {team.upper()} Guesser in Codenames.\n"
         prompt += f"The clue from your Spymaster is: '{clue}' for {clue_number} words. (You have {remaining} guesses remaining this turn.)\n\n"
+        
         if clue_number == 0:
             prompt += "A clue number of 0 means NONE of your remaining words relate to this clue (often used to point out the assassin). You get unlimited guesses, but you MUST still make at least one guess.\n\n"
         elif clue_number == -1:
             prompt += "A clue number of -1 means 'Infinity'. You get unlimited guesses based on this clue and previous clues. You must make at least one guess.\n\n"
+            
+        # Inject history if present
+        if hasattr(obs, "history") and obs.history:
+            prompt += "Here is the history of past games in this session:\n"
+            window_size = config.get("memory_window_size", 0)
+            prompt += json.dumps(obs.history[-window_size:], indent=2)
+            prompt += "\n\n"
+            
         prompt += "Here are the unrevealed words on the board you can choose from:\n"
         
         for i in range(25):
