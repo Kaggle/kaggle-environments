@@ -22,7 +22,7 @@ export default function VersusBanner() {
           exit={{ opacity: 0, scale: 0.9, transition: exitTransition }}
         >
           <Ribbon>
-            {blackName ?? 'Black'} vs. {whiteName ?? 'White'}
+            {whiteName ?? 'White'} vs. {blackName ?? 'Black'}
           </Ribbon>
         </motion.div>
       )}
