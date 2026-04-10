@@ -1,15 +1,15 @@
 from kaggle_environments import make
 
-def test_codenames_memory_initialization():
-    env = make("codenames", configuration={"games_per_episode": 2})
+def test_word_association_memory_initialization():
+    env = make("word_association", configuration={"games_per_episode": 2})
     state = env.reset()
     assert "current_game" in state[0].observation
     assert state[0].observation.current_game == 0
     assert "history" in state[0].observation
     assert len(state[0].observation.history) == 0
 
-def test_codenames_memory_completes_multiple_games():
-    env = make("codenames", configuration={"games_per_episode": 2})
+def test_word_association_memory_completes_multiple_games():
+    env = make("word_association", configuration={"games_per_episode": 2})
     
     # Run a full game using random agents
     env.run(["random", "random", "random", "random"])
@@ -26,9 +26,9 @@ def test_codenames_memory_completes_multiple_games():
     
     print("Production memory game successfully finished with history length:", len(obs.history))
 
-def test_codenames_memory_window_size():
+def test_word_association_memory_window_size():
     # Run 3 games but set window size to 1
-    env = make("codenames", configuration={"games_per_episode": 3, "memory_window_size": 1})
+    env = make("word_association", configuration={"games_per_episode": 3, "memory_window_size": 1})
     
     env.run(["random", "random", "random", "random"])
     
@@ -43,7 +43,7 @@ def test_codenames_memory_window_size():
     print("Memory window size test passed!")
 
 if __name__ == "__main__":
-    test_codenames_memory_initialization()
-    test_codenames_memory_completes_multiple_games()
-    test_codenames_memory_window_size()
+    test_word_association_memory_initialization()
+    test_word_association_memory_completes_multiple_games()
+    test_word_association_memory_window_size()
     print("All production memory tests passed!")

@@ -1,6 +1,6 @@
-# Codenames (Kaggle Environments)
+# Word Association (Kaggle Environments)
 
-This is the Kaggle Environments implementation of the classic board game **Codenames**, specifically designed to handle and evaluate Large Language Model (LLM) agents!
+This is the Kaggle Environments implementation of the game **Word Association**, specifically designed to handle and evaluate Large Language Model (LLM) agents!
 
 ## Table of Contents
 - [Overview](#overview)
@@ -10,7 +10,7 @@ This is the Kaggle Environments implementation of the classic board game **Coden
 - [Agent Harnesses](#agent-harnesses)
 
 ## Overview
-The Codenames environment supports teams of AI agents interacting over a board of 25 words. Roles include Red/Blue Spymasters and Guessers. The engine keeps track of hidden cards, verifies valid guess counts, and handles score keeping until victory conditions are met.
+The Word Association environment supports teams of AI agents interacting over a board of 25 words. Roles include Red/Blue Spymasters and Guessers. The engine keeps track of hidden cards, verifies valid guess counts, and handles score keeping until victory conditions are met.
 
 ## Running a Local Game 
 
@@ -22,11 +22,11 @@ Requirements:
 
 Run the test game:
 ```bash
-python kaggle_environments/envs/codenames/test_llm_game.py
+python kaggle_environments/envs/word_association/test_llm_game.py
 ```
 
 This script will run a simulation and output two useful debugging artifacts:
-1. **`codenames_replay.html`**: A standalone webpage containing the visualizer and the recorded game. You can double-click this file to view the game in your browser instantly.
+1. **`word_association_replay.html`**: A standalone webpage containing the visualizer and the recorded game. You can double-click this file to view the game in your browser instantly.
 2. **`visualizer/default/replays/test-replay.json`**: The raw JSON replay file used by the dev server.
 
 ## Local Visualizer Development
@@ -38,9 +38,9 @@ First, navigate to the repository root and ensure `node` dependencies are instal
 pnpm install
 ```
 
-Then, run the custom test server for the Codenames visualizer:
+Then, run the custom test server for the Word Association visualizer:
 ```bash
-pnpm test-server codenames
+pnpm test-server word_association
 ```
 
 This command automatically:
@@ -52,6 +52,6 @@ This command automatically:
 
 ## Agent Harnesses
 
-To create your own Codenames bots, you can hook into the custom LLM harness framework located in `kaggle_environments/envs/codenames/harness/`.
+To create your own Word Association bots, you can hook into the custom LLM harness framework located in `kaggle_environments/envs/word_association/harness/`.
 
-Check out `main.py` inside the harness directory to see how the `LLMCodenamesAgent` parses board states, builds prompts, and manages API communication!
+Check out `main.py` inside the harness directory to see how the `LLMWordAssociationAgent` parses board states, builds prompts, and manages API communication!

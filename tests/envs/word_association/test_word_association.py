@@ -1,7 +1,7 @@
 from kaggle_environments import make
 
-def test_codenames_completes():
-    env = make("codenames")
+def test_word_association_completes():
+    env = make("word_association")
     
     # Run a full game using the random agent on all 4 slots.
     # The random agent will pass random clues and guesses.
@@ -26,7 +26,7 @@ def test_codenames_completes():
     print("Game successfully finished with rewards:", rewards)
 
 def test_random_start_counts():
-    env = make("codenames")
+    env = make("word_association")
     roles = env.state[0].observation.roles
     red_count = sum(1 for r in roles if r == "red")
     blue_count = sum(1 for r in roles if r == "blue")
@@ -42,7 +42,7 @@ def test_random_start_counts():
         assert turn == 2
 
 def test_minimum_one_guess():
-    env = make("codenames")
+    env = make("word_association")
     state = env.reset()
     turn = state[0].observation.current_turn
     
@@ -58,7 +58,7 @@ def test_minimum_one_guess():
     assert env.done
 
 def test_unlimited_clues_require_one_guess():
-    env = make("codenames")
+    env = make("word_association")
     state = env.reset()
     turn = state[0].observation.current_turn
     
@@ -72,7 +72,7 @@ def test_unlimited_clues_require_one_guess():
     assert env.state[guesser_turn].status == "INVALID"
 
 def test_infinity_clues_require_one_guess():
-    env = make("codenames")
+    env = make("word_association")
     state = env.reset()
     turn = state[0].observation.current_turn
     
@@ -86,7 +86,7 @@ def test_infinity_clues_require_one_guess():
     assert env.state[guesser_turn].status == "INVALID"
 
 def test_clue_validation():
-    env = make("codenames")
+    env = make("word_association")
     state = env.reset()
     turn = state[0].observation.current_turn
     
@@ -103,7 +103,7 @@ def test_clue_validation():
     assert state[0].observation.current_turn == (2 if turn == 0 else 0)
 
 def test_space_hyphen_validation():
-    env = make("codenames")
+    env = make("word_association")
     state = env.reset()
     turn = state[0].observation.current_turn
     
@@ -133,11 +133,11 @@ def test_space_hyphen_validation():
     assert state[0].observation.current_turn == (2 if turn == 0 else 0)
 
 if __name__ == "__main__":
-    test_codenames_completes()
+    test_word_association_completes()
     test_random_start_counts()
     test_minimum_one_guess()
     test_unlimited_clues_require_one_guess()
     test_infinity_clues_require_one_guess()
     test_clue_validation()
     test_space_hyphen_validation()
-    print("All Codenames rule tests passed!")
+    print("All Word Association rule tests passed!")

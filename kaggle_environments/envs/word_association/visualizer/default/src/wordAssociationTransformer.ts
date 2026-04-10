@@ -1,12 +1,12 @@
 import { BaseGameStep, ReplayData } from '@kaggle-environments/core';
 
-export interface CodenamesStep extends BaseGameStep {
+export interface WordAssociationStep extends BaseGameStep {
   rawAgents: any[];
 }
 
-export const codenamesTransformer = (environment: ReplayData, _gameName: string): ReplayData => {
+export const wordAssociationTransformer = (environment: ReplayData, _gameName: string): ReplayData => {
   const rawSteps = environment.steps as unknown as any[][];
-  const transformedSteps: CodenamesStep[] = [];
+  const transformedSteps: WordAssociationStep[] = [];
 
   rawSteps.forEach((stepAgents, index) => {
     // The previous step determines whose turn it is this step.

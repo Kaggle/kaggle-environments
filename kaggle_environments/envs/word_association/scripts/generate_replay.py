@@ -2,7 +2,7 @@ import json
 import os
 from kaggle_environments import make
 
-env = make("codenames", debug=True)
+env = make("word_association", debug=True)
 env.run(["random", "random", "random", "random"])
 
 replay_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "visualizer", "default", "replays")

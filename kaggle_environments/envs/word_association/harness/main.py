@@ -6,7 +6,7 @@ import litellm
 litellm.drop_params = True
 litellm.set_verbose = True
 
-class LLMCodenamesAgent:
+class LLMWordAssociationAgent:
     def __init__(self, model_name=None, litellm_kwargs=None):
         self.model_name = model_name
         self.litellm_kwargs = litellm_kwargs or {}
@@ -46,7 +46,7 @@ class LLMCodenamesAgent:
         turn = obs.current_turn
         team = "red" if turn == 0 else "blue"
         
-        prompt = f"You are the {team.upper()} Spymaster in Codenames.\n\n"
+        prompt = f"You are the {team.upper()} Spymaster in Word Association.\n\n"
         prompt += f"Your goal is to get your team to guess all your {team.upper()} words while avoiding the opposite team's words and the assassin.\n"
         
         # Inject memory context (past games and current turns)
@@ -120,7 +120,7 @@ class LLMCodenamesAgent:
         team = "red" if turn == 1 else "blue"
         
         clue_number = obs.clue_number
-        prompt = f"You are the {team.upper()} Guesser in Codenames.\n\n"
+        prompt = f"You are the {team.upper()} Guesser in Word Association.\n\n"
         prompt += f"Your goal is to correctly guess your team's words based on the Spymaster's clues while avoiding the opposite team's words and the assassin.\n"
         
         # Inject memory context (past games and current turns)
@@ -230,7 +230,7 @@ def agent_fn(obs, config):
             if "gemini" in model_name.lower() and not model_name.startswith("gemini/"):
                 model_name = f"gemini/{model_name}"
             
-        _AGENT_OBJECT = LLMCodenamesAgent(model_name=model_name, litellm_kwargs=litellm_kwargs)
+        _AGENT_OBJECT = LLMWordAssociationAgent(model_name=model_name, litellm_kwargs=litellm_kwargs)
         _SETUP_COMPLETE = True
 
     return _AGENT_OBJECT(obs, config)
