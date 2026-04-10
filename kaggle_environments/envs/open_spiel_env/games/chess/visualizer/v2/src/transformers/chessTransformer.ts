@@ -94,7 +94,7 @@ export const chessTransformer = (environment: any): ChessStep[] => {
     winner: null,
   });
 
-  chessReplay.steps.forEach((step, index) => {
+  for (const step of chessReplay.steps) {
     // Each step contains a tuple of players, one who acted and one who's waiting
     const stepPlayers: ChessPlayer[] = step.map((player, index): ChessPlayer => {
       return {
@@ -112,7 +112,7 @@ export const chessTransformer = (environment: any): ChessStep[] => {
     // Ignore setup steps where no one acted
     if (stepPlayers.findIndex((player) => player.isTurn) !== -1) {
       chessSteps.push({
-        step: index,
+        step: chessSteps.length,
         players: stepPlayers,
         // Both agents have the same observation string for the step, just grab the first one
         fenState: parseFen(step[0].observation.observationString),
@@ -120,7 +120,7 @@ export const chessTransformer = (environment: any): ChessStep[] => {
         winner: '',
       });
     }
-  });
+  }
 
   const lastReplayStep = chessReplay.steps[chessReplay.steps.length - 1];
 

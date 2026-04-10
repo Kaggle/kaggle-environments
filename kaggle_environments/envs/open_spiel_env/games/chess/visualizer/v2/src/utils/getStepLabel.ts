@@ -9,12 +9,12 @@ export function getStepLabel(step: BaseGameStep) {
     return `Plays ${move}`;
   }
 
-  const whiteName = step.players.at(0)?.name ?? 'White';
-  const blackName = step.players.at(1)?.name ?? 'Black';
+  const blackName = step.players.at(0)?.name ?? 'Black';
+  const whiteName = step.players.at(1)?.name ?? 'White';
 
   // Game Start
   if (step.step === 0) {
-    return `${blackName} vs. ${whiteName}`;
+    return `${whiteName} vs. ${blackName}`;
   }
 
   // Game Over

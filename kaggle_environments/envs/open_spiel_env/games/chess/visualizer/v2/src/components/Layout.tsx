@@ -3,13 +3,14 @@ import HiddenHeader from './HiddenHeader';
 import BoardControls from './BoardControls';
 import GameBoard from './GameBoard';
 import Annotation from './Annotation';
+import { SoundEffects } from './SoundEffects.tsx';
 import VersusBanner from './VersusBanner';
 import GameOver from './GameOver';
 import HeroAnimation from './HeroAnimation';
 import useBoardRect from '../hooks/useBoardRect';
 import styles from './Layout.module.css';
 import { Vignette } from './Vignette.tsx';
-import { PlayerBar } from './PlayerBar.tsx';
+import PlayerBar from './PlayerBar.tsx';
 
 export default memo(function Layout() {
   useBoardRect();
@@ -26,6 +27,7 @@ export default memo(function Layout() {
       <PlayerBar color="w" />
       <VersusBanner />
       <Vignette />
+      <SoundEffects />
       <GameOver />
       <HeroAnimation />
     </main>
