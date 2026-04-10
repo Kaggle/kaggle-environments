@@ -645,6 +645,10 @@ with open(json_path) as json_file:
 
 
 def html_renderer():
+    jspath = path.join(dir_path, "visualizer", "default", "dist", "index.html")
+    if path.exists(jspath):
+        with open(jspath, encoding="utf-8") as f:
+            return f.read()
     js_path = path.abspath(path.join(dir_path, "orbit_wars.js"))
     if path.exists(js_path):
         with open(js_path, encoding="utf-8") as js_file:
