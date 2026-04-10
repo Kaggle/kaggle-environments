@@ -17,14 +17,14 @@ export function SoundEffects() {
   const lastStep = useRef(0);
 
   useEffect(() => {
-    const history = game.history({ verbose: true });
-    const currentMove = history.at(-1);
-    const captured = currentMove?.isCapture();
-
     const isForwardStep = options.step > lastStep.current;
     lastStep.current = options.step;
 
-    if (!isForwardStep) return;
+    if (!isForwardStep || !soundEnabled) return;
+
+    const history = game.history({ verbose: true });
+    const currentMove = history.at(-1);
+    const captured = currentMove?.isCapture();
 
     // Prevent audio spam when scrubbing quickly (e.g. holding arrow keys)
     const now = performance.now();
