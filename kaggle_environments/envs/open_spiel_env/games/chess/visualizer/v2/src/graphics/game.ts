@@ -1,7 +1,7 @@
 import type { Chess } from 'chess.js';
 import { drawBoard } from './board';
 import { engine, initialiseEngine } from './engine';
-import { loadPieceTextures, syncPieces } from './pieces';
+import { loadPieceTextureAtlas, syncPieces } from './pieces';
 
 export interface Game {
   update: (chess: Chess, step: number) => void;
@@ -12,7 +12,7 @@ export async function createGame(canvas: HTMLCanvasElement): Promise<Game> {
   const eng = engine();
   await initialiseEngine(eng, canvas);
 
-  eng.textures = await loadPieceTextures();
+  eng.textures = await loadPieceTextureAtlas();
 
   // Draw board.
   const board = drawBoard(eng.squareSize);

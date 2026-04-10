@@ -124,7 +124,7 @@
             <key>data</key>
             <struct type="DataFile">
                 <key>name</key>
-                <filename></filename>
+                <filename>../sprites.json</filename>
             </struct>
         </map>
         <key>multiPackMode</key>
@@ -173,18 +173,18 @@
         </struct>
         <key>individualSpriteSettings</key>
         <map type="IndividualSpriteSettingsMap">
-            <key type="filename">../originals/bishop-b.png</key>
-            <key type="filename">../originals/bishop-w.png</key>
-            <key type="filename">../originals/king-b.png</key>
-            <key type="filename">../originals/king-w.png</key>
-            <key type="filename">../originals/knight-b.png</key>
-            <key type="filename">../originals/knight-w.png</key>
-            <key type="filename">../originals/pawn-b.png</key>
-            <key type="filename">../originals/pawn-w.png</key>
-            <key type="filename">../originals/queen-b.png</key>
-            <key type="filename">../originals/queen-w.png</key>
-            <key type="filename">../originals/rook-b.png</key>
-            <key type="filename">../originals/rook-w.png</key>
+            <key type="filename">../originals/bb.png</key>
+            <key type="filename">../originals/bk.png</key>
+            <key type="filename">../originals/bn.png</key>
+            <key type="filename">../originals/bp.png</key>
+            <key type="filename">../originals/bq.png</key>
+            <key type="filename">../originals/br.png</key>
+            <key type="filename">../originals/wb.png</key>
+            <key type="filename">../originals/wk.png</key>
+            <key type="filename">../originals/wn.png</key>
+            <key type="filename">../originals/wp.png</key>
+            <key type="filename">../originals/wq.png</key>
+            <key type="filename">../originals/wr.png</key>
             <struct type="IndividualSpriteSettings">
                 <key>pivotPoint</key>
                 <point_f>0,0</point_f>
