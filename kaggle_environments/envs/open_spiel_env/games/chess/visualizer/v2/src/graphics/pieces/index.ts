@@ -1,8 +1,10 @@
 import { Assets, Sprite, type Texture } from 'pixi.js';
 import { Chess } from 'chess.js';
+import { animate, AnimationOptions } from 'motion';
 import type { Engine } from '../engine';
 import { squareToPixel } from '../coordinates';
 import type { PieceColor, PieceType } from '../constants';
+import { SCRUB_THRESHOLD_MS } from '../../constants';
 
 import bishopBlackPath from '../../assets/images/bishop-b-small.webp';
 import bishopWhitePath from '../../assets/images/bishop-w-small.webp';
@@ -38,16 +40,48 @@ export async function loadPieceTextures(): Promise<Record<string, Texture>> {
   return Object.fromEntries(loaded);
 }
 
-// TODO(pim-at-stink): Note - We may need to make these sprites persist
-//  throughout the game.
-export function syncPieces(engine: Engine, chess: Chess) {
+// Motion config.
+const SPRING_CONFIG: AnimationOptions = { type: 'spring' as const, stiffness: 180, damping: 22, mass: 1 };
+
+// Get where every piece starts, and were every piece ends.
+function getAnimationSources(chess: Chess): Map<string, string> | null {
+  const lastMove = chess.history({ verbose: true }).at(-1);
+  if (!lastMove) return null;
+
+  const sources = new Map<string, string>([[lastMove.to, lastMove.from]]);
+
+  // https://en.wikipedia.org/wiki/Castling#Description
+  const row = lastMove.to[1];
+  if (lastMove.isKingsideCastle()) sources.set(`f${row}`, `h${row}`);
+  else if (lastMove.isQueensideCastle()) sources.set(`d${row}`, `a${row}`);
+
+  return sources;
+}
+
+export function syncPieces(engine: Engine, chess: Chess, step: number) {
   const { squareSize, textures, resources } = engine;
+
+  for (const anim of engine.animations) anim.stop();
+  engine.animations.clear();
+
+  // Snap when:
+  //   1. The user went backwards.
+  //   2. The user is scrubbing.
+  const now = performance.now();
+  const isFirstUpdate = engine.lastUpdateTime === 0;
+  const timeSinceLastUpdate = now - engine.lastUpdateTime;
+  const goingBackwards = step < engine.lastStep;
+  const scrubbingForward = !isFirstUpdate && timeSinceLastUpdate < SCRUB_THRESHOLD_MS;
+  const snap = goingBackwards || scrubbingForward;
+
+  engine.lastUpdateTime = now;
+  engine.lastStep = step;
 
   resources.pieces.removeChildren();
 
-  const board = chess.board();
+  const sources = snap ? null : getAnimationSources(chess);
 
-  for (const row of board) {
+  for (const row of chess.board()) {
     for (const cell of row) {
       if (!cell) continue;
 
@@ -57,10 +91,20 @@ export function syncPieces(engine: Engine, chess: Chess) {
       const sprite = new Sprite({ texture, anchor: 0.5 });
       sprite.scale.set(squareSize / texture.width);
 
-      const { x, y } = squareToPixel(cell.square, squareSize, 'white');
-      sprite.position.set(x, y);
+      const target = squareToPixel(cell.square, squareSize, 'white');
+      const isAnimating = sources?.get(cell.square);
 
-      resources.pieces.addChild(sprite);
+      if (isAnimating) {
+        const start = squareToPixel(isAnimating, squareSize, 'white');
+        sprite.position.set(start.x, start.y);
+        // Ensure animating pieces render above stationary pieces.
+        sprite.zIndex = 1;
+        resources.pieces.addChild(sprite);
+        engine.animations.add(animate(sprite.position, target, SPRING_CONFIG));
+      } else {
+        sprite.position.set(target.x, target.y);
+        resources.pieces.addChild(sprite);
+      }
     }
   }
 }

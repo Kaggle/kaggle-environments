@@ -7,6 +7,7 @@ export default memo(function GameBoard() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<Game | null>(null);
   const chess = useGameStore((state) => state.game);
+  const step = useGameStore((state) => state.options.step);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -23,7 +24,8 @@ export default memo(function GameBoard() {
           return;
         }
         gameRef.current = game;
-        game.update(useGameStore.getState().game);
+        const state = useGameStore.getState();
+        game.update(state.game, state.options.step);
       });
     });
 
@@ -36,8 +38,8 @@ export default memo(function GameBoard() {
   }, []);
 
   useEffect(() => {
-    gameRef.current?.update(chess);
-  }, [chess]);
+    gameRef.current?.update(chess, step);
+  }, [chess, step]);
 
   return (
     <div id="board" className={styles.board}>
