@@ -38,6 +38,8 @@ export async function loadPieceTextures(): Promise<Record<string, Texture>> {
   return Object.fromEntries(loaded);
 }
 
+// TODO(pim-at-stink): Note - We may need to make these sprites persist
+//  throughout the game.
 export function syncPieces(engine: Engine, chess: Chess) {
   const { squareSize, textures, resources } = engine;
 
