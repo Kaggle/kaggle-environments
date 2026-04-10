@@ -14,6 +14,7 @@ import rookBlackPath from '../assets/images/rook-b-small.webp';
 import rookWhitePath from '../assets/images/rook-w-small.webp';
 import useGameStore from '../stores/useGameStore.ts';
 import { BrandLogo } from './BrandLogo.tsx';
+import { takenPieces } from '../utils/takenPieces.ts';
 import styles from './Playerbar.module.css';
 
 const pieceColorImages = {
@@ -52,29 +53,18 @@ export function PlayerBar({ color }: Props) {
   const name = headers[color];
   const opponent = color === 'w' ? 'b' : 'w';
 
+  const captures = takenPieces(game).filter((p) => p.color === opponent);
+
   // Temporary array of captures, we will do this properly later.
-  const temp__captures: PieceName[] = [
-    'pawn',
-    'knight',
-    'pawn',
-    'queen',
-    'pawn',
-    'pawn',
-    'knight',
-    'pawn',
-    'queen',
-    'pawn',
-    'pawn',
-    'knight',
-    'pawn',
-    'queen',
-    'pawn',
-    'pawn',
-    'knight',
-    'pawn',
-    'queen',
-    'pawn',
-  ];
+  const temp__captures: PieceName[] = [];
+
+  for (const p of captures) {
+    if (p.type === 'b') temp__captures.push('bishop');
+    if (p.type === 'p') temp__captures.push('pawn');
+    if (p.type === 'n') temp__captures.push('knight');
+    if (p.type === 'r') temp__captures.push('rook');
+    if (p.type === 'q') temp__captures.push('queen');
+  }
 
   return (
     <div className={styles.playerBar} data-player={color}>
