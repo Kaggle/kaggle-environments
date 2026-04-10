@@ -170,6 +170,30 @@ class TestOrbitWars(unittest.TestCase):
             ),
         ]
 
+    def test_rewards_set_at_max_steps(self):
+        # When the game reaches episodeSteps without elimination,
+        # rewards should reflect each player's total ships.
+        # The framework sets obs.step = len(steps) AFTER the interpreter runs,
+        # so the interpreter sees step = episodeSteps - 2 on the final call.
+        planets = [
+            [0, 0, 80, 80, 3, 50, 1],
+            [1, 1, 20, 20, 3, 30, 1],
+        ]
+        # Use step = episodeSteps - 2 (the last step the interpreter sees)
+        state = self._make_state(planets, [], step=498)
+        env = SimpleNamespace(
+            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500, cometSpeed=4),
+            done=False,
+        )
+
+        new_state = interpreter(state, env)
+        # Both players survive, so rewards should be set based on ships
+        # Player 0: 50 ships + 1 production = 51
+        # Player 1: 30 ships + 1 production = 31
+        self.assertEqual(new_state[0].reward, 51)
+        self.assertEqual(new_state[1].reward, 31)
+        self.assertEqual(new_state[0].status, "DONE")
+
     def test_fleet_removed_when_hitting_sun(self):
         # Planet far from sun, fleet aimed directly at the sun
         planets = [[0, 0, 80, 50, 3, 50, 1]]

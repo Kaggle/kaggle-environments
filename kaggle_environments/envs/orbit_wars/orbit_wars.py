@@ -606,7 +606,7 @@ def interpreter(state, env):
 
     terminated = False
     step = get(obs0, "step", 0)
-    if step >= configuration.episodeSteps - 1:
+    if step >= configuration.episodeSteps - 2:
         terminated = True
 
     alive_players = set()
