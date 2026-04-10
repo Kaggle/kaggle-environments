@@ -39,24 +39,6 @@ def point_to_segment_distance(p, v, w):
     return distance(p, projection)
 
 
-def segment_to_segment_min_distance(a1, a2, b1, b2, samples=20):
-    """Approximate minimum distance between two line segments by sampling."""
-    min_dist = float("inf")
-    for i in range(samples + 1):
-        t = i / samples
-        pa = (a1[0] + t * (a2[0] - a1[0]), a1[1] + t * (a2[1] - a1[1]))
-        d = point_to_segment_distance(pa, b1, b2)
-        if d < min_dist:
-            min_dist = d
-    for i in range(samples + 1):
-        t = i / samples
-        pb = (b1[0] + t * (b2[0] - b1[0]), b1[1] + t * (b2[1] - b1[1]))
-        d = point_to_segment_distance(pb, a1, a2)
-        if d < min_dist:
-            min_dist = d
-    return min_dist
-
-
 def generate_planets():
     planets = []
     num_q1 = random.randint(4, 8)
@@ -456,6 +438,7 @@ def interpreter(state, env):
         angle = fleet[4]
         ships = fleet[6]
         speed = 1.0 + (max_speed - 1.0) * (math.log(ships) / math.log(1000)) ** 1.5
+        speed = min(speed, max_speed)
         old_pos = (fleet[2], fleet[3])
         fleet[2] += math.cos(angle) * speed
         fleet[3] += math.sin(angle) * speed
