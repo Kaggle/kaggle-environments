@@ -16,6 +16,7 @@
   padding-inline: 1.25em;
   color: #050001;
   transition: opacity 400ms ease;
+  color: #050001;
 }
 
 .playableArea:not([data-loaded]) {
@@ -32,7 +33,6 @@
   grid-template-columns: 1fr min(512px, calc(100% - 60px)) 1fr;
   align-items: center;
   min-width: 0;
-  color: #050001;
 }
 
 .board button {
@@ -42,4 +42,10 @@
 
 .board svg {
   display: block;
+}
+
+@container (max-width: 600px) {
+  :where(.playableArea > *) {
+    font-size: 11px;
+  }
 }
