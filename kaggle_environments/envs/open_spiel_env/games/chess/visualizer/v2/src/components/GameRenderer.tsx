@@ -10,17 +10,18 @@ export default memo(function GameRenderer(options: GameRendererProps<ChessStep[]
 
   useEffect(() => {
     const step = options.replay.steps.at(options.step);
-    const player = step!.players.find((player: ChessPlayer) => player.isTurn);
+
+    if (!step) return;
 
     const history = options.replay.info!.stateHistory;
-    const fen = history[options.step - 1] ?? undefined;
+    const fen = history.at(Math.max(0, options.step - 1));
     const game = new Chess(fen);
 
+    const player = step.players.find((player: ChessPlayer) => player.isTurn);
     if (player?.actionDisplayText) game.move(player.actionDisplayText);
 
-    step!.players.map((p, i) => {
-      const color = i ? 'b' : 'w';
-      game.setHeader(color, p.name);
+    step.players.map((player, index) => {
+      game.setHeader(index ? 'b' : 'w', player.name);
     });
 
     setState(game, options);
