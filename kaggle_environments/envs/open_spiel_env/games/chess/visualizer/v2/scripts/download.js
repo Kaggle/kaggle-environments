@@ -53,8 +53,15 @@ const list = await kaggleApi(
   JSON.stringify({
     ids: [],
     benchmarkTaskVersionFilter: {
-      benchmarkModelVersionId: 57,
-      benchmarkTaskVersionId: 396,
+      benchmarkModelVersionId: 100, // Gemini 3.1 Pro Preview
+      // benchmarkModelVersionId: 79,  // Gemini 3 Pro Preview
+      // benchmarkModelVersionId: 87,  // Gemini 3 Flash Preview
+      // benchmarkModelVersionId: 133, // GPT-5.4
+      // benchmarkModelVersionId: 32,  // o3
+      // benchmarkModelVersionId: 94,  // GPT-5.2
+      // benchmarkModelVersionId: 57,  // Grok 4
+      // benchmarkModelVersionId: 84,  // Grok 4.1 Fast Reasoning
+      benchmarkTaskVersionId: 1446,
     },
     successfulOnly: true,
   })
