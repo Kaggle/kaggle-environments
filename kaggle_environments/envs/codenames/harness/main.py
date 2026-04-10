@@ -21,6 +21,24 @@ class LLMCodenamesAgent:
         else:
             return self.guesser_turn(obs, config)
 
+    def _inject_memory_context(self, prompt, obs, config):
+        # Inject history if present
+        if hasattr(obs, "history") and obs.history:
+            prompt += "\nHere is the history of past games in this session:\n"
+            window_size = config.get("memory_window_size", 0)
+            prompt += json.dumps(obs.history[-window_size:], indent=2)
+            prompt += "\n\n"
+            
+        # Inject the running log of turns for the current game.
+        # This provides the LLM with context on previous clues given, guesses made,
+        # and their results, allowing it to see the progression of the match.
+        if hasattr(obs, "current_game_turns") and obs.current_game_turns:
+            prompt += "Clues and guesses in this game so far:\n"
+            prompt += json.dumps(obs.current_game_turns, indent=2)
+            prompt += "\n\n"
+            
+        return prompt
+
     def spymaster_turn(self, obs, config):
         roles = obs.roles
         words = obs.words
@@ -31,12 +49,8 @@ class LLMCodenamesAgent:
         prompt = f"You are the {team.upper()} Spymaster in Codenames.\n\n"
         prompt += f"Your goal is to get your team to guess all your {team.upper()} words while avoiding the opposite team's words and the assassin.\n"
         
-        # Inject history if present
-        if hasattr(obs, "history") and obs.history:
-            prompt += "\nHere is the history of past games in this session:\n"
-            window_size = config.get("memory_window_size", 0)
-            prompt += json.dumps(obs.history[-window_size:], indent=2)
-            prompt += "\n\n"
+        # Inject memory context (past games and current turns)
+        prompt = self._inject_memory_context(prompt, obs, config)
             
         prompt += "Here is the board state:\n"
         
@@ -106,20 +120,23 @@ class LLMCodenamesAgent:
         team = "red" if turn == 1 else "blue"
         
         clue_number = obs.clue_number
-        prompt = f"You are the {team.upper()} Guesser in Codenames.\n"
+        prompt = f"You are the {team.upper()} Guesser in Codenames.\n\n"
+        prompt += f"Your goal is to correctly guess your team's words based on the Spymaster's clues while avoiding the opposite team's words and the assassin.\n"
+        
+        # Inject memory context (past games and current turns)
+        prompt = self._inject_memory_context(prompt, obs, config)
+        
+        # Add note to clarify the last entry in current_game_turns
+        if hasattr(obs, "current_game_turns") and obs.current_game_turns:
+            prompt += "Note: The last entry in the 'Clues and guesses in this game so far' list above represents your current turn, showing the guesses you have already made for the current clue.\n\n"
+        
         prompt += f"The clue from your Spymaster is: '{clue}' for {clue_number} words. (You have {remaining} guesses remaining this turn.)\n\n"
+        prompt += f"If you correctly guess {clue_number} words based on this clue, you may make a bonus guess based on all information you've received so far.\n\n"
         
         if clue_number == 0:
             prompt += "A clue number of 0 means NONE of your remaining words relate to this clue (often used to point out the assassin). You get unlimited guesses, but you MUST still make at least one guess.\n\n"
         elif clue_number == -1:
             prompt += "A clue number of -1 means 'Infinity'. You get unlimited guesses based on this clue and previous clues. You must make at least one guess.\n\n"
-            
-        # Inject history if present
-        if hasattr(obs, "history") and obs.history:
-            prompt += "Here is the history of past games in this session:\n"
-            window_size = config.get("memory_window_size", 0)
-            prompt += json.dumps(obs.history[-window_size:], indent=2)
-            prompt += "\n\n"
             
         prompt += "Here are the unrevealed words on the board you can choose from:\n"
         

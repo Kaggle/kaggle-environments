@@ -10,7 +10,7 @@ def run_llm_game():
         
     # Inject dummy environment variables so local testing evaluates correctly against the required runner
     if "MODEL_NAME" not in os.environ:
-        os.environ["MODEL_NAME"] = "gemini-2.5-flash"
+        os.environ["MODEL_NAME"] = "gemini-3.1-flash-lite-preview"
     if "MODEL_PROXY_KEY" not in os.environ:
         # Pass the local api key in so that litellm can use it when it drops the dummy proxy url
         os.environ["MODEL_PROXY_KEY"] = os.environ.get("GEMINI_API_KEY", os.environ.get("OPENAI_API_KEY", "dummy"))

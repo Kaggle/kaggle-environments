@@ -228,8 +228,9 @@ def interpreter(state, env):
     # Initialization
     if len(state[0].observation.get("words", [])) == 0:
          initialize_game(state, env.configuration)
+         active_player = state[0].observation.current_turn
          for i in range(4):
-             state[i].status = "ACTIVE" if i == 0 else "INACTIVE"
+             state[i].status = "ACTIVE" if i == active_player else "INACTIVE"
          update_visibility(state)
          return state
              
@@ -243,9 +244,10 @@ def interpreter(state, env):
     obs = state[0].observation
     games_per_episode = env.configuration.get("games_per_episode", 1)
     
+    # Always track turns within the current game
+    track_turn(obs, state)
+    
     if games_per_episode > 1:
-        track_turn(obs, state)
-        
         is_done = all(s.status in ["DONE", "INVALID"] for s in state)
         if is_done:
             winner = None
