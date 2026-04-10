@@ -9,6 +9,9 @@ export function engine() {
     pieces: new Container(),
   } satisfies Record<Layer, Container>;
 
+  // Animated pieces set zIndex = 1 to draw above stationary siblings.
+  resources.pieces.sortableChildren = true;
+
   for (const layer of LAYERS) app.stage.addChild(resources[layer]);
 
   return {
@@ -16,6 +19,10 @@ export function engine() {
     resources,
     textures: {} as Record<string, Texture>,
     squareSize: 0,
+    // Scrub bookkeeping + in-flight animations for syncPieces.
+    lastUpdateTime: 0,
+    lastStep: -1,
+    animations: new Set<{ stop: () => void }>(),
   };
 }
 

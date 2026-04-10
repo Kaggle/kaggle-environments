@@ -4,11 +4,10 @@ import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences';
 import moveSoundUrl from '../assets/audio/chess-move.mp3';
 import captureSoundUrl from '../assets/audio/chess-capture.mp3';
+import { SCRUB_THRESHOLD_MS } from '../constants';
 
 const placeSound = new Howl({ src: [moveSoundUrl], volume: 0.5 });
 const captureSound = new Howl({ src: [captureSoundUrl], volume: 0.5 });
-
-const THROTTLE_MS = 150;
 
 export function SoundEffects() {
   const { game, options } = useGameStore();
@@ -28,7 +27,7 @@ export function SoundEffects() {
 
     // Prevent audio spam when scrubbing quickly (e.g. holding arrow keys)
     const now = performance.now();
-    if (now - lastPlayedRef.current < THROTTLE_MS) return;
+    if (now - lastPlayedRef.current < SCRUB_THRESHOLD_MS) return;
     lastPlayedRef.current = now;
 
     placeSound.play();

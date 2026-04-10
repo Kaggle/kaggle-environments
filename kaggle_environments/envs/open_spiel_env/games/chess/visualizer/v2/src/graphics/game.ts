@@ -4,7 +4,7 @@ import { engine, initialiseEngine } from './engine';
 import { loadPieceTextures, syncPieces } from './pieces';
 
 export interface Game {
-  update: (chess: Chess) => void;
+  update: (chess: Chess, step: number) => void;
   destroy: () => void;
 }
 
@@ -20,10 +20,14 @@ export async function createGame(canvas: HTMLCanvasElement): Promise<Game> {
   eng.resources.background.addChild(board);
 
   return {
-    update(chess: Chess) {
-      syncPieces(eng, chess);
+    update(chess: Chess, step: number) {
+      syncPieces(eng, chess, step);
     },
     destroy() {
+      // Stop any in-flight spring animations before tearing down the stage,
+      // otherwise motion keeps writing to Points on destroyed sprites.
+      for (const anim of eng.animations) anim.stop();
+      eng.animations.clear();
       eng.app.destroy({ removeView: true }, { children: true });
     },
   };
