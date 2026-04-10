@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Ribbon } from './Ribbon';
 import useGameStore from '../stores/useGameStore';
+import { trackEvent } from '../utils/analytics';
 import styles from './GameOver.module.css';
 
 function formatDuration(totalSeconds: number): string {
@@ -106,6 +107,8 @@ export default function GameOver() {
       white: `${Math.round(avg(durations.white))}s`,
     },
   ];
+
+  trackEvent('game-over');
 
   return (
     <dialog ref={dialogRef} className={styles.modal} aria-label="Game over" tabIndex={-1}>
