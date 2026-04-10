@@ -1,4 +1,4 @@
-import { BaseGameStep, BaseGamePlayer } from './types';
+import { BaseGameStep, BaseGamePlayer } from '../types';
 
 /**
  * Returns the player whose turn it is for the given step.
