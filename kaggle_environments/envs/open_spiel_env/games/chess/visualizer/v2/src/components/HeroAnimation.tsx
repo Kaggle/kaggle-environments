@@ -36,7 +36,7 @@ export default function HeroAnimation() {
     const heroType = detectHeroType(game);
     if (heroType === null) return;
 
-    const color = game.turn() === 'b' ? 'black' : 'white';
+    const color = game.turn() === 'w' ? 'black' : 'white';
     const player = color === 'black' ? 'Black' : 'White';
     const opponent = color === 'black' ? 'White' : 'Black';
 
