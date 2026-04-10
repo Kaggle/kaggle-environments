@@ -9,6 +9,7 @@ import GameOver from './GameOver';
 import HeroAnimation from './HeroAnimation';
 import useBoardRect from '../hooks/useBoardRect';
 import styles from './Layout.module.css';
+import { Vignette } from './Vignette.tsx';
 import PlayerBar from './PlayerBar.tsx';
 
 export default memo(function Layout() {
@@ -25,6 +26,7 @@ export default memo(function Layout() {
       </div>
       <PlayerBar color="w" />
       <VersusBanner />
+      <Vignette />
       <SoundEffects />
       <GameOver />
       <HeroAnimation />
