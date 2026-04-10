@@ -8,7 +8,7 @@ import GameOver from './GameOver';
 import HeroAnimation from './HeroAnimation';
 import useBoardRect from '../hooks/useBoardRect';
 import styles from './Layout.module.css';
-import { PlayerBar } from './PlayerBar.tsx';
+import PlayerBar from './PlayerBar.tsx';
 
 export default memo(function Layout() {
   useBoardRect();

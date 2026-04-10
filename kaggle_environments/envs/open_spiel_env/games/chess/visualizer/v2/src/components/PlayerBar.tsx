@@ -46,7 +46,7 @@ interface Props {
   color: 'b' | 'w';
 }
 
-export function PlayerBar({ color }: Props) {
+export default function PlayerBar({ color }: Props) {
   const game = useGameStore((state) => state.game);
   const headers = game.getHeaders();
   const name = headers[color];
