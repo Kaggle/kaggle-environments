@@ -365,9 +365,10 @@ def interpreter(state, env):
         if comet_paths:
             next_id = max(p[0] for p in obs0.planets) + 1
             comet_ships = min(
-                random.randint(0, 100),
-                random.randint(0, 100),
-                random.randint(0, 100),
+                random.randint(1, 99),
+                random.randint(1, 99),
+                random.randint(1, 99),
+                random.randint(1, 99),
             )
             group = {"planet_ids": [], "paths": comet_paths, "path_index": -1}
             for i, p_path in enumerate(comet_paths):
