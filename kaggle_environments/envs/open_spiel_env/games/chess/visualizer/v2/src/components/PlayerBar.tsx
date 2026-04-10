@@ -53,11 +53,10 @@ export function PlayerBar({ color }: Props) {
   const name = headers[color];
   const opponent = color === 'w' ? 'b' : 'w';
 
-  const captures = takenPieces(game).filter((p) => p.color === opponent);
+  const captures = takenPieces(game).filter((p) => p.color === color);
 
   // Temporary array of captures, we will do this properly later.
   const temp__captures: PieceName[] = [];
-
   for (const p of captures) {
     if (p.type === 'b') temp__captures.push('bishop');
     if (p.type === 'p') temp__captures.push('pawn');
