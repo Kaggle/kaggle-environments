@@ -68,7 +68,7 @@
   transform: translateX(1em) rotate(-8deg);
 }
 
-@container (max-width: 680px) {
+@container (max-width: 600px) {
   .soundToggle svg {
     width: 16px;
     height: 16px;

@@ -16,7 +16,7 @@
   }
 }
 
-@container (max-width: 680px) {
+@container (max-width: 600px) {
   .versusBanner > * {
     --ribbon-font-size: 0.75rem;
     --ribbon-padding-inline: 1.5em;
