@@ -300,7 +300,7 @@ def renderer(state, env):
 
 
 dir_path = path.dirname(__file__)
-json_path = path.abspath(path.join(dir_path, "codenames.json"))
+json_path = path.abspath(path.join(dir_path, "word_association.json"))
 with open(json_path) as json_file:
     specification = json.load(json_file)
 

@@ -452,7 +452,7 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
     <AppContainer>
       <BoardPane>
         <TopBar>
-          <Title>{isGameOver ? winnerText : 'CODENAMES'}</Title>
+          <Title>{isGameOver ? winnerText : 'WORD ASSOCIATION'}</Title>
           <ScoreBoard>
             <TeamScore team="red">Red: {redRemaining}</TeamScore>
             <TeamScore team="blue">Blue: {blueRemaining}</TeamScore>

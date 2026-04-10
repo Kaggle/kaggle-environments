@@ -17,8 +17,8 @@ def run_llm_game():
     if "MODEL_PROXY_URL" not in os.environ:
         os.environ["MODEL_PROXY_URL"] = "dummy_url"
 
-    print("Initializing Codenames Game with LLM Agents...")
-    env = make("codenames", configuration={"games_per_episode": 3}, debug=True)
+    print("Initializing Word Association Game with LLM Agents...")
+    env = make("word_association", configuration={"games_per_episode": 3}, debug=True)
     
     # We use our litellm harness for all 4 slots.
     # Kaggle environments requires an absolute or properly relative path
@@ -62,9 +62,9 @@ def run_llm_game():
 
     # Also save HTML render if needed
     html = env.render(mode="html")
-    with open(os.path.join(dir_path, "codenames_replay.html"), "w") as f:
+    with open(os.path.join(dir_path, "word_association_replay.html"), "w") as f:
         f.write(html)
-    print("Saved HTML render to codenames_replay.html")
+    print("Saved HTML render to word_association_replay.html")
 
 if __name__ == "__main__":
     run_llm_game()

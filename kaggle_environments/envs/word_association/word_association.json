@@ -1,7 +1,7 @@
 {
-  "name": "codenames",
-  "title": "Codenames",
-  "description": "The classic board game Codenames, adapted for AI agents.",
+  "name": "word_association",
+  "title": "Word Association",
+  "description": "A game of word association and deduction, adapted for AI agents.",
   "version": "1.0.0",
   "agents": [
     4

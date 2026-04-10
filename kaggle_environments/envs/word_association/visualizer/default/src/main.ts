@@ -1,6 +1,6 @@
 import { createReplayVisualizer, ReplayAdapter } from '@kaggle-environments/core';
 import { GameRenderer } from './renderer';
-import { codenamesTransformer } from './codenamesTransformer';
+import { wordAssociationTransformer } from './wordAssociationTransformer';
 
 /**
  * Main entry point for the Vite application.
@@ -14,9 +14,9 @@ if (app) {
   createReplayVisualizer(
     app,
     new ReplayAdapter({
-      gameName: 'codenames',
+      gameName: 'word_association',
       GameRenderer: GameRenderer,
-      transformer: codenamesTransformer,
+      transformer: wordAssociationTransformer,
       ui: 'side-panel',
     })
   );
