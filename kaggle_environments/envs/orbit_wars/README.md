@@ -76,7 +76,8 @@ Comets are temporary extra-solar objects that fly through the board on highly el
 
 - **Radius**: 1.0 (fixed).
 - **Production**: 1 ship/turn when owned.
-- **Speed**: Up to 6.0 units/turn along their pre-computed path.
+- **Starting ships**: Random, skewed low (minimum of 3 rolls from 0-100). All 4 comets in a group share the same starting ship count.
+- **Speed**: Configurable via `cometSpeed` (default 4.0 units/turn).
 - **Identification**: Check `comet_planet_ids` in the observation to see which planet IDs are comets. Comets also appear in the `planets` array and follow all normal planet rules (capture, production, fleet launch, combat).
 
 When a comet leaves the board, it is removed along with any ships garrisoned on it. Comets are removed before fleet launches each turn, so you cannot launch from a departing comet.
@@ -169,3 +170,4 @@ def agent(obs):
 | `shipSpeed` | 6.0 | Maximum fleet speed |
 | `sunRadius` | 10.0 | Radius of the sun |
 | `boardSize` | 100.0 | Board dimensions |
+| `cometSpeed` | 4.0 | Comet speed (units/turn) |

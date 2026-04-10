@@ -23,7 +23,8 @@ class TestOrbitWars(unittest.TestCase):
             ),
         ]
         env = SimpleNamespace(
-            configuration=SimpleNamespace(shipSpeed=5, episodeSteps=500), done=False
+            configuration=SimpleNamespace(shipSpeed=5, episodeSteps=500, cometSpeed=4),
+            done=False,
         )
 
         new_state = interpreter(state, env)
@@ -90,7 +91,8 @@ class TestOrbitWars(unittest.TestCase):
         ]
 
         env = SimpleNamespace(
-            configuration=SimpleNamespace(shipSpeed=5, episodeSteps=500), done=False
+            configuration=SimpleNamespace(shipSpeed=5, episodeSteps=500, cometSpeed=4),
+            done=False,
         )
 
         new_state = interpreter(state, env)
@@ -128,7 +130,8 @@ class TestOrbitWars(unittest.TestCase):
             ),
         ]
         env = SimpleNamespace(
-            configuration=SimpleNamespace(shipSpeed=5, episodeSteps=500), done=False
+            configuration=SimpleNamespace(shipSpeed=5, episodeSteps=500, cometSpeed=4),
+            done=False,
         )
 
         new_state = interpreter(state, env)
@@ -174,7 +177,8 @@ class TestOrbitWars(unittest.TestCase):
         fleets = [[0, 0, 60, 50, math.pi, 0, 10]]
         state = self._make_state(planets, fleets)
         env = SimpleNamespace(
-            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500), done=False
+            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500, cometSpeed=4),
+            done=False,
         )
 
         new_state = interpreter(state, env)
@@ -187,7 +191,8 @@ class TestOrbitWars(unittest.TestCase):
         fleets = [[0, 0, 99.5, 50, 0.0, 0, 10]]
         state = self._make_state(planets, fleets)
         env = SimpleNamespace(
-            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500), done=False
+            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500, cometSpeed=4),
+            done=False,
         )
 
         new_state = interpreter(state, env)
@@ -200,7 +205,8 @@ class TestOrbitWars(unittest.TestCase):
         fleets = [[0, 0, 50, 30, 0.0, 0, 10]]
         state = self._make_state(planets, fleets)
         env = SimpleNamespace(
-            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500), done=False
+            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500, cometSpeed=4),
+            done=False,
         )
 
         new_state = interpreter(state, env)
@@ -214,7 +220,8 @@ class TestOrbitWars(unittest.TestCase):
         fleets = [[0, 0, 76.0, 50.0, 0.0, 99, 30]]
         state = self._make_state(planets, fleets)
         env = SimpleNamespace(
-            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500), done=False
+            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500, cometSpeed=4),
+            done=False,
         )
 
         new_state = interpreter(state, env)
@@ -229,7 +236,8 @@ class TestOrbitWars(unittest.TestCase):
         fleets = [[0, 0, 76.0, 50.0, 0.0, 99, 25]]
         state = self._make_state(planets, fleets)
         env = SimpleNamespace(
-            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500), done=False
+            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500, cometSpeed=4),
+            done=False,
         )
 
         new_state = interpreter(state, env)
@@ -245,7 +253,8 @@ class TestOrbitWars(unittest.TestCase):
         fleets = [[0, 0, 76.0, 50.0, 0.0, 99, 5]]
         state = self._make_state(planets, fleets)
         env = SimpleNamespace(
-            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500), done=False
+            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500, cometSpeed=4),
+            done=False,
         )
 
         new_state = interpreter(state, env)
@@ -264,7 +273,8 @@ class TestOrbitWars(unittest.TestCase):
         ]
         state = self._make_state(planets, fleets)
         env = SimpleNamespace(
-            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500), done=False
+            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500, cometSpeed=4),
+            done=False,
         )
 
         new_state = interpreter(state, env)
@@ -282,7 +292,8 @@ class TestOrbitWars(unittest.TestCase):
         ]
         state = self._make_state(planets, fleets)
         env = SimpleNamespace(
-            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500), done=False
+            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500, cometSpeed=4),
+            done=False,
         )
 
         new_state = interpreter(state, env)
@@ -302,7 +313,8 @@ class TestOrbitWars(unittest.TestCase):
         ]
         state = self._make_state(planets, fleets)
         env = SimpleNamespace(
-            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500), done=False
+            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500, cometSpeed=4),
+            done=False,
         )
 
         new_state = interpreter(state, env)
@@ -323,7 +335,8 @@ class TestOrbitWars(unittest.TestCase):
         ]
         state = self._make_state(planets, fleets)
         env = SimpleNamespace(
-            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500), done=False
+            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500, cometSpeed=4),
+            done=False,
         )
 
         new_state = interpreter(state, env)
@@ -342,7 +355,8 @@ class TestOrbitWars(unittest.TestCase):
         ]
         state = self._make_state(planets, fleets)
         env = SimpleNamespace(
-            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500), done=False
+            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500, cometSpeed=4),
+            done=False,
         )
 
         new_state = interpreter(state, env)

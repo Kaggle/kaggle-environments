@@ -2,7 +2,7 @@
   "name": "orbit_wars",
   "title": "Orbit Wars",
   "description": "Conquer planets rotating around a sun in a continuous space.",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "agents": [2, 4],
   "configuration": {
     "episodeSteps": 500,
@@ -27,6 +27,11 @@
       "description": "Size of the continuous board.",
       "type": "number",
       "default": 100.0
+    },
+    "cometSpeed": {
+      "description": "Speed of comets in units per turn along their orbital path.",
+      "type": "number",
+      "default": 4.0
     }
   },
   "reward": {

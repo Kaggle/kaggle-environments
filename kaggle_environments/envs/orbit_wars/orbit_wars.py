@@ -163,16 +163,17 @@ def generate_planets():
     return planets
 
 
-COMET_SPEED = 6.0
-
-
 def generate_comet_paths(
-    initial_planets, angular_velocity, spawn_step, comet_planet_ids=None
+    initial_planets,
+    angular_velocity,
+    spawn_step,
+    comet_planet_ids=None,
+    comet_speed=4.0,
 ):
     """Generate 4 symmetric elliptical orbit paths for extra-solar objects.
 
     Returns list of 4 paths (one per quadrant symmetry), each path a list
-    of [x, y] positions at COMET_SPEED units/turn.  Returns None on failure.
+    of [x, y] positions at comet_speed units/turn.  Returns None on failure.
     """
     if comet_planet_ids is None:
         comet_planet_ids = set()
@@ -204,15 +205,15 @@ def generate_comet_paths(
             y = CENTER + ex * math.sin(phi) + ey * math.cos(phi)
             dense.append((x, y))
 
-        # Re-sample at constant COMET_SPEED arc-length intervals
+        # Re-sample at constant comet_speed arc-length intervals
         path = [dense[0]]
         cum = 0.0
-        target = COMET_SPEED
+        target = comet_speed
         for i in range(1, len(dense)):
             cum += distance(dense[i], dense[i - 1])
             if cum >= target:
                 path.append(dense[i])
-                target += COMET_SPEED
+                target += comet_speed
 
         # Extract contiguous on-board segment
         board_start = None
@@ -226,7 +227,7 @@ def generate_comet_paths(
         if board_start is None:
             continue
         visible = path[board_start : board_end + 1]
-        if not (5 <= len(visible) <= 25):
+        if not (5 <= len(visible) <= 40):
             continue
 
         # Build 4 symmetric paths
@@ -370,19 +371,37 @@ def interpreter(state, env):
 
     # Spawn extra-solar comets at designated steps
     step = get(obs0, "step", 0)
+    comet_speed = configuration.cometSpeed
     if (step + 1) in COMET_SPAWN_STEPS:
         comet_paths = generate_comet_paths(
-            obs0.initial_planets, obs0.angular_velocity, step + 1, obs0.comet_planet_ids
+            obs0.initial_planets,
+            obs0.angular_velocity,
+            step + 1,
+            obs0.comet_planet_ids,
+            comet_speed,
         )
         if comet_paths:
             next_id = max(p[0] for p in obs0.planets) + 1
+            comet_ships = min(
+                random.randint(0, 100),
+                random.randint(0, 100),
+                random.randint(0, 100),
+            )
             group = {"planet_ids": [], "paths": comet_paths, "path_index": -1}
             for i, p_path in enumerate(comet_paths):
                 pid = next_id + i
                 group["planet_ids"].append(pid)
                 obs0.comet_planet_ids.append(pid)
                 # Start off-board; first advancement will place at path[0]
-                planet = [pid, -1, -99, -99, COMET_RADIUS, 0, COMET_PRODUCTION]
+                planet = [
+                    pid,
+                    -1,
+                    -99,
+                    -99,
+                    COMET_RADIUS,
+                    comet_ships,
+                    COMET_PRODUCTION,
+                ]
                 obs0.planets.append(planet)
                 obs0.initial_planets.append(planet[:])
             obs0.comets.append(group)
