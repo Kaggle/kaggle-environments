@@ -1,5 +1,6 @@
 import { createReplayVisualizer, ReplayAdapter } from '@kaggle-environments/core';
 import { renderer } from './renderer';
+import { getOrbitWarsStepRenderTime } from './timing';
 import './style.css';
 
 const app = document.getElementById('app');
@@ -17,5 +18,6 @@ createReplayVisualizer(
     gameName: 'orbit_wars',
     renderer: renderer as any,
     ui: 'side-panel',
+    getStepRenderTime: (step, replayMode, speedModifier) => getOrbitWarsStepRenderTime(step, replayMode, speedModifier),
   })
 );

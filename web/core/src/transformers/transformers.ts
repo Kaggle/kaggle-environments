@@ -45,19 +45,14 @@ export const getGameStepDescription = (gameStep: BaseGameStep, _gameName: string
   return defaultGetGameStepDescription(gameStep);
 };
 
-const GAME_STEP_DURATIONS: Record<string, number> = {
-  orbit_wars: 550, // 2200 / 4 — real-time strategy plays best at 4x speed
-};
-
 export const getGameStepRenderTime = (
   gameStep: BaseGameStep,
-  gameName: string,
+  _gameName: string,
   replayMode: ReplayMode,
   speedModifier: number,
   defaultDuration?: number
 ): number => {
-  const duration = defaultDuration ?? GAME_STEP_DURATIONS[gameName];
-  return defaultGetStepRenderTime(gameStep, replayMode, speedModifier, duration);
+  return defaultGetStepRenderTime(gameStep, replayMode, speedModifier, defaultDuration);
 };
 
 export const getInterestingEvents = (_gameSteps: BaseGameStep[], _gameName: string): InterestingEvent[] => {
