@@ -26,7 +26,7 @@ Each planet is represented as `[id, owner, x, y, radius, ships, production]`.
 - **Orbiting planets**: Planets whose `orbital_radius + planet_radius < 50` rotate around the sun at a constant angular velocity (0.025-0.05 radians/turn, randomized per game). Use `initial_planets` and `angular_velocity` from the observation to predict their positions.
 - **Static planets**: Planets further from the center do not rotate.
 
-The map contains 16-32 planets (4-8 symmetric groups of 4). At least one group is guaranteed to be orbiting.
+The map contains 20-40 planets (5-10 symmetric groups of 4). At least 3 groups are guaranteed to be static, and at least one group is guaranteed to be orbiting.
 
 ### Home Planets
 
@@ -76,7 +76,7 @@ Comets are temporary extra-solar objects that fly through the board on highly el
 
 - **Radius**: 1.0 (fixed).
 - **Production**: 1 ship/turn when owned.
-- **Starting ships**: Random, skewed low (minimum of 3 rolls from 0-100). All 4 comets in a group share the same starting ship count.
+- **Starting ships**: Random, skewed low (minimum of 4 rolls from 1-99). All 4 comets in a group share the same starting ship count.
 - **Speed**: Configurable via `cometSpeed` (default 4.0 units/turn).
 - **Identification**: Check `comet_planet_ids` in the observation to see which planet IDs are comets. Comets also appear in the `planets` array and follow all normal planet rules (capture, production, fleet launch, combat).
 
