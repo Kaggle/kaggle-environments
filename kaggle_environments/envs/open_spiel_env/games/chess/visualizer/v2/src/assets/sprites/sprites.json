@@ -42,6 +42,13 @@
       "spriteSourceSize": { "x": 0, "y": 0, "w": 256, "h": 256 },
       "sourceSize": { "w": 256, "h": 256 }
     },
+    "dark-tile.png": {
+      "frame": { "x": 1, "y": 775, "w": 128, "h": 128 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 128, "h": 128 },
+      "sourceSize": { "w": 128, "h": 128 }
+    },
     "wb.png": {
       "frame": { "x": 517, "y": 1, "w": 256, "h": 256 },
       "rotated": false,
@@ -90,8 +97,8 @@
     "version": "1.1",
     "image": "sprites.png",
     "format": "RGBA8888",
-    "size": { "w": 1032, "h": 774 },
+    "size": { "w": 1032, "h": 904 },
     "scale": "1",
-    "smartupdate": "$TexturePacker:SmartUpdate:15fd0a6539f60ea3d6f448a8fcf8db84:efe30840966712714692657e86be80e9:1eabdf11f75e3a4fe3147baf7b5be24b$"
+    "smartupdate": "$TexturePacker:SmartUpdate:32e4dc431e306444a5b0da38c324cced:bd7ba718b16a9cdd70558a563c6c9e63:1eabdf11f75e3a4fe3147baf7b5be24b$"
   }
 }
