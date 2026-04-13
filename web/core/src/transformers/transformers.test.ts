@@ -97,6 +97,16 @@ describe('getGameStepRenderTime', () => {
     expect(getGameStepRenderTime(step, 'test-game', 'condensed', 1, 5000)).toBe(5000);
   });
 
+  it('uses game-specific duration for orbit_wars', () => {
+    const step = makeStep();
+    expect(getGameStepRenderTime(step, 'orbit_wars', 'condensed', 1)).toBe(550);
+  });
+
+  it('explicit defaultDuration overrides game-specific duration', () => {
+    const step = makeStep();
+    expect(getGameStepRenderTime(step, 'orbit_wars', 'condensed', 1, 5000)).toBe(5000);
+  });
+
   it('uses thought-based timing in streaming modes', () => {
     const step = makeStep({
       players: [
