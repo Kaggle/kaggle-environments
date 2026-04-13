@@ -196,9 +196,10 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
 
   const [hasCopied, setHasCopied] = React.useState(false);
 
-  const isTablet = useMediaQuery((theme) => `${theme.breakpoints.down('tablet')} and (orientation: portrait)`);
+  // For landscape orientation, we keep using the desktop layout since there is less need to be vertical friendly
+  const useVerticalLayout = useMediaQuery((theme) => `${theme.breakpoints.down('tablet')} and (orientation: portrait)`);
   const showControls = replayMode !== 'only-stream';
-  const useFullControls = !(dense && isTablet);
+  const useFullControls = !(dense && useVerticalLayout);
 
   const visibleSteps = React.useMemo(() => {
     return steps.slice(0, currentStep + 1);
@@ -213,13 +214,13 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
           // This buffer is basically our bottom padding so that the list
           // doesn't hug the bottom of the screen.
           style={{
-            height: replayMode === 'only-stream' ? '80px' : isTablet ? '16px' : '64px',
+            height: replayMode === 'only-stream' ? '80px' : useVerticalLayout ? '16px' : '64px',
           }}
         />
       ),
       Scroller,
     }),
-    [replayMode, isTablet]
+    [replayMode, useVerticalLayout]
   );
 
   const scrollLogs = React.useCallback(
@@ -296,15 +297,15 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
             <div style={{ display: 'flex' }}>
               {replayMode !== 'only-stream' && (
                 <IconButton
-                  size={isTablet ? 'small' : 'medium'}
+                  size={useVerticalLayout ? 'small' : 'medium'}
                   onClick={closePanel}
                   aria-label="Collapse Episodes"
                   style={{ padding: '6px' }}
                 >
-                  <Icon>{isTablet ? 'bottom_panel_close' : 'right_panel_close'}</Icon>
+                  <Icon>{useVerticalLayout ? 'bottom_panel_close' : 'right_panel_close'}</Icon>
                 </IconButton>
               )}
-              {replayMode !== 'only-stream' && !isTablet && (
+              {replayMode !== 'only-stream' && !useVerticalLayout && (
                 <IconButton
                   size="medium"
                   onClick={() => {
@@ -338,7 +339,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
             <PlayerControlsSection>
               <PlayerButtons>
                 <IconButton
-                  size={isTablet ? 'medium' : 'large'}
+                  size={useVerticalLayout ? 'medium' : 'large'}
                   aria-label="Restart"
                   onClick={() => {
                     onPlayChange(/* playing= */ true);
@@ -348,7 +349,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                   <Icon>refresh</Icon>
                 </IconButton>
                 <IconButton
-                  size={isTablet ? 'medium' : 'large'}
+                  size={useVerticalLayout ? 'medium' : 'large'}
                   aria-label="Previous Step"
                   onClick={() => {
                     if (currentStep > 0) {
@@ -362,7 +363,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                   <Icon>skip_previous</Icon>
                 </IconButton>
                 <IconButton
-                  size={isTablet ? 'medium' : 'large'}
+                  size={useVerticalLayout ? 'medium' : 'large'}
                   aria-label={playing ? 'Pause' : 'Play'}
                   onClick={() => {
                     postAnalyticsEvent({ game: gameName, action: playing ? 'controls_pause' : 'controls_play' });
@@ -372,7 +373,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                   <Icon>{playing ? 'pause' : 'play_arrow'}</Icon>
                 </IconButton>
                 <IconButton
-                  size={isTablet ? 'medium' : 'large'}
+                  size={useVerticalLayout ? 'medium' : 'large'}
                   aria-label="Next Step"
                   onClick={() => {
                     if (currentStep < totalSteps - 1) {
