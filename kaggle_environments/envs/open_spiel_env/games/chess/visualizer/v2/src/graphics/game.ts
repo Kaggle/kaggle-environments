@@ -14,8 +14,8 @@ export async function createGame(canvas: HTMLCanvasElement): Promise<Game> {
 
   eng.textures = await loadPieceTextureAtlas();
 
-  // Draw board.
-  const board = drawBoard(eng.squareSize);
+  // Draw board, and cache so we only draw it once.
+  const board = drawBoard(eng.squareSize, eng.boardOffset);
   board.cacheAsTexture(true);
   eng.resources.background.addChild(board);
 
@@ -24,6 +24,8 @@ export async function createGame(canvas: HTMLCanvasElement): Promise<Game> {
       syncPieces(eng, chess, step);
     },
     destroy() {
+      // TODO(pim-at-stink): https://github.com/pixijs/pixijs/issues/11977
+      board.cacheAsTexture(false);
       // Stop any in-flight spring animations before tearing down the stage,
       // otherwise motion keeps writing to Points on destroyed sprites.
       for (const anim of eng.animations) anim.stop();

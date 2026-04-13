@@ -1,5 +1,5 @@
 import { Application, Container, type Texture } from 'pixi.js';
-import { BOARD_SIZE, LAYERS, type Layer } from './constants';
+import { BOARD_PADDING_RATIO, BOARD_SIZE, LAYERS, type Layer } from './constants';
 
 export function engine() {
   const app = new Application();
@@ -19,6 +19,7 @@ export function engine() {
     resources,
     textures: {} as Record<string, Texture>,
     squareSize: 0,
+    boardOffset: 0,
     // Scrub bookkeeping + in-flight animations for syncPieces.
     lastUpdateTime: 0,
     lastStep: -1,
@@ -37,7 +38,9 @@ export async function initialiseEngine(engine: Engine, canvas: HTMLCanvasElement
     autoDensity: false,
   });
 
-  engine.squareSize = engine.app.renderer.width / BOARD_SIZE;
+  // squareSize = canvas size - padding.
+  engine.squareSize = engine.app.renderer.width / (BOARD_SIZE + 2 * BOARD_PADDING_RATIO);
+  engine.boardOffset = engine.squareSize * BOARD_PADDING_RATIO;
 }
 
 export type Engine = ReturnType<typeof engine>;
