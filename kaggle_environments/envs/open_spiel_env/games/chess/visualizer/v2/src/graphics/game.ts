@@ -15,7 +15,7 @@ export async function createGame(canvas: HTMLCanvasElement): Promise<Game> {
   eng.textures = await loadPieceTextureAtlas();
 
   // Draw board, and cache so we only draw it once.
-  const board = drawBoard(eng.squareSize, eng.boardOffset);
+  const board = drawBoard(eng.squareSize, eng.boardOffset, eng.textures['dark-tile.png']);
   board.cacheAsTexture(true);
   eng.resources.background.addChild(board);
 

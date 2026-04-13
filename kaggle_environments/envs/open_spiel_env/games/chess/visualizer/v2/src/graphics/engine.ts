@@ -28,19 +28,21 @@ export function engine() {
 }
 
 export async function initialiseEngine(engine: Engine, canvas: HTMLCanvasElement) {
+  const { width, height } = canvas;
+
   await engine.app.init({
     canvas,
-    width: canvas.width,
-    height: canvas.height,
+    width,
+    height,
     antialias: false,
     backgroundAlpha: 0,
-    resolution: 1,
-    autoDensity: false,
+    resolution: window.devicePixelRatio,
+    autoDensity: true,
   });
 
-  // squareSize = canvas size - padding.
-  engine.squareSize = engine.app.renderer.width / (BOARD_SIZE + 2 * BOARD_PADDING_RATIO);
-  engine.boardOffset = engine.squareSize * BOARD_PADDING_RATIO;
+  // Round squareSize to an integer to avoid subpixeling.
+  engine.squareSize = Math.floor(width / (BOARD_SIZE + 2 * BOARD_PADDING_RATIO));
+  engine.boardOffset = (width - engine.squareSize * BOARD_SIZE) / 2;
 }
 
 export type Engine = ReturnType<typeof engine>;

@@ -1,29 +1,48 @@
-import { Container, Graphics, Text, TextStyle } from 'pixi.js';
+import { Container, Graphics, Sprite, Text, TextStyle, type Texture } from 'pixi.js';
 import { BOARD_SIZE } from '../constants';
-
-const LIGHT_SQUARE_COLOR = 0xffffff;
-const DARK_SQUARE_COLOR = 0x000000;
 
 const COLUMN_LETTERS = 'ABCDEFGH';
 const LABEL_COLOR = 0x000000;
 const LABEL_MAX_FONT_SIZE = 20;
 const LABEL_FONT_SIZE_RATIO = 0.5;
 
-// TODO(pim-at-stink): Use textures for the board.
-export function drawBoard(squareSize: number, boardOffset: number): Container {
+export function drawBoard(squareSize: number, boardOffset: number, tileTexture: Texture): Container {
   const container = new Container();
 
-  const g = new Graphics();
+  // Place black-tile sprites on every dark square. Light squares are
+  // transparent.
   for (let row = 0; row < BOARD_SIZE; row++) {
     for (let col = 0; col < BOARD_SIZE; col++) {
-      const isLight = (row + col) % 2 === 0;
-      const x = boardOffset + col * squareSize;
-      const y = boardOffset + row * squareSize;
-      g.rect(x, y, squareSize, squareSize).fill(isLight ? LIGHT_SQUARE_COLOR : DARK_SQUARE_COLOR);
+      const isDark = (row + col) % 2 !== 0;
+      if (!isDark) continue;
+
+      const sprite = new Sprite({
+        texture: tileTexture,
+        anchor: 0.5,
+        width: squareSize,
+        height: squareSize,
+        x: boardOffset + col * squareSize + squareSize / 2,
+        y: boardOffset + row * squareSize + squareSize / 2,
+      });
+      container.addChild(sprite);
     }
   }
-  g.alpha = 0.6;
-  container.addChild(g);
+
+  // 1px grid lines
+  const gridLines = new Graphics();
+  const gridStart = boardOffset;
+  const gridEnd = boardOffset + BOARD_SIZE * squareSize;
+
+  for (let i = 0; i <= BOARD_SIZE; i++) {
+    // +0.5 to avoid subpixeling.
+    const pos = Math.round(boardOffset + i * squareSize) + 0.5;
+    // Columns
+    gridLines.moveTo(gridStart, pos).lineTo(gridEnd, pos);
+    // Rows
+    gridLines.moveTo(pos, gridStart).lineTo(pos, gridEnd);
+  }
+  gridLines.stroke({ width: 1, color: 0x000000 });
+  container.addChild(gridLines);
 
   // Labels
   const fontSize = Math.min(LABEL_MAX_FONT_SIZE, squareSize * LABEL_FONT_SIZE_RATIO);
