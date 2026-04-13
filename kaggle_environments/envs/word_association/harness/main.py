@@ -154,7 +154,7 @@ class LLMWordAssociationAgent:
         elif clue_number == -1:
             prompt += "A clue number of -1 means 'Infinity'. You get unlimited guesses based on this clue and previous clues. You must make at least one guess.\n\n"
             
-        # Fix 1: Show full board with revealed status and roles
+        # Show full board with revealed status and roles
         prompt += "Here is the board state:\n"
         roles = obs.roles # This is already masked by the environment for guessers!
         for i in range(25):
