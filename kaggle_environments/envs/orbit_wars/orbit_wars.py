@@ -20,6 +20,10 @@ SUN_RADIUS = 10.0
 ROTATION_RADIUS_LIMIT = 50.0
 COMET_RADIUS = 1.0
 COMET_PRODUCTION = 1
+PLANET_CLEARANCE = 7
+MIN_PLANET_GROUPS = 5
+MAX_PLANET_GROUPS = 10
+MIN_STATIC_GROUPS = 3
 COMET_SPAWN_STEPS = [100, 200, 300, 400]
 
 
@@ -41,12 +45,15 @@ def point_to_segment_distance(p, v, w):
 
 def generate_planets():
     planets = []
-    num_q1 = random.randint(4, 8)
+    num_q1 = random.randint(MIN_PLANET_GROUPS, MAX_PLANET_GROUPS)
     id_counter = 0
 
-    # Phase 1: Generate one guaranteed static planet group using polar coordinates.
+    # Phase 1: Generate 3 guaranteed static planet groups using polar coordinates.
     # Sample within the circular region where orbital_radius + r >= ROTATION_RADIUS_LIMIT.
-    for _ in range(1000):
+    static_groups = 0
+    for _ in range(5000):
+        if static_groups >= MIN_STATIC_GROUPS:
+            break
         prod = random.randint(1, 5)
         r = 1 + math.log(prod)
         angle = random.uniform(0, math.pi / 2)  # Q1 angle from center
@@ -69,14 +76,27 @@ def generate_planets():
             continue
 
         ships = min(random.randint(5, 99), random.randint(5, 99))
-        planets = [
+        temp_planets = [
             [id_counter, -1, x, y, r, ships, prod],
             [id_counter + 1, -1, BOARD_SIZE - x, y, r, ships, prod],
             [id_counter + 2, -1, x, BOARD_SIZE - y, r, ships, prod],
             [id_counter + 3, -1, BOARD_SIZE - x, BOARD_SIZE - y, r, ships, prod],
         ]
-        id_counter = 4
-        break
+
+        # Check overlap with existing planets
+        valid = True
+        for tp in temp_planets:
+            for p in planets:
+                if distance((p[2], p[3]), (tp[2], tp[3])) < p[4] + tp[4] + PLANET_CLEARANCE:
+                    valid = False
+                    break
+            if not valid:
+                break
+
+        if valid:
+            planets.extend(temp_planets)
+            id_counter += 4
+            static_groups += 1
 
     # Phase 2: Fill remaining planet groups with the normal random loop.
     attempts = 0
@@ -122,14 +142,14 @@ def generate_planets():
                 p_is_rotating = p_orbital + p[4] < ROTATION_RADIUS_LIMIT
 
                 # Standard initial distance check
-                if distance((p[2], p[3]), (tp[2], tp[3])) < p[4] + tp[4] + 10:
+                if distance((p[2], p[3]), (tp[2], tp[3])) < p[4] + tp[4] + PLANET_CLEARANCE:
                     valid = False
                     break
 
                 # Cross-check: one rotating, one static -> min distance over
                 # full rotation is |orbital_radius_1 - orbital_radius_2|
                 if tp_is_rotating != p_is_rotating:
-                    if abs(tp_orbital - p_orbital) < tp[4] + p[4] + 10:
+                    if abs(tp_orbital - p_orbital) < tp[4] + p[4] + PLANET_CLEARANCE:
                         valid = False
                         break
 
