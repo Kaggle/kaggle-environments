@@ -4,7 +4,7 @@ import { BOARD_SIZE } from '../constants';
 const LIGHT_SQUARE_COLOR = 0xffffff;
 const DARK_SQUARE_COLOR = 0x000000;
 
-const FILE_LETTERS = 'ABCDEFGH';
+const COLUMN_LETTERS = 'ABCDEFGH';
 const LABEL_COLOR = 0x000000;
 const LABEL_MAX_FONT_SIZE = 20;
 const LABEL_FONT_SIZE_RATIO = 0.5;
@@ -40,7 +40,7 @@ export function drawBoard(squareSize: number, boardOffset: number): Container {
   for (let col = 0; col < BOARD_SIZE; col++) {
     const x = boardOffset + col * squareSize + squareSize / 2;
     for (const y of [labelMarginCenter, boardEnd + labelMarginCenter]) {
-      const label = new Text({ text: FILE_LETTERS[col], style: labelStyle });
+      const label = new Text({ text: COLUMN_LETTERS[col], style: labelStyle });
       label.anchor.set(0.5);
       label.position.set(Math.round(x), Math.round(y));
       container.addChild(label);

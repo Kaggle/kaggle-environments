@@ -8,14 +8,14 @@ export function squareToPixel(
   orientation: Orientation,
   offset: number = 0
 ): { x: number; y: number } {
-  const file = square.charCodeAt(0) - CHAR_CODE_A;
-  const rank = Number(square[1]) - 1;
+  const boardCol = square.charCodeAt(0) - CHAR_CODE_A;
+  const boardRow = Number(square[1]) - 1;
 
-  const col = orientation === 'white' ? file : BOARD_SIZE - 1 - file;
-  const row = orientation === 'white' ? BOARD_SIZE - 1 - rank : rank;
+  const screenCol = orientation === 'white' ? boardCol : BOARD_SIZE - 1 - boardCol;
+  const screenRow = orientation === 'white' ? BOARD_SIZE - 1 - boardRow : boardRow;
 
   return {
-    x: offset + col * squareSize + squareSize / 2,
-    y: offset + row * squareSize + squareSize / 2,
+    x: offset + screenCol * squareSize + squareSize / 2,
+    y: offset + screenRow * squareSize + squareSize / 2,
   };
 }
