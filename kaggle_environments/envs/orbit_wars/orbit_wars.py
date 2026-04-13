@@ -365,9 +365,10 @@ def interpreter(state, env):
         if comet_paths:
             next_id = max(p[0] for p in obs0.planets) + 1
             comet_ships = min(
-                random.randint(0, 100),
-                random.randint(0, 100),
-                random.randint(0, 100),
+                random.randint(1, 99),
+                random.randint(1, 99),
+                random.randint(1, 99),
+                random.randint(1, 99),
             )
             group = {"planet_ids": [], "paths": comet_paths, "path_index": -1}
             for i, p_path in enumerate(comet_paths):
@@ -645,6 +646,10 @@ with open(json_path) as json_file:
 
 
 def html_renderer():
+    jspath = path.join(dir_path, "visualizer", "default", "dist", "index.html")
+    if path.exists(jspath):
+        with open(jspath, encoding="utf-8") as f:
+            return f.read()
     js_path = path.abspath(path.join(dir_path, "orbit_wars.js"))
     if path.exists(js_path):
         with open(js_path, encoding="utf-8") as js_file:
