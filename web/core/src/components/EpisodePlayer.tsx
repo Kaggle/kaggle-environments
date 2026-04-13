@@ -97,7 +97,7 @@ const PlayerContainer = styled('div')<{ $uiMode?: UiMode; $dense: boolean }>`
   height: 100%;
   overflow: hidden;
 
-  ${({ theme }) => theme.breakpoints.down('tablet')} {
+  ${({ theme }) => `${theme.breakpoints.down('tablet')} and (orientation: portrait)`} {
     flex-direction: column;
     ${(p) => p.$dense && 'max-height: 500px;'}
   }
@@ -123,7 +123,7 @@ const ReasoningLogsContainer = styled('div')<{ $dense: boolean }>`
   height: 100%;
   overflow: hidden;
 
-  ${({ theme }) => theme.breakpoints.down('tablet')} {
+  ${({ theme }) => `${theme.breakpoints.down('tablet')} and (orientation: portrait)`} {
     flex: none;
     width: 100%;
     height: ${(p) => (p.$dense ? 'min-content' : '40%')};
@@ -154,7 +154,7 @@ const GameLogButton = styled(Button)`
   bottom: 24px;
   z-index: 1;
 
-  ${({ theme }) => theme.breakpoints.down('tablet')} {
+  ${({ theme }) => `${theme.breakpoints.down('tablet')} and (orientation: portrait)`} {
     margin: 12px;
   }
 `;
@@ -198,7 +198,8 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   const [showLogs, setShowLogs] = useState(ui === 'side-panel');
   const [liveAnnouncement, setLiveAnnouncement] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
-  const isTablet = useMediaQuery((theme) => theme.breakpoints.down('tablet'));
+  // For landscape orientation, we keep using the desktop layout since there is less need to be vertical friendly
+  const useVerticalLayout = useMediaQuery((theme) => `${theme.breakpoints.down('tablet')} and (orientation: portrait)`);
 
   // Refs for custom playback handlers registered by renderers (e.g., for audio-driven playback)
   const playbackHandlersRef = useRef<{ onPlay?: () => void; onPause?: () => void }>({});
@@ -438,7 +439,7 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
           <GameLogButton
             variant="high"
             onClick={() => setShowLogs(true)}
-            startIcon={<Icon>{isTablet ? 'bottom_panel_open' : 'left_panel_open'}</Icon>}
+            startIcon={<Icon>{useVerticalLayout ? 'bottom_panel_open' : 'left_panel_open'}</Icon>}
           >
             Game Log
           </GameLogButton>
