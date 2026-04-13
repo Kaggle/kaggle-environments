@@ -75,11 +75,11 @@ export function syncPieces(engine: Engine, chess: Chess, step: number) {
       const sprite = new Sprite({ texture, anchor: 0.5 });
       sprite.scale.set(squareSize / texture.width);
 
-      const target = squareToPixel(cell.square, squareSize, 'white');
+      const target = squareToPixel(cell.square, squareSize, 'white', engine.boardOffset);
       const isAnimating = sources?.get(cell.square);
 
       if (isAnimating) {
-        const start = squareToPixel(isAnimating, squareSize, 'white');
+        const start = squareToPixel(isAnimating, squareSize, 'white', engine.boardOffset);
         sprite.position.set(start.x, start.y);
         // Ensure animating pieces render above stationary pieces.
         sprite.zIndex = 1;
