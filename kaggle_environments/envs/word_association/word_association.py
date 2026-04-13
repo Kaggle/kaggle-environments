@@ -16,10 +16,14 @@ def initialize_game(state, config):
     with open(words_path, "r") as f:
         all_words = [line.strip().upper() for line in f.readlines() if line.strip()]
         
-    sampled_words = random.sample(all_words, board_size)
+    # Setup deterministic random generator if seed is provided
+    seed = config.get("seed")
+    rng = random.Random(seed) if seed is not None else random
+        
+    sampled_words = rng.sample(all_words, board_size)
     
     # Determine playing order and word counts
-    starting_team = random.choice(["red", "blue"])
+    starting_team = rng.choice(["red", "blue"])
     if starting_team == "red":
         red_count = starting_team_words
         blue_count = second_team_words
@@ -30,7 +34,7 @@ def initialize_game(state, config):
     # Assign roles
     roles = ["red"] * red_count + ["blue"] * blue_count + ["assassin"] * 1
     roles += ["neutral"] * (board_size - len(roles))
-    random.shuffle(roles)
+    rng.shuffle(roles)
     
     revealed = [False] * board_size
     

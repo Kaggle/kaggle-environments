@@ -36,6 +36,11 @@
       "type": "integer",
       "default": 0,
       "description": "Maximum number of past games to keep in history. Set to 0 for unlimited."
+    },
+    "seed": {
+      "type": ["integer", "null"],
+      "default": null,
+      "description": "Seed for random board generation. Set to null for random play."
     }
   },
   "observation": {
