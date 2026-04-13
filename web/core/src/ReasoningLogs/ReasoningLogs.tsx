@@ -62,7 +62,7 @@ const LogsContainer = styled('div')<{ $dense: boolean }>`
   height: 100%;
   min-height: 0;
 
-  ${({ theme }) => theme.breakpoints.down('tablet')} {
+  ${({ theme }) => `${theme.breakpoints.down('tablet')} and (orientation: portrait)`} {
     border-left: none;
     flex: none;
     ${(p) => p.$dense && ' height: min-content'};
@@ -77,7 +77,7 @@ const SidebarHeader = styled('div')`
   padding: 16px;
   flex-shrink: 0;
 
-  ${({ theme }) => theme.breakpoints.down('tablet')} {
+  ${({ theme }) => `${theme.breakpoints.down('tablet')} and (orientation: portrait)`} {
     border-top: 1px solid ${(p) => p.theme.palette.divider};
     padding: 8px 16px;
   }
@@ -196,7 +196,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
 
   const [hasCopied, setHasCopied] = React.useState(false);
 
-  const isTablet = useMediaQuery((theme) => theme.breakpoints.down('tablet'));
+  const isTablet = useMediaQuery((theme) => `${theme.breakpoints.down('tablet')} and (orientation: portrait)`);
   const showControls = replayMode !== 'only-stream';
   const useFullControls = !(dense && isTablet);
 
