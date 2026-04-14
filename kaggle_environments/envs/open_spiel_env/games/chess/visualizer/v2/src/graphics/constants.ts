@@ -7,7 +7,9 @@ export const CHAR_CODE_A = 97; // 'a'.charCodeAt(0)
  */
 export const BOARD_PADDING_RATIO = 0.4;
 
-export const LAYERS = ['background', 'pieces'] as const;
+export const GRID_LINE_WIDTH = 1;
+
+export const LAYERS = ['background', 'highlights', 'pieces'] as const;
 export type Layer = (typeof LAYERS)[number];
 
 export type PieceType = 'p' | 'n' | 'b' | 'r' | 'q' | 'k';

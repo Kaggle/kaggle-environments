@@ -1,4 +1,4 @@
-import { Application, Container, type Texture } from 'pixi.js';
+import { Application, Container, Texture } from 'pixi.js';
 import { BOARD_PADDING_RATIO, BOARD_SIZE, LAYERS, type Layer } from './constants';
 
 export function engine() {
@@ -6,6 +6,7 @@ export function engine() {
 
   const resources = {
     background: new Container(),
+    highlights: new Container(),
     pieces: new Container(),
   } satisfies Record<Layer, Container>;
 
@@ -18,6 +19,7 @@ export function engine() {
     app,
     resources,
     textures: {} as Record<string, Texture>,
+    toHighlightTexture: Texture.WHITE as Texture,
     squareSize: 0,
     boardOffset: 0,
     // Scrub bookkeeping + in-flight animations for syncPieces.

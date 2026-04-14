@@ -1,5 +1,5 @@
 import { Container, Graphics, Sprite, Text, TextStyle, type Texture } from 'pixi.js';
-import { BOARD_SIZE } from '../constants';
+import { BOARD_SIZE, GRID_LINE_WIDTH } from '../constants';
 
 const COLUMN_LETTERS = 'ABCDEFGH';
 const LABEL_COLOR = 0x000000;
@@ -41,7 +41,7 @@ export function drawBoard(squareSize: number, boardOffset: number, tileTexture: 
     // Rows
     gridLines.moveTo(pos, gridStart).lineTo(pos, gridEnd);
   }
-  gridLines.stroke({ width: 1, color: 0x000000 });
+  gridLines.stroke({ width: GRID_LINE_WIDTH, color: 0x000000 });
   container.addChild(gridLines);
 
   // Labels

@@ -1,6 +1,7 @@
 import type { Chess } from 'chess.js';
 import { drawBoard } from './board';
 import { engine, initialiseEngine } from './engine';
+import { createToHighlightTexture, syncHighlights } from './highlights';
 import { loadPieceTextureAtlas, syncPieces } from './pieces';
 
 export interface Game {
@@ -13,6 +14,7 @@ export async function createGame(canvas: HTMLCanvasElement): Promise<Game> {
   await initialiseEngine(eng, canvas);
 
   eng.textures = await loadPieceTextureAtlas();
+  eng.toHighlightTexture = createToHighlightTexture(eng.app.renderer, eng.squareSize);
 
   // Draw board, and cache so we only draw it once.
   const board = drawBoard(eng.squareSize, eng.boardOffset, eng.textures['dark-tile.png']);
@@ -21,6 +23,11 @@ export async function createGame(canvas: HTMLCanvasElement): Promise<Game> {
 
   return {
     update(chess: Chess, step: number) {
+      // Stop all in-flight animations before rebuilding sprites.
+      for (const anim of eng.animations) anim.stop();
+      eng.animations.clear();
+
+      syncHighlights(eng, chess);
       syncPieces(eng, chess, step);
     },
     destroy() {
