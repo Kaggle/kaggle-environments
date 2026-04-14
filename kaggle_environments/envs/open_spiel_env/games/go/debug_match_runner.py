@@ -6,7 +6,7 @@ response so illegal-move failures are easy to diagnose.
 
 Usage:
     GEMINI_API_KEY=... .venv/bin/python -m \\
-        kaggle_environments.envs.open_spiel_env.games.go.run_match \\
+        kaggle_environments.envs.open_spiel_env.games.go.debug_match_runner \\
         --num-moves 5 --model gemini-2.5-flash
 """
 
