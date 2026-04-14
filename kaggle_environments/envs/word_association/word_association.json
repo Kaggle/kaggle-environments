@@ -79,6 +79,10 @@
     "blue_wins": {
       "description": "Number of games won by the Blue team in this episode.",
       "type": "integer"
+    },
+    "current_game": {
+      "description": "The index of the current game within the episode (0-indexed).",
+      "type": "integer"
     }
   },
   "action": {
