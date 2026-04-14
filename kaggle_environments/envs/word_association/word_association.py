@@ -47,6 +47,13 @@ def initialize_game(state, config):
         agent_state.observation.guesses_remaining = 0
         agent_state.observation.clue_number = 0
         
+        # Initialize episode-level scores only once.
+        # These persist across games in a multi-game episode.
+        if not hasattr(agent_state.observation, 'red_wins'):
+            agent_state.observation.red_wins = 0
+        if not hasattr(agent_state.observation, 'blue_wins'):
+            agent_state.observation.blue_wins = 0
+            
         initialize_memory(agent_state.observation, board_size)
 
 def update_visibility(state):
@@ -259,6 +266,14 @@ def interpreter(state, env):
             if state[0].reward == 1: winner = "red"
             elif state[2].reward == 1: winner = "blue"
             
+            # Update wins in observation
+            if winner == "red":
+                for s in state:
+                    s.observation.red_wins += 1
+            elif winner == "blue":
+                for s in state:
+                    s.observation.blue_wins += 1
+            
             window_size = env.configuration.get("memory_window_size", 0)
             save_game_to_history(obs, winner, window_size)
             
@@ -277,6 +292,25 @@ def interpreter(state, env):
                 for i in range(4):
                     state[i].status = "ACTIVE" if i == active_agent else "INACTIVE"
                     state[i].reward = 0
+            else:
+                # End of episode: Determine overall winner and set final rewards to 1 / -1
+                red_wins = state[0].observation.red_wins
+                blue_wins = state[0].observation.blue_wins
+                
+                if red_wins > blue_wins:
+                    overall_winner = "red"
+                elif blue_wins > red_wins:
+                    overall_winner = "blue"
+                else:
+                    overall_winner = None
+                    
+                for i in range(4):
+                    if overall_winner == "red":
+                        state[i].reward = 1 if i in [0, 1] else -1
+                    elif overall_winner == "blue":
+                        state[i].reward = 1 if i in [2, 3] else -1
+                    else:
+                        state[i].reward = 0
                     
     return state
 

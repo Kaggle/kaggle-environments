@@ -71,6 +71,14 @@
     "clue_number": {
       "description": "The original number associated with the Spymaster's clue.",
       "type": "integer"
+    },
+    "red_wins": {
+      "description": "Number of games won by the Red team in this episode.",
+      "type": "integer"
+    },
+    "blue_wins": {
+      "description": "Number of games won by the Blue team in this episode.",
+      "type": "integer"
     }
   },
   "action": {
