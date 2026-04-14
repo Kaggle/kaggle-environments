@@ -131,18 +131,36 @@ class LLMWordAssociationAgent:
             prompt += "Note: The last entry in the 'Clues and guesses in this game so far' list above represents your current turn, showing the guesses you have already made for the current clue.\n\n"
         
         prompt += f"The clue from your Spymaster is: '{clue}' for {clue_number} words. (You have {remaining} guesses remaining this turn.)\n\n"
-        prompt += f"If you correctly guess {clue_number} words based on this clue, you may make a bonus guess based on all information you've received so far.\n\n"
+        
+        if clue_number > 0:
+            prompt += f"If you correctly guess {clue_number} words based on this clue, you may make a bonus guess based on all information you've received so far.\n\n"
+            
+            correct_guesses = (clue_number + 1) - remaining
+            words_remaining = remaining - 1
+            
+            if correct_guesses > 0:
+                current_guesses = []
+                if hasattr(obs, "current_game_turns") and obs.current_game_turns:
+                    current_guesses = obs.current_game_turns[-1]["guesses"]
+                guesses_str = ", ".join(current_guesses)
+                
+                if words_remaining == 0:
+                    prompt += f"You have correctly guessed all {clue_number} words for this clue (Guessed: {guesses_str}). You are now on your bonus guess!\n\n"
+                else:
+                    prompt += f"You have correctly guessed {correct_guesses} times for this clue already (Guessed: {guesses_str}), meaning there are {words_remaining} words related to the clue remaining.\n\n"
         
         if clue_number == 0:
             prompt += "A clue number of 0 means NONE of your remaining words relate to this clue (often used to point out the assassin). You get unlimited guesses, but you MUST still make at least one guess.\n\n"
         elif clue_number == -1:
             prompt += "A clue number of -1 means 'Infinity'. You get unlimited guesses based on this clue and previous clues. You must make at least one guess.\n\n"
             
-        prompt += "Here are the unrevealed words on the board you can choose from:\n"
-        
+        # Show full board with revealed status and roles
+        prompt += "Here is the board state:\n"
+        roles = obs.roles # This is already masked by the environment for guessers!
         for i in range(25):
-            if not revealed[i]:
-                prompt += f"{i}: {words[i]}\n"
+            status = "Revealed" if revealed[i] else "Hidden"
+            # roles[i] will be "Unknown" for hidden cards and the actual role for revealed cards
+            prompt += f"- {i}: {words[i]} ({roles[i].upper()}, {status})\n"
                 
         prompt += "\nThink step-by-step about which unrevealed word matches the clue best. Provide your reasoning in a 'thinking' key.\n"
         prompt += "Then provide the integer index of the ONE word you want to guess right now in a 'guess' key.\n"

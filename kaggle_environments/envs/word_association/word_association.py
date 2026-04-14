@@ -248,8 +248,9 @@ def interpreter(state, env):
     obs = state[0].observation
     games_per_episode = env.configuration.get("games_per_episode", 1)
     
-    # Always track turns within the current game
-    track_turn(obs, state)
+    # Always track turns within the current game for all agents
+    for s in state:
+        track_turn(s.observation, state)
     
     if games_per_episode > 1:
         is_done = all(s.status in ["DONE", "INVALID"] for s in state)
