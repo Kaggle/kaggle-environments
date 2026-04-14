@@ -220,6 +220,9 @@ def agent_fn(
     observation = obs if isinstance(obs, dict) else vars(obs)
     legal_actions, legal_action_strings = _get_legal_moves(observation)
 
+    if not legal_actions:
+        return {"submission": -1}
+
     previous_response = None
     previous_action = None
     content = ""
@@ -236,6 +239,7 @@ def agent_fn(
             response = litellm.completion(
                 model=_MODEL_NAME,
                 messages=[{"role": "user", "content": prompt}],
+                reasoning_effort="high",
                 **_LITELLM_KWARGS,
             )
             content = response.choices[0].message.content.strip()
