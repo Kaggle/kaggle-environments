@@ -76,6 +76,17 @@ const ScoreBoard = styled.div`
   gap: 16px;
 `;
 
+const MatchScore = styled.div`
+  display: flex;
+  gap: 16px;
+  background-color: #222;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 16px;
+  border: 1px solid #444;
+`;
+
 const TeamScore = styled.div<{ team: 'red' | 'blue' }>`
   background-color: ${(props: { team: 'red' | 'blue' }) =>
     props.team === 'red' ? 'rgba(244, 67, 54, 0.2)' : 'rgba(33, 150, 243, 0.2)'};
@@ -285,6 +296,9 @@ interface GameState {
   clue?: string;
   guesses_remaining?: number;
   reward?: number;
+  current_game?: number;
+  red_wins?: number;
+  blue_wins?: number;
 }
 
 export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererProps) => {
@@ -338,6 +352,25 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
     const agent1IsActive = currentTurnVal === 1;
     const agent2IsActive = currentTurnVal === 2;
     const agent3IsActive = currentTurnVal === 3;
+
+    // Check for game transition in multi-game episodes
+    if (prevTurn) {
+      const prevState = prevTurn[0].observation;
+      const currentState = pastStep[0].observation;
+      
+      if (currentState.current_game > prevState.current_game) {
+        const redWon = currentState.red_wins > prevState.red_wins;
+        const blueWon = currentState.blue_wins > prevState.blue_wins;
+        const winner = redWon ? "Red" : blueWon ? "Blue" : "No one";
+        
+        logEntries.push(
+          <ChatBubble key={`s${i}-end`} team="system" isSpymaster={false}>
+            <ActorName>System</ActorName>
+            <strong>{winner} Won Game {prevState.current_game + 1}!</strong> Starting next game...
+          </ChatBubble>
+        );
+      }
+    }
 
     if (agent0IsActive && agent0Act !== null && typeof agent0Act === 'object' && 'clue' in agent0Act) {
       logEntries.push(
@@ -453,9 +486,13 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
       <BoardPane>
         <TopBar>
           <Title>{isGameOver ? winnerText : 'WORD ASSOCIATION'}</Title>
+          <MatchScore>
+            <span style={{ color: '#ff8a80' }}>Red Wins: {state.red_wins || 0}</span>
+            <span style={{ color: '#82b1ff' }}>Blue Wins: {state.blue_wins || 0}</span>
+          </MatchScore>
           <ScoreBoard>
-            <TeamScore team="red">Red: {redRemaining}</TeamScore>
-            <TeamScore team="blue">Blue: {blueRemaining}</TeamScore>
+            <TeamScore team="red">Red Cards: {redRemaining}</TeamScore>
+            <TeamScore team="blue">Blue Cards: {blueRemaining}</TeamScore>
           </ScoreBoard>
           <ToggleButton active={spymasterView} onClick={() => setSpymasterView(!spymasterView)}>
             {spymasterView ? '👁 Spymaster View' : '👓 Guesser View'}
