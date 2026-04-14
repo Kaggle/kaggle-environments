@@ -133,12 +133,12 @@ class LLMWordAssociationAgent:
         prompt += f"The clue from your Spymaster is: '{clue}' for {clue_number} words. (You have {remaining} guesses remaining this turn.)\n\n"
         
         if clue_number > 0:
+            prompt += f"If you correctly guess {clue_number} words based on this clue, you may make a bonus guess based on all information you've received so far.\n\n"
+            
             correct_guesses = (clue_number + 1) - remaining
             words_remaining = remaining - 1
             
-            if correct_guesses == 0:
-                prompt += f"If you correctly guess {clue_number} words based on this clue, you may make a bonus guess based on all information you've received so far.\n\n"
-            else:
+            if correct_guesses > 0:
                 current_guesses = []
                 if hasattr(obs, "current_game_turns") and obs.current_game_turns:
                     current_guesses = obs.current_game_turns[-1]["guesses"]
