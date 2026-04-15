@@ -72,7 +72,8 @@ async function renderer(context) {
   const current_step = environment.steps[step];
   const obs = current_step[0].observation;
 
-  const colors = ['#FF4444', '#4444FF', '#44FF44', '#FFFF44', '#888888']; // P0, P1, P2, P3, Neutral
+  // Wong palette — colorblind-safe (blue, orange, teal, yellow, neutral grey)
+  const colors = ['#0072B2', '#E69F00', '#009E73', '#F0E442', '#888888'];
 
   // Draw Comet tails (before planets so tails render behind)
   const cometPidSet = new Set(obs.comet_planet_ids || []);
@@ -144,8 +145,9 @@ async function renderer(context) {
       c.save();
       c.translate(x, y);
       c.rotate(angle);
+
+      // Standard chevron shape for all players
       c.beginPath();
-      // Chevron: tip at front, two wings swept back
       c.moveTo(sz, 0); // tip
       c.lineTo(-sz, -sz * 0.7); // top wing
       c.lineTo(-sz * 0.3, 0); // inner notch
@@ -153,6 +155,32 @@ async function renderer(context) {
       c.closePath();
       c.fillStyle = color;
       c.fill();
+
+      // Per-player marking lines for colorblind accessibility
+      // P0: none, P1: 1 center line, P2: 2 lines (tip-to-wings), P3: 3 lines
+      c.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+      c.lineWidth = sz * 0.15;
+      c.lineCap = 'round';
+      if (owner === 1 || owner === 3) {
+        // Center line (tip to notch)
+        c.beginPath();
+        c.moveTo(sz * 0.8, 0);
+        c.lineTo(-sz * 0.2, 0);
+        c.stroke();
+      }
+      if (owner === 2 || owner === 3) {
+        // Top line (tip toward top wing)
+        c.beginPath();
+        c.moveTo(sz * 0.6, -sz * 0.15);
+        c.lineTo(-sz * 0.7, -sz * 0.5);
+        c.stroke();
+        // Bottom line (tip toward bottom wing)
+        c.beginPath();
+        c.moveTo(sz * 0.6, sz * 0.15);
+        c.lineTo(-sz * 0.7, sz * 0.5);
+        c.stroke();
+      }
+
       c.restore();
 
       // Draw ship count: north side if fleet is in south half, south side if north
