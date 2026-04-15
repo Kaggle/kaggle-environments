@@ -334,16 +334,12 @@ export function renderer(options: RendererOptions) {
     c.translate(fx, fy);
     c.rotate(fleet.angle);
 
-    // Chevron with rounded tip and rounded tail wings
+    // Standard chevron shape for all players
     c.beginPath();
-    c.moveTo(sz * 0.6, 0);
-    c.arc(sz * 0.6, 0, sz * 0.4, -Math.PI / 2, Math.PI / 2);
-    c.lineTo(-sz * 0.3, sz * 0.15);
-    c.quadraticCurveTo(-sz * 1.1, sz * 0.5, -sz * 0.7, sz * 0.85);
-    c.lineTo(-sz * 0.2, sz * 0.15);
-    c.lineTo(-sz * 0.2, -sz * 0.15);
-    c.lineTo(-sz * 0.7, -sz * 0.85);
-    c.quadraticCurveTo(-sz * 1.1, -sz * 0.5, -sz * 0.3, -sz * 0.15);
+    c.moveTo(sz, 0);
+    c.lineTo(-sz, -sz * 0.6);
+    c.lineTo(-sz * 0.3, 0);
+    c.lineTo(-sz, sz * 0.6);
     c.closePath();
     c.fillStyle = color;
     c.globalAlpha = 0.85;
@@ -353,14 +349,27 @@ export function renderer(options: RendererOptions) {
     c.lineWidth = 0.5;
     c.stroke();
 
-    // Center stripe
-    c.beginPath();
-    c.moveTo(sz * 0.7, 0);
-    c.lineTo(-sz * 0.15, 0);
-    c.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-    c.lineWidth = sz * 0.2;
+    // Per-player marking lines for colorblind accessibility
+    // P0: none, P1: 1 center line, P2: 2 lines (tip-to-wings), P3: 3 lines
+    c.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+    c.lineWidth = sz * 0.15;
     c.lineCap = 'round';
-    c.stroke();
+    if (fleet.owner === 1 || fleet.owner === 3) {
+      c.beginPath();
+      c.moveTo(sz * 0.8, 0);
+      c.lineTo(-sz * 0.2, 0);
+      c.stroke();
+    }
+    if (fleet.owner === 2 || fleet.owner === 3) {
+      c.beginPath();
+      c.moveTo(sz * 0.6, -sz * 0.15);
+      c.lineTo(-sz * 0.7, -sz * 0.45);
+      c.stroke();
+      c.beginPath();
+      c.moveTo(sz * 0.6, sz * 0.15);
+      c.lineTo(-sz * 0.7, sz * 0.45);
+      c.stroke();
+    }
 
     c.restore();
   }
