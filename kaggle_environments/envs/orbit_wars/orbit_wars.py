@@ -634,8 +634,12 @@ def interpreter(state, env):
         for f in obs0.fleets:
             scores[f[1]] += f[6]
 
+        max_score = max(scores)
         for i in range(num_agents):
-            state[i].reward = scores[i]
+            if scores[i] == max_score and max_score > 0:
+                state[i].reward = 1
+            else:
+                state[i].reward = -1
 
     return state
 
