@@ -72,7 +72,8 @@ async function renderer(context) {
   const current_step = environment.steps[step];
   const obs = current_step[0].observation;
 
-  const colors = ['#FF4444', '#4444FF', '#44FF44', '#FFFF44', '#888888']; // P0, P1, P2, P3, Neutral
+  // Wong palette — colorblind-safe (blue, orange, teal, yellow, neutral grey)
+  const colors = ['#0072B2', '#E69F00', '#009E73', '#F0E442', '#888888'];
 
   // Draw Comet tails (before planets so tails render behind)
   const cometPidSet = new Set(obs.comet_planet_ids || []);
@@ -144,15 +145,34 @@ async function renderer(context) {
       c.save();
       c.translate(x, y);
       c.rotate(angle);
+
+      // Chevron with rounded tip and rounded tail wings
       c.beginPath();
-      // Chevron: tip at front, two wings swept back
-      c.moveTo(sz, 0); // tip
-      c.lineTo(-sz, -sz * 0.7); // top wing
-      c.lineTo(-sz * 0.3, 0); // inner notch
-      c.lineTo(-sz, sz * 0.7); // bottom wing
+      c.moveTo(sz * 0.6, 0);
+      // Rounded nose
+      c.arc(sz * 0.6, 0, sz * 0.4, -Math.PI / 2, Math.PI / 2);
+      // Top wing sweeping back with rounded end
+      c.lineTo(-sz * 0.3, sz * 0.15);
+      c.quadraticCurveTo(-sz * 1.1, sz * 0.5, -sz * 0.7, sz * 0.85);
+      // Inner notch
+      c.lineTo(-sz * 0.2, sz * 0.15);
+      c.lineTo(-sz * 0.2, -sz * 0.15);
+      // Bottom wing with rounded end
+      c.lineTo(-sz * 0.7, -sz * 0.85);
+      c.quadraticCurveTo(-sz * 1.1, -sz * 0.5, -sz * 0.3, -sz * 0.15);
       c.closePath();
       c.fillStyle = color;
       c.fill();
+
+      // Center stripe for readability
+      c.beginPath();
+      c.moveTo(sz * 0.7, 0);
+      c.lineTo(-sz * 0.15, 0);
+      c.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+      c.lineWidth = sz * 0.2;
+      c.lineCap = 'round';
+      c.stroke();
+
       c.restore();
 
       // Draw ship count: north side if fleet is in south half, south side if north

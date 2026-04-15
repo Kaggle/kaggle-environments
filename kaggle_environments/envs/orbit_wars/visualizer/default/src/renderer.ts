@@ -6,8 +6,8 @@ const BOARD_SIZE = 100;
 const CENTER = 50;
 const SUN_RADIUS = 10;
 
-// Player colors (bright for dark background)
-const PLAYER_COLORS = ['#FF4444', '#4a9eff', '#44FF44', '#FFFF44'];
+// Wong palette — colorblind-safe (blue, orange, teal, yellow)
+const PLAYER_COLORS = ['#0072B2', '#E69F00', '#009E73', '#F0E442'];
 const NEUTRAL_COLOR = '#666666';
 
 // Text size presets: [planetFont, deltaFont, fleetFont, stepFont]
@@ -333,11 +333,17 @@ export function renderer(options: RendererOptions) {
     c.save();
     c.translate(fx, fy);
     c.rotate(fleet.angle);
+
+    // Chevron with rounded tip and rounded tail wings
     c.beginPath();
-    c.moveTo(sz, 0);
-    c.lineTo(-sz, -sz * 0.6);
-    c.lineTo(-sz * 0.3, 0);
-    c.lineTo(-sz, sz * 0.6);
+    c.moveTo(sz * 0.6, 0);
+    c.arc(sz * 0.6, 0, sz * 0.4, -Math.PI / 2, Math.PI / 2);
+    c.lineTo(-sz * 0.3, sz * 0.15);
+    c.quadraticCurveTo(-sz * 1.1, sz * 0.5, -sz * 0.7, sz * 0.85);
+    c.lineTo(-sz * 0.2, sz * 0.15);
+    c.lineTo(-sz * 0.2, -sz * 0.15);
+    c.lineTo(-sz * 0.7, -sz * 0.85);
+    c.quadraticCurveTo(-sz * 1.1, -sz * 0.5, -sz * 0.3, -sz * 0.15);
     c.closePath();
     c.fillStyle = color;
     c.globalAlpha = 0.85;
@@ -346,6 +352,16 @@ export function renderer(options: RendererOptions) {
     c.strokeStyle = '#222';
     c.lineWidth = 0.5;
     c.stroke();
+
+    // Center stripe
+    c.beginPath();
+    c.moveTo(sz * 0.7, 0);
+    c.lineTo(-sz * 0.15, 0);
+    c.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    c.lineWidth = sz * 0.2;
+    c.lineCap = 'round';
+    c.stroke();
+
     c.restore();
   }
 
@@ -374,7 +390,7 @@ export function renderer(options: RendererOptions) {
         if (delta !== 0) {
           const deltaText = delta > 0 ? `+${delta}` : `${delta}`;
           c.font = `bold ${deltaFontSize}px Inter, sans-serif`;
-          c.fillStyle = delta > 0 ? '#44FF44' : '#FF4444';
+          c.fillStyle = delta > 0 ? '#009E73' : '#D55E00';
           c.fillText(deltaText, px, py - planet.radius * scale - deltaFontSize);
         }
       }
