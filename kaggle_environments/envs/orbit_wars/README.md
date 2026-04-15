@@ -72,7 +72,7 @@ Each turn, your agent returns a list of moves: `[from_planet_id, direction_angle
 
 ## Comets
 
-Comets are temporary extra-solar objects that fly through the board on highly elliptical orbits around the sun. They spawn in groups of 4 (one per quadrant) at steps 100, 200, 300, and 400.
+Comets are temporary extra-solar objects that fly through the board on highly elliptical orbits around the sun. They spawn in groups of 4 (one per quadrant) at steps 50, 150, 250, 350, and 450.
 
 - **Radius**: 1.0 (fixed).
 - **Production**: 1 ship/turn when owned.
