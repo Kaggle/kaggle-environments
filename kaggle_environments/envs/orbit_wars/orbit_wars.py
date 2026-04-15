@@ -98,6 +98,53 @@ def generate_planets():
             id_counter += 4
             static_groups += 1
 
+    # Phase 1.5: Generate one guaranteed orbiting group on the y=x diagonal.
+    # In 4p games, starting on an orbiting planet is only fair when all 4
+    # copies are evenly spaced (π/2 apart). The y=x diagonal (angle=π/4)
+    # gives exactly this: copies at π/4, 3π/4, 5π/4, 7π/4.
+    for _ in range(1000):
+        prod = random.randint(1, 5)
+        r = 1 + math.log(prod)
+        min_orbital = SUN_RADIUS + r + 10
+        max_orbital = ROTATION_RADIUS_LIMIT - r
+        if min_orbital >= max_orbital:
+            continue
+        orbital_r = random.uniform(min_orbital, max_orbital)
+        x = CENTER + orbital_r * math.cos(math.pi / 4)
+        y = CENTER + orbital_r * math.sin(math.pi / 4)
+
+        ships = min(random.randint(5, 99), random.randint(5, 99))
+        temp_planets = [
+            [id_counter, -1, x, y, r, ships, prod],
+            [id_counter + 1, -1, BOARD_SIZE - x, y, r, ships, prod],
+            [id_counter + 2, -1, x, BOARD_SIZE - y, r, ships, prod],
+            [id_counter + 3, -1, BOARD_SIZE - x, BOARD_SIZE - y, r, ships, prod],
+        ]
+
+        valid = True
+        for tp in temp_planets:
+            tp_orbital = distance((tp[2], tp[3]), (CENTER, CENTER))
+            for p in planets:
+                p_orbital = distance((p[2], p[3]), (CENTER, CENTER))
+                p_is_static = p_orbital + p[4] >= ROTATION_RADIUS_LIMIT
+
+                if distance((p[2], p[3]), (tp[2], tp[3])) < p[4] + tp[4] + PLANET_CLEARANCE:
+                    valid = False
+                    break
+
+                # Orbiting vs static cross-check
+                if p_is_static:
+                    if abs(tp_orbital - p_orbital) < tp[4] + p[4] + PLANET_CLEARANCE:
+                        valid = False
+                        break
+            if not valid:
+                break
+
+        if valid:
+            planets.extend(temp_planets)
+            id_counter += 4
+            break
+
     # Phase 2: Fill remaining planet groups with the normal random loop.
     attempts = 0
     max_attempts = 5000
@@ -326,6 +373,26 @@ def interpreter(state, env):
         if num_groups > 0:
             home_group = random.randint(0, num_groups - 1)
             base = home_group * 4
+
+            if num_agents == 4:
+                # In 4p, orbiting planets introduce asymmetry unless on the
+                # y=x diagonal (where all 4 copies stay evenly spaced under
+                # rotation). If the randomly picked group is orbiting,
+                # redirect to the diagonal orbiting group.
+                q1 = obs0.planets[base]
+                orb_r = distance((q1[2], q1[3]), (CENTER, CENTER))
+                if orb_r + q1[4] < ROTATION_RADIUS_LIMIT:
+                    # Find the diagonal group (Q1 planet where x ≈ y)
+                    for g in range(num_groups):
+                        gb = g * 4
+                        gp = obs0.planets[gb]
+                        g_orb = distance((gp[2], gp[3]), (CENTER, CENTER))
+                        if g_orb + gp[4] < ROTATION_RADIUS_LIMIT:
+                            if abs((gp[2] - CENTER) - (gp[3] - CENTER)) < 0.01:
+                                home_group = g
+                                base = gb
+                                break
+
             if num_agents == 2:
                 obs0.planets[base][1] = 0  # Q1
                 obs0.planets[base][5] = 10

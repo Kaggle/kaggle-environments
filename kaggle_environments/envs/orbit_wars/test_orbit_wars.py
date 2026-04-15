@@ -1,7 +1,13 @@
 import unittest
 import math
 from types import SimpleNamespace
-from kaggle_environments.envs.orbit_wars.orbit_wars import interpreter
+from kaggle_environments.envs.orbit_wars.orbit_wars import (
+    interpreter,
+    generate_planets,
+    distance,
+    CENTER,
+    ROTATION_RADIUS_LIMIT,
+)
 
 
 class TestOrbitWars(unittest.TestCase):
@@ -143,6 +149,60 @@ class TestOrbitWars(unittest.TestCase):
         self.assertEqual(len(owned), 4)
         owners = set(p[1] for p in owned)
         self.assertEqual(owners, {0, 1, 2, 3})
+
+    def test_generate_planets_has_diagonal_orbiting_group(self):
+        # The y=x diagonal orbiting group should always be generated
+        for _ in range(50):
+            planets = generate_planets()
+            num_groups = len(planets) // 4
+            found_diagonal = False
+            for g in range(num_groups):
+                p = planets[g * 4]  # Q1 planet
+                orb_r = distance((p[2], p[3]), (CENTER, CENTER))
+                is_orbiting = orb_r + p[4] < ROTATION_RADIUS_LIMIT
+                on_diagonal = abs((p[2] - CENTER) - (p[3] - CENTER)) < 0.01
+                if is_orbiting and on_diagonal:
+                    found_diagonal = True
+                    break
+            self.assertTrue(found_diagonal, "No y=x diagonal orbiting group found")
+
+    def test_4p_start_always_static_or_diagonal(self):
+        # In 4p, starting planets must be static or on the y=x diagonal
+        for _ in range(100):
+            state = [
+                SimpleNamespace(
+                    observation=SimpleNamespace(step=0),
+                    action=[],
+                    status="ACTIVE",
+                    reward=0,
+                ),
+            ] + [
+                SimpleNamespace(
+                    observation=SimpleNamespace(player=i),
+                    action=[],
+                    status="ACTIVE",
+                    reward=0,
+                )
+                for i in range(1, 4)
+            ]
+            env = SimpleNamespace(
+                configuration=SimpleNamespace(shipSpeed=5, episodeSteps=500, cometSpeed=4),
+                done=False,
+            )
+            new_state = interpreter(state, env)
+            obs = new_state[0].observation
+            owned = [p for p in obs.planets if p[1] != -1]
+            self.assertEqual(len(owned), 4)
+
+            q1 = owned[0]  # Player 0's planet (Q1)
+            orb_r = distance((q1[2], q1[3]), (CENTER, CENTER))
+            is_orbiting = orb_r + q1[4] < ROTATION_RADIUS_LIMIT
+            if is_orbiting:
+                # Must be on the y=x diagonal
+                self.assertAlmostEqual(
+                    q1[2] - CENTER, q1[3] - CENTER, places=2,
+                    msg="4p orbiting start not on y=x diagonal"
+                )
 
     def _make_state(self, planets, fleets, step=1):
         """Helper to build a minimal 2-player state for testing."""
