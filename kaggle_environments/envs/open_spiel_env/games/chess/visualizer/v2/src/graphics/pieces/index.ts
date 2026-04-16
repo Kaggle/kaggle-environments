@@ -41,18 +41,19 @@ function getAnimationSources(chess: Chess): Map<string, string> | null {
   return sources;
 }
 
-export function syncPieces(engine: Engine, chess: Chess, step: number) {
+export function syncPieces(engine: Engine, chess: Chess, step: number, reducedMotion: boolean) {
   const { squareSize, textures, resources } = engine;
 
   // Snap when:
-  //   1. The user went backwards.
-  //   2. The user is scrubbing.
+  //   1. The user prefers reduced motion.
+  //   2. The user went backwards.
+  //   3. The user is scrubbing.
   const now = performance.now();
   const isFirstUpdate = engine.lastUpdateTime === 0;
   const timeSinceLastUpdate = now - engine.lastUpdateTime;
   const goingBackwards = step < engine.lastStep;
   const scrubbingForward = !isFirstUpdate && timeSinceLastUpdate < SCRUB_THRESHOLD_MS;
-  const snap = goingBackwards || scrubbingForward;
+  const snap = reducedMotion || goingBackwards || scrubbingForward;
 
   engine.lastUpdateTime = now;
   engine.lastStep = step;
