@@ -80,11 +80,17 @@ def process_action(state, config):
             if state[i].status != "INVALID":
                 state[i].status = "DONE"
             if winner == "red":
-                state[i].reward = 1 if i in [0, 1] else -1
+                if i in [0, 1]:
+                    state[i].reward = (state[i].reward or 0) + 1
+                else:
+                    state[i].reward = state[i].reward or 0
             elif winner == "blue":
-                state[i].reward = 1 if i in [2, 3] else -1
+                if i in [2, 3]:
+                    state[i].reward = (state[i].reward or 0) + 1
+                else:
+                    state[i].reward = state[i].reward or 0
             else:
-                state[i].reward = 0
+                state[i].reward = state[i].reward or 0
 
     # Handle Agent Failure / Invalid Action
     if action is None:
@@ -248,6 +254,9 @@ def interpreter(state, env):
     if env.done:
         return state
 
+    prev_red_reward = state[0].reward or 0
+    prev_blue_reward = state[2].reward or 0
+
     process_action(state, env.configuration)
     update_visibility(state)
     
@@ -263,8 +272,8 @@ def interpreter(state, env):
         is_done = all(s.status in ["DONE", "INVALID"] for s in state)
         if is_done:
             winner = None
-            if state[0].reward == 1: winner = "red"
-            elif state[2].reward == 1: winner = "blue"
+            if (state[0].reward or 0) > prev_red_reward: winner = "red"
+            elif (state[2].reward or 0) > prev_blue_reward: winner = "blue"
             
             # Update wins in observation
             if winner == "red":
@@ -291,26 +300,7 @@ def interpreter(state, env):
                 active_agent = state[0].observation.current_turn
                 for i in range(4):
                     state[i].status = "ACTIVE" if i == active_agent else "INACTIVE"
-                    state[i].reward = 0
-            else:
-                # End of episode: Determine overall winner and set final rewards to 1 / -1
-                red_wins = state[0].observation.red_wins
-                blue_wins = state[0].observation.blue_wins
-                
-                if red_wins > blue_wins:
-                    overall_winner = "red"
-                elif blue_wins > red_wins:
-                    overall_winner = "blue"
-                else:
-                    overall_winner = None
-                    
-                for i in range(4):
-                    if overall_winner == "red":
-                        state[i].reward = 1 if i in [0, 1] else -1
-                    elif overall_winner == "blue":
-                        state[i].reward = 1 if i in [2, 3] else -1
-                    else:
-                        state[i].reward = 0
+
                     
     return state
 
