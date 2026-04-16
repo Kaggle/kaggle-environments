@@ -6,6 +6,7 @@ export function engine() {
 
   const resources = {
     background: new Container(),
+    highlights: new Container(),
     pieces: new Container(),
   } satisfies Record<Layer, Container>;
 

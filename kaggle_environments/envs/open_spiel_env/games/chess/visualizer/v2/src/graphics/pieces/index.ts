@@ -44,9 +44,6 @@ function getAnimationSources(chess: Chess): Map<string, string> | null {
 export function syncPieces(engine: Engine, chess: Chess, step: number) {
   const { squareSize, textures, resources } = engine;
 
-  for (const anim of engine.animations) anim.stop();
-  engine.animations.clear();
-
   // Snap when:
   //   1. The user went backwards.
   //   2. The user is scrubbing.
