@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Howl, Howler } from 'howler';
 
 type SoundConfig = { src: string; volume?: number };
@@ -14,7 +14,8 @@ function createSounds<T extends string>(map: SoundMap<T>): Sounds<T> {
 }
 
 export default function useAudio<T extends string>(map: SoundMap<T>): Sounds<T> {
-  const soundsRef = useRef<Sounds<T>>(createSounds(map));
+  const mapRef = useRef(map);
+  const [sounds, setSounds] = useState(() => createSounds(map));
 
   useEffect(() => {
     function cleanup() {
@@ -24,7 +25,7 @@ export default function useAudio<T extends string>(map: SoundMap<T>): Sounds<T> 
 
     function resume() {
       Howler.unload();
-      soundsRef.current = createSounds(map);
+      setSounds(createSounds(mapRef.current));
       cleanup();
     }
 
@@ -44,5 +45,5 @@ export default function useAudio<T extends string>(map: SoundMap<T>): Sounds<T> 
     };
   }, []);
 
-  return soundsRef.current;
+  return sounds;
 }
