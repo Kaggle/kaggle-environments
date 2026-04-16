@@ -146,6 +146,7 @@ export function renderer(options: RendererOptions) {
   // --- Controls bar ---
   const fleetBtnActive = settings.showFleetNumbers ? ' active' : '';
   const prodBtnActive = settings.showProductionDots ? ' active' : '';
+  const currentSpeed = parent.dataset.speed || '1';
   controlsBar.innerHTML =
     `<button class="ctrl-btn${fleetBtnActive}" data-action="toggle-fleet-numbers">` +
     `Fleet #</button>` +
@@ -159,6 +160,17 @@ export function renderer(options: RendererOptions) {
         return `<button class="ctrl-btn${active}" data-action="text-size" data-value="${sz}">${sz[0].toUpperCase() + sz.slice(1)}</button>`;
       })
       .join('') +
+    `</span>` +
+    `<span class="ctrl-group">` +
+    `<span class="ctrl-label">Speed:</span>` +
+    `<select class="speed-selector" data-action="speed">` +
+    [0.25, 0.5, 1, 1.5, 2, 4]
+      .map((s) => {
+        const selected = String(s) === currentSpeed ? ' selected' : '';
+        return `<option value="${s}"${selected}>${s}x</option>`;
+      })
+      .join('') +
+    `</select>` +
     `</span>`;
 
   // Wire up control event listeners (these mutate data attrs and re-render)
@@ -177,6 +189,16 @@ export function renderer(options: RendererOptions) {
       renderer(options);
     }
   });
+
+  // Speed selector change handler
+  const speedSelect = controlsBar.querySelector('.speed-selector') as HTMLSelectElement | null;
+  if (speedSelect) {
+    speedSelect.addEventListener('change', (e) => {
+      const speed = parseFloat((e.target as HTMLSelectElement).value);
+      parent.dataset.speed = String(speed);
+      window.postMessage({ speed }, '*');
+    });
+  }
 
   // Size canvas: always square, fill available space, handle DPR
   const dpr = window.devicePixelRatio || 1;
