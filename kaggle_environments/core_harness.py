@@ -4,7 +4,6 @@ Provides shared functionality for all game-specific harnesses:
 - LiteLLM / model proxy setup
 - Prompt-with-retry loop
 - Injectable telemetry
-- MD5 hash tracking for versioning
 
 Game-specific harnesses implement the ``GameHarness`` protocol by providing
 three methods:
@@ -18,8 +17,6 @@ Use ``create_agent_fn(game_harness)`` to produce a Kaggle-compatible
 """
 
 import dataclasses
-import hashlib
-import inspect
 import logging
 import os
 import sys
@@ -139,34 +136,6 @@ class GameHarness(Protocol):
 
 
 # ---------------------------------------------------------------------------
-# MD5 hashing for version tracking
-# ---------------------------------------------------------------------------
-
-
-def _compute_file_hash(file_path: str | None) -> str:
-    if file_path is None:
-        return "unknown"
-    try:
-        with open(file_path, "rb") as f:
-            return hashlib.md5(f.read()).hexdigest()
-    except OSError:
-        return "unknown"
-
-
-def _get_module_file(obj: Any) -> str | None:
-    """Best-effort retrieval of the source file for *obj*."""
-    try:
-        if hasattr(obj, "__file__"):
-            return obj.__file__
-        mod = inspect.getmodule(type(obj) if not inspect.ismodule(obj) else obj)
-        if mod is not None:
-            return getattr(mod, "__file__", None)
-    except Exception:  # pylint: disable=broad-except
-        pass
-    return None
-
-
-# ---------------------------------------------------------------------------
 # LLM invocation
 # ---------------------------------------------------------------------------
 
@@ -263,25 +232,19 @@ def create_agent_fn(
     model_name: str = ""
     litellm_kwargs: dict[str, Any] = {}
     move_history: list[str] = []
-    core_hash = "unknown"
-    game_hash = "unknown"
 
     def agent_fn(
         obs: dict[str, Any] | Any,
         config: dict[str, Any],
     ) -> dict[str, Any]:
-        nonlocal setup_done, model_name, litellm_kwargs, core_hash, game_hash
+        nonlocal setup_done, model_name, litellm_kwargs
 
         # -- one-time setup --
         if not setup_done:
             model_name, litellm_kwargs = _setup_model()
-            core_hash = _compute_file_hash(__file__)
-            game_hash = _compute_file_hash(_get_module_file(game_harness))
             _TELEMETRY(
                 setup_complete=True,
                 model_name=model_name,
-                core_harness_hash=core_hash,
-                game_harness_hash=game_hash,
             )
             setup_done = True
 
@@ -343,8 +306,6 @@ def create_agent_fn(
                     "actionString": result.matched_action,
                     "thoughts": last_content,
                     "status": "OK",
-                    "coreHarnessHash": core_hash,
-                    "gameHarnessHash": game_hash,
                 }
 
             # -- parse failed → prepare rethink --
