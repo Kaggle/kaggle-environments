@@ -5,7 +5,7 @@ import { syncHighlights } from './highlights';
 import { loadPieceTextureAtlas, syncPieces } from './pieces';
 
 export interface Game {
-  update: (chess: Chess, step: number) => void;
+  update: (chess: Chess, step: number, reducedMotion: boolean) => void;
   destroy: () => void;
 }
 
@@ -21,13 +21,13 @@ export async function createGame(canvas: HTMLCanvasElement): Promise<Game> {
   eng.resources.background.addChild(board);
 
   return {
-    update(chess: Chess, step: number) {
+    update(chess: Chess, step: number, reducedMotion: boolean) {
       // Stop all in-flight animations before rebuilding sprites.
       for (const anim of eng.animations) anim.stop();
       eng.animations.clear();
 
-      syncHighlights(eng, chess);
-      syncPieces(eng, chess, step);
+      syncHighlights(eng, chess, reducedMotion);
+      syncPieces(eng, chess, step, reducedMotion);
     },
     destroy() {
       // TODO(pim-at-stink): https://github.com/pixijs/pixijs/issues/11977

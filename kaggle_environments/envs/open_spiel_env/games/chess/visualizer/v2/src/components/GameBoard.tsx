@@ -1,6 +1,7 @@
 import { memo, useEffect, useRef } from 'react';
 import { createGame, type Game } from '../graphics/game';
 import useGameStore from '../stores/useGameStore';
+import usePreferences from '../stores/usePreferences';
 import styles from './GameBoard.module.css';
 
 export default memo(function GameBoard() {
@@ -8,6 +9,7 @@ export default memo(function GameBoard() {
   const gameRef = useRef<Game | null>(null);
   const chess = useGameStore((state) => state.game);
   const step = useGameStore((state) => state.options.step);
+  const reducedMotion = usePreferences((state) => state.reducedMotion);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -25,7 +27,7 @@ export default memo(function GameBoard() {
         }
         gameRef.current = game;
         const state = useGameStore.getState();
-        game.update(state.game, state.options.step);
+        game.update(state.game, state.options.step, usePreferences.getState().reducedMotion);
       });
     });
 
@@ -38,8 +40,8 @@ export default memo(function GameBoard() {
   }, []);
 
   useEffect(() => {
-    gameRef.current?.update(chess, step);
-  }, [chess, step]);
+    gameRef.current?.update(chess, step, reducedMotion);
+  }, [chess, step, reducedMotion]);
 
   return (
     <div id="board" className={styles.board}>
