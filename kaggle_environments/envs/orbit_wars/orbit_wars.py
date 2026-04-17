@@ -670,6 +670,7 @@ def interpreter(state, env):
 
     for i in range(1, num_agents):
         state[i].observation.planets = obs0.planets
+        state[i].observation.initial_planets = obs0.initial_planets
         state[i].observation.fleets = obs0.fleets
         state[i].observation.next_fleet_id = obs0.next_fleet_id
         state[i].observation.comets = obs0.comets

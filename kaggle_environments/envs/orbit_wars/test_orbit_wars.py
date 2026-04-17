@@ -12,6 +12,12 @@ from kaggle_environments.envs.orbit_wars.orbit_wars import (
 
 class TestOrbitWars(unittest.TestCase):
 
+    def _advance_step_counter(self, state):
+        next_step = getattr(state[0].observation, "step", 0) + 1
+        for agent_state in state:
+            agent_state.observation.step = next_step
+        return state
+
     def test_symmetry(self):
         # Mock state for step 0
         state = [
@@ -149,6 +155,46 @@ class TestOrbitWars(unittest.TestCase):
         self.assertEqual(len(owned), 4)
         owners = set(p[1] for p in owned)
         self.assertEqual(owners, {0, 1, 2, 3})
+
+    def test_comet_spawn_keeps_initial_planets_synced_across_players(self):
+        state = [
+            SimpleNamespace(
+                observation=SimpleNamespace(step=0),
+                action=[],
+                status="ACTIVE",
+                reward=0,
+            )
+        ] + [
+            SimpleNamespace(
+                observation=SimpleNamespace(player=i),
+                action=[],
+                status="ACTIVE",
+                reward=0,
+            )
+            for i in range(1, 4)
+        ]
+        env = SimpleNamespace(
+            configuration=SimpleNamespace(shipSpeed=5, episodeSteps=120, cometSpeed=4),
+            done=False,
+        )
+
+        state = interpreter(state, env)
+        state = self._advance_step_counter(state)
+
+        for _ in range(49):
+            for agent_state in state:
+                agent_state.action = []
+            state = interpreter(state, env)
+            state = self._advance_step_counter(state)
+
+        obs0 = state[0].observation
+
+        self.assertTrue(obs0.comets)
+        self.assertEqual(len(obs0.initial_planets), len(obs0.planets))
+        for other_state in state[1:]:
+            other_obs = other_state.observation
+            self.assertEqual(obs0.comet_planet_ids, other_obs.comet_planet_ids)
+            self.assertEqual(obs0.initial_planets, other_obs.initial_planets)
 
     def test_generate_planets_has_diagonal_orbiting_group(self):
         # The y=x diagonal orbiting group should always be generated
