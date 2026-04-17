@@ -1,0 +1,85 @@
+{
+  "name": "word_association",
+  "title": "Word Association",
+  "description": "A game of word association and deduction, adapted for AI agents.",
+  "version": "1.0.0",
+  "agents": [
+    4
+  ],
+  "configuration": {
+    "board_size": {
+      "type": "integer",
+      "default": 25,
+      "description": "Number of spaces on the board (5x5 grid)."
+    },
+    "starting_team_words": {
+      "type": "integer",
+      "default": 9,
+      "description": "Number of cards assigned to the starting team."
+    },
+    "second_team_words": {
+      "type": "integer",
+      "default": 8,
+      "description": "Number of cards assigned to the second team."
+    },
+    "actTimeout": {
+      "type": "number",
+      "default": 60,
+      "description": "Timeout in seconds for agent actions."
+    },
+    "games_per_episode": {
+      "type": "integer",
+      "default": 1,
+      "description": "Number of games to play in a single episode."
+    },
+    "memory_window_size": {
+      "type": "integer",
+      "default": 0,
+      "description": "Maximum number of past games to keep in history. Set to 0 for unlimited."
+    },
+    "seed": {
+      "type": ["integer", "null"],
+      "default": null,
+      "description": "Seed for random board generation. Set to null for random play."
+    }
+  },
+  "observation": {
+    "words": {
+      "description": "List of 25 words on the board.",
+      "type": "array"
+    },
+    "roles": {
+      "description": "List of 25 roles for each word ('red', 'blue', 'neutral', 'assassin'). Masked for Guessers.",
+      "type": "array"
+    },
+    "revealed": {
+      "description": "List of 25 booleans indicating if a word has been guessed.",
+      "type": "array"
+    },
+    "current_turn": {
+      "description": "0: Red Spymaster, 1: Red Guesser, 2: Blue Spymaster, 3: Blue Guesser.",
+      "type": "integer"
+    },
+    "clue": {
+      "description": "The current valid clue string (e.g. 'word, 2').",
+      "type": "string"
+    },
+    "guesses_remaining": {
+      "description": "The number of guesses the Guesser has left based on the Spymaster's clue.",
+      "type": "integer"
+    },
+    "clue_number": {
+      "description": "The original number associated with the Spymaster's clue.",
+      "type": "integer"
+    }
+  },
+  "action": {
+    "description": "For Spymasters: a clue string formatted like 'word, 2' or a dict. Number can be 0 (unlimited guesses, 0 related words, 1 min guess) or -1 (unlimited guesses, infinity related words, 1 min guess). For Guessers: the index (0-24) to guess, or -1 to pass.",
+    "type": [
+      "string",
+      "integer",
+      "object",
+      "null"
+    ]
+  }
+}

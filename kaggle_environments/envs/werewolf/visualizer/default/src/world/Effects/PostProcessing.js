@@ -1,12 +1,24 @@
 export class PostProcessing {
-  constructor(scene, camera, renderer, width, height, THREE, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass, FilmPass) {
+  constructor(
+    scene,
+    camera,
+    renderer,
+    width,
+    height,
+    THREE,
+    EffectComposer,
+    RenderPass,
+    UnrealBloomPass,
+    ShaderPass,
+    FilmPass
+  ) {
     this.scene = scene;
     this.camera = camera;
     this.renderer = renderer;
     this.width = width;
     this.height = height;
     this.THREE = THREE;
-    
+
     // Modules
     this.EffectComposer = EffectComposer;
     this.RenderPass = RenderPass;
@@ -24,10 +36,10 @@ export class PostProcessing {
 
   init() {
     this.composer = new this.EffectComposer(this.renderer);
-    
+
     // Optimize: Cap internal render resolution to 1.0 to save massive memory on High-DPI screens
     // The canvas is scaled by CSS, so it still looks okay, just internal buffers are smaller.
-    const pixelRatio = 1.0; 
+    const pixelRatio = 1.0;
     this.composer.setSize(this.width * pixelRatio, this.height * pixelRatio);
 
     const renderPass = new this.RenderPass(this.scene, this.camera);
@@ -35,12 +47,7 @@ export class PostProcessing {
 
     // Optimize Bloom: Use quarter resolution of the ALREADY reduced composer resolution
     const bloomResolution = new this.THREE.Vector2(this.width * pixelRatio * 0.25, this.height * pixelRatio * 0.25);
-    this.bloomPass = new this.UnrealBloomPass(
-      bloomResolution,
-      0.15,
-      0.4,
-      0.85
-    );
+    this.bloomPass = new this.UnrealBloomPass(bloomResolution, 0.15, 0.4, 0.85);
     this.composer.addPass(this.bloomPass);
 
     const atmosphereShader = {
@@ -132,15 +139,15 @@ export class PostProcessing {
   resize(width, height) {
     this.width = width;
     this.height = height;
-    
+
     if (this.composer) {
-        // Optimize: Keep resolution capped at 1.0
-        const pixelRatio = 1.0; 
-        this.composer.setSize(width * pixelRatio, height * pixelRatio);
+      // Optimize: Keep resolution capped at 1.0
+      const pixelRatio = 1.0;
+      this.composer.setSize(width * pixelRatio, height * pixelRatio);
     }
-    
+
     if (this.bloomPass) {
-        // Bloom resolution relative to the composer size
+      // Bloom resolution relative to the composer size
       this.bloomPass.resolution.set(width * 0.25, height * 0.25);
     }
   }

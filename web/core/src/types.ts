@@ -1,3 +1,8 @@
+/**
+ * ReplayData, ReplayMode, and EpisodeSlice are mirrored in kaggleazure
+ * (typescript/projects/components/src/competitions/shared/EpisodesPanel/types.ts).
+ * Keep that file in sync if these definitions change.
+ */
 export interface ReplayData<TSteps = BaseGameStep[]> {
   name: string;
   version: string;
@@ -6,6 +11,31 @@ export interface ReplayData<TSteps = BaseGameStep[]> {
   info?: Record<string, any>;
   isTransformed?: boolean;
 }
+
+/**
+ * Raw player state entry from a Kaggle environment replay.
+ * Each step in a raw replay is an array of these entries (one per player).
+ * The first player typically has the full observation data.
+ */
+export interface RawPlayerEntry<TObservation = Record<string, unknown>> {
+  action?: string | number | Record<string, unknown>;
+  info?: Record<string, unknown>;
+  observation: TObservation;
+  reward: number | null;
+  status: 'ACTIVE' | 'INACTIVE' | 'DONE' | 'ERROR' | 'TIMEOUT' | 'INVALID';
+}
+
+/**
+ * A single step in a raw (untransformed) replay.
+ * Each step is an array of player entries.
+ */
+export type RawStep<TObservation = Record<string, unknown>> = RawPlayerEntry<TObservation>[];
+
+/**
+ * Raw replay data before transformation.
+ * Use this type when working with replay data directly from the Kaggle API.
+ */
+export type RawReplayData<TObservation = Record<string, unknown>> = ReplayData<RawStep<TObservation>[]>;
 
 /**
  * only-stream: used for recording videos that show a play-by-play with agent reasoning

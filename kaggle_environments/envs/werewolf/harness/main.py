@@ -46,6 +46,7 @@ def agent(observation, configuration):
             litellm_model_proxy_kwargs={
                 "api_base": f"{os.environ['MODEL_PROXY_URL']}/openapi",
                 "api_key": os.environ["MODEL_PROXY_KEY"],
+                "reasoning_effort": "high",
             },
         )
 

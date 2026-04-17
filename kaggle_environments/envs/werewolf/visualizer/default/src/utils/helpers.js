@@ -28,9 +28,7 @@ export function createNameReplacer(playerMap, format = 'text') {
       const displayName = player.display_name || characterName;
       if (format === 'text' && displayName === characterName) return null;
 
-      const replacementHtml = format === 'html'
-        ? createPlayerCapsule(player)
-        : displayName;
+      const replacementHtml = format === 'html' ? createPlayerCapsule(player) : displayName;
 
       // Wrap placeholder in unique characters to prevent partial prefix replacement during expansion
       // (e.g. preventing KGL_CAP_1 from matching inside KGL_CAP_10)
@@ -40,14 +38,11 @@ export function createNameReplacer(playerMap, format = 'text') {
       // Regex handling "Player Name" simplification and word boundaries
       // Match inside quotes (text) but try to avoid breaking attributes if simple replacer is used.
       // Stronger boundary: include dots and hyphens in the exclusion to prevent prefix matching for versions/dots.
-      const regex = new RegExp(
-        `(^|[^\\w.-])(?:Player\\s*)?(${escapedName})(\\.?)(?![\\w.-])`,
-        'gi'
-      );
+      const regex = new RegExp(`(^|[^\\w.-])(?:Player\\s*)?(${escapedName})(\\.?)(?![\\w.-])`, 'gi');
 
       return { regex, placeholder, replacementHtml };
     })
-    .filter(r => r !== null);
+    .filter((r) => r !== null);
 
   const replaceToPlaceholders = (text) => {
     if (!text) return '';
@@ -100,7 +95,8 @@ export function formatTimestamp(isoString) {
 }
 
 // Dark purple background (#2d1b4e) with white question mark
-export const FALLBACK_THUMBNAIL_IMG = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiMyZDFiNGUiLz48dGV4dCB4PSI1MCIgeT0iNzAiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSI2MCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSJib2xkIj4/PC90ZXh0Pjwvc3ZnPg==";
+export const FALLBACK_THUMBNAIL_IMG =
+  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiMyZDFiNGUiLz48dGV4dCB4PSI1MCIgeT0iNzAiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSI2MCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSJib2xkIj4/PC90ZXh0Pjwvc3ZnPg==';
 
 // Global handler for thumbnail errors
 window.handleThumbnailError = function (img) {
@@ -653,7 +649,7 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
 
         // Sync individual toggle buttons
         const individualToggles = logUl.querySelectorAll('.reasoning-toggle');
-        individualToggles.forEach(toggle => {
+        individualToggles.forEach((toggle) => {
           toggle.classList.toggle('enabled', shouldShow);
         });
       }
@@ -707,7 +703,6 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
         // Use custom event
         const event = new CustomEvent('audio-toggle', { detail: { enabled: false } });
         window.dispatchEvent(event);
-
       } else {
         // --- ENABLING ---
         audioState.isAudioEnabled = true;
@@ -786,7 +781,7 @@ export function getPermutation(items, seed) {
 
 export function shuffleIds(agentsConfig, seed) {
   if (!agentsConfig || !seed) return [];
-  const ids = agentsConfig.map(a => a.id);
+  const ids = agentsConfig.map((a) => a.id);
   // seed + 123 is used in python engine
   return getPermutation(ids, seed + 123);
 }

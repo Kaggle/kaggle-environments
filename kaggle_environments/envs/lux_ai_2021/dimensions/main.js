@@ -1,1 +1,2337 @@
-(()=>{var t,e,s,i={18967:t=>{function e(t){var e=new Error("Cannot find module '"+t+"'");throw e.code="MODULE_NOT_FOUND",e}e.keys=()=>[],e.resolve=e,e.id=18967,t.exports=e},94120:t=>{function e(t){var e=new Error("Cannot find module '"+t+"'");throw e.code="MODULE_NOT_FOUND",e}e.keys=()=>[],e.resolve=e,e.id=94120,t.exports=e},45689:(t,e,s)=>{var i={"./bin":63313,"./bin.js":63313,"./helpers/cpu":29322,"./helpers/cpu.js":29322,"./helpers/parallel":34014,"./helpers/parallel.js":34014,"./history":8307,"./history.js":8307,"./procfile":97645,"./procfile.js":97645,"./ps":19614,"./ps.js":19614,"./stats":98610,"./stats.js":98610,"./wmic":92677,"./wmic.js":92677};function n(t){var e=o(t);return s(e)}function o(t){if(!s.o(i,t)){var e=new Error("Cannot find module '"+t+"'");throw e.code="MODULE_NOT_FOUND",e}return i[t]}n.keys=function(){return Object.keys(i)},n.resolve=o,t.exports=n,n.id=45689},42791:function(t,e,s){"use strict";var i=this&&this.__importDefault||function(t){return t&&t.__esModule?t:{default:t}};Object.defineProperty(e,"__esModule",{value:!0});const n=s(2272),o=i(s(51058)),r=s(16838),a=new r.LuxDesign("lux_ai_2021"),c=n.create(a,{name:"Lux AI 2021",loggingLevel:n.Logger.LEVEL.NONE,activateStation:!1,observe:!1,createBotDirectories:!1}),l=o.default.createInterface({input:process.stdin,output:process.stdout,terminal:!1});(async()=>{let t=null;for await(const e of l){const s=JSON.parse(e);if(s.type&&"start"===s.type){let e=parseInt(s.config.width),i=parseInt(s.config.height);-1==e&&(e=void 0),-1==i&&(i=void 0);const n={detached:!0,agentOptions:{detached:!0},storeReplay:!1,storeErrorLogs:!1,loggingLevel:parseInt(s.config.loglevel),width:e,height:i,seed:parseInt(s.config.seed),mapType:s.config.mapType,parameters:{MAX_DAYS:s.config.episodeSteps}};t=await c.createMatch([{file:"blank",name:"team-0"},{file:"blank",name:"team-1"}],n),s.state&&r.LuxDesignLogic.reset(t,s.state),t.agents.forEach(((t,e)=>{console.error(JSON.stringify(t.messages)),t.messages=[]}));const o=t.state;console.error(JSON.stringify({width:o.game.map.width,height:o.game.map.height,globalCityIDCount:o.game.globalCityIDCount,globalUnitIDCount:o.game.globalUnitIDCount}))}else if(s.length){const e=[];[0,1].forEach((t=>{if(s[t].action){const i=s[t].action.map((e=>({agentID:t,command:e})));e.push(...i)}}));const i=await t.step(e);t.agents.forEach((t=>{console.error(JSON.stringify(t.messages)),t.messages=[]}));const n=t.state;console.error(JSON.stringify({width:n.game.map.width,height:n.game.map.height,globalCityIDCount:n.game.globalCityIDCount,globalUnitIDCount:n.game.globalUnitIDCount})),console.error(JSON.stringify({status:i,turn:n.game.state.turn,max:t.configs.parameters.MAX_DAYS}))}}})()},16838:(t,e,s)=>{"use strict";s.r(e),s.d(e,{Action:()=>m,Actionable:()=>o,Cart:()=>g,Cell:()=>M,City:()=>I,CityTile:()=>D,Game:()=>u,GameMap:()=>S,LuxDesign:()=>tt,LuxDesignLogic:()=>Q,MoveAction:()=>y,PillageAction:()=>R,Position:()=>d,ResearchAction:()=>w,Resource:()=>n,SpawnAction:()=>T,SpawnCartAction:()=>A,SpawnCityAction:()=>C,SpawnWorkerAction:()=>E,TransferAction:()=>O,Unit:()=>p,Worker:()=>f});var i=s(78428);class n{constructor(t,e){this.type=t,this.amount=e}}!function(t){let e;!function(t){t.WOOD="wood",t.COAL="coal",t.URANIUM="uranium"}(e=t.Types||(t.Types={}))}(n||(n={}));class o{constructor(t){this.configs=t,this.currentActions=[],this.cooldown=0}canAct(){return this.cooldown<1}handleTurn(t){try{this.turn(t)}finally{this.currentActions=[]}}giveAction(t){this.currentActions.push(t)}}s(91997);var r=s(87512),a=s(61092);function c(t){let e;if(null==t||"object"!=typeof t)return t;if(t instanceof Date)return e=new Date,e.setTime(t.getTime()),e;if(t instanceof Array){e=[];for(let s=0,i=t.length;s<i;s++)e[s]=c(t[s]);return e}if(t instanceof Object){e={};for(const s in t)t.hasOwnProperty(s)&&(e[s]=c(t[s]));return e}throw new Error("Unable to copy obj! Its type isn't supported.")}(0,a.kP)("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",12);const l=(t,e,s=!1)=>(null==e||null==e||Object.keys(e).forEach((i=>{"object"!=typeof e[i]&&e[i]&&"Array"!==e[i].constructor.name?t[i]=e[i]:e[i]&&"Array"==e[i].constructor.name&&t[i]&&"Array"==t[i].constructor.name?s?t[i]=e[i]:t[i].push(...e[i]):t[i]&&"object"==typeof t[i]?t[i]=l(t[i],e[i],s):t[i]=e[i]})),t);class h{constructor(t,e,s,i){this.fromPos=t,this.amount=e,this.worker=s,this.city=i}equals(t){var e,s,i,n;return this.fromPos.equals(t.fromPos)&&(null===(e=this.worker)||void 0===e?void 0:e.id)===(null===(s=t.worker)||void 0===s?void 0:s.id)&&this.amount===t.amount&&(null===(i=this.city)||void 0===i?void 0:i.id)===(null===(n=t.city)||void 0===n?void 0:n.id)}}class u{constructor(t={}){this.globalCityIDCount=0,this.globalUnitIDCount=0,this.cities=new Map,this.stats={teamStats:{[p.TEAM.A]:{fuelGenerated:0,resourcesCollected:{wood:0,coal:0,uranium:0},cityTilesBuilt:0,workersBuilt:0,cartsBuilt:0,roadsBuilt:0,roadsPillaged:0},[p.TEAM.B]:{fuelGenerated:0,resourcesCollected:{wood:0,coal:0,uranium:0},cityTilesBuilt:0,workersBuilt:0,cartsBuilt:0,roadsBuilt:0,roadsPillaged:0}}},this.state={turn:0,teamStates:{[p.TEAM.A]:{researchPoints:0,units:new Map,researched:{wood:!0,coal:!1,uranium:!1}},[p.TEAM.B]:{researchPoints:0,units:new Map,researched:{wood:!0,coal:!1,uranium:!1}}}},this.configs=Object.assign({},U),this.configs=Object.assign(Object.assign({},this.configs),t),this.map=new S(this.configs)}_genInitialAccumulatedActionStats(){return{[p.TEAM.A]:{workersBuilt:0,cartsBuilt:0,actionsPlaced:new Set},[p.TEAM.B]:{workersBuilt:0,cartsBuilt:0,actionsPlaced:new Set}}}validateCommand(t,e=this._genInitialAccumulatedActionStats()){const s=(e,s,i=!0)=>{if(e)throw new r.MatchWarn(s+(i?`; turn ${this.state.turn}; cmd: ${t.command}`:""))},i=`Agent ${t.agentID} sent invalid command`,o=`Agent ${t.agentID} sent malformed command: ${t.command}`,[a,...c]=t.command.split(" ");s(void 0===a,i,!1);const l=t.agentID,h=this.state.teamStates[l],p=e[l];switch(a){case u.ACTIONS.DEBUG_ANNOTATE_CIRCLE:case u.ACTIONS.DEBUG_ANNOTATE_LINE:case u.ACTIONS.DEBUG_ANNOTATE_X:case u.ACTIONS.DEBUG_ANNOTATE_TEXT:case u.ACTIONS.DEBUG_ANNOTATE_SIDETEXT:return null;case u.ACTIONS.PILLAGE:{s(1!==c.length,o,!1);const e=c[0],i=this.getUnit(l,e);return s(!i,`Agent ${t.agentID} tried to pillage tile with invalid/unowned unit id: ${e}`),s(!i.canAct(),`Agent ${t.agentID} tried to pillage tile with cooldown: ${i.cooldown}`),s(p.actionsPlaced.has(e),`Agent ${t.agentID} sent an extra command. Unit can perform only one action at a time`),p.actionsPlaced.add(e),new R(a,l,e)}case u.ACTIONS.BUILD_CITY:{s(1!==c.length,o,!1);const e=c[0],i=this.getUnit(l,e);s(!i,`Agent ${t.agentID} tried to build CityTile with invalid/unowned unit id: ${e}`);const n=this.map.getCellByPos(i.pos);s(n.isCityTile(),`Agent ${t.agentID} tried to build CityTile on existing CityTile`),s(n.hasResource(),`Agent ${t.agentID} tried to build CityTile on non-empty resource tile`),s(!i.canAct(),`Agent ${t.agentID} tried to build CityTile with cooldown: ${i.cooldown}`);const r=i.cargo.wood+i.cargo.coal+i.cargo.uranium;return s(r<this.configs.parameters.CITY_BUILD_COST,`Agent ${t.agentID} tried to build CityTile with insufficient materials wood + coal + uranium: ${r}`),s(p.actionsPlaced.has(e),`Agent ${t.agentID} sent an extra command. Unit can perform only one action at a time`),p.actionsPlaced.add(e),new C(a,l,e)}case u.ACTIONS.BUILD_CART:case u.ACTIONS.BUILD_WORKER:{s(2!==c.length,o,!1);const e=parseInt(c[0]),i=parseInt(c[1]);s(isNaN(e)||isNaN(i)||!this.map.inMap(new d(e,i)),`Agent ${t.agentID} tried to build unit with invalid coordinates`);const n=this.map.getCell(e,i);s(!n.isCityTile()||n.citytile.team!==l,`Agent ${t.agentID} tried to build unit on tile (${e}, ${i}) that it does not own`);const r=n.citytile;return s(p.actionsPlaced.has(r.getTileID()),`Agent ${t.agentID} sent an extra command. CityTile can perform only one action at a time`),s(!r.canBuildUnit(),`Agent ${t.agentID} tried to build unit on tile (${e}, ${i}) but CityTile still with cooldown of ${r.cooldown}`),a===u.ACTIONS.BUILD_CART?s(this.cartUnitCapReached(l,p.cartsBuilt+p.workersBuilt),`Agent ${t.agentID} tried to build unit on tile (${e}, ${i}) but unit cap reached. Build more CityTiles!`):s(this.workerUnitCapReached(l,p.cartsBuilt+p.workersBuilt),`Agent ${t.agentID} tried to build unit on tile (${e}, ${i}) but unit cap reached. Build more CityTiles!`),p.actionsPlaced.add(r.getTileID()),a===u.ACTIONS.BUILD_CART?(p.cartsBuilt+=1,new A(a,l,e,i)):(p.workersBuilt+=1,new E(a,l,e,i))}case u.ACTIONS.MOVE:{s(2!==c.length,o,!1);const e=c[0],i=c[1];s(!h.units.has(e),`Agent ${t.agentID} tried to move unit ${e} that it does not own`);const n=h.units.get(e);if(s(!n.canMove(),`Agent ${t.agentID} tried to move unit ${e} with cooldown: ${n.cooldown}`),s(p.actionsPlaced.has(e),`Agent ${t.agentID} sent an extra command. Unit can perform only one action at a time`),s(!Object.values(u.DIRECTIONS).includes(i),`Agent ${t.agentID} tried to move unit ${e} in invalid direction ${i}`),i!==u.DIRECTIONS.CENTER){const o=n.pos.translate(i,1);s(!this.map.inMap(o),`Agent ${t.agentID} tried to move unit ${e} off map`),s(this.map.getCellByPos(o).isCityTile()&&this.map.getCellByPos(o).citytile.team!==l,`Agent ${t.agentID} tried to move unit ${e} onto opponent CityTile`)}return p.actionsPlaced.add(e),new y(a,l,e,i,this.map.getCellByPos(n.pos.translate(i,1)))}case u.ACTIONS.RESEARCH:{s(2!==c.length,o,!1);const e=parseInt(c[0]),i=parseInt(c[1]);s(isNaN(e)||isNaN(i)||!this.map.inMap(new d(e,i)),`Agent ${t.agentID} tried to run research at invalid coordinates`);const n=this.map.getCell(e,i);s(!n.isCityTile()||n.citytile.team!==l,`Agent ${t.agentID} tried to run research at CityTile (${e}, ${i}) that it does not own`);const r=n.citytile;return s(!r.canResearch(),`Agent ${t.agentID} tried to run research at CityTile (${e}, ${i}) but CityTile still on cooldown ${r.cooldown}`,!0),s(p.actionsPlaced.has(r.getTileID()),`Agent ${t.agentID} sent an extra command. CityTile can perform only one action at a time`),p.actionsPlaced.add(r.getTileID()),new w(a,l,e,i)}case u.ACTIONS.TRANSFER:{s(4!==c.length,o,!1);const e=c[0],i=c[1],r=c[2],u=parseInt(c[3]);s(!h.units.has(e),`Agent ${t.agentID} does not own source unit: ${e} for transfer`),s(!h.units.has(i),`Agent ${t.agentID} does not own destination unit: ${i} for transfer`),s(!h.units.get(e).canAct(),`Agent ${t.agentID} tried to transfer resources with cooldown: ${h.units.get(e).cooldown}`),s(p.actionsPlaced.has(e),`Agent ${t.agentID} sent an extra command. Unit can perform only one action at a time`);const d=h.units.get(e),g=h.units.get(i);return s(e===i,`Agent ${t.agentID} tried to transfer between the same unit ${e}`),s(!d.pos.isAdjacent(g.pos),`Agent ${t.agentID} tried to transfer between non-adjacent units: ${e}, ${i}`),s(isNaN(u)||u<0,`Agent ${t.agentID} tried to transfer invalid amount: ${u}`),s(!Object.values(n.Types).includes(r),`Agent ${t.agentID} tried to transfer invalid resource: ${r}`),p.actionsPlaced.add(e),new O(a,l,e,i,r,u)}}s(!0,o,!1)}workerUnitCapReached(t,e=0){let s=0;return this.cities.forEach((e=>{e.team===t&&(s+=e.citycells.length)})),this.state.teamStates[t].units.size+e>=s}cartUnitCapReached(t,e=0){let s=0;return this.cities.forEach((e=>{e.team===t&&(s+=e.citycells.length)})),this.state.teamStates[t].units.size+e>=s}spawnWorker(t,e,s,i){const n=this.map.getCell(e,s),o=new f(e,s,t,this.configs,this.globalUnitIDCount+1);return i?o.id=i:this.globalUnitIDCount++,n.units.set(o.id,o),this.state.teamStates[t].units.set(o.id,o),this.stats.teamStats[t].workersBuilt+=1,o}spawnCart(t,e,s,i){const n=this.map.getCell(e,s),o=new g(e,s,t,this.configs,this.globalUnitIDCount+1);return i?o.id=i:this.globalUnitIDCount++,n.units.set(o.id,o),this.state.teamStates[t].units.set(o.id,o),this.stats.teamStats[t].cartsBuilt+=1,o}spawnCityTile(t,e,s,i){const n=this.map.getCell(e,s),o=this.map.getAdjacentCells(n),r=new Set,a=o.filter((e=>!(!e.isCityTile()||e.citytile.team!==t||(r.add(e.citytile.cityid),0))));if(0===a.length){const e=new I(t,this.configs,this.globalCityIDCount+1);return i?e.id=i:this.globalCityIDCount++,n.setCityTile(t,e.id),e.addCityTile(n),this.cities.set(e.id,e),n.citytile}{const e=a[0].citytile.cityid,s=this.cities.get(e);return n.setCityTile(t,e),n.citytile.adjacentCityTiles=a.length,a.forEach((t=>{t.citytile.adjacentCityTiles+=1})),s.addCityTile(n),r.forEach((t=>{if(t!==e){const i=this.cities.get(t);i.citycells.forEach((t=>{t.citytile.cityid=e,s.addCityTile(t)})),s.fuel+=i.fuel,this.cities.delete(i.id)}})),n.citytile}}runCooldowns(){[p.TEAM.A,p.TEAM.B].forEach((t=>{this.getTeamsUnits(t).forEach((t=>{t.cooldown-=this.map.getCellByPos(t.pos).getRoad(),t.cooldown=Math.max(t.cooldown-1,0)}))}))}moveUnit(t,e,s){const i=this.getUnit(t,e);this.map.getCellByPos(i.pos).units.delete(i.id),i.pos=i.pos.translate(s,1),this.map.getCellByPos(i.pos).units.set(i.id,i)}distributeAllResources(){const t=[n.Types.URANIUM,n.Types.COAL,n.Types.WOOD];for(const e of t)this.handleResourceTypeRelease(e)}resourceMiningRate(t){switch(t){case n.Types.WOOD:return this.configs.parameters.WORKER_COLLECTION_RATE.WOOD;case n.Types.COAL:return this.configs.parameters.WORKER_COLLECTION_RATE.COAL;case n.Types.URANIUM:return this.configs.parameters.WORKER_COLLECTION_RATE.URANIUM}}resourceConversionRate(t){switch(t){case n.Types.WOOD:return this.configs.parameters.RESOURCE_TO_FUEL_RATE.WOOD;case n.Types.COAL:return this.configs.parameters.RESOURCE_TO_FUEL_RATE.COAL;case n.Types.URANIUM:return this.configs.parameters.RESOURCE_TO_FUEL_RATE.URANIUM}}handleResourceTypeRelease(t){const e=this.createResourceRequests(t);this.resolveResourceRequests(t,e)}createResourceRequests(t){const e=this.resourceMiningRate(t),s=new Map;return[p.TEAM.A,p.TEAM.B].forEach((i=>{const n=this.getTeamsUnits(i);this.state.teamStates[i].researched[t]&&n.forEach((i=>{if(i.type!==p.Type.WORKER)return;const n=u.ALL_DIRECTIONS.map((t=>i.pos.translate(t))).filter((e=>{var s;if(!this.map.inMap(e))return!1;const i=this.map.getCellByPos(e);return!!i.hasResource()&&(null===(s=i.resource)||void 0===s?void 0:s.type)===t&&i.resource.amount>0})).map((t=>this.map.getCellByPos(t))),o=Math.min(Math.ceil(i.getCargoSpaceLeft()/n.length),e);n.forEach((t=>{s.has(t.pos.toString())||s.set(t.pos.toString(),[]);const e=this.map.getCellByPos(i.pos),n=new h(i.pos,o,e.isCityTile()?void 0:i,e.isCityTile()?this.cities.get(e.citytile.cityid):void 0);s.get(t.pos.toString()).some((t=>t.equals(n)))||s.get(t.pos.toString()).push(n)}))}))})),s}resolveResourceRequests(t,e){e.forEach(((e,s)=>{const i=d.fromString(s);let n=this.map.getCell(i.x,i.y).resource.amount,o=e.map((t=>[t.amount,t]));for(;o.length>0&&o.map((t=>t[0])).reduce(((t,e)=>t+e))>0&&n>0;){const e=Math.min(Math.min(...o.map((t=>t[0]))),Math.floor(n/o.length));o.map((t=>t[1])).forEach((s=>{if(s.city)this.stats.teamStats[s.city.team].resourcesCollected[t]+=e,s.city.fuel+=e*this.resourceConversionRate(t);else{const i=Math.min(s.worker.getCargoSpaceLeft(),e);this.stats.teamStats[s.worker.team].resourcesCollected[t]+=i,s.worker.cargo[t]+=i}})),o=o.map((([t,s])=>[t-e,s])),n-=e*o.length,n<o.length&&(n=0),o=o.filter((([t,e])=>t>0))}this.map.getCellByPos(i).resource.amount=n}))}handleResourceDeposit(t){const e=this.map.getCellByPos(t.pos);if(e.isCityTile()&&e.citytile.team===t.team){const s=this.cities.get(e.citytile.cityid);let i=0;i+=t.cargo.wood*this.configs.parameters.RESOURCE_TO_FUEL_RATE.WOOD,i+=t.cargo.coal*this.configs.parameters.RESOURCE_TO_FUEL_RATE.COAL,i+=t.cargo.uranium*this.configs.parameters.RESOURCE_TO_FUEL_RATE.URANIUM,s.fuel+=i,this.stats.teamStats[t.team].fuelGenerated+=i,t.cargo={wood:0,uranium:0,coal:0}}}getTeamsUnits(t){return this.state.teamStates[t].units}getUnit(t,e){return this.state.teamStates[t].units.get(e)}transferResources(t,e,s,i,n){const o=this.getUnit(t,e),r=this.getUnit(t,s),a=Math.min(n,o.cargo[i],r.getCargoSpaceLeft());o.cargo[i]-=a,r.cargo[i]+=a}destroyCity(t){const e=this.cities.get(t);this.cities.delete(t),e.citycells.forEach((t=>{t.citytile=null,t.road=this.configs.parameters.MIN_ROAD}))}destroyUnit(t,e){const s=this.getUnit(t,e);this.map.getCellByPos(s.pos).units.delete(e),this.state.teamStates[t].units.delete(e)}regenerateTrees(){this.map.resources.filter((t=>"wood"===t.resource.type)).forEach((t=>{t.resource.amount<this.configs.parameters.MAX_WOOD_AMOUNT&&(t.resource.amount=Math.ceil(Math.min(t.resource.amount*this.configs.parameters.WOOD_GROWTH_RATE,this.configs.parameters.MAX_WOOD_AMOUNT)))}))}handleMovementActions(t,e){const s=new Map,i=new Set;t.forEach((t=>{const e=t.newcell,n=s.get(e);void 0===n?s.set(e,[t]):s.set(e,[...n,t]),i.add(t.unitid)}));const n=t=>{e&&e.log.warn(`turn ${this.state.turn}; Unit ${t.unitid} collided when trying to move ${t.direction} to (${t.newcell.pos.x}, ${t.newcell.pos.y})`);const i=this.map.getCellByPos(this.getUnit(t.team,t.unitid).pos),o=s.get(i);i.isCityTile()||(s.delete(i),o&&o.forEach((t=>{n(t)})))},o=Array.from(s.keys());for(const t of o){const e=s.get(t),o=[];if(void 0!==e)if(e.length>1)t.isCityTile()||e.forEach((t=>{o.push(t)}));else if(1===e.length){const s=e[0];if(!t.isCityTile()&&1===t.units.size){let e=!0;t.units.forEach((t=>{i.has(t.id)&&(e=!1)})),e&&o.push(s)}}o.forEach((t=>{n(t)})),o.forEach((t=>{s.delete(t.newcell)}))}const r=[];return s.forEach((t=>{r.push(...t)})),r}isNight(){const t=this.configs.parameters.DAY_LENGTH,e=t+this.configs.parameters.NIGHT_LENGTH;return this.state.turn%e>=t}toStateObject(){const t={};this.cities.forEach((e=>{t[e.id]={id:e.id,fuel:e.fuel,lightupkeep:e.getLightUpkeep(),team:e.team,cityCells:e.citycells.map((t=>({x:t.pos.x,y:t.pos.y,cooldown:t.citytile.cooldown})))}}));const e={turn:this.state.turn,globalCityIDCount:this.globalCityIDCount,globalUnitIDCount:this.globalUnitIDCount,teamStates:{[p.TEAM.A]:{researchPoints:0,units:{},researched:{wood:!0,coal:!1,uranium:!1}},[p.TEAM.B]:{researchPoints:0,units:{},researched:{wood:!0,coal:!1,uranium:!1}}},map:this.map.toStateObject(),cities:t};return[p.TEAM.A,p.TEAM.B].forEach((t=>{this.state.teamStates[t].units.forEach((s=>{e.teamStates[t].units[s.id]={cargo:c(s.cargo),cooldown:s.cooldown,x:s.pos.x,y:s.pos.y,type:s.type}})),e.teamStates[t].researchPoints=this.state.teamStates[t].researchPoints,e.teamStates[t].researched=c(this.state.teamStates[t].researched)})),e}}!function(t){let e,s;!function(t){t.MOVE="m",t.RESEARCH="r",t.BUILD_WORKER="bw",t.BUILD_CART="bc",t.BUILD_CITY="bcity",t.TRANSFER="t",t.PILLAGE="p",t.DEBUG_ANNOTATE_CIRCLE="dc",t.DEBUG_ANNOTATE_X="dx",t.DEBUG_ANNOTATE_LINE="dl",t.DEBUG_ANNOTATE_TEXT="dt",t.DEBUG_ANNOTATE_SIDETEXT="dst"}(e=t.ACTIONS||(t.ACTIONS={})),function(t){t.NORTH="n",t.EAST="e",t.SOUTH="s",t.WEST="w",t.CENTER="c"}(s=t.DIRECTIONS||(t.DIRECTIONS={})),t.ALL_DIRECTIONS=[s.NORTH,s.EAST,s.SOUTH,s.WEST,s.CENTER]}(u||(u={}));class d{constructor(t,e){this.x=t,this.y=e}static fromString(t){return d.fromArray(t.split(",").map((t=>parseInt(t))))}static fromArray(t){return new d(t[0],t[1])}isAdjacent(t){const e=this.x-t.x,s=this.y-t.y;return!(Math.abs(e)+Math.abs(s)>1)}translate(t,e=1){switch(t){case u.DIRECTIONS.NORTH:return new d(this.x,this.y-e);case u.DIRECTIONS.EAST:return new d(this.x+e,this.y);case u.DIRECTIONS.SOUTH:return new d(this.x,this.y+e);case u.DIRECTIONS.WEST:return new d(this.x-e,this.y);case u.DIRECTIONS.CENTER:return new d(this.x,this.y)}}equals(t){return this.x==t.x&&this.y==t.y}toString(){return`${this.x},${this.y}`}}class p extends o{constructor(t,e,s,i,n,o){super(n),this.type=s,this.team=i,this.cargo={wood:0,coal:0,uranium:0},this.id="u_"+o,this.pos=new d(t,e)}getCargoSpaceLeft(){let t=this.configs.parameters.RESOURCE_CAPACITY.CART;return this.type===p.Type.WORKER&&(t=this.configs.parameters.RESOURCE_CAPACITY.WORKER),t-this.cargo.wood-this.cargo.coal-this.cargo.uranium}spendFuelToSurvive(){let t=this.getLightUpkeep();const e=Math.ceil(t/this.configs.parameters.RESOURCE_TO_FUEL_RATE.WOOD),s=Math.min(this.cargo.wood,e);if(t-=s*this.configs.parameters.RESOURCE_TO_FUEL_RATE.WOOD,this.cargo.wood-=s,t<=0)return!0;const i=Math.ceil(t/this.configs.parameters.RESOURCE_TO_FUEL_RATE.COAL),n=Math.min(this.cargo.coal,i);if(t-=n*this.configs.parameters.RESOURCE_TO_FUEL_RATE.COAL,this.cargo.coal-=n,t<=0)return!0;const o=Math.ceil(t/this.configs.parameters.RESOURCE_TO_FUEL_RATE.URANIUM),r=Math.min(this.cargo.uranium,o);return t-=r*this.configs.parameters.RESOURCE_TO_FUEL_RATE.URANIUM,this.cargo.uranium-=r,t<=0||t<=0}}!function(t){let e,s;!function(t){t[t.WORKER=0]="WORKER",t[t.CART=1]="CART"}(e=t.Type||(t.Type={})),function(t){t[t.A=0]="A",t[t.B=1]="B"}(s=t.TEAM||(t.TEAM={}))}(p||(p={}));class g extends p{constructor(t,e,s,i,n){super(t,e,p.Type.CART,s,i,n)}getLightUpkeep(){return this.configs.parameters.LIGHT_UPKEEP.CART}canMove(){return this.canAct()}turn(t){t.map.getCellByPos(this.pos);const e=t.isNight()?2:1;if(1===this.currentActions.length){const s=this.currentActions[0];s instanceof y?(t.moveUnit(s.team,s.unitid,s.direction),this.cooldown+=this.configs.parameters.UNIT_ACTION_COOLDOWN.CART*e):s instanceof O&&(t.transferResources(s.team,s.srcID,s.destID,s.resourceType,s.amount),this.cooldown+=this.configs.parameters.UNIT_ACTION_COOLDOWN.CART*e)}const s=t.map.getCellByPos(this.pos);s.getRoad()<this.configs.parameters.MAX_ROAD&&(s.road=Math.min(s.road+this.configs.parameters.CART_ROAD_DEVELOPMENT_RATE,this.configs.parameters.MAX_ROAD),t.stats.teamStats[this.team].roadsBuilt+=this.configs.parameters.CART_ROAD_DEVELOPMENT_RATE)}}class f extends p{constructor(t,e,s,i,n){super(t,e,p.Type.WORKER,s,i,n)}getLightUpkeep(){return this.configs.parameters.LIGHT_UPKEEP.WORKER}canMove(){return this.canAct()}expendResourcesForCity(){let t=0;for(const e of["wood","coal","uranium"]){if(t+this.cargo[e]>this.configs.parameters.CITY_BUILD_COST){const s=this.configs.parameters.CITY_BUILD_COST-t;this.cargo[e]-=s;break}t+=this.cargo[e],this.cargo[e]=0}}turn(t){const e=t.map.getCellByPos(this.pos),s=t.isNight()?2:1;if(1===this.currentActions.length){const i=this.currentActions[0];let n=!0;i instanceof y?t.moveUnit(i.team,i.unitid,i.direction):i instanceof O?t.transferResources(i.team,i.srcID,i.destID,i.resourceType,i.amount):i instanceof C?(t.spawnCityTile(i.team,this.pos.x,this.pos.y),this.expendResourcesForCity()):i instanceof R?e.road=Math.max(e.road-this.configs.parameters.PILLAGE_RATE,this.configs.parameters.MIN_ROAD):n=!1,n&&(this.cooldown+=this.configs.parameters.UNIT_ACTION_COOLDOWN.WORKER*s)}}}class m{constructor(t,e){this.action=t,this.team=e}}class y extends m{constructor(t,e,s,i,n){super(t,e),this.unitid=s,this.direction=i,this.newcell=n}}class T extends m{constructor(t,e,s,i){super(t,e),this.x=s,this.y=i}}class A extends T{constructor(t,e,s,i){super(t,e,s,i),this.type=p.Type.CART}}class E extends T{constructor(t,e,s,i){super(t,e,s,i),this.type=p.Type.WORKER}}class C extends m{constructor(t,e,s){super(t,e),this.unitid=s}}class O extends m{constructor(t,e,s,i,n,o){super(t,e),this.srcID=s,this.destID=i,this.resourceType=n,this.amount=o}}class R extends m{constructor(t,e,s){super(t,e),this.unitid=s}}class w extends m{constructor(t,e,s,i){super(t,e),this.x=s,this.y=i}}class I{constructor(t,e,s){this.team=t,this.configs=e,this.fuel=0,this.citycells=[],this.id="c_"+s}getLightUpkeep(){return this.citycells.length*this.configs.parameters.LIGHT_UPKEEP.CITY-this.getAdjacencyBonuses()}getAdjacencyBonuses(){let t=0;return this.citycells.forEach((e=>{t+=e.citytile.adjacentCityTiles*this.configs.parameters.CITY_ADJACENCY_BONUS})),t}addCityTile(t){this.citycells.push(t)}}class D extends o{constructor(t,e){super(e),this.team=t,this.pos=null,this.adjacentCityTiles=0}getTileID(){return`${this.cityid}_${this.pos.x}_${this.pos.y}`}canBuildUnit(){return this.canAct()}canResearch(){return this.canAct()}turn(t){if(1===this.currentActions.length){const e=this.currentActions[0];e instanceof A?(t.spawnCart(e.team,e.x,e.y),this.resetCooldown()):e instanceof E?(t.spawnWorker(e.team,e.x,e.y),this.resetCooldown()):e instanceof w&&(this.resetCooldown(),t.state.teamStates[this.team].researchPoints++,t.state.teamStates[this.team].researchPoints>=this.configs.parameters.RESEARCH_REQUIREMENTS.COAL&&(t.state.teamStates[this.team].researched.coal=!0),t.state.teamStates[this.team].researchPoints>=this.configs.parameters.RESEARCH_REQUIREMENTS.URANIUM&&(t.state.teamStates[this.team].researched.uranium=!0))}this.cooldown>0&&this.cooldown--}resetCooldown(){this.cooldown=this.configs.parameters.CITY_ACTION_COOLDOWN}}class M{constructor(t,e,s){this.configs=s,this.resource=null,this.citytile=null,this.units=new Map,this.road=0,this.pos=new d(t,e),this.road=this.configs.parameters.MIN_ROAD}setResource(t,e){return this.resource=new n(t,e),this.resource}hasResource(){return null!==this.resource&&this.resource.amount>0}setCityTile(t,e){this.citytile=new D(t,this.configs),this.citytile.pos=this.pos,this.citytile.cityid=e}isCityTile(){return null!==this.citytile}hasUnits(){return 0!==this.units.size}getRoad(){return this.isCityTile()?this.configs.parameters.MAX_ROAD:this.road}}class S{constructor(t){this.resources=[],this.height=t.height,this.width=t.width,this.map=new Array(this.height);for(let e=0;e<this.height;e++){this.map[e]=new Array(this.width);for(let s=0;s<this.width;s++)this.map[e][s]=new M(s,e,t)}}sortResourcesDeterministically(){const t=Math.max(this.width,this.height);this.resources.sort(((e,s)=>e.pos.x*t+e.pos.y-(s.pos.x*t+s.pos.y)))}addResource(t,e,s,i){const n=this.getCell(t,e);return n.setResource(s,i),this.resources.push(n),n}getCellByPos(t){return this.map[t.y][t.x]}getCell(t,e){return this.map[e][t]}getRow(t){return this.map[t]}getAdjacentCells(t){const e=[];return t.pos.y>0&&e.push(this.getCell(t.pos.x,t.pos.y-1)),t.pos.x<this.width-1&&e.push(this.getCell(t.pos.x+1,t.pos.y)),t.pos.y<this.height-1&&e.push(this.getCell(t.pos.x,t.pos.y+1)),t.pos.x>0&&e.push(this.getCell(t.pos.x-1,t.pos.y)),e}inMap(t){return!(t.x<0||t.y<0||t.x>=this.width||t.y>=this.height)}toStateObject(){const t=[];for(let e=0;e<this.height;e++){t.push([]);for(let s=0;s<this.width;s++){const i=this.getCell(s,e),n={road:i.getRoad()};i.resource&&(n.resource={type:i.resource.type,amount:i.resource.amount}),t[e].push(n)}}return t}getMapString(){let t="";for(let e=0;e<this.height;e++)t+=this.getRow(e).map((t=>{if(t.hasUnits()){if(1===t.units.size){let e="";return t.units.forEach((t=>{let s="w";t.type===p.Type.CART&&(s="c"),e=t.team===p.TEAM.A?s.cyan:s.red})),e}{const e=t.units.size;return t.units.values().next().value.team===p.TEAM.A?`${e}`.cyan:`${e}`.red}}if(t.hasResource())switch(t.resource.type){case n.Types.WOOD:return"▩".yellow;case n.Types.COAL:return"▩".gray;case n.Types.URANIUM:return"▩".magenta}else if(t.isCityTile())return t.citytile.team===p.TEAM.A?"▩".cyan:"▩".red;const e=t.getRoad();return e<1.1?"0":e<2.1?"r".black.bgYellow:"r".black.bgGreen})).join(" ")+"\n";return t}}!function(t){let e;!function(t){t.EMPTY="empty",t.RANDOM="random",t.DEBUG="debug"}(e=t.Types||(t.Types={}))}(S||(S={}));const _=JSON.parse('{"Jw":{"DAY_LENGTH":30,"NIGHT_LENGTH":10,"MAX_DAYS":360,"LIGHT_UPKEEP":{"CITY":23,"WORKER":4,"CART":10},"WOOD_GROWTH_RATE":1.025,"MAX_WOOD_AMOUNT":500,"CITY_BUILD_COST":100,"CITY_ADJACENCY_BONUS":5,"RESOURCE_CAPACITY":{"WORKER":100,"CART":2000},"WORKER_COLLECTION_RATE":{"WOOD":20,"COAL":5,"URANIUM":2},"RESOURCE_TO_FUEL_RATE":{"WOOD":1,"COAL":10,"URANIUM":40},"RESEARCH_REQUIREMENTS":{"COAL":50,"URANIUM":200},"CITY_ACTION_COOLDOWN":10,"UNIT_ACTION_COOLDOWN":{"CART":3,"WORKER":2},"MAX_ROAD":6,"MIN_ROAD":0,"CART_ROAD_DEVELOPMENT_RATE":0.75,"PILLAGE_RATE":0.5}}'),U={mapType:S.Types.RANDOM,storeReplay:!0,seed:void 0,debug:!1,debugDelay:500,runProfiler:!1,compressReplay:!1,debugAnnotations:!1,statefulReplay:!1,parameters:_.Jw};var N=s(36995),x=s.n(N);const v=[12,16,24,32];var L;!function(t){t[t.HORIZONTAL=0]="HORIZONTAL",t[t.VERTICAL=1]="VERTICAL"}(L||(L={}));const b=t=>{const e={wood:0,coal:0,uranium:0};return t.forEach(((s,i)=>{s.forEach(((s,n)=>{null!==s&&(e[t[i][n].type]+=t[i][n].amt)}))})),!(e.wood<2e3||e.coal<1500||e.uranium<300)},$=(t,e,s,i,o,r)=>{let a=[];for(let t=0;t<i;t++){a.push([]);for(let e=0;e<s;e++)a[t].push(null)}B(t,.21,.01,o,r,{deathLimit:2,birthLimit:4}).forEach(((e,s)=>{e.forEach(((e,i)=>{if(1===e){const e=Math.min(300+Math.floor(100*t()),500);a[s][i]={type:n.Types.WOOD,amt:e}}}))})),B(t,.11,.02,o,r,{deathLimit:2,birthLimit:4}).forEach(((e,s)=>{e.forEach(((e,i)=>{if(1===e){const e=350+Math.floor(75*t());a[s][i]={type:n.Types.COAL,amt:e}}}))})),B(t,.055,.04,o,r,{deathLimit:1,birthLimit:6}).forEach(((e,s)=>{e.forEach(((e,i)=>{if(1===e){const e=300+Math.floor(50*t());a[s][i]={type:n.Types.URANIUM,amt:e}}}))}));for(let t=0;t<10;t++)a=j(a);for(let e=0;e<r;e++)for(let s=0;s<o;s++){const i=a[e][s];if(null!==i)for(const n of P){const c=s+n[0],l=e+n[1];if(!(c<0||l<0||c>=r||l>=o)&&t()<.05){let e=300+Math.floor(50*t());"coal"===i.type&&(e=350+Math.floor(75*t())),"wood"===i.type&&(e=Math.min(300+Math.floor(100*t()),500)),a[l][c]={type:i.type,amt:e}}}}for(let t=0;t<r;t++)for(let n=0;n<o;n++){const o=a[t][n];e===L.VERTICAL?a[t][s-n-1]=o:a[i-t-1][n]=o}return a},B=(t,e,s,i,n,o={deathLimit:2,birthLimit:4})=>{const r=e-s/2+s*t(),a=[];for(let e=0;e<n;e++){a.push([]);for(let s=0;s<i;s++){let s=0;t()<r&&(s=1),a[e].push(s)}}for(let t=0;t<2;t++)k(a,o);return a},P=[[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1],[1,0],[1,1]],k=(t,e)=>{const s=e.deathLimit,i=e.birthLimit;for(let e=1;e<t.length-1;e++)for(let n=1;n<t[0].length-1;n++){let o=0;for(let s=0;s<P.length;s++){const i=P[s],r=e+i[1],a=n+i[0];1===t[r][a]&&o++}1==t[e][n]?t[e][n]=o<s?0:1:t[e][n]=o>i?1:0}},W=(t,e,s)=>{const i=[0,0],n=t[s][e];for(let o=s-5;o<s+5;o++)for(let r=e-5;r<e+5;r++){if(r<0||o<0||r>=t[0].length||o>=t.length)continue;const a=t[o][r];if(null!==a){const t=e-r,c=s-o,l=Math.abs(t)+Math.abs(c);a.type!==n.type?(0!==t&&(i[0]+=Math.pow(t/l,2)*Math.sign(t)),0!==c&&(i[1]+=Math.pow(c/l,2)*Math.sign(c))):(0!==t&&(i[0]-=Math.pow(t/l,2)*Math.sign(t)),0!==c&&(i[1]-=Math.pow(c/l,2)*Math.sign(c)))}}return i},j=t=>{const e=[];for(let s=0;s<t.length;s++){e.push([]);for(let i=0;i<t[s].length;i++)if(e[s].push(null),null!==t[s][i]){const e=W(t,i,s);t[s][i].force=e}}for(let s=0;s<t.length;s++)for(let i=0;i<t[s].length;i++){const n=t[s][i];if(null!==n){let o=i+1*Math.sign(n.force[0]),r=s+1*Math.sign(n.force[1]);o<0&&(o=0),r<0&&(r=0),o>=t[0].length&&(o=t[0].length-1),r>=t.length&&(r=t.length-1),null===e[r][o]?e[r][o]=n:e[s][i]=n}}return e};var F=s(35747),G=s.n(F),H=s(19834),q=s.n(H),Y=s(85622),K=s.n(Y);class z{constructor(t,e,s=!1,i){this.compressReplay=e,this.statefulReplay=s,this.out=i,this.replayFilePath=null,this.data={seed:0,allCommands:[],mapType:S.Types.RANDOM,width:-1,height:-1,teamDetails:[],version:"3.1.0"},this.storeReplay=!1;let n=`${(new Date).valueOf()}_${t.id}`;s&&(n+="_stateful"),n+=e?".luxr":".json",this.replayFilePath=K().join(t.configs.storeReplayDirectory,n),void 0!==i&&(this.replayFilePath=i),this.storeReplay=t.configs.storeReplay,G().existsSync&&this.storeReplay&&(G().existsSync(t.configs.storeReplayDirectory)||G().mkdirSync(t.configs.storeReplayDirectory,{recursive:!0}),G().writeFileSync(this.replayFilePath,"")),this.statefulReplay&&(this.data.stateful=[])}writeState(t){const e=t.toStateObject();this.data.stateful.push(e)}writeTeams(t){t.forEach((t=>{let e="";t.tournamentID&&t.tournamentID.id&&(e=t.tournamentID.id),this.data.teamDetails.push({name:t.name,tournamentID:e})}))}writeOut(t){if(this.data.results=t,G().appendFileSync&&this.storeReplay)if(this.compressReplay){const t=new(q());t.file(this.replayFilePath,JSON.stringify(this.data)),t.generateAsync({type:"nodebuffer",compression:"DEFLATE",compressionOptions:{level:9}}).then((t=>{G().appendFileSync(this.replayFilePath,t)}))}else G().appendFileSync(this.replayFilePath,JSON.stringify(this.data))}}class J{constructor(t=","){return this.delimiter=t,this.parse.bind(this)}setDelimeter(t){this.delimiter=t}parse(t){return new X(t,this.delimiter)}}class X{constructor(t,e){this.str=t,this.contents=t.split(e),""===this.contents[this.contents.length-1]&&(this.contents=this.contents.slice(0,this.contents.length-1)),this.index=0}_nextStr(){if(this.index<this.contents.length)return this.contents[this.index++];throw new Error("No more contents to consume from line")}nextIntArr(){if(this.index<this.contents.length)return this.contents.slice(this.index,this.contents.length).map((t=>parseInt(t,10)));throw new Error("No more contents to consume from line")}nextInt(){const t=this._nextStr();return parseInt(t,10)}nextFloatArr(){if(this.index<this.contents.length)return this.contents.slice(this.index++).map((t=>parseFloat(t)));throw new Error("No more contents to consume from line")}nextFloat(){const t=this._nextStr();return parseFloat(t)}nextStrArr(){if(this.index<this.contents.length)return this.contents.slice(this.index++);throw new Error("No more contents to consume from line")}nextStr(){return this._nextStr()}}var V=function(t,e,s,i){return new(s||(s=Promise))((function(n,o){function r(t){try{c(i.next(t))}catch(t){o(t)}}function a(t){try{c(i.throw(t))}catch(t){o(t)}}function c(t){var e;t.done?n(t.value):(e=t.value,e instanceof s?e:new s((function(t){t(e)}))).then(r,a)}c((i=i.apply(t,e||[])).next())}))};class Q{static initialize(t){return V(this,void 0,void 0,(function*(){const e=Math.floor(1e9*Math.random()),s={configs:c(U),game:null,rng:x()(`${e}`),profile:null};s.configs=l(s.configs,t.configs),s.configs.runProfiler&&(s.profile={updateStage:[],dataTransfer:[]}),void 0!==s.configs.seed?s.rng=x()(`${s.configs.seed}`):s.configs.seed=e;const i=s.configs.width,o=s.configs.height,r=((t={})=>{const e=Object.assign({},t),s=e.seed,i=x()(`gen_${s}`),o=v[Math.floor(i()*v.length)];void 0===e.width&&(e.width=o),void 0===e.height&&(e.height=o);const r=new u(e),a=r.map,c=a.width,l=a.height;if(e.mapType!==S.Types.DEBUG){if(e.mapType===S.Types.EMPTY)return r;{let t=L.HORIZONTAL,e=c,s=l;i()<.5?(t=L.VERTICAL,e=c/2):s=l/2;let o=$(i,t,c,l,e,s),h=0;for(;!b(o);)h+=1,o=$(i,t,c,l,e,s);o.forEach(((t,e)=>{t.forEach(((t,s)=>{null!==t&&a.addResource(s,e,t.type,t.amt)}))}));let u=Math.floor(i()*(e-1))+1,g=Math.floor(i()*(s-1))+1;for(;a.getCell(u,g).hasResource();)u=Math.floor(i()*(e-1))+1,g=Math.floor(i()*(s-1))+1;r.spawnWorker(p.TEAM.A,u,g),r.spawnCityTile(p.TEAM.A,u,g),t===L.HORIZONTAL?(r.spawnWorker(p.TEAM.B,u,l-g-1),r.spawnCityTile(p.TEAM.B,u,l-g-1)):(r.spawnWorker(p.TEAM.B,c-u-1,g),r.spawnCityTile(p.TEAM.B,c-u-1,g));const f=Math.floor(i()*P.length),m=[P[f],P[(f+1)%P.length],P[(f+2)%P.length],P[(f+3)%P.length],P[(f+4)%P.length],P[(f+5)%P.length],P[(f+6)%P.length]];let y=0;for(const e of m){const s=u+e[0],i=g+e[1];let o=s,r=i;if(t===L.HORIZONTAL?r=l-i-1:o=c-s-1,a.inMap(new d(s,i))&&a.inMap(new d(o,r))&&(a.getCell(s,i).hasResource()||null!==a.getCell(s,i).citytile||(y+=1,a.addResource(s,i,n.Types.WOOD,800)),a.getCell(o,r).hasResource()||null!==a.getCell(o,r).citytile||(y+=1,a.addResource(o,r,n.Types.WOOD,800)),6==y))break}return r}}{const t=[[3,3],[3,4],[4,3],[5,6],[1,1],[1,2],[1,3],[2,5],[2,14],[2,13],[4,13],[5,13],[5,12],[5,14]];for(const e of t)a.addResource(e[0],e[1],n.Types.WOOD,1500),a.addResource(c-e[0]-1,e[1],n.Types.WOOD,1500);const e=[[5,5],[6,5],[9,4]];for(const t of e)a.addResource(t[0],t[1],n.Types.COAL,300),a.addResource(c-t[0]-1,t[1],n.Types.COAL,300);const s=[[9,7],[7,8]];for(const t of s)a.addResource(t[0],t[1],n.Types.URANIUM,30),a.addResource(c-t[0]-1,t[1],n.Types.URANIUM,30);r.spawnCityTile(p.TEAM.A,2,1),r.spawnCityTile(p.TEAM.B,c-3,1),r.spawnWorker(p.TEAM.A,2,2),r.spawnWorker(p.TEAM.B,c-3,2),r.spawnCart(p.TEAM.A,1,2),r.spawnCart(p.TEAM.B,c-2,2)}return r})(s.configs);s.game=r,r.replay=new z(t,s.configs.compressReplay,s.configs.statefulReplay,s.configs.out),r.replay.data.seed=s.configs.seed,r.replay.data.width=i,r.replay.data.height=o,r.replay.data.mapType=s.configs.mapType,t.log.detail(s.configs),t.state=s,r.map.sortResourcesDeterministically(),r.replay&&(r.replay.writeTeams(t.agents),r.replay.statefulReplay&&r.replay.writeState(r));for(let e=0;e<t.agents.length;e++){const s=t.agents[e].id;yield t.send(`${s}`,s)}yield t.sendAll(`${s.game.map.width} ${s.game.map.height}`),yield this.sendAllAgentsGameInformation(t),yield t.sendAll("D_DONE")}))}static sendAllAgentsGameInformation(t){return V(this,void 0,void 0,(function*(){let e;const s=t.state,i=s.game;i.configs.runProfiler&&(e=(new Date).valueOf());const n=i.map,o=[],r=[p.TEAM.A,p.TEAM.B];r.forEach((e=>{const s=i.state.teamStates[e].researchPoints;t.agents.forEach((i=>{i.isTerminated()||o.push(t.send(`rp ${e} ${s}`,i))}))})),n.resources.forEach((e=>{t.agents.forEach((s=>{s.isTerminated()||o.push(t.send(`r ${e.resource.type} ${e.pos.x} ${e.pos.y} ${e.resource.amount}`,s))}))})),r.forEach((e=>{i.getTeamsUnits(e).forEach((s=>{t.agents.forEach((i=>{i.isTerminated()||o.push(t.send(`u ${s.type} ${e} ${s.id} ${s.pos.x} ${s.pos.y} ${s.cooldown} ${s.cargo.wood} ${s.cargo.coal} ${s.cargo.uranium}`,i))}))}))})),i.cities.forEach((e=>{t.agents.forEach((s=>{s.isTerminated()||o.push(t.send(`c ${e.team} ${e.id} ${e.fuel} ${e.getLightUpkeep()}`,s))}))})),i.cities.forEach((e=>{e.citycells.forEach((s=>{t.agents.forEach((i=>{i.isTerminated()||o.push(t.send(`ct ${e.team} ${e.id} ${s.pos.x} ${s.pos.y} ${s.citytile.cooldown}`,i))}))}))}));for(let e=0;e<i.map.height;e++)for(let s=0;s<i.map.width;s++){const n=i.map.getCell(s,e).getRoad();0!==n&&t.agents.forEach((i=>{i.isTerminated()||o.push(t.send(`ccd ${s} ${e} ${n}`,i))}))}if(yield Promise.all(o),i.configs.runProfiler){const t=(new Date).valueOf();s.profile.dataTransfer.push(t-e)}}))}static update(t,e){return V(this,void 0,void 0,(function*(){const s=t.state,i=s.game;let n;i.configs.runProfiler&&(n=(new Date).valueOf()),t.log.detail("Processing turn "+i.state.turn),i.configs.debugAnnotations||(e=e.filter((t=>"d"!==t.command.split(" ")[0][0]))),i.replay&&i.replay.data.allCommands.push(e);const o=new Map;Object.values(u.ACTIONS).forEach((t=>{o.set(t,[])}));const r=i._genInitialAccumulatedActionStats();for(let s=0;s<e.length;s++)try{const t=i.validateCommand(e[s],r);if(null!=t){const e=[...o.get(t.action),t];o.set(t.action,e)}}catch(e){t.log.warn(`${e.message}`)}o.get(u.ACTIONS.BUILD_CITY).forEach((t=>{i.getUnit(t.team,t.unitid).giveAction(t)})),o.get(u.ACTIONS.BUILD_WORKER).forEach((t=>{i.map.getCell(t.x,t.y).citytile.giveAction(t)})),o.get(u.ACTIONS.BUILD_CART).forEach((t=>{i.map.getCell(t.x,t.y).citytile.giveAction(t)})),o.get(u.ACTIONS.PILLAGE).forEach((t=>{i.getUnit(t.team,t.unitid).giveAction(t)})),o.get(u.ACTIONS.RESEARCH).forEach((t=>{i.map.getCell(t.x,t.y).citytile.giveAction(t)})),o.get(u.ACTIONS.TRANSFER).forEach((t=>{i.getUnit(t.team,t.srcID).giveAction(t)})),i.handleMovementActions(o.get(u.ACTIONS.MOVE),t).forEach((t=>{t.direction!==u.DIRECTIONS.CENTER&&i.getUnit(t.team,t.unitid).giveAction(t)})),i.cities.forEach((e=>{e.citycells.forEach((e=>{try{e.citytile.handleTurn(i)}catch(s){t.throw(e.citytile.team,s)}}))}));const a=[p.TEAM.A,p.TEAM.B];for(const e of a)i.state.teamStates[e].units.forEach((e=>{try{e.handleTurn(i)}catch(e){t.log.warn(`${e.message}`)}}));i.distributeAllResources();for(const t of a)i.state.teamStates[t].units.forEach((t=>{i.handleResourceDeposit(t)}));i.isNight()&&this.handleNight(s);const c=[];for(let t=0;t<i.map.resources.length;t++){const e=i.map.resources[t];e.resource.amount>0&&c.push(e)}i.map.resources=c,i.regenerateTrees(),s.configs.debug&&(yield this.debugViewer(i));const l=this.matchOver(t);i.state.turn++,i.replay.statefulReplay&&i.replay.writeState(i),i.runCooldowns(),yield this.sendAllAgentsGameInformation(t);const h=[];if(t.agents.forEach((e=>{e.isTerminated()||h.push(t.send("D_DONE",e))})),yield Promise.all(h),l)return i.replay&&i.replay.writeOut(this.getResults(t)),"finished";if(i.configs.runProfiler){const t=(new Date).valueOf();s.profile.updateStage.push(t-n)}t.log.detail("Beginning turn "+i.state.turn)}))}static debugViewer(t){return V(this,void 0,void 0,(function*(){console.clear(),console.log(t.map.getMapString()),console.log(`Turn: ${t.state.turn}`);const e=[p.TEAM.A,p.TEAM.B];for(const s of e){const e=t.state.teamStates[s],i=`RP: ${e.researchPoints} | Units: ${e.units.size}`;s===p.TEAM.A?console.log(i.cyan):console.log(i.red)}var s,i,n,o,r;t.cities.forEach((t=>{let e=`City ${t.id}`.red;0===t.team&&(e=`City ${t.id}`.cyan),console.log(`${e} light: ${t.fuel} - size: ${t.citycells.length}`)})),yield(s=t.configs.debugDelay,i=void 0,n=void 0,o=void 0,r=function*(){return new Promise((t=>{setTimeout((()=>{t()}),s)}))},new(o||(o=Promise))((function(t,e){function s(t){try{c(r.next(t))}catch(t){e(t)}}function a(t){try{c(r.throw(t))}catch(t){e(t)}}function c(e){var i;e.done?t(e.value):(i=e.value,i instanceof o?i:new o((function(t){t(i)}))).then(s,a)}c((r=r.apply(i,n||[])).next())})))}))}static matchOver(t){const e=t.state,s=e.game;if(s.state.turn===e.configs.parameters.MAX_DAYS-1)return!0;const i=[p.TEAM.A,p.TEAM.B],n=[0,0];s.cities.forEach((t=>{n[t.team]+=1}));for(const t of i)if(s.getTeamsUnits(t).size+n[t]===0)return!0}static handleNight(t){const e=t.game;e.cities.forEach((t=>{t.fuel<t.getLightUpkeep()?e.destroyCity(t.id):t.fuel-=t.getLightUpkeep()})),[p.TEAM.A,p.TEAM.B].forEach((t=>{e.state.teamStates[t].units.forEach((t=>{e.map.getCellByPos(t.pos).isCityTile()||t.spendFuelToSurvive()||e.destroyUnit(t.team,t.id)}))}))}static getResults(t){const e=t.state.game;let s=p.TEAM.A,i=p.TEAM.B;t:{const t=[0,0];if(e.cities.forEach((e=>{t[e.team]+=e.citycells.length})),t[p.TEAM.A]>t[p.TEAM.B])break t;if(t[p.TEAM.A]<t[p.TEAM.B]){s=p.TEAM.B,i=p.TEAM.A;break t}const n=[e.getTeamsUnits(p.TEAM.A),e.getTeamsUnits(p.TEAM.B)];if(n[p.TEAM.A].size>n[p.TEAM.B].size)break t;if(n[p.TEAM.A].size<n[p.TEAM.B].size){s=p.TEAM.B,i=p.TEAM.A;break t}const o={ranks:[{rank:1,agentID:s},{rank:1,agentID:i}],replayFile:null};return e.configs.storeReplay&&(o.replayFile=e.replay.replayFilePath),o}const n={ranks:[{rank:1,agentID:s},{rank:2,agentID:i}],replayFile:null};return e.configs.storeReplay&&(n.replayFile=e.replay.replayFilePath),n}static reset(t,e){const s=t.state.game;void 0!==e.updates&&(e=(t=>{const e=new J(" "),s=t.turn,i=[0,0],n=[];for(let e=0;e<t.height;e++){n.push([]);for(let s=0;s<t.width;s++)n[e].push({road:0})}const o=[{},{}],r={};for(const s of t.updates){const t=e.parse(s);if("D_DONE"===t.str)break;switch(t.nextStr()){case"rp":i[t.nextInt()]=t.nextInt();break;case"r":{const e=t.nextStr(),s=t.nextInt(),i=t.nextInt(),o=t.nextInt();n[i][s].resource={type:e,amount:o};break}case"u":{const e=t.nextInt(),s=t.nextInt(),i=t.nextStr(),n=t.nextInt(),r=t.nextInt(),a=t.nextFloat(),c=t.nextInt(),l=t.nextInt(),h=t.nextInt();o[s][i]={cargo:{wood:c,coal:l,uranium:h},x:n,y:r,cooldown:a,type:e};break}case"c":{const e=t.nextInt(),s=t.nextStr(),i=t.nextFloat(),n=t.nextFloat();r[s]={team:e,fuel:i,cityCells:[],id:s,lightupkeep:n};break}case"ct":{t.nextInt();const e=t.nextStr(),s=t.nextInt(),i=t.nextInt(),n=t.nextFloat();r[e].cityCells.push({x:s,y:i,cooldown:n});break}case"ccd":{const e=t.nextInt(),s=t.nextInt(),i=t.nextFloat();n[s][e].road=i;break}}}return{map:n,cities:r,globalCityIDCount:t.globalCityIDCount,globalUnitIDCount:t.globalUnitIDCount,turn:s,teamStates:{[p.TEAM.A]:{researchPoints:i[0],units:o[0],researched:{wood:!0,coal:i[0]>=_.Jw.RESEARCH_REQUIREMENTS.COAL,uranium:i[0]>=_.Jw.RESEARCH_REQUIREMENTS.URANIUM}},[p.TEAM.B]:{researchPoints:i[1],units:o[1],researched:{wood:!0,coal:i[1]>=_.Jw.RESEARCH_REQUIREMENTS.COAL,uranium:i[1]>=_.Jw.RESEARCH_REQUIREMENTS.URANIUM}}}}})(e));const i=e.map.length,n=e.map[0].length,o=Object.assign({},s.configs);o.width=n,o.height=i,s.map=new S(o);for(let t=0;t<i;t++)for(let i=0;i<n;i++){const n=e.map[t][i];n.resource&&s.map.addResource(i,t,n.resource.type,n.resource.amount),s.map.getCell(i,t).road=n.road}s.cities=new Map;for(const t of Object.keys(e.cities)){const i=e.cities[t];i.cityCells.forEach((t=>{s.spawnCityTile(i.team,t.x,t.y,i.id).cooldown=t.cooldown})),s.cities.get(i.id).fuel=i.fuel}const r=[p.TEAM.A,p.TEAM.B];for(const t of r){s.state.teamStates[t].researchPoints=e.teamStates[t].researchPoints,s.state.teamStates[t].researched=c(e.teamStates[t].researched),s.state.teamStates[t].units.clear();for(const i of Object.keys(e.teamStates[t].units)){const n=e.teamStates[t].units[i];let o;o=n.type===p.Type.WORKER?s.spawnWorker(t,n.x,n.y,i):s.spawnCart(t,n.x,n.y,i),o.cargo=c(n.cargo),o.cooldown=c(n.cooldown)}}s.state.turn=e.turn,s.globalCityIDCount=e.globalCityIDCount,s.globalUnitIDCount=e.globalUnitIDCount,s.map.sortResourcesDeterministically()}}var Z=function(t,e,s,i){return new(s||(s=Promise))((function(n,o){function r(t){try{c(i.next(t))}catch(t){o(t)}}function a(t){try{c(i.throw(t))}catch(t){o(t)}}function c(t){var e;t.done?n(t.value):(e=t.value,e instanceof s?e:new s((function(t){t(e)}))).then(r,a)}c((i=i.apply(t,e||[])).next())}))};class tt extends i.Design{constructor(t,e={}){super(t,e)}initialize(t){return Z(this,void 0,void 0,(function*(){return Q.initialize(t)}))}update(t,e){return Z(this,void 0,void 0,(function*(){return Q.update(t,e)}))}getResults(t){return Z(this,void 0,void 0,(function*(){return Q.getResults(t)}))}static resultHandler(t){const e=[];for(let s=0;s<t.ranks.length;s++){const i=t.ranks[s];e.push({rank:i.rank,agentID:i.agentID})}return{ranks:e}}}},24259:t=>{function e(t){var e=new Error("Cannot find module '"+t+"'");throw e.code="MODULE_NOT_FOUND",e}e.keys=()=>[],e.resolve=e,e.id=24259,t.exports=e},72840:t=>{function e(t){var e=new Error("Cannot find module '"+t+"'");throw e.code="MODULE_NOT_FOUND",e}e.keys=()=>[],e.resolve=e,e.id=72840,t.exports=e},58211:(t,e,s)=>{var i={"./bin":31033,"./bin.js":31033,"./helpers/cpu":70186,"./helpers/cpu.js":70186,"./helpers/parallel":66312,"./helpers/parallel.js":66312,"./history":8876,"./history.js":8876,"./procfile":96014,"./procfile.js":96014,"./ps":57565,"./ps.js":57565,"./stats":4618,"./stats.js":4618,"./wmic":66290,"./wmic.js":66290};function n(t){var e=o(t);return s(e)}function o(t){if(!s.o(i,t)){var e=new Error("Cannot find module '"+t+"'");throw e.code="MODULE_NOT_FOUND",e}return i[t]}n.keys=function(){return Object.keys(i)},n.resolve=o,t.exports=n,n.id=58211},42357:t=>{"use strict";t.exports=require("assert")},64293:t=>{"use strict";t.exports=require("buffer")},63129:t=>{"use strict";t.exports=require("child_process")},27619:t=>{"use strict";t.exports=require("constants")},76417:t=>{"use strict";t.exports=require("crypto")},40881:t=>{"use strict";t.exports=require("dns")},28614:t=>{"use strict";t.exports=require("events")},35747:t=>{"use strict";t.exports=require("fs")},98605:t=>{"use strict";t.exports=require("http")},57211:t=>{"use strict";t.exports=require("https")},11631:t=>{"use strict";t.exports=require("net")},12087:t=>{"use strict";t.exports=require("os")},85622:t=>{"use strict";t.exports=require("path")},71191:t=>{"use strict";t.exports=require("querystring")},51058:t=>{"use strict";t.exports=require("readline")},92413:t=>{"use strict";t.exports=require("stream")},24304:t=>{"use strict";t.exports=require("string_decoder")},33867:t=>{"use strict";t.exports=require("tty")},78835:t=>{"use strict";t.exports=require("url")},31669:t=>{"use strict";t.exports=require("util")},78761:t=>{"use strict";t.exports=require("zlib")}},n={};function o(t){var e=n[t];if(void 0!==e)return e.exports;var s=n[t]={id:t,loaded:!1,exports:{}};return i[t].call(s.exports,s,s.exports,o),s.loaded=!0,s.exports}o.m=i,o.x=()=>{var t=o.O(void 0,[754],(()=>o(42791)));return o.O(t)},o.amdD=function(){throw new Error("define cannot be used indirect")},o.amdO={},t=[],o.O=(e,s,i,n)=>{if(!s){var r=1/0;for(l=0;l<t.length;l++){for(var[s,i,n]=t[l],a=!0,c=0;c<s.length;c++)(!1&n||r>=n)&&Object.keys(o.O).every((t=>o.O[t](s[c])))?s.splice(c--,1):(a=!1,n<r&&(r=n));a&&(t.splice(l--,1),e=i())}return e}n=n||0;for(var l=t.length;l>0&&t[l-1][2]>n;l--)t[l]=t[l-1];t[l]=[s,i,n]},o.n=t=>{var e=t&&t.__esModule?()=>t.default:()=>t;return o.d(e,{a:e}),e},o.d=(t,e)=>{for(var s in e)o.o(e,s)&&!o.o(t,s)&&Object.defineProperty(t,s,{enumerable:!0,get:e[s]})},o.f={},o.e=t=>Promise.all(Object.keys(o.f).reduce(((e,s)=>(o.f[s](t,e),e)),[])),o.u=t=>t+".js",o.o=(t,e)=>Object.prototype.hasOwnProperty.call(t,e),o.r=t=>{"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(t,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(t,"__esModule",{value:!0})},o.nmd=t=>(t.paths=[],t.children||(t.children=[]),t),s={179:1},o.O.require=t=>s[t],o.f.require=(t,e)=>{s[t]||(t=>{var e=t.modules,i=t.ids,n=t.runtime;for(var r in e)o.o(e,r)&&(o.m[r]=e[r]);n&&n(o);for(var a=0;a<i.length;a++)s[i[a]]=1;o.O()})(require("./"+o.u(t)))},e=o.x,o.x=()=>(o.e(754),e()),o.x()})();
+(() => {
+  var t,
+    e,
+    s,
+    i = {
+      18967: (t) => {
+        function e(t) {
+          var e = new Error("Cannot find module '" + t + "'");
+          throw ((e.code = 'MODULE_NOT_FOUND'), e);
+        }
+        ((e.keys = () => []), (e.resolve = e), (e.id = 18967), (t.exports = e));
+      },
+      94120: (t) => {
+        function e(t) {
+          var e = new Error("Cannot find module '" + t + "'");
+          throw ((e.code = 'MODULE_NOT_FOUND'), e);
+        }
+        ((e.keys = () => []), (e.resolve = e), (e.id = 94120), (t.exports = e));
+      },
+      45689: (t, e, s) => {
+        var i = {
+          './bin': 63313,
+          './bin.js': 63313,
+          './helpers/cpu': 29322,
+          './helpers/cpu.js': 29322,
+          './helpers/parallel': 34014,
+          './helpers/parallel.js': 34014,
+          './history': 8307,
+          './history.js': 8307,
+          './procfile': 97645,
+          './procfile.js': 97645,
+          './ps': 19614,
+          './ps.js': 19614,
+          './stats': 98610,
+          './stats.js': 98610,
+          './wmic': 92677,
+          './wmic.js': 92677,
+        };
+        function n(t) {
+          var e = o(t);
+          return s(e);
+        }
+        function o(t) {
+          if (!s.o(i, t)) {
+            var e = new Error("Cannot find module '" + t + "'");
+            throw ((e.code = 'MODULE_NOT_FOUND'), e);
+          }
+          return i[t];
+        }
+        ((n.keys = function () {
+          return Object.keys(i);
+        }),
+          (n.resolve = o),
+          (t.exports = n),
+          (n.id = 45689));
+      },
+      42791: function (t, e, s) {
+        'use strict';
+        var i =
+          (this && this.__importDefault) ||
+          function (t) {
+            return t && t.__esModule ? t : { default: t };
+          };
+        Object.defineProperty(e, '__esModule', { value: !0 });
+        const n = s(2272),
+          o = i(s(51058)),
+          r = s(16838),
+          a = new r.LuxDesign('lux_ai_2021'),
+          c = n.create(a, {
+            name: 'Lux AI 2021',
+            loggingLevel: n.Logger.LEVEL.NONE,
+            activateStation: !1,
+            observe: !1,
+            createBotDirectories: !1,
+          }),
+          l = o.default.createInterface({ input: process.stdin, output: process.stdout, terminal: !1 });
+        (async () => {
+          let t = null;
+          for await (const e of l) {
+            const s = JSON.parse(e);
+            if (s.type && 'start' === s.type) {
+              let e = parseInt(s.config.width),
+                i = parseInt(s.config.height);
+              (-1 == e && (e = void 0), -1 == i && (i = void 0));
+              const n = {
+                detached: !0,
+                agentOptions: { detached: !0 },
+                storeReplay: !1,
+                storeErrorLogs: !1,
+                loggingLevel: parseInt(s.config.loglevel),
+                width: e,
+                height: i,
+                seed: parseInt(s.config.seed),
+                mapType: s.config.mapType,
+                parameters: { MAX_DAYS: s.config.episodeSteps },
+              };
+              ((t = await c.createMatch(
+                [
+                  { file: 'blank', name: 'team-0' },
+                  { file: 'blank', name: 'team-1' },
+                ],
+                n
+              )),
+                s.state && r.LuxDesignLogic.reset(t, s.state),
+                t.agents.forEach((t, e) => {
+                  (console.error(JSON.stringify(t.messages)), (t.messages = []));
+                }));
+              const o = t.state;
+              console.error(
+                JSON.stringify({
+                  width: o.game.map.width,
+                  height: o.game.map.height,
+                  globalCityIDCount: o.game.globalCityIDCount,
+                  globalUnitIDCount: o.game.globalUnitIDCount,
+                })
+              );
+            } else if (s.length) {
+              const e = [];
+              [0, 1].forEach((t) => {
+                if (s[t].action) {
+                  const i = s[t].action.map((e) => ({ agentID: t, command: e }));
+                  e.push(...i);
+                }
+              });
+              const i = await t.step(e);
+              t.agents.forEach((t) => {
+                (console.error(JSON.stringify(t.messages)), (t.messages = []));
+              });
+              const n = t.state;
+              (console.error(
+                JSON.stringify({
+                  width: n.game.map.width,
+                  height: n.game.map.height,
+                  globalCityIDCount: n.game.globalCityIDCount,
+                  globalUnitIDCount: n.game.globalUnitIDCount,
+                })
+              ),
+                console.error(
+                  JSON.stringify({ status: i, turn: n.game.state.turn, max: t.configs.parameters.MAX_DAYS })
+                ));
+            }
+          }
+        })();
+      },
+      16838: (t, e, s) => {
+        'use strict';
+        (s.r(e),
+          s.d(e, {
+            Action: () => m,
+            Actionable: () => o,
+            Cart: () => g,
+            Cell: () => M,
+            City: () => I,
+            CityTile: () => D,
+            Game: () => u,
+            GameMap: () => S,
+            LuxDesign: () => tt,
+            LuxDesignLogic: () => Q,
+            MoveAction: () => y,
+            PillageAction: () => R,
+            Position: () => d,
+            ResearchAction: () => w,
+            Resource: () => n,
+            SpawnAction: () => T,
+            SpawnCartAction: () => A,
+            SpawnCityAction: () => C,
+            SpawnWorkerAction: () => E,
+            TransferAction: () => O,
+            Unit: () => p,
+            Worker: () => f,
+          }));
+        var i = s(78428);
+        class n {
+          constructor(t, e) {
+            ((this.type = t), (this.amount = e));
+          }
+        }
+        !(function (t) {
+          let e;
+          !(function (t) {
+            ((t.WOOD = 'wood'), (t.COAL = 'coal'), (t.URANIUM = 'uranium'));
+          })((e = t.Types || (t.Types = {})));
+        })(n || (n = {}));
+        class o {
+          constructor(t) {
+            ((this.configs = t), (this.currentActions = []), (this.cooldown = 0));
+          }
+          canAct() {
+            return this.cooldown < 1;
+          }
+          handleTurn(t) {
+            try {
+              this.turn(t);
+            } finally {
+              this.currentActions = [];
+            }
+          }
+          giveAction(t) {
+            this.currentActions.push(t);
+          }
+        }
+        s(91997);
+        var r = s(87512),
+          a = s(61092);
+        function c(t) {
+          let e;
+          if (null == t || 'object' != typeof t) return t;
+          if (t instanceof Date) return ((e = new Date()), e.setTime(t.getTime()), e);
+          if (t instanceof Array) {
+            e = [];
+            for (let s = 0, i = t.length; s < i; s++) e[s] = c(t[s]);
+            return e;
+          }
+          if (t instanceof Object) {
+            e = {};
+            for (const s in t) t.hasOwnProperty(s) && (e[s] = c(t[s]));
+            return e;
+          }
+          throw new Error("Unable to copy obj! Its type isn't supported.");
+        }
+        (0, a.kP)('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', 12);
+        const l = (t, e, s = !1) => (
+          null == e ||
+            null == e ||
+            Object.keys(e).forEach((i) => {
+              'object' != typeof e[i] && e[i] && 'Array' !== e[i].constructor.name
+                ? (t[i] = e[i])
+                : e[i] && 'Array' == e[i].constructor.name && t[i] && 'Array' == t[i].constructor.name
+                  ? s
+                    ? (t[i] = e[i])
+                    : t[i].push(...e[i])
+                  : t[i] && 'object' == typeof t[i]
+                    ? (t[i] = l(t[i], e[i], s))
+                    : (t[i] = e[i]);
+            }),
+          t
+        );
+        class h {
+          constructor(t, e, s, i) {
+            ((this.fromPos = t), (this.amount = e), (this.worker = s), (this.city = i));
+          }
+          equals(t) {
+            var e, s, i, n;
+            return (
+              this.fromPos.equals(t.fromPos) &&
+              (null === (e = this.worker) || void 0 === e ? void 0 : e.id) ===
+                (null === (s = t.worker) || void 0 === s ? void 0 : s.id) &&
+              this.amount === t.amount &&
+              (null === (i = this.city) || void 0 === i ? void 0 : i.id) ===
+                (null === (n = t.city) || void 0 === n ? void 0 : n.id)
+            );
+          }
+        }
+        class u {
+          constructor(t = {}) {
+            ((this.globalCityIDCount = 0),
+              (this.globalUnitIDCount = 0),
+              (this.cities = new Map()),
+              (this.stats = {
+                teamStats: {
+                  [p.TEAM.A]: {
+                    fuelGenerated: 0,
+                    resourcesCollected: { wood: 0, coal: 0, uranium: 0 },
+                    cityTilesBuilt: 0,
+                    workersBuilt: 0,
+                    cartsBuilt: 0,
+                    roadsBuilt: 0,
+                    roadsPillaged: 0,
+                  },
+                  [p.TEAM.B]: {
+                    fuelGenerated: 0,
+                    resourcesCollected: { wood: 0, coal: 0, uranium: 0 },
+                    cityTilesBuilt: 0,
+                    workersBuilt: 0,
+                    cartsBuilt: 0,
+                    roadsBuilt: 0,
+                    roadsPillaged: 0,
+                  },
+                },
+              }),
+              (this.state = {
+                turn: 0,
+                teamStates: {
+                  [p.TEAM.A]: { researchPoints: 0, units: new Map(), researched: { wood: !0, coal: !1, uranium: !1 } },
+                  [p.TEAM.B]: { researchPoints: 0, units: new Map(), researched: { wood: !0, coal: !1, uranium: !1 } },
+                },
+              }),
+              (this.configs = Object.assign({}, U)),
+              (this.configs = Object.assign(Object.assign({}, this.configs), t)),
+              (this.map = new S(this.configs)));
+          }
+          _genInitialAccumulatedActionStats() {
+            return {
+              [p.TEAM.A]: { workersBuilt: 0, cartsBuilt: 0, actionsPlaced: new Set() },
+              [p.TEAM.B]: { workersBuilt: 0, cartsBuilt: 0, actionsPlaced: new Set() },
+            };
+          }
+          validateCommand(t, e = this._genInitialAccumulatedActionStats()) {
+            const s = (e, s, i = !0) => {
+                if (e) throw new r.MatchWarn(s + (i ? `; turn ${this.state.turn}; cmd: ${t.command}` : ''));
+              },
+              i = `Agent ${t.agentID} sent invalid command`,
+              o = `Agent ${t.agentID} sent malformed command: ${t.command}`,
+              [a, ...c] = t.command.split(' ');
+            s(void 0 === a, i, !1);
+            const l = t.agentID,
+              h = this.state.teamStates[l],
+              p = e[l];
+            switch (a) {
+              case u.ACTIONS.DEBUG_ANNOTATE_CIRCLE:
+              case u.ACTIONS.DEBUG_ANNOTATE_LINE:
+              case u.ACTIONS.DEBUG_ANNOTATE_X:
+              case u.ACTIONS.DEBUG_ANNOTATE_TEXT:
+              case u.ACTIONS.DEBUG_ANNOTATE_SIDETEXT:
+                return null;
+              case u.ACTIONS.PILLAGE: {
+                s(1 !== c.length, o, !1);
+                const e = c[0],
+                  i = this.getUnit(l, e);
+                return (
+                  s(!i, `Agent ${t.agentID} tried to pillage tile with invalid/unowned unit id: ${e}`),
+                  s(!i.canAct(), `Agent ${t.agentID} tried to pillage tile with cooldown: ${i.cooldown}`),
+                  s(
+                    p.actionsPlaced.has(e),
+                    `Agent ${t.agentID} sent an extra command. Unit can perform only one action at a time`
+                  ),
+                  p.actionsPlaced.add(e),
+                  new R(a, l, e)
+                );
+              }
+              case u.ACTIONS.BUILD_CITY: {
+                s(1 !== c.length, o, !1);
+                const e = c[0],
+                  i = this.getUnit(l, e);
+                s(!i, `Agent ${t.agentID} tried to build CityTile with invalid/unowned unit id: ${e}`);
+                const n = this.map.getCellByPos(i.pos);
+                (s(n.isCityTile(), `Agent ${t.agentID} tried to build CityTile on existing CityTile`),
+                  s(n.hasResource(), `Agent ${t.agentID} tried to build CityTile on non-empty resource tile`),
+                  s(!i.canAct(), `Agent ${t.agentID} tried to build CityTile with cooldown: ${i.cooldown}`));
+                const r = i.cargo.wood + i.cargo.coal + i.cargo.uranium;
+                return (
+                  s(
+                    r < this.configs.parameters.CITY_BUILD_COST,
+                    `Agent ${t.agentID} tried to build CityTile with insufficient materials wood + coal + uranium: ${r}`
+                  ),
+                  s(
+                    p.actionsPlaced.has(e),
+                    `Agent ${t.agentID} sent an extra command. Unit can perform only one action at a time`
+                  ),
+                  p.actionsPlaced.add(e),
+                  new C(a, l, e)
+                );
+              }
+              case u.ACTIONS.BUILD_CART:
+              case u.ACTIONS.BUILD_WORKER: {
+                s(2 !== c.length, o, !1);
+                const e = parseInt(c[0]),
+                  i = parseInt(c[1]);
+                s(
+                  isNaN(e) || isNaN(i) || !this.map.inMap(new d(e, i)),
+                  `Agent ${t.agentID} tried to build unit with invalid coordinates`
+                );
+                const n = this.map.getCell(e, i);
+                s(
+                  !n.isCityTile() || n.citytile.team !== l,
+                  `Agent ${t.agentID} tried to build unit on tile (${e}, ${i}) that it does not own`
+                );
+                const r = n.citytile;
+                return (
+                  s(
+                    p.actionsPlaced.has(r.getTileID()),
+                    `Agent ${t.agentID} sent an extra command. CityTile can perform only one action at a time`
+                  ),
+                  s(
+                    !r.canBuildUnit(),
+                    `Agent ${t.agentID} tried to build unit on tile (${e}, ${i}) but CityTile still with cooldown of ${r.cooldown}`
+                  ),
+                  a === u.ACTIONS.BUILD_CART
+                    ? s(
+                        this.cartUnitCapReached(l, p.cartsBuilt + p.workersBuilt),
+                        `Agent ${t.agentID} tried to build unit on tile (${e}, ${i}) but unit cap reached. Build more CityTiles!`
+                      )
+                    : s(
+                        this.workerUnitCapReached(l, p.cartsBuilt + p.workersBuilt),
+                        `Agent ${t.agentID} tried to build unit on tile (${e}, ${i}) but unit cap reached. Build more CityTiles!`
+                      ),
+                  p.actionsPlaced.add(r.getTileID()),
+                  a === u.ACTIONS.BUILD_CART
+                    ? ((p.cartsBuilt += 1), new A(a, l, e, i))
+                    : ((p.workersBuilt += 1), new E(a, l, e, i))
+                );
+              }
+              case u.ACTIONS.MOVE: {
+                s(2 !== c.length, o, !1);
+                const e = c[0],
+                  i = c[1];
+                s(!h.units.has(e), `Agent ${t.agentID} tried to move unit ${e} that it does not own`);
+                const n = h.units.get(e);
+                if (
+                  (s(!n.canMove(), `Agent ${t.agentID} tried to move unit ${e} with cooldown: ${n.cooldown}`),
+                  s(
+                    p.actionsPlaced.has(e),
+                    `Agent ${t.agentID} sent an extra command. Unit can perform only one action at a time`
+                  ),
+                  s(
+                    !Object.values(u.DIRECTIONS).includes(i),
+                    `Agent ${t.agentID} tried to move unit ${e} in invalid direction ${i}`
+                  ),
+                  i !== u.DIRECTIONS.CENTER)
+                ) {
+                  const o = n.pos.translate(i, 1);
+                  (s(!this.map.inMap(o), `Agent ${t.agentID} tried to move unit ${e} off map`),
+                    s(
+                      this.map.getCellByPos(o).isCityTile() && this.map.getCellByPos(o).citytile.team !== l,
+                      `Agent ${t.agentID} tried to move unit ${e} onto opponent CityTile`
+                    ));
+                }
+                return (p.actionsPlaced.add(e), new y(a, l, e, i, this.map.getCellByPos(n.pos.translate(i, 1))));
+              }
+              case u.ACTIONS.RESEARCH: {
+                s(2 !== c.length, o, !1);
+                const e = parseInt(c[0]),
+                  i = parseInt(c[1]);
+                s(
+                  isNaN(e) || isNaN(i) || !this.map.inMap(new d(e, i)),
+                  `Agent ${t.agentID} tried to run research at invalid coordinates`
+                );
+                const n = this.map.getCell(e, i);
+                s(
+                  !n.isCityTile() || n.citytile.team !== l,
+                  `Agent ${t.agentID} tried to run research at CityTile (${e}, ${i}) that it does not own`
+                );
+                const r = n.citytile;
+                return (
+                  s(
+                    !r.canResearch(),
+                    `Agent ${t.agentID} tried to run research at CityTile (${e}, ${i}) but CityTile still on cooldown ${r.cooldown}`,
+                    !0
+                  ),
+                  s(
+                    p.actionsPlaced.has(r.getTileID()),
+                    `Agent ${t.agentID} sent an extra command. CityTile can perform only one action at a time`
+                  ),
+                  p.actionsPlaced.add(r.getTileID()),
+                  new w(a, l, e, i)
+                );
+              }
+              case u.ACTIONS.TRANSFER: {
+                s(4 !== c.length, o, !1);
+                const e = c[0],
+                  i = c[1],
+                  r = c[2],
+                  u = parseInt(c[3]);
+                (s(!h.units.has(e), `Agent ${t.agentID} does not own source unit: ${e} for transfer`),
+                  s(!h.units.has(i), `Agent ${t.agentID} does not own destination unit: ${i} for transfer`),
+                  s(
+                    !h.units.get(e).canAct(),
+                    `Agent ${t.agentID} tried to transfer resources with cooldown: ${h.units.get(e).cooldown}`
+                  ),
+                  s(
+                    p.actionsPlaced.has(e),
+                    `Agent ${t.agentID} sent an extra command. Unit can perform only one action at a time`
+                  ));
+                const d = h.units.get(e),
+                  g = h.units.get(i);
+                return (
+                  s(e === i, `Agent ${t.agentID} tried to transfer between the same unit ${e}`),
+                  s(
+                    !d.pos.isAdjacent(g.pos),
+                    `Agent ${t.agentID} tried to transfer between non-adjacent units: ${e}, ${i}`
+                  ),
+                  s(isNaN(u) || u < 0, `Agent ${t.agentID} tried to transfer invalid amount: ${u}`),
+                  s(!Object.values(n.Types).includes(r), `Agent ${t.agentID} tried to transfer invalid resource: ${r}`),
+                  p.actionsPlaced.add(e),
+                  new O(a, l, e, i, r, u)
+                );
+              }
+            }
+            s(!0, o, !1);
+          }
+          workerUnitCapReached(t, e = 0) {
+            let s = 0;
+            return (
+              this.cities.forEach((e) => {
+                e.team === t && (s += e.citycells.length);
+              }),
+              this.state.teamStates[t].units.size + e >= s
+            );
+          }
+          cartUnitCapReached(t, e = 0) {
+            let s = 0;
+            return (
+              this.cities.forEach((e) => {
+                e.team === t && (s += e.citycells.length);
+              }),
+              this.state.teamStates[t].units.size + e >= s
+            );
+          }
+          spawnWorker(t, e, s, i) {
+            const n = this.map.getCell(e, s),
+              o = new f(e, s, t, this.configs, this.globalUnitIDCount + 1);
+            return (
+              i ? (o.id = i) : this.globalUnitIDCount++,
+              n.units.set(o.id, o),
+              this.state.teamStates[t].units.set(o.id, o),
+              (this.stats.teamStats[t].workersBuilt += 1),
+              o
+            );
+          }
+          spawnCart(t, e, s, i) {
+            const n = this.map.getCell(e, s),
+              o = new g(e, s, t, this.configs, this.globalUnitIDCount + 1);
+            return (
+              i ? (o.id = i) : this.globalUnitIDCount++,
+              n.units.set(o.id, o),
+              this.state.teamStates[t].units.set(o.id, o),
+              (this.stats.teamStats[t].cartsBuilt += 1),
+              o
+            );
+          }
+          spawnCityTile(t, e, s, i) {
+            const n = this.map.getCell(e, s),
+              o = this.map.getAdjacentCells(n),
+              r = new Set(),
+              a = o.filter((e) => !(!e.isCityTile() || e.citytile.team !== t || (r.add(e.citytile.cityid), 0)));
+            if (0 === a.length) {
+              const e = new I(t, this.configs, this.globalCityIDCount + 1);
+              return (
+                i ? (e.id = i) : this.globalCityIDCount++,
+                n.setCityTile(t, e.id),
+                e.addCityTile(n),
+                this.cities.set(e.id, e),
+                n.citytile
+              );
+            }
+            {
+              const e = a[0].citytile.cityid,
+                s = this.cities.get(e);
+              return (
+                n.setCityTile(t, e),
+                (n.citytile.adjacentCityTiles = a.length),
+                a.forEach((t) => {
+                  t.citytile.adjacentCityTiles += 1;
+                }),
+                s.addCityTile(n),
+                r.forEach((t) => {
+                  if (t !== e) {
+                    const i = this.cities.get(t);
+                    (i.citycells.forEach((t) => {
+                      ((t.citytile.cityid = e), s.addCityTile(t));
+                    }),
+                      (s.fuel += i.fuel),
+                      this.cities.delete(i.id));
+                  }
+                }),
+                n.citytile
+              );
+            }
+          }
+          runCooldowns() {
+            [p.TEAM.A, p.TEAM.B].forEach((t) => {
+              this.getTeamsUnits(t).forEach((t) => {
+                ((t.cooldown -= this.map.getCellByPos(t.pos).getRoad()), (t.cooldown = Math.max(t.cooldown - 1, 0)));
+              });
+            });
+          }
+          moveUnit(t, e, s) {
+            const i = this.getUnit(t, e);
+            (this.map.getCellByPos(i.pos).units.delete(i.id),
+              (i.pos = i.pos.translate(s, 1)),
+              this.map.getCellByPos(i.pos).units.set(i.id, i));
+          }
+          distributeAllResources() {
+            const t = [n.Types.URANIUM, n.Types.COAL, n.Types.WOOD];
+            for (const e of t) this.handleResourceTypeRelease(e);
+          }
+          resourceMiningRate(t) {
+            switch (t) {
+              case n.Types.WOOD:
+                return this.configs.parameters.WORKER_COLLECTION_RATE.WOOD;
+              case n.Types.COAL:
+                return this.configs.parameters.WORKER_COLLECTION_RATE.COAL;
+              case n.Types.URANIUM:
+                return this.configs.parameters.WORKER_COLLECTION_RATE.URANIUM;
+            }
+          }
+          resourceConversionRate(t) {
+            switch (t) {
+              case n.Types.WOOD:
+                return this.configs.parameters.RESOURCE_TO_FUEL_RATE.WOOD;
+              case n.Types.COAL:
+                return this.configs.parameters.RESOURCE_TO_FUEL_RATE.COAL;
+              case n.Types.URANIUM:
+                return this.configs.parameters.RESOURCE_TO_FUEL_RATE.URANIUM;
+            }
+          }
+          handleResourceTypeRelease(t) {
+            const e = this.createResourceRequests(t);
+            this.resolveResourceRequests(t, e);
+          }
+          createResourceRequests(t) {
+            const e = this.resourceMiningRate(t),
+              s = new Map();
+            return (
+              [p.TEAM.A, p.TEAM.B].forEach((i) => {
+                const n = this.getTeamsUnits(i);
+                this.state.teamStates[i].researched[t] &&
+                  n.forEach((i) => {
+                    if (i.type !== p.Type.WORKER) return;
+                    const n = u.ALL_DIRECTIONS.map((t) => i.pos.translate(t))
+                        .filter((e) => {
+                          var s;
+                          if (!this.map.inMap(e)) return !1;
+                          const i = this.map.getCellByPos(e);
+                          return (
+                            !!i.hasResource() &&
+                            (null === (s = i.resource) || void 0 === s ? void 0 : s.type) === t &&
+                            i.resource.amount > 0
+                          );
+                        })
+                        .map((t) => this.map.getCellByPos(t)),
+                      o = Math.min(Math.ceil(i.getCargoSpaceLeft() / n.length), e);
+                    n.forEach((t) => {
+                      s.has(t.pos.toString()) || s.set(t.pos.toString(), []);
+                      const e = this.map.getCellByPos(i.pos),
+                        n = new h(
+                          i.pos,
+                          o,
+                          e.isCityTile() ? void 0 : i,
+                          e.isCityTile() ? this.cities.get(e.citytile.cityid) : void 0
+                        );
+                      s.get(t.pos.toString()).some((t) => t.equals(n)) || s.get(t.pos.toString()).push(n);
+                    });
+                  });
+              }),
+              s
+            );
+          }
+          resolveResourceRequests(t, e) {
+            e.forEach((e, s) => {
+              const i = d.fromString(s);
+              let n = this.map.getCell(i.x, i.y).resource.amount,
+                o = e.map((t) => [t.amount, t]);
+              for (; o.length > 0 && o.map((t) => t[0]).reduce((t, e) => t + e) > 0 && n > 0; ) {
+                const e = Math.min(Math.min(...o.map((t) => t[0])), Math.floor(n / o.length));
+                (o
+                  .map((t) => t[1])
+                  .forEach((s) => {
+                    if (s.city)
+                      ((this.stats.teamStats[s.city.team].resourcesCollected[t] += e),
+                        (s.city.fuel += e * this.resourceConversionRate(t)));
+                    else {
+                      const i = Math.min(s.worker.getCargoSpaceLeft(), e);
+                      ((this.stats.teamStats[s.worker.team].resourcesCollected[t] += i), (s.worker.cargo[t] += i));
+                    }
+                  }),
+                  (o = o.map(([t, s]) => [t - e, s])),
+                  (n -= e * o.length),
+                  n < o.length && (n = 0),
+                  (o = o.filter(([t, e]) => t > 0)));
+              }
+              this.map.getCellByPos(i).resource.amount = n;
+            });
+          }
+          handleResourceDeposit(t) {
+            const e = this.map.getCellByPos(t.pos);
+            if (e.isCityTile() && e.citytile.team === t.team) {
+              const s = this.cities.get(e.citytile.cityid);
+              let i = 0;
+              ((i += t.cargo.wood * this.configs.parameters.RESOURCE_TO_FUEL_RATE.WOOD),
+                (i += t.cargo.coal * this.configs.parameters.RESOURCE_TO_FUEL_RATE.COAL),
+                (i += t.cargo.uranium * this.configs.parameters.RESOURCE_TO_FUEL_RATE.URANIUM),
+                (s.fuel += i),
+                (this.stats.teamStats[t.team].fuelGenerated += i),
+                (t.cargo = { wood: 0, uranium: 0, coal: 0 }));
+            }
+          }
+          getTeamsUnits(t) {
+            return this.state.teamStates[t].units;
+          }
+          getUnit(t, e) {
+            return this.state.teamStates[t].units.get(e);
+          }
+          transferResources(t, e, s, i, n) {
+            const o = this.getUnit(t, e),
+              r = this.getUnit(t, s),
+              a = Math.min(n, o.cargo[i], r.getCargoSpaceLeft());
+            ((o.cargo[i] -= a), (r.cargo[i] += a));
+          }
+          destroyCity(t) {
+            const e = this.cities.get(t);
+            (this.cities.delete(t),
+              e.citycells.forEach((t) => {
+                ((t.citytile = null), (t.road = this.configs.parameters.MIN_ROAD));
+              }));
+          }
+          destroyUnit(t, e) {
+            const s = this.getUnit(t, e);
+            (this.map.getCellByPos(s.pos).units.delete(e), this.state.teamStates[t].units.delete(e));
+          }
+          regenerateTrees() {
+            this.map.resources
+              .filter((t) => 'wood' === t.resource.type)
+              .forEach((t) => {
+                t.resource.amount < this.configs.parameters.MAX_WOOD_AMOUNT &&
+                  (t.resource.amount = Math.ceil(
+                    Math.min(
+                      t.resource.amount * this.configs.parameters.WOOD_GROWTH_RATE,
+                      this.configs.parameters.MAX_WOOD_AMOUNT
+                    )
+                  ));
+              });
+          }
+          handleMovementActions(t, e) {
+            const s = new Map(),
+              i = new Set();
+            t.forEach((t) => {
+              const e = t.newcell,
+                n = s.get(e);
+              (void 0 === n ? s.set(e, [t]) : s.set(e, [...n, t]), i.add(t.unitid));
+            });
+            const n = (t) => {
+                e &&
+                  e.log.warn(
+                    `turn ${this.state.turn}; Unit ${t.unitid} collided when trying to move ${t.direction} to (${t.newcell.pos.x}, ${t.newcell.pos.y})`
+                  );
+                const i = this.map.getCellByPos(this.getUnit(t.team, t.unitid).pos),
+                  o = s.get(i);
+                i.isCityTile() ||
+                  (s.delete(i),
+                  o &&
+                    o.forEach((t) => {
+                      n(t);
+                    }));
+              },
+              o = Array.from(s.keys());
+            for (const t of o) {
+              const e = s.get(t),
+                o = [];
+              if (void 0 !== e)
+                if (e.length > 1)
+                  t.isCityTile() ||
+                    e.forEach((t) => {
+                      o.push(t);
+                    });
+                else if (1 === e.length) {
+                  const s = e[0];
+                  if (!t.isCityTile() && 1 === t.units.size) {
+                    let e = !0;
+                    (t.units.forEach((t) => {
+                      i.has(t.id) && (e = !1);
+                    }),
+                      e && o.push(s));
+                  }
+                }
+              (o.forEach((t) => {
+                n(t);
+              }),
+                o.forEach((t) => {
+                  s.delete(t.newcell);
+                }));
+            }
+            const r = [];
+            return (
+              s.forEach((t) => {
+                r.push(...t);
+              }),
+              r
+            );
+          }
+          isNight() {
+            const t = this.configs.parameters.DAY_LENGTH,
+              e = t + this.configs.parameters.NIGHT_LENGTH;
+            return this.state.turn % e >= t;
+          }
+          toStateObject() {
+            const t = {};
+            this.cities.forEach((e) => {
+              t[e.id] = {
+                id: e.id,
+                fuel: e.fuel,
+                lightupkeep: e.getLightUpkeep(),
+                team: e.team,
+                cityCells: e.citycells.map((t) => ({ x: t.pos.x, y: t.pos.y, cooldown: t.citytile.cooldown })),
+              };
+            });
+            const e = {
+              turn: this.state.turn,
+              globalCityIDCount: this.globalCityIDCount,
+              globalUnitIDCount: this.globalUnitIDCount,
+              teamStates: {
+                [p.TEAM.A]: { researchPoints: 0, units: {}, researched: { wood: !0, coal: !1, uranium: !1 } },
+                [p.TEAM.B]: { researchPoints: 0, units: {}, researched: { wood: !0, coal: !1, uranium: !1 } },
+              },
+              map: this.map.toStateObject(),
+              cities: t,
+            };
+            return (
+              [p.TEAM.A, p.TEAM.B].forEach((t) => {
+                (this.state.teamStates[t].units.forEach((s) => {
+                  e.teamStates[t].units[s.id] = {
+                    cargo: c(s.cargo),
+                    cooldown: s.cooldown,
+                    x: s.pos.x,
+                    y: s.pos.y,
+                    type: s.type,
+                  };
+                }),
+                  (e.teamStates[t].researchPoints = this.state.teamStates[t].researchPoints),
+                  (e.teamStates[t].researched = c(this.state.teamStates[t].researched)));
+              }),
+              e
+            );
+          }
+        }
+        !(function (t) {
+          let e, s;
+          (!(function (t) {
+            ((t.MOVE = 'm'),
+              (t.RESEARCH = 'r'),
+              (t.BUILD_WORKER = 'bw'),
+              (t.BUILD_CART = 'bc'),
+              (t.BUILD_CITY = 'bcity'),
+              (t.TRANSFER = 't'),
+              (t.PILLAGE = 'p'),
+              (t.DEBUG_ANNOTATE_CIRCLE = 'dc'),
+              (t.DEBUG_ANNOTATE_X = 'dx'),
+              (t.DEBUG_ANNOTATE_LINE = 'dl'),
+              (t.DEBUG_ANNOTATE_TEXT = 'dt'),
+              (t.DEBUG_ANNOTATE_SIDETEXT = 'dst'));
+          })((e = t.ACTIONS || (t.ACTIONS = {}))),
+            (function (t) {
+              ((t.NORTH = 'n'), (t.EAST = 'e'), (t.SOUTH = 's'), (t.WEST = 'w'), (t.CENTER = 'c'));
+            })((s = t.DIRECTIONS || (t.DIRECTIONS = {}))),
+            (t.ALL_DIRECTIONS = [s.NORTH, s.EAST, s.SOUTH, s.WEST, s.CENTER]));
+        })(u || (u = {}));
+        class d {
+          constructor(t, e) {
+            ((this.x = t), (this.y = e));
+          }
+          static fromString(t) {
+            return d.fromArray(t.split(',').map((t) => parseInt(t)));
+          }
+          static fromArray(t) {
+            return new d(t[0], t[1]);
+          }
+          isAdjacent(t) {
+            const e = this.x - t.x,
+              s = this.y - t.y;
+            return !(Math.abs(e) + Math.abs(s) > 1);
+          }
+          translate(t, e = 1) {
+            switch (t) {
+              case u.DIRECTIONS.NORTH:
+                return new d(this.x, this.y - e);
+              case u.DIRECTIONS.EAST:
+                return new d(this.x + e, this.y);
+              case u.DIRECTIONS.SOUTH:
+                return new d(this.x, this.y + e);
+              case u.DIRECTIONS.WEST:
+                return new d(this.x - e, this.y);
+              case u.DIRECTIONS.CENTER:
+                return new d(this.x, this.y);
+            }
+          }
+          equals(t) {
+            return this.x == t.x && this.y == t.y;
+          }
+          toString() {
+            return `${this.x},${this.y}`;
+          }
+        }
+        class p extends o {
+          constructor(t, e, s, i, n, o) {
+            (super(n),
+              (this.type = s),
+              (this.team = i),
+              (this.cargo = { wood: 0, coal: 0, uranium: 0 }),
+              (this.id = 'u_' + o),
+              (this.pos = new d(t, e)));
+          }
+          getCargoSpaceLeft() {
+            let t = this.configs.parameters.RESOURCE_CAPACITY.CART;
+            return (
+              this.type === p.Type.WORKER && (t = this.configs.parameters.RESOURCE_CAPACITY.WORKER),
+              t - this.cargo.wood - this.cargo.coal - this.cargo.uranium
+            );
+          }
+          spendFuelToSurvive() {
+            let t = this.getLightUpkeep();
+            const e = Math.ceil(t / this.configs.parameters.RESOURCE_TO_FUEL_RATE.WOOD),
+              s = Math.min(this.cargo.wood, e);
+            if (((t -= s * this.configs.parameters.RESOURCE_TO_FUEL_RATE.WOOD), (this.cargo.wood -= s), t <= 0))
+              return !0;
+            const i = Math.ceil(t / this.configs.parameters.RESOURCE_TO_FUEL_RATE.COAL),
+              n = Math.min(this.cargo.coal, i);
+            if (((t -= n * this.configs.parameters.RESOURCE_TO_FUEL_RATE.COAL), (this.cargo.coal -= n), t <= 0))
+              return !0;
+            const o = Math.ceil(t / this.configs.parameters.RESOURCE_TO_FUEL_RATE.URANIUM),
+              r = Math.min(this.cargo.uranium, o);
+            return (
+              (t -= r * this.configs.parameters.RESOURCE_TO_FUEL_RATE.URANIUM),
+              (this.cargo.uranium -= r),
+              t <= 0 || t <= 0
+            );
+          }
+        }
+        !(function (t) {
+          let e, s;
+          (!(function (t) {
+            ((t[(t.WORKER = 0)] = 'WORKER'), (t[(t.CART = 1)] = 'CART'));
+          })((e = t.Type || (t.Type = {}))),
+            (function (t) {
+              ((t[(t.A = 0)] = 'A'), (t[(t.B = 1)] = 'B'));
+            })((s = t.TEAM || (t.TEAM = {}))));
+        })(p || (p = {}));
+        class g extends p {
+          constructor(t, e, s, i, n) {
+            super(t, e, p.Type.CART, s, i, n);
+          }
+          getLightUpkeep() {
+            return this.configs.parameters.LIGHT_UPKEEP.CART;
+          }
+          canMove() {
+            return this.canAct();
+          }
+          turn(t) {
+            t.map.getCellByPos(this.pos);
+            const e = t.isNight() ? 2 : 1;
+            if (1 === this.currentActions.length) {
+              const s = this.currentActions[0];
+              s instanceof y
+                ? (t.moveUnit(s.team, s.unitid, s.direction),
+                  (this.cooldown += this.configs.parameters.UNIT_ACTION_COOLDOWN.CART * e))
+                : s instanceof O &&
+                  (t.transferResources(s.team, s.srcID, s.destID, s.resourceType, s.amount),
+                  (this.cooldown += this.configs.parameters.UNIT_ACTION_COOLDOWN.CART * e));
+            }
+            const s = t.map.getCellByPos(this.pos);
+            s.getRoad() < this.configs.parameters.MAX_ROAD &&
+              ((s.road = Math.min(
+                s.road + this.configs.parameters.CART_ROAD_DEVELOPMENT_RATE,
+                this.configs.parameters.MAX_ROAD
+              )),
+              (t.stats.teamStats[this.team].roadsBuilt += this.configs.parameters.CART_ROAD_DEVELOPMENT_RATE));
+          }
+        }
+        class f extends p {
+          constructor(t, e, s, i, n) {
+            super(t, e, p.Type.WORKER, s, i, n);
+          }
+          getLightUpkeep() {
+            return this.configs.parameters.LIGHT_UPKEEP.WORKER;
+          }
+          canMove() {
+            return this.canAct();
+          }
+          expendResourcesForCity() {
+            let t = 0;
+            for (const e of ['wood', 'coal', 'uranium']) {
+              if (t + this.cargo[e] > this.configs.parameters.CITY_BUILD_COST) {
+                const s = this.configs.parameters.CITY_BUILD_COST - t;
+                this.cargo[e] -= s;
+                break;
+              }
+              ((t += this.cargo[e]), (this.cargo[e] = 0));
+            }
+          }
+          turn(t) {
+            const e = t.map.getCellByPos(this.pos),
+              s = t.isNight() ? 2 : 1;
+            if (1 === this.currentActions.length) {
+              const i = this.currentActions[0];
+              let n = !0;
+              (i instanceof y
+                ? t.moveUnit(i.team, i.unitid, i.direction)
+                : i instanceof O
+                  ? t.transferResources(i.team, i.srcID, i.destID, i.resourceType, i.amount)
+                  : i instanceof C
+                    ? (t.spawnCityTile(i.team, this.pos.x, this.pos.y), this.expendResourcesForCity())
+                    : i instanceof R
+                      ? (e.road = Math.max(
+                          e.road - this.configs.parameters.PILLAGE_RATE,
+                          this.configs.parameters.MIN_ROAD
+                        ))
+                      : (n = !1),
+                n && (this.cooldown += this.configs.parameters.UNIT_ACTION_COOLDOWN.WORKER * s));
+            }
+          }
+        }
+        class m {
+          constructor(t, e) {
+            ((this.action = t), (this.team = e));
+          }
+        }
+        class y extends m {
+          constructor(t, e, s, i, n) {
+            (super(t, e), (this.unitid = s), (this.direction = i), (this.newcell = n));
+          }
+        }
+        class T extends m {
+          constructor(t, e, s, i) {
+            (super(t, e), (this.x = s), (this.y = i));
+          }
+        }
+        class A extends T {
+          constructor(t, e, s, i) {
+            (super(t, e, s, i), (this.type = p.Type.CART));
+          }
+        }
+        class E extends T {
+          constructor(t, e, s, i) {
+            (super(t, e, s, i), (this.type = p.Type.WORKER));
+          }
+        }
+        class C extends m {
+          constructor(t, e, s) {
+            (super(t, e), (this.unitid = s));
+          }
+        }
+        class O extends m {
+          constructor(t, e, s, i, n, o) {
+            (super(t, e), (this.srcID = s), (this.destID = i), (this.resourceType = n), (this.amount = o));
+          }
+        }
+        class R extends m {
+          constructor(t, e, s) {
+            (super(t, e), (this.unitid = s));
+          }
+        }
+        class w extends m {
+          constructor(t, e, s, i) {
+            (super(t, e), (this.x = s), (this.y = i));
+          }
+        }
+        class I {
+          constructor(t, e, s) {
+            ((this.team = t), (this.configs = e), (this.fuel = 0), (this.citycells = []), (this.id = 'c_' + s));
+          }
+          getLightUpkeep() {
+            return this.citycells.length * this.configs.parameters.LIGHT_UPKEEP.CITY - this.getAdjacencyBonuses();
+          }
+          getAdjacencyBonuses() {
+            let t = 0;
+            return (
+              this.citycells.forEach((e) => {
+                t += e.citytile.adjacentCityTiles * this.configs.parameters.CITY_ADJACENCY_BONUS;
+              }),
+              t
+            );
+          }
+          addCityTile(t) {
+            this.citycells.push(t);
+          }
+        }
+        class D extends o {
+          constructor(t, e) {
+            (super(e), (this.team = t), (this.pos = null), (this.adjacentCityTiles = 0));
+          }
+          getTileID() {
+            return `${this.cityid}_${this.pos.x}_${this.pos.y}`;
+          }
+          canBuildUnit() {
+            return this.canAct();
+          }
+          canResearch() {
+            return this.canAct();
+          }
+          turn(t) {
+            if (1 === this.currentActions.length) {
+              const e = this.currentActions[0];
+              e instanceof A
+                ? (t.spawnCart(e.team, e.x, e.y), this.resetCooldown())
+                : e instanceof E
+                  ? (t.spawnWorker(e.team, e.x, e.y), this.resetCooldown())
+                  : e instanceof w &&
+                    (this.resetCooldown(),
+                    t.state.teamStates[this.team].researchPoints++,
+                    t.state.teamStates[this.team].researchPoints >=
+                      this.configs.parameters.RESEARCH_REQUIREMENTS.COAL &&
+                      (t.state.teamStates[this.team].researched.coal = !0),
+                    t.state.teamStates[this.team].researchPoints >=
+                      this.configs.parameters.RESEARCH_REQUIREMENTS.URANIUM &&
+                      (t.state.teamStates[this.team].researched.uranium = !0));
+            }
+            this.cooldown > 0 && this.cooldown--;
+          }
+          resetCooldown() {
+            this.cooldown = this.configs.parameters.CITY_ACTION_COOLDOWN;
+          }
+        }
+        class M {
+          constructor(t, e, s) {
+            ((this.configs = s),
+              (this.resource = null),
+              (this.citytile = null),
+              (this.units = new Map()),
+              (this.road = 0),
+              (this.pos = new d(t, e)),
+              (this.road = this.configs.parameters.MIN_ROAD));
+          }
+          setResource(t, e) {
+            return ((this.resource = new n(t, e)), this.resource);
+          }
+          hasResource() {
+            return null !== this.resource && this.resource.amount > 0;
+          }
+          setCityTile(t, e) {
+            ((this.citytile = new D(t, this.configs)), (this.citytile.pos = this.pos), (this.citytile.cityid = e));
+          }
+          isCityTile() {
+            return null !== this.citytile;
+          }
+          hasUnits() {
+            return 0 !== this.units.size;
+          }
+          getRoad() {
+            return this.isCityTile() ? this.configs.parameters.MAX_ROAD : this.road;
+          }
+        }
+        class S {
+          constructor(t) {
+            ((this.resources = []),
+              (this.height = t.height),
+              (this.width = t.width),
+              (this.map = new Array(this.height)));
+            for (let e = 0; e < this.height; e++) {
+              this.map[e] = new Array(this.width);
+              for (let s = 0; s < this.width; s++) this.map[e][s] = new M(s, e, t);
+            }
+          }
+          sortResourcesDeterministically() {
+            const t = Math.max(this.width, this.height);
+            this.resources.sort((e, s) => e.pos.x * t + e.pos.y - (s.pos.x * t + s.pos.y));
+          }
+          addResource(t, e, s, i) {
+            const n = this.getCell(t, e);
+            return (n.setResource(s, i), this.resources.push(n), n);
+          }
+          getCellByPos(t) {
+            return this.map[t.y][t.x];
+          }
+          getCell(t, e) {
+            return this.map[e][t];
+          }
+          getRow(t) {
+            return this.map[t];
+          }
+          getAdjacentCells(t) {
+            const e = [];
+            return (
+              t.pos.y > 0 && e.push(this.getCell(t.pos.x, t.pos.y - 1)),
+              t.pos.x < this.width - 1 && e.push(this.getCell(t.pos.x + 1, t.pos.y)),
+              t.pos.y < this.height - 1 && e.push(this.getCell(t.pos.x, t.pos.y + 1)),
+              t.pos.x > 0 && e.push(this.getCell(t.pos.x - 1, t.pos.y)),
+              e
+            );
+          }
+          inMap(t) {
+            return !(t.x < 0 || t.y < 0 || t.x >= this.width || t.y >= this.height);
+          }
+          toStateObject() {
+            const t = [];
+            for (let e = 0; e < this.height; e++) {
+              t.push([]);
+              for (let s = 0; s < this.width; s++) {
+                const i = this.getCell(s, e),
+                  n = { road: i.getRoad() };
+                (i.resource && (n.resource = { type: i.resource.type, amount: i.resource.amount }), t[e].push(n));
+              }
+            }
+            return t;
+          }
+          getMapString() {
+            let t = '';
+            for (let e = 0; e < this.height; e++)
+              t +=
+                this.getRow(e)
+                  .map((t) => {
+                    if (t.hasUnits()) {
+                      if (1 === t.units.size) {
+                        let e = '';
+                        return (
+                          t.units.forEach((t) => {
+                            let s = 'w';
+                            (t.type === p.Type.CART && (s = 'c'), (e = t.team === p.TEAM.A ? s.cyan : s.red));
+                          }),
+                          e
+                        );
+                      }
+                      {
+                        const e = t.units.size;
+                        return t.units.values().next().value.team === p.TEAM.A ? `${e}`.cyan : `${e}`.red;
+                      }
+                    }
+                    if (t.hasResource())
+                      switch (t.resource.type) {
+                        case n.Types.WOOD:
+                          return '▩'.yellow;
+                        case n.Types.COAL:
+                          return '▩'.gray;
+                        case n.Types.URANIUM:
+                          return '▩'.magenta;
+                      }
+                    else if (t.isCityTile()) return t.citytile.team === p.TEAM.A ? '▩'.cyan : '▩'.red;
+                    const e = t.getRoad();
+                    return e < 1.1 ? '0' : e < 2.1 ? 'r'.black.bgYellow : 'r'.black.bgGreen;
+                  })
+                  .join(' ') + '\n';
+            return t;
+          }
+        }
+        !(function (t) {
+          let e;
+          !(function (t) {
+            ((t.EMPTY = 'empty'), (t.RANDOM = 'random'), (t.DEBUG = 'debug'));
+          })((e = t.Types || (t.Types = {})));
+        })(S || (S = {}));
+        const _ = JSON.parse(
+            '{"Jw":{"DAY_LENGTH":30,"NIGHT_LENGTH":10,"MAX_DAYS":360,"LIGHT_UPKEEP":{"CITY":23,"WORKER":4,"CART":10},"WOOD_GROWTH_RATE":1.025,"MAX_WOOD_AMOUNT":500,"CITY_BUILD_COST":100,"CITY_ADJACENCY_BONUS":5,"RESOURCE_CAPACITY":{"WORKER":100,"CART":2000},"WORKER_COLLECTION_RATE":{"WOOD":20,"COAL":5,"URANIUM":2},"RESOURCE_TO_FUEL_RATE":{"WOOD":1,"COAL":10,"URANIUM":40},"RESEARCH_REQUIREMENTS":{"COAL":50,"URANIUM":200},"CITY_ACTION_COOLDOWN":10,"UNIT_ACTION_COOLDOWN":{"CART":3,"WORKER":2},"MAX_ROAD":6,"MIN_ROAD":0,"CART_ROAD_DEVELOPMENT_RATE":0.75,"PILLAGE_RATE":0.5}}'
+          ),
+          U = {
+            mapType: S.Types.RANDOM,
+            storeReplay: !0,
+            seed: void 0,
+            debug: !1,
+            debugDelay: 500,
+            runProfiler: !1,
+            compressReplay: !1,
+            debugAnnotations: !1,
+            statefulReplay: !1,
+            parameters: _.Jw,
+          };
+        var N = s(36995),
+          x = s.n(N);
+        const v = [12, 16, 24, 32];
+        var L;
+        !(function (t) {
+          ((t[(t.HORIZONTAL = 0)] = 'HORIZONTAL'), (t[(t.VERTICAL = 1)] = 'VERTICAL'));
+        })(L || (L = {}));
+        const b = (t) => {
+            const e = { wood: 0, coal: 0, uranium: 0 };
+            return (
+              t.forEach((s, i) => {
+                s.forEach((s, n) => {
+                  null !== s && (e[t[i][n].type] += t[i][n].amt);
+                });
+              }),
+              !(e.wood < 2e3 || e.coal < 1500 || e.uranium < 300)
+            );
+          },
+          $ = (t, e, s, i, o, r) => {
+            let a = [];
+            for (let t = 0; t < i; t++) {
+              a.push([]);
+              for (let e = 0; e < s; e++) a[t].push(null);
+            }
+            (B(t, 0.21, 0.01, o, r, { deathLimit: 2, birthLimit: 4 }).forEach((e, s) => {
+              e.forEach((e, i) => {
+                if (1 === e) {
+                  const e = Math.min(300 + Math.floor(100 * t()), 500);
+                  a[s][i] = { type: n.Types.WOOD, amt: e };
+                }
+              });
+            }),
+              B(t, 0.11, 0.02, o, r, { deathLimit: 2, birthLimit: 4 }).forEach((e, s) => {
+                e.forEach((e, i) => {
+                  if (1 === e) {
+                    const e = 350 + Math.floor(75 * t());
+                    a[s][i] = { type: n.Types.COAL, amt: e };
+                  }
+                });
+              }),
+              B(t, 0.055, 0.04, o, r, { deathLimit: 1, birthLimit: 6 }).forEach((e, s) => {
+                e.forEach((e, i) => {
+                  if (1 === e) {
+                    const e = 300 + Math.floor(50 * t());
+                    a[s][i] = { type: n.Types.URANIUM, amt: e };
+                  }
+                });
+              }));
+            for (let t = 0; t < 10; t++) a = j(a);
+            for (let e = 0; e < r; e++)
+              for (let s = 0; s < o; s++) {
+                const i = a[e][s];
+                if (null !== i)
+                  for (const n of P) {
+                    const c = s + n[0],
+                      l = e + n[1];
+                    if (!(c < 0 || l < 0 || c >= r || l >= o) && t() < 0.05) {
+                      let e = 300 + Math.floor(50 * t());
+                      ('coal' === i.type && (e = 350 + Math.floor(75 * t())),
+                        'wood' === i.type && (e = Math.min(300 + Math.floor(100 * t()), 500)),
+                        (a[l][c] = { type: i.type, amt: e }));
+                    }
+                  }
+              }
+            for (let t = 0; t < r; t++)
+              for (let n = 0; n < o; n++) {
+                const o = a[t][n];
+                e === L.VERTICAL ? (a[t][s - n - 1] = o) : (a[i - t - 1][n] = o);
+              }
+            return a;
+          },
+          B = (t, e, s, i, n, o = { deathLimit: 2, birthLimit: 4 }) => {
+            const r = e - s / 2 + s * t(),
+              a = [];
+            for (let e = 0; e < n; e++) {
+              a.push([]);
+              for (let s = 0; s < i; s++) {
+                let s = 0;
+                (t() < r && (s = 1), a[e].push(s));
+              }
+            }
+            for (let t = 0; t < 2; t++) k(a, o);
+            return a;
+          },
+          P = [
+            [0, 1],
+            [-1, 1],
+            [-1, 0],
+            [-1, -1],
+            [0, -1],
+            [1, -1],
+            [1, 0],
+            [1, 1],
+          ],
+          k = (t, e) => {
+            const s = e.deathLimit,
+              i = e.birthLimit;
+            for (let e = 1; e < t.length - 1; e++)
+              for (let n = 1; n < t[0].length - 1; n++) {
+                let o = 0;
+                for (let s = 0; s < P.length; s++) {
+                  const i = P[s],
+                    r = e + i[1],
+                    a = n + i[0];
+                  1 === t[r][a] && o++;
+                }
+                1 == t[e][n] ? (t[e][n] = o < s ? 0 : 1) : (t[e][n] = o > i ? 1 : 0);
+              }
+          },
+          W = (t, e, s) => {
+            const i = [0, 0],
+              n = t[s][e];
+            for (let o = s - 5; o < s + 5; o++)
+              for (let r = e - 5; r < e + 5; r++) {
+                if (r < 0 || o < 0 || r >= t[0].length || o >= t.length) continue;
+                const a = t[o][r];
+                if (null !== a) {
+                  const t = e - r,
+                    c = s - o,
+                    l = Math.abs(t) + Math.abs(c);
+                  a.type !== n.type
+                    ? (0 !== t && (i[0] += Math.pow(t / l, 2) * Math.sign(t)),
+                      0 !== c && (i[1] += Math.pow(c / l, 2) * Math.sign(c)))
+                    : (0 !== t && (i[0] -= Math.pow(t / l, 2) * Math.sign(t)),
+                      0 !== c && (i[1] -= Math.pow(c / l, 2) * Math.sign(c)));
+                }
+              }
+            return i;
+          },
+          j = (t) => {
+            const e = [];
+            for (let s = 0; s < t.length; s++) {
+              e.push([]);
+              for (let i = 0; i < t[s].length; i++)
+                if ((e[s].push(null), null !== t[s][i])) {
+                  const e = W(t, i, s);
+                  t[s][i].force = e;
+                }
+            }
+            for (let s = 0; s < t.length; s++)
+              for (let i = 0; i < t[s].length; i++) {
+                const n = t[s][i];
+                if (null !== n) {
+                  let o = i + 1 * Math.sign(n.force[0]),
+                    r = s + 1 * Math.sign(n.force[1]);
+                  (o < 0 && (o = 0),
+                    r < 0 && (r = 0),
+                    o >= t[0].length && (o = t[0].length - 1),
+                    r >= t.length && (r = t.length - 1),
+                    null === e[r][o] ? (e[r][o] = n) : (e[s][i] = n));
+                }
+              }
+            return e;
+          };
+        var F = s(35747),
+          G = s.n(F),
+          H = s(19834),
+          q = s.n(H),
+          Y = s(85622),
+          K = s.n(Y);
+        class z {
+          constructor(t, e, s = !1, i) {
+            ((this.compressReplay = e),
+              (this.statefulReplay = s),
+              (this.out = i),
+              (this.replayFilePath = null),
+              (this.data = {
+                seed: 0,
+                allCommands: [],
+                mapType: S.Types.RANDOM,
+                width: -1,
+                height: -1,
+                teamDetails: [],
+                version: '3.1.0',
+              }),
+              (this.storeReplay = !1));
+            let n = `${new Date().valueOf()}_${t.id}`;
+            (s && (n += '_stateful'),
+              (n += e ? '.luxr' : '.json'),
+              (this.replayFilePath = K().join(t.configs.storeReplayDirectory, n)),
+              void 0 !== i && (this.replayFilePath = i),
+              (this.storeReplay = t.configs.storeReplay),
+              G().existsSync &&
+                this.storeReplay &&
+                (G().existsSync(t.configs.storeReplayDirectory) ||
+                  G().mkdirSync(t.configs.storeReplayDirectory, { recursive: !0 }),
+                G().writeFileSync(this.replayFilePath, '')),
+              this.statefulReplay && (this.data.stateful = []));
+          }
+          writeState(t) {
+            const e = t.toStateObject();
+            this.data.stateful.push(e);
+          }
+          writeTeams(t) {
+            t.forEach((t) => {
+              let e = '';
+              (t.tournamentID && t.tournamentID.id && (e = t.tournamentID.id),
+                this.data.teamDetails.push({ name: t.name, tournamentID: e }));
+            });
+          }
+          writeOut(t) {
+            if (((this.data.results = t), G().appendFileSync && this.storeReplay))
+              if (this.compressReplay) {
+                const t = new (q())();
+                (t.file(this.replayFilePath, JSON.stringify(this.data)),
+                  t
+                    .generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 9 } })
+                    .then((t) => {
+                      G().appendFileSync(this.replayFilePath, t);
+                    }));
+              } else G().appendFileSync(this.replayFilePath, JSON.stringify(this.data));
+          }
+        }
+        class J {
+          constructor(t = ',') {
+            return ((this.delimiter = t), this.parse.bind(this));
+          }
+          setDelimeter(t) {
+            this.delimiter = t;
+          }
+          parse(t) {
+            return new X(t, this.delimiter);
+          }
+        }
+        class X {
+          constructor(t, e) {
+            ((this.str = t),
+              (this.contents = t.split(e)),
+              '' === this.contents[this.contents.length - 1] &&
+                (this.contents = this.contents.slice(0, this.contents.length - 1)),
+              (this.index = 0));
+          }
+          _nextStr() {
+            if (this.index < this.contents.length) return this.contents[this.index++];
+            throw new Error('No more contents to consume from line');
+          }
+          nextIntArr() {
+            if (this.index < this.contents.length)
+              return this.contents.slice(this.index, this.contents.length).map((t) => parseInt(t, 10));
+            throw new Error('No more contents to consume from line');
+          }
+          nextInt() {
+            const t = this._nextStr();
+            return parseInt(t, 10);
+          }
+          nextFloatArr() {
+            if (this.index < this.contents.length) return this.contents.slice(this.index++).map((t) => parseFloat(t));
+            throw new Error('No more contents to consume from line');
+          }
+          nextFloat() {
+            const t = this._nextStr();
+            return parseFloat(t);
+          }
+          nextStrArr() {
+            if (this.index < this.contents.length) return this.contents.slice(this.index++);
+            throw new Error('No more contents to consume from line');
+          }
+          nextStr() {
+            return this._nextStr();
+          }
+        }
+        var V = function (t, e, s, i) {
+          return new (s || (s = Promise))(function (n, o) {
+            function r(t) {
+              try {
+                c(i.next(t));
+              } catch (t) {
+                o(t);
+              }
+            }
+            function a(t) {
+              try {
+                c(i.throw(t));
+              } catch (t) {
+                o(t);
+              }
+            }
+            function c(t) {
+              var e;
+              t.done
+                ? n(t.value)
+                : ((e = t.value),
+                  e instanceof s
+                    ? e
+                    : new s(function (t) {
+                        t(e);
+                      })).then(r, a);
+            }
+            c((i = i.apply(t, e || [])).next());
+          });
+        };
+        class Q {
+          static initialize(t) {
+            return V(this, void 0, void 0, function* () {
+              const e = Math.floor(1e9 * Math.random()),
+                s = { configs: c(U), game: null, rng: x()(`${e}`), profile: null };
+              ((s.configs = l(s.configs, t.configs)),
+                s.configs.runProfiler && (s.profile = { updateStage: [], dataTransfer: [] }),
+                void 0 !== s.configs.seed ? (s.rng = x()(`${s.configs.seed}`)) : (s.configs.seed = e));
+              const i = s.configs.width,
+                o = s.configs.height,
+                r = ((t = {}) => {
+                  const e = Object.assign({}, t),
+                    s = e.seed,
+                    i = x()(`gen_${s}`),
+                    o = v[Math.floor(i() * v.length)];
+                  (void 0 === e.width && (e.width = o), void 0 === e.height && (e.height = o));
+                  const r = new u(e),
+                    a = r.map,
+                    c = a.width,
+                    l = a.height;
+                  if (e.mapType !== S.Types.DEBUG) {
+                    if (e.mapType === S.Types.EMPTY) return r;
+                    {
+                      let t = L.HORIZONTAL,
+                        e = c,
+                        s = l;
+                      i() < 0.5 ? ((t = L.VERTICAL), (e = c / 2)) : (s = l / 2);
+                      let o = $(i, t, c, l, e, s),
+                        h = 0;
+                      for (; !b(o); ) ((h += 1), (o = $(i, t, c, l, e, s)));
+                      o.forEach((t, e) => {
+                        t.forEach((t, s) => {
+                          null !== t && a.addResource(s, e, t.type, t.amt);
+                        });
+                      });
+                      let u = Math.floor(i() * (e - 1)) + 1,
+                        g = Math.floor(i() * (s - 1)) + 1;
+                      for (; a.getCell(u, g).hasResource(); )
+                        ((u = Math.floor(i() * (e - 1)) + 1), (g = Math.floor(i() * (s - 1)) + 1));
+                      (r.spawnWorker(p.TEAM.A, u, g),
+                        r.spawnCityTile(p.TEAM.A, u, g),
+                        t === L.HORIZONTAL
+                          ? (r.spawnWorker(p.TEAM.B, u, l - g - 1), r.spawnCityTile(p.TEAM.B, u, l - g - 1))
+                          : (r.spawnWorker(p.TEAM.B, c - u - 1, g), r.spawnCityTile(p.TEAM.B, c - u - 1, g)));
+                      const f = Math.floor(i() * P.length),
+                        m = [
+                          P[f],
+                          P[(f + 1) % P.length],
+                          P[(f + 2) % P.length],
+                          P[(f + 3) % P.length],
+                          P[(f + 4) % P.length],
+                          P[(f + 5) % P.length],
+                          P[(f + 6) % P.length],
+                        ];
+                      let y = 0;
+                      for (const e of m) {
+                        const s = u + e[0],
+                          i = g + e[1];
+                        let o = s,
+                          r = i;
+                        if (
+                          (t === L.HORIZONTAL ? (r = l - i - 1) : (o = c - s - 1),
+                          a.inMap(new d(s, i)) &&
+                            a.inMap(new d(o, r)) &&
+                            (a.getCell(s, i).hasResource() ||
+                              null !== a.getCell(s, i).citytile ||
+                              ((y += 1), a.addResource(s, i, n.Types.WOOD, 800)),
+                            a.getCell(o, r).hasResource() ||
+                              null !== a.getCell(o, r).citytile ||
+                              ((y += 1), a.addResource(o, r, n.Types.WOOD, 800)),
+                            6 == y))
+                        )
+                          break;
+                      }
+                      return r;
+                    }
+                  }
+                  {
+                    const t = [
+                      [3, 3],
+                      [3, 4],
+                      [4, 3],
+                      [5, 6],
+                      [1, 1],
+                      [1, 2],
+                      [1, 3],
+                      [2, 5],
+                      [2, 14],
+                      [2, 13],
+                      [4, 13],
+                      [5, 13],
+                      [5, 12],
+                      [5, 14],
+                    ];
+                    for (const e of t)
+                      (a.addResource(e[0], e[1], n.Types.WOOD, 1500),
+                        a.addResource(c - e[0] - 1, e[1], n.Types.WOOD, 1500));
+                    const e = [
+                      [5, 5],
+                      [6, 5],
+                      [9, 4],
+                    ];
+                    for (const t of e)
+                      (a.addResource(t[0], t[1], n.Types.COAL, 300),
+                        a.addResource(c - t[0] - 1, t[1], n.Types.COAL, 300));
+                    const s = [
+                      [9, 7],
+                      [7, 8],
+                    ];
+                    for (const t of s)
+                      (a.addResource(t[0], t[1], n.Types.URANIUM, 30),
+                        a.addResource(c - t[0] - 1, t[1], n.Types.URANIUM, 30));
+                    (r.spawnCityTile(p.TEAM.A, 2, 1),
+                      r.spawnCityTile(p.TEAM.B, c - 3, 1),
+                      r.spawnWorker(p.TEAM.A, 2, 2),
+                      r.spawnWorker(p.TEAM.B, c - 3, 2),
+                      r.spawnCart(p.TEAM.A, 1, 2),
+                      r.spawnCart(p.TEAM.B, c - 2, 2));
+                  }
+                  return r;
+                })(s.configs);
+              ((s.game = r),
+                (r.replay = new z(t, s.configs.compressReplay, s.configs.statefulReplay, s.configs.out)),
+                (r.replay.data.seed = s.configs.seed),
+                (r.replay.data.width = i),
+                (r.replay.data.height = o),
+                (r.replay.data.mapType = s.configs.mapType),
+                t.log.detail(s.configs),
+                (t.state = s),
+                r.map.sortResourcesDeterministically(),
+                r.replay && (r.replay.writeTeams(t.agents), r.replay.statefulReplay && r.replay.writeState(r)));
+              for (let e = 0; e < t.agents.length; e++) {
+                const s = t.agents[e].id;
+                yield t.send(`${s}`, s);
+              }
+              (yield t.sendAll(`${s.game.map.width} ${s.game.map.height}`),
+                yield this.sendAllAgentsGameInformation(t),
+                yield t.sendAll('D_DONE'));
+            });
+          }
+          static sendAllAgentsGameInformation(t) {
+            return V(this, void 0, void 0, function* () {
+              let e;
+              const s = t.state,
+                i = s.game;
+              i.configs.runProfiler && (e = new Date().valueOf());
+              const n = i.map,
+                o = [],
+                r = [p.TEAM.A, p.TEAM.B];
+              (r.forEach((e) => {
+                const s = i.state.teamStates[e].researchPoints;
+                t.agents.forEach((i) => {
+                  i.isTerminated() || o.push(t.send(`rp ${e} ${s}`, i));
+                });
+              }),
+                n.resources.forEach((e) => {
+                  t.agents.forEach((s) => {
+                    s.isTerminated() ||
+                      o.push(t.send(`r ${e.resource.type} ${e.pos.x} ${e.pos.y} ${e.resource.amount}`, s));
+                  });
+                }),
+                r.forEach((e) => {
+                  i.getTeamsUnits(e).forEach((s) => {
+                    t.agents.forEach((i) => {
+                      i.isTerminated() ||
+                        o.push(
+                          t.send(
+                            `u ${s.type} ${e} ${s.id} ${s.pos.x} ${s.pos.y} ${s.cooldown} ${s.cargo.wood} ${s.cargo.coal} ${s.cargo.uranium}`,
+                            i
+                          )
+                        );
+                    });
+                  });
+                }),
+                i.cities.forEach((e) => {
+                  t.agents.forEach((s) => {
+                    s.isTerminated() || o.push(t.send(`c ${e.team} ${e.id} ${e.fuel} ${e.getLightUpkeep()}`, s));
+                  });
+                }),
+                i.cities.forEach((e) => {
+                  e.citycells.forEach((s) => {
+                    t.agents.forEach((i) => {
+                      i.isTerminated() ||
+                        o.push(t.send(`ct ${e.team} ${e.id} ${s.pos.x} ${s.pos.y} ${s.citytile.cooldown}`, i));
+                    });
+                  });
+                }));
+              for (let e = 0; e < i.map.height; e++)
+                for (let s = 0; s < i.map.width; s++) {
+                  const n = i.map.getCell(s, e).getRoad();
+                  0 !== n &&
+                    t.agents.forEach((i) => {
+                      i.isTerminated() || o.push(t.send(`ccd ${s} ${e} ${n}`, i));
+                    });
+                }
+              if ((yield Promise.all(o), i.configs.runProfiler)) {
+                const t = new Date().valueOf();
+                s.profile.dataTransfer.push(t - e);
+              }
+            });
+          }
+          static update(t, e) {
+            return V(this, void 0, void 0, function* () {
+              const s = t.state,
+                i = s.game;
+              let n;
+              (i.configs.runProfiler && (n = new Date().valueOf()),
+                t.log.detail('Processing turn ' + i.state.turn),
+                i.configs.debugAnnotations || (e = e.filter((t) => 'd' !== t.command.split(' ')[0][0])),
+                i.replay && i.replay.data.allCommands.push(e));
+              const o = new Map();
+              Object.values(u.ACTIONS).forEach((t) => {
+                o.set(t, []);
+              });
+              const r = i._genInitialAccumulatedActionStats();
+              for (let s = 0; s < e.length; s++)
+                try {
+                  const t = i.validateCommand(e[s], r);
+                  if (null != t) {
+                    const e = [...o.get(t.action), t];
+                    o.set(t.action, e);
+                  }
+                } catch (e) {
+                  t.log.warn(`${e.message}`);
+                }
+              (o.get(u.ACTIONS.BUILD_CITY).forEach((t) => {
+                i.getUnit(t.team, t.unitid).giveAction(t);
+              }),
+                o.get(u.ACTIONS.BUILD_WORKER).forEach((t) => {
+                  i.map.getCell(t.x, t.y).citytile.giveAction(t);
+                }),
+                o.get(u.ACTIONS.BUILD_CART).forEach((t) => {
+                  i.map.getCell(t.x, t.y).citytile.giveAction(t);
+                }),
+                o.get(u.ACTIONS.PILLAGE).forEach((t) => {
+                  i.getUnit(t.team, t.unitid).giveAction(t);
+                }),
+                o.get(u.ACTIONS.RESEARCH).forEach((t) => {
+                  i.map.getCell(t.x, t.y).citytile.giveAction(t);
+                }),
+                o.get(u.ACTIONS.TRANSFER).forEach((t) => {
+                  i.getUnit(t.team, t.srcID).giveAction(t);
+                }),
+                i.handleMovementActions(o.get(u.ACTIONS.MOVE), t).forEach((t) => {
+                  t.direction !== u.DIRECTIONS.CENTER && i.getUnit(t.team, t.unitid).giveAction(t);
+                }),
+                i.cities.forEach((e) => {
+                  e.citycells.forEach((e) => {
+                    try {
+                      e.citytile.handleTurn(i);
+                    } catch (s) {
+                      t.throw(e.citytile.team, s);
+                    }
+                  });
+                }));
+              const a = [p.TEAM.A, p.TEAM.B];
+              for (const e of a)
+                i.state.teamStates[e].units.forEach((e) => {
+                  try {
+                    e.handleTurn(i);
+                  } catch (e) {
+                    t.log.warn(`${e.message}`);
+                  }
+                });
+              i.distributeAllResources();
+              for (const t of a)
+                i.state.teamStates[t].units.forEach((t) => {
+                  i.handleResourceDeposit(t);
+                });
+              i.isNight() && this.handleNight(s);
+              const c = [];
+              for (let t = 0; t < i.map.resources.length; t++) {
+                const e = i.map.resources[t];
+                e.resource.amount > 0 && c.push(e);
+              }
+              ((i.map.resources = c), i.regenerateTrees(), s.configs.debug && (yield this.debugViewer(i)));
+              const l = this.matchOver(t);
+              (i.state.turn++,
+                i.replay.statefulReplay && i.replay.writeState(i),
+                i.runCooldowns(),
+                yield this.sendAllAgentsGameInformation(t));
+              const h = [];
+              if (
+                (t.agents.forEach((e) => {
+                  e.isTerminated() || h.push(t.send('D_DONE', e));
+                }),
+                yield Promise.all(h),
+                l)
+              )
+                return (i.replay && i.replay.writeOut(this.getResults(t)), 'finished');
+              if (i.configs.runProfiler) {
+                const t = new Date().valueOf();
+                s.profile.updateStage.push(t - n);
+              }
+              t.log.detail('Beginning turn ' + i.state.turn);
+            });
+          }
+          static debugViewer(t) {
+            return V(this, void 0, void 0, function* () {
+              (console.clear(), console.log(t.map.getMapString()), console.log(`Turn: ${t.state.turn}`));
+              const e = [p.TEAM.A, p.TEAM.B];
+              for (const s of e) {
+                const e = t.state.teamStates[s],
+                  i = `RP: ${e.researchPoints} | Units: ${e.units.size}`;
+                s === p.TEAM.A ? console.log(i.cyan) : console.log(i.red);
+              }
+              var s, i, n, o, r;
+              (t.cities.forEach((t) => {
+                let e = `City ${t.id}`.red;
+                (0 === t.team && (e = `City ${t.id}`.cyan),
+                  console.log(`${e} light: ${t.fuel} - size: ${t.citycells.length}`));
+              }),
+                yield ((s = t.configs.debugDelay),
+                (i = void 0),
+                (n = void 0),
+                (o = void 0),
+                (r = function* () {
+                  return new Promise((t) => {
+                    setTimeout(() => {
+                      t();
+                    }, s);
+                  });
+                }),
+                new (o || (o = Promise))(function (t, e) {
+                  function s(t) {
+                    try {
+                      c(r.next(t));
+                    } catch (t) {
+                      e(t);
+                    }
+                  }
+                  function a(t) {
+                    try {
+                      c(r.throw(t));
+                    } catch (t) {
+                      e(t);
+                    }
+                  }
+                  function c(e) {
+                    var i;
+                    e.done
+                      ? t(e.value)
+                      : ((i = e.value),
+                        i instanceof o
+                          ? i
+                          : new o(function (t) {
+                              t(i);
+                            })).then(s, a);
+                  }
+                  c((r = r.apply(i, n || [])).next());
+                })));
+            });
+          }
+          static matchOver(t) {
+            const e = t.state,
+              s = e.game;
+            if (s.state.turn === e.configs.parameters.MAX_DAYS - 1) return !0;
+            const i = [p.TEAM.A, p.TEAM.B],
+              n = [0, 0];
+            s.cities.forEach((t) => {
+              n[t.team] += 1;
+            });
+            for (const t of i) if (s.getTeamsUnits(t).size + n[t] === 0) return !0;
+          }
+          static handleNight(t) {
+            const e = t.game;
+            (e.cities.forEach((t) => {
+              t.fuel < t.getLightUpkeep() ? e.destroyCity(t.id) : (t.fuel -= t.getLightUpkeep());
+            }),
+              [p.TEAM.A, p.TEAM.B].forEach((t) => {
+                e.state.teamStates[t].units.forEach((t) => {
+                  e.map.getCellByPos(t.pos).isCityTile() || t.spendFuelToSurvive() || e.destroyUnit(t.team, t.id);
+                });
+              }));
+          }
+          static getResults(t) {
+            const e = t.state.game;
+            let s = p.TEAM.A,
+              i = p.TEAM.B;
+            t: {
+              const t = [0, 0];
+              if (
+                (e.cities.forEach((e) => {
+                  t[e.team] += e.citycells.length;
+                }),
+                t[p.TEAM.A] > t[p.TEAM.B])
+              )
+                break t;
+              if (t[p.TEAM.A] < t[p.TEAM.B]) {
+                ((s = p.TEAM.B), (i = p.TEAM.A));
+                break t;
+              }
+              const n = [e.getTeamsUnits(p.TEAM.A), e.getTeamsUnits(p.TEAM.B)];
+              if (n[p.TEAM.A].size > n[p.TEAM.B].size) break t;
+              if (n[p.TEAM.A].size < n[p.TEAM.B].size) {
+                ((s = p.TEAM.B), (i = p.TEAM.A));
+                break t;
+              }
+              const o = {
+                ranks: [
+                  { rank: 1, agentID: s },
+                  { rank: 1, agentID: i },
+                ],
+                replayFile: null,
+              };
+              return (e.configs.storeReplay && (o.replayFile = e.replay.replayFilePath), o);
+            }
+            const n = {
+              ranks: [
+                { rank: 1, agentID: s },
+                { rank: 2, agentID: i },
+              ],
+              replayFile: null,
+            };
+            return (e.configs.storeReplay && (n.replayFile = e.replay.replayFilePath), n);
+          }
+          static reset(t, e) {
+            const s = t.state.game;
+            void 0 !== e.updates &&
+              (e = ((t) => {
+                const e = new J(' '),
+                  s = t.turn,
+                  i = [0, 0],
+                  n = [];
+                for (let e = 0; e < t.height; e++) {
+                  n.push([]);
+                  for (let s = 0; s < t.width; s++) n[e].push({ road: 0 });
+                }
+                const o = [{}, {}],
+                  r = {};
+                for (const s of t.updates) {
+                  const t = e.parse(s);
+                  if ('D_DONE' === t.str) break;
+                  switch (t.nextStr()) {
+                    case 'rp':
+                      i[t.nextInt()] = t.nextInt();
+                      break;
+                    case 'r': {
+                      const e = t.nextStr(),
+                        s = t.nextInt(),
+                        i = t.nextInt(),
+                        o = t.nextInt();
+                      n[i][s].resource = { type: e, amount: o };
+                      break;
+                    }
+                    case 'u': {
+                      const e = t.nextInt(),
+                        s = t.nextInt(),
+                        i = t.nextStr(),
+                        n = t.nextInt(),
+                        r = t.nextInt(),
+                        a = t.nextFloat(),
+                        c = t.nextInt(),
+                        l = t.nextInt(),
+                        h = t.nextInt();
+                      o[s][i] = { cargo: { wood: c, coal: l, uranium: h }, x: n, y: r, cooldown: a, type: e };
+                      break;
+                    }
+                    case 'c': {
+                      const e = t.nextInt(),
+                        s = t.nextStr(),
+                        i = t.nextFloat(),
+                        n = t.nextFloat();
+                      r[s] = { team: e, fuel: i, cityCells: [], id: s, lightupkeep: n };
+                      break;
+                    }
+                    case 'ct': {
+                      t.nextInt();
+                      const e = t.nextStr(),
+                        s = t.nextInt(),
+                        i = t.nextInt(),
+                        n = t.nextFloat();
+                      r[e].cityCells.push({ x: s, y: i, cooldown: n });
+                      break;
+                    }
+                    case 'ccd': {
+                      const e = t.nextInt(),
+                        s = t.nextInt(),
+                        i = t.nextFloat();
+                      n[s][e].road = i;
+                      break;
+                    }
+                  }
+                }
+                return {
+                  map: n,
+                  cities: r,
+                  globalCityIDCount: t.globalCityIDCount,
+                  globalUnitIDCount: t.globalUnitIDCount,
+                  turn: s,
+                  teamStates: {
+                    [p.TEAM.A]: {
+                      researchPoints: i[0],
+                      units: o[0],
+                      researched: {
+                        wood: !0,
+                        coal: i[0] >= _.Jw.RESEARCH_REQUIREMENTS.COAL,
+                        uranium: i[0] >= _.Jw.RESEARCH_REQUIREMENTS.URANIUM,
+                      },
+                    },
+                    [p.TEAM.B]: {
+                      researchPoints: i[1],
+                      units: o[1],
+                      researched: {
+                        wood: !0,
+                        coal: i[1] >= _.Jw.RESEARCH_REQUIREMENTS.COAL,
+                        uranium: i[1] >= _.Jw.RESEARCH_REQUIREMENTS.URANIUM,
+                      },
+                    },
+                  },
+                };
+              })(e));
+            const i = e.map.length,
+              n = e.map[0].length,
+              o = Object.assign({}, s.configs);
+            ((o.width = n), (o.height = i), (s.map = new S(o)));
+            for (let t = 0; t < i; t++)
+              for (let i = 0; i < n; i++) {
+                const n = e.map[t][i];
+                (n.resource && s.map.addResource(i, t, n.resource.type, n.resource.amount),
+                  (s.map.getCell(i, t).road = n.road));
+              }
+            s.cities = new Map();
+            for (const t of Object.keys(e.cities)) {
+              const i = e.cities[t];
+              (i.cityCells.forEach((t) => {
+                s.spawnCityTile(i.team, t.x, t.y, i.id).cooldown = t.cooldown;
+              }),
+                (s.cities.get(i.id).fuel = i.fuel));
+            }
+            const r = [p.TEAM.A, p.TEAM.B];
+            for (const t of r) {
+              ((s.state.teamStates[t].researchPoints = e.teamStates[t].researchPoints),
+                (s.state.teamStates[t].researched = c(e.teamStates[t].researched)),
+                s.state.teamStates[t].units.clear());
+              for (const i of Object.keys(e.teamStates[t].units)) {
+                const n = e.teamStates[t].units[i];
+                let o;
+                ((o = n.type === p.Type.WORKER ? s.spawnWorker(t, n.x, n.y, i) : s.spawnCart(t, n.x, n.y, i)),
+                  (o.cargo = c(n.cargo)),
+                  (o.cooldown = c(n.cooldown)));
+              }
+            }
+            ((s.state.turn = e.turn),
+              (s.globalCityIDCount = e.globalCityIDCount),
+              (s.globalUnitIDCount = e.globalUnitIDCount),
+              s.map.sortResourcesDeterministically());
+          }
+        }
+        var Z = function (t, e, s, i) {
+          return new (s || (s = Promise))(function (n, o) {
+            function r(t) {
+              try {
+                c(i.next(t));
+              } catch (t) {
+                o(t);
+              }
+            }
+            function a(t) {
+              try {
+                c(i.throw(t));
+              } catch (t) {
+                o(t);
+              }
+            }
+            function c(t) {
+              var e;
+              t.done
+                ? n(t.value)
+                : ((e = t.value),
+                  e instanceof s
+                    ? e
+                    : new s(function (t) {
+                        t(e);
+                      })).then(r, a);
+            }
+            c((i = i.apply(t, e || [])).next());
+          });
+        };
+        class tt extends i.Design {
+          constructor(t, e = {}) {
+            super(t, e);
+          }
+          initialize(t) {
+            return Z(this, void 0, void 0, function* () {
+              return Q.initialize(t);
+            });
+          }
+          update(t, e) {
+            return Z(this, void 0, void 0, function* () {
+              return Q.update(t, e);
+            });
+          }
+          getResults(t) {
+            return Z(this, void 0, void 0, function* () {
+              return Q.getResults(t);
+            });
+          }
+          static resultHandler(t) {
+            const e = [];
+            for (let s = 0; s < t.ranks.length; s++) {
+              const i = t.ranks[s];
+              e.push({ rank: i.rank, agentID: i.agentID });
+            }
+            return { ranks: e };
+          }
+        }
+      },
+      24259: (t) => {
+        function e(t) {
+          var e = new Error("Cannot find module '" + t + "'");
+          throw ((e.code = 'MODULE_NOT_FOUND'), e);
+        }
+        ((e.keys = () => []), (e.resolve = e), (e.id = 24259), (t.exports = e));
+      },
+      72840: (t) => {
+        function e(t) {
+          var e = new Error("Cannot find module '" + t + "'");
+          throw ((e.code = 'MODULE_NOT_FOUND'), e);
+        }
+        ((e.keys = () => []), (e.resolve = e), (e.id = 72840), (t.exports = e));
+      },
+      58211: (t, e, s) => {
+        var i = {
+          './bin': 31033,
+          './bin.js': 31033,
+          './helpers/cpu': 70186,
+          './helpers/cpu.js': 70186,
+          './helpers/parallel': 66312,
+          './helpers/parallel.js': 66312,
+          './history': 8876,
+          './history.js': 8876,
+          './procfile': 96014,
+          './procfile.js': 96014,
+          './ps': 57565,
+          './ps.js': 57565,
+          './stats': 4618,
+          './stats.js': 4618,
+          './wmic': 66290,
+          './wmic.js': 66290,
+        };
+        function n(t) {
+          var e = o(t);
+          return s(e);
+        }
+        function o(t) {
+          if (!s.o(i, t)) {
+            var e = new Error("Cannot find module '" + t + "'");
+            throw ((e.code = 'MODULE_NOT_FOUND'), e);
+          }
+          return i[t];
+        }
+        ((n.keys = function () {
+          return Object.keys(i);
+        }),
+          (n.resolve = o),
+          (t.exports = n),
+          (n.id = 58211));
+      },
+      42357: (t) => {
+        'use strict';
+        t.exports = require('assert');
+      },
+      64293: (t) => {
+        'use strict';
+        t.exports = require('buffer');
+      },
+      63129: (t) => {
+        'use strict';
+        t.exports = require('child_process');
+      },
+      27619: (t) => {
+        'use strict';
+        t.exports = require('constants');
+      },
+      76417: (t) => {
+        'use strict';
+        t.exports = require('crypto');
+      },
+      40881: (t) => {
+        'use strict';
+        t.exports = require('dns');
+      },
+      28614: (t) => {
+        'use strict';
+        t.exports = require('events');
+      },
+      35747: (t) => {
+        'use strict';
+        t.exports = require('fs');
+      },
+      98605: (t) => {
+        'use strict';
+        t.exports = require('http');
+      },
+      57211: (t) => {
+        'use strict';
+        t.exports = require('https');
+      },
+      11631: (t) => {
+        'use strict';
+        t.exports = require('net');
+      },
+      12087: (t) => {
+        'use strict';
+        t.exports = require('os');
+      },
+      85622: (t) => {
+        'use strict';
+        t.exports = require('path');
+      },
+      71191: (t) => {
+        'use strict';
+        t.exports = require('querystring');
+      },
+      51058: (t) => {
+        'use strict';
+        t.exports = require('readline');
+      },
+      92413: (t) => {
+        'use strict';
+        t.exports = require('stream');
+      },
+      24304: (t) => {
+        'use strict';
+        t.exports = require('string_decoder');
+      },
+      33867: (t) => {
+        'use strict';
+        t.exports = require('tty');
+      },
+      78835: (t) => {
+        'use strict';
+        t.exports = require('url');
+      },
+      31669: (t) => {
+        'use strict';
+        t.exports = require('util');
+      },
+      78761: (t) => {
+        'use strict';
+        t.exports = require('zlib');
+      },
+    },
+    n = {};
+  function o(t) {
+    var e = n[t];
+    if (void 0 !== e) return e.exports;
+    var s = (n[t] = { id: t, loaded: !1, exports: {} });
+    return (i[t].call(s.exports, s, s.exports, o), (s.loaded = !0), s.exports);
+  }
+  ((o.m = i),
+    (o.x = () => {
+      var t = o.O(void 0, [754], () => o(42791));
+      return o.O(t);
+    }),
+    (o.amdD = function () {
+      throw new Error('define cannot be used indirect');
+    }),
+    (o.amdO = {}),
+    (t = []),
+    (o.O = (e, s, i, n) => {
+      if (!s) {
+        var r = 1 / 0;
+        for (l = 0; l < t.length; l++) {
+          for (var [s, i, n] = t[l], a = !0, c = 0; c < s.length; c++)
+            (!1 & n || r >= n) && Object.keys(o.O).every((t) => o.O[t](s[c]))
+              ? s.splice(c--, 1)
+              : ((a = !1), n < r && (r = n));
+          a && (t.splice(l--, 1), (e = i()));
+        }
+        return e;
+      }
+      n = n || 0;
+      for (var l = t.length; l > 0 && t[l - 1][2] > n; l--) t[l] = t[l - 1];
+      t[l] = [s, i, n];
+    }),
+    (o.n = (t) => {
+      var e = t && t.__esModule ? () => t.default : () => t;
+      return (o.d(e, { a: e }), e);
+    }),
+    (o.d = (t, e) => {
+      for (var s in e) o.o(e, s) && !o.o(t, s) && Object.defineProperty(t, s, { enumerable: !0, get: e[s] });
+    }),
+    (o.f = {}),
+    (o.e = (t) => Promise.all(Object.keys(o.f).reduce((e, s) => (o.f[s](t, e), e), []))),
+    (o.u = (t) => t + '.js'),
+    (o.o = (t, e) => Object.prototype.hasOwnProperty.call(t, e)),
+    (o.r = (t) => {
+      ('undefined' != typeof Symbol &&
+        Symbol.toStringTag &&
+        Object.defineProperty(t, Symbol.toStringTag, { value: 'Module' }),
+        Object.defineProperty(t, '__esModule', { value: !0 }));
+    }),
+    (o.nmd = (t) => ((t.paths = []), t.children || (t.children = []), t)),
+    (s = { 179: 1 }),
+    (o.O.require = (t) => s[t]),
+    (o.f.require = (t, e) => {
+      s[t] ||
+        ((t) => {
+          var e = t.modules,
+            i = t.ids,
+            n = t.runtime;
+          for (var r in e) o.o(e, r) && (o.m[r] = e[r]);
+          n && n(o);
+          for (var a = 0; a < i.length; a++) s[i[a]] = 1;
+          o.O();
+        })(require('./' + o.u(t)));
+    }),
+    (e = o.x),
+    (o.x = () => (o.e(754), e())),
+    o.x());
+})();

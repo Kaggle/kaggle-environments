@@ -8,9 +8,22 @@
 # This is significantly faster than the backend build since it skips Docker image build
 
 steps:
+  # Check code formatting
+  - id: "format-check"
+    name: "node:22"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        set -e
+        npm install -g pnpm
+        pnpm install
+        pnpm format-check
+    waitFor: ["-"]
+
   # Build visualizers to validate frontend changes
   - id: "build-all-visualizers"
-    name: "gcr.io/cloud-builders/npm"
+    name: "node:22"
     entrypoint: "bash"
     args:
       - "-c"
@@ -22,6 +35,34 @@ steps:
         node web/scripts/sync-version.js
         pnpm build-ci
     waitFor: ["-"]
+
+  # Run web/core unit tests
+  - id: "run-unit-tests"
+    name: "node:22"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        set -e
+        npm install -g pnpm@9
+        pnpm install
+        pnpm --filter @kaggle-environments/core test
+    waitFor: ["-"]
+
+  # Run Playwright e2e tests for visualizers
+  - id: "run-e2e-tests"
+    name: "mcr.microsoft.com/playwright:v1.50.0-noble"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        set -e
+        npm install -g pnpm
+        pnpm install
+        # Install browsers matching the installed Playwright version
+        pnpm exec playwright install chromium --with-deps
+        pnpm test:e2e
+    waitFor: ["build-all-visualizers"]
 
 # No secrets - this is intentional for security
 # No images pushed - PRs only validate, they don't publish

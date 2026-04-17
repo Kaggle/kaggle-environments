@@ -25,7 +25,6 @@ try {
   // Write back to package.json
   fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
   console.log(`Successfully updated version in web/core/package.json to ${version}`);
-
 } catch (error) {
   console.error('Error syncing version:', error.message);
   process.exit(1);

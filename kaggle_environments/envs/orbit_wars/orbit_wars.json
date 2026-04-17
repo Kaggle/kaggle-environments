@@ -1,0 +1,93 @@
+{
+  "name": "orbit_wars",
+  "title": "Orbit Wars",
+  "description": "Conquer planets rotating around a sun in a continuous space.",
+  "version": "1.0.9",
+  "agents": [2, 4],
+  "configuration": {
+    "episodeSteps": 500,
+    "actTimeout": 1,
+    "agentTimeout": {
+      "description": "Obsolete field kept for backwards compatibility, please use observation.remainingOverageTime.",
+      "type": "number",
+      "minimum": 0,
+      "default": 2
+    },
+    "shipSpeed": {
+      "description": "Maximum fleet speed per turn. Speed scales with fleet size: 1 ship moves at 1/turn, larger fleets approach this max.",
+      "type": "number",
+      "default": 6.0
+    },
+    "cometSpeed": {
+      "description": "Speed of comets in units per turn along their orbital path.",
+      "type": "number",
+      "default": 4.0
+    }
+  },
+  "reward": {
+    "description": "Score at the end of the game.",
+    "type": "number",
+    "default": 0
+  },
+  "observation": {
+    "planets": {
+      "description": "List of planets: [id, owner, x, y, radius, ships, production]",
+      "type": "array",
+      "default": []
+    },
+    "fleets": {
+      "description": "List of active fleets: [id, owner, x, y, angle, from_planet_id, ships]",
+      "type": "array",
+      "default": []
+    },
+    "player": {
+      "description": "Player ID (0, 1, 2, or 3)",
+      "type": "integer",
+      "default": 0
+    },
+    "angular_velocity": {
+      "description": "Rotation speed of planets in radians per turn.",
+      "type": "number",
+      "default": 0
+    },
+    "initial_planets": {
+      "description": "Initial planet positions at game start: [id, owner, x, y, radius, ships, production]",
+      "type": "array",
+      "default": []
+    },
+    "next_fleet_id": {
+      "description": "Next available fleet ID.",
+      "type": "integer",
+      "default": 0
+    },
+    "comets": {
+      "description": "Active comet groups with planet_ids, paths, and path_index.",
+      "type": "array",
+      "default": []
+    },
+    "comet_planet_ids": {
+      "description": "Planet IDs that are comets (temporary extra-solar objects).",
+      "type": "array",
+      "default": []
+    },
+    "remainingOverageTime": 2
+  },
+  "action": {
+    "description": "List of moves to make. Each move is [from_planet_id, direction_angle, num_ships]",
+    "type": "array",
+    "items": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": [
+        {"type": "integer", "description": "Source planet ID"},
+        {"type": "number", "description": "Angle in radians"},
+        {"type": "integer", "description": "Number of ships"}
+      ]
+    },
+    "default": []
+  },
+  "status": {
+    "defaults": ["ACTIVE", "ACTIVE"]
+  }
+}

@@ -1,4 +1,4 @@
-import { LegacyRendererOptions } from '@kaggle-environments/core';
+import { RendererOptions } from '@kaggle-environments/core';
 import { SIGN_ICONS, SIGN_NAMES } from './consts';
 
 const maxWidth = 960;
@@ -10,8 +10,11 @@ const sign_icon_y = 160;
 const result_y = 200;
 const score_y = 240;
 
-export function renderer(context: LegacyRendererOptions) {
-  const { steps, replay, height = 400, parent, step, width = 400 } = context;
+export function renderer(context: RendererOptions) {
+  const { replay, parent, step } = context;
+  const steps = replay.steps;
+  const width = parent.clientWidth || 400;
+  const height = parent.clientHeight || 400;
 
   // Canvas Setup.
   let canvas = parent.querySelector('canvas');

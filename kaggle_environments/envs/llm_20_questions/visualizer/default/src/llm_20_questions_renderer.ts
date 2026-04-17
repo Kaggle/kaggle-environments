@@ -1,12 +1,15 @@
-import { LegacyRendererOptions } from '@kaggle-environments/core';
+import { RendererOptions } from '@kaggle-environments/core';
 
 const maxWidth = 1200;
 const maxHeight = 800;
 const line_height = 40;
 const question_y = 160;
 
-export function renderer(context: LegacyRendererOptions) {
-  const { steps, replay, height = 800, parent, step, width = 1200 } = context;
+export function renderer(context: RendererOptions) {
+  const { replay, parent, step } = context;
+  const steps = replay.steps;
+  const width = parent.clientWidth || 1200;
+  const height = parent.clientHeight || 800;
 
   // Canvas Setup.
   let canvas = parent.querySelector('canvas');

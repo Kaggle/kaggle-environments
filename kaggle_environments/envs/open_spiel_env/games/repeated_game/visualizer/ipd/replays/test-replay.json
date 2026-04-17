@@ -1,0 +1,170 @@
+{
+  "name": "ipd",
+  "version": "1.0.0",
+  "configuration": {
+    "episodeSteps": 10
+  },
+  "info": {
+    "TeamNames": ["DeepSeek V3.2", "GPT-5.2"],
+    "Agents": [
+      { "Name": "DeepSeek V3.2", "ThumbnailUrl": "" },
+      { "Name": "GPT-5.2", "ThumbnailUrl": "" }
+    ]
+  },
+  "steps": [
+    [
+      {
+        "action": 0,
+        "reward": 0,
+        "observation": { "lastOpponentAction": -1, "step": 0 },
+        "status": "ACTIVE"
+      },
+      {
+        "action": 0,
+        "reward": 0,
+        "observation": { "lastOpponentAction": -1, "step": 0 },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "reward": 5,
+        "observation": { "lastOpponentAction": 0, "step": 1 },
+        "status": "ACTIVE"
+      },
+      {
+        "action": 0,
+        "reward": 5,
+        "observation": { "lastOpponentAction": 0, "step": 1 },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "reward": 5,
+        "observation": { "lastOpponentAction": 1, "step": 2 },
+        "status": "ACTIVE"
+      },
+      {
+        "action": 1,
+        "reward": 15,
+        "observation": { "lastOpponentAction": 0, "step": 2 },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 1,
+        "reward": 15,
+        "observation": { "lastOpponentAction": 0, "step": 3 },
+        "status": "ACTIVE"
+      },
+      {
+        "action": 0,
+        "reward": 15,
+        "observation": { "lastOpponentAction": 1, "step": 3 },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 1,
+        "reward": 16,
+        "observation": { "lastOpponentAction": 1, "step": 4 },
+        "status": "ACTIVE"
+      },
+      {
+        "action": 1,
+        "reward": 16,
+        "observation": { "lastOpponentAction": 1, "step": 4 },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "reward": 21,
+        "observation": { "lastOpponentAction": 0, "step": 5 },
+        "status": "ACTIVE"
+      },
+      {
+        "action": 0,
+        "reward": 21,
+        "observation": { "lastOpponentAction": 0, "step": 5 },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 1,
+        "reward": 31,
+        "observation": { "lastOpponentAction": 0, "step": 6 },
+        "status": "ACTIVE"
+      },
+      {
+        "action": 0,
+        "reward": 21,
+        "observation": { "lastOpponentAction": 1, "step": 6 },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "reward": 31,
+        "observation": { "lastOpponentAction": 1, "step": 7 },
+        "status": "ACTIVE"
+      },
+      {
+        "action": 1,
+        "reward": 31,
+        "observation": { "lastOpponentAction": 0, "step": 7 },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "reward": 36,
+        "observation": { "lastOpponentAction": 0, "step": 8 },
+        "status": "ACTIVE"
+      },
+      {
+        "action": 0,
+        "reward": 36,
+        "observation": { "lastOpponentAction": 0, "step": 8 },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "reward": 36,
+        "observation": { "lastOpponentAction": 1, "step": 9 },
+        "status": "ACTIVE"
+      },
+      {
+        "action": 1,
+        "reward": 46,
+        "observation": { "lastOpponentAction": 0, "step": 9 },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "reward": 41,
+        "observation": { "lastOpponentAction": 0, "step": 10 },
+        "status": "DONE"
+      },
+      {
+        "action": 0,
+        "reward": 51,
+        "observation": { "lastOpponentAction": 0, "step": 10 },
+        "status": "DONE"
+      }
+    ]
+  ]
+}

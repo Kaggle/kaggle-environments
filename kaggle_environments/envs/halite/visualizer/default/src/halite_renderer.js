@@ -12,22 +12,40 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { getStepData } from '@kaggle-environments/core';
+
+/**
+ * Halite observation structure.
+ * @typedef {Object} HaliteObservation
+ * @property {number[]} halite - Halite amounts per cell
+ * @property {number} player - Current player index
+ * @property {Array<[number, Object, Object]>} players - Player data [halite, ships, shipyards]
+ * @property {number} step - Current step number
+ */
+
 export function renderer({
   parent,
   // The gamestep we're rendering, starting at 0 and going by default up to 399.
   step,
   // Optional list of agents which will render a legend with player names.
   agents,
-  setAgents,
   replay,
-  width = 800,
-  height = 600,
 }) {
+  // Validate step data exists
+  const stepData = getStepData(replay, step);
+  if (!stepData || !stepData[0]?.observation) {
+    return;
+  }
+
+  const width = parent.clientWidth || 800;
+  const height = parent.clientHeight || 600;
   // Configuration.
   const { size } = replay.configuration;
   const directions = ['NORTH', 'EAST', 'SOUTH', 'WEST'];
-  const state = replay.steps[step];
-  const { halite, players } = state[0].observation;
+  const state = stepData;
+  /** @type {HaliteObservation} */
+  const observation = state[0].observation;
+  const { halite, players } = observation;
 
   const colors = {
     bg: '#000B49',
@@ -101,17 +119,28 @@ export function renderer({
 
   const getCanvas = (id, options = { clear: false, alpha: false }) => {
     let canvas = document.querySelector(`#${id}`);
+    const targetWidth = options.width || width;
+    const targetHeight = options.height || height;
+    let isNew = false;
     if (!canvas) {
       canvas = createElement('canvas', id);
-      canvas.width = options.width || width;
-      canvas.height = options.height || height;
       canvas.style.cssText = `
         position: absolute;
         top: 0;
         left: 0;
         width: 100%;
-        height: 100%; 
+        height: 100%;
       `;
+      isNew = true;
+    }
+    // Only set dimensions on new canvases or when explicitly provided (setting dimensions clears content)
+    if (
+      isNew ||
+      (options.width && canvas.width !== targetWidth) ||
+      (options.height && canvas.height !== targetHeight)
+    ) {
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
     }
     const ctx = canvas.getContext('2d', { alpha: options.alpha });
     if (options.clear) ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -474,11 +503,33 @@ export function renderer({
   const getNumShips = (player) => Object.entries(player[2]).length;
   const getNumShipyards = (player) => Object.entries(player[1]).length;
 
-  // Writes two lines, "Halite" and "Cargo", and returns y value for what would be the third line.
-  const writeScoreboardText = (ctx, player, x, y) => {
-    ctx.fillText(`Halite: ${getHalite(player)}`, x, y);
-    ctx.fillText(`Cargo: ${getCargo(player)}`, x, y + scoreboardLineYDiffPx);
-    return y + 2 * scoreboardLineYDiffPx;
+  // Writes player name and stats, returns y value for the next section.
+  const writeScoreboardText = (ctx, player, playerIndex, x, y) => {
+    // Draw player name with color indicator
+    const agent = agents && agents[playerIndex];
+    const playerName = agent?.name || `Player ${playerIndex + 1}`;
+    const playerColor = colors.players[playerIndex];
+
+    // Draw color indicator circle
+    ctx.fillStyle = playerColor;
+    ctx.beginPath();
+    ctx.arc(
+      x + scoreboardFontSizePx * 0.4,
+      y + scoreboardFontSizePx * 0.5,
+      scoreboardFontSizePx * 0.35,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+
+    // Draw player name
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(playerName, x + scoreboardFontSizePx, y);
+
+    // Draw stats
+    ctx.fillText(`Halite: ${getHalite(player)}`, x, y + scoreboardLineYDiffPx);
+    ctx.fillText(`Cargo: ${getCargo(player)}`, x, y + 2 * scoreboardLineYDiffPx);
+    return y + 3 * scoreboardLineYDiffPx;
   };
 
   const scoreboardShipSizePx = scoreboardFontSizePx * 1.7;
@@ -502,7 +553,7 @@ export function renderer({
     fgCtx.textBaseline = 'top';
     fgCtx.textAlign = 'left';
     const topStartY = topLeftCell.dy;
-    const bottomStartY = botRightCell.dy + botRightCell.ds - 2 * scoreboardShipSizePx - 2 * scoreboardLineYDiffPx;
+    const bottomStartY = botRightCell.dy + botRightCell.ds - 2 * scoreboardShipSizePx - 3 * scoreboardLineYDiffPx;
     players.forEach((player, playerIndex) => {
       const x =
         playerIndex % 2 === 1
@@ -513,36 +564,8 @@ export function renderer({
             )
           : topLeftCell.dy;
       const startY = playerIndex < 2 ? topStartY : bottomStartY;
-      const nextY = writeScoreboardText(fgCtx, player, x, startY);
+      const nextY = writeScoreboardText(fgCtx, player, playerIndex, x, startY);
       drawShipAndYardCounts(fgCtx, player, playerIndex, x, nextY);
     });
-  }
-
-  // Populate the legend which renders agent icons and names (see player.html).
-  // Populate the legend which renders agent icons and names (see player.html).
-  if (agents && agents.length && (!agents[0].color || !agents[0].image)) {
-    const getPieceImage = (playerIndex, bufferCanvas) => {
-      const pieceCanvas = document.createElement('canvas');
-      parent.appendChild(pieceCanvas);
-      pieceCanvas.style.marginLeft = '10000px';
-      pieceCanvas.width = 100;
-      pieceCanvas.height = 100;
-      const ctx = pieceCanvas.getContext('2d');
-      const drawShip = (ctx, playerIndex, x, y, iconSize = 100) =>
-        ctx.drawImage(bufferCanvas, 500 + 100 * playerIndex, 0, fixedCellSize, fixedCellSize, x, y, iconSize, iconSize);
-
-      drawShip(ctx, playerIndex, 0, 0, 100);
-      const dataUrl = pieceCanvas.toDataURL();
-      parent.removeChild(pieceCanvas);
-      return dataUrl;
-    };
-
-    agents.forEach((agent) => {
-      agent.color = '#FFFFFF';
-      agent.image = getPieceImage(agent.index, bufferCanvas);
-    });
-    if (setAgents) {
-      setAgents(agents);
-    }
   }
 }

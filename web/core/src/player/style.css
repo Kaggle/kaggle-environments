@@ -1,0 +1,235 @@
+:root {
+  --disabled-opacity: 0.4;
+
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.player {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--background-color);
+  box-sizing: border-box;
+}
+
+.viewer {
+  flex-grow: 1;
+  position: relative;
+}
+
+.viewer canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  background-color: var(--control-background-color);
+  border-top: 1px solid var(--divider-color);
+  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.controls button {
+  background: none;
+  border: none;
+  color: var(--primary-text-color);
+  cursor: pointer;
+  font-size: 20px;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+  padding: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.controls button svg {
+  fill: var(--primary-text-color);
+}
+
+.controls button:hover {
+  opacity: 1;
+}
+
+.controls button:disabled {
+  opacity: var(--disabled-opacity);
+  cursor: not-allowed;
+}
+
+.controls input[type="range"] {
+  flex-grow: 1;
+  width: 100%;
+  margin: 0 16px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(128, 128, 128, 0.25);
+  border-radius: 4px;
+  height: 6px;
+  outline: none;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.controls input[type="range"]:hover {
+  opacity: 1;
+}
+
+.controls input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: var(--accent-color);
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.controls input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: var(--accent-color);
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.step-counter {
+  color: var(--secondary-text-color);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  min-width: 80px;
+  text-align: center;
+}
+
+.speed-selector {
+  background-color: var(--control-background-color);
+  color: var(--primary-text-color);
+  border: 1px solid var(--divider-color);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 14px;
+  cursor: pointer;
+  margin-left: 8px;
+  outline: none;
+}
+
+.speed-selector:hover {
+  border-color: var(--accent-color);
+}
+
+.speed-selector:focus {
+  border-color: var(--accent-color);
+}
+
+.speed-selector option {
+  background-color: var(--control-background-color);
+  color: var(--primary-text-color);
+}
+
+/* Slider container with event markers */
+.slider-container {
+  position: relative;
+  flex-grow: 1;
+  margin: 0 16px;
+  display: flex;
+  align-items: center;
+}
+
+.slider-container input[type="range"] {
+  margin: 0;
+}
+
+/* Event markers overlay */
+.event-markers {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.event-marker {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background-color: var(--accent-color);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  pointer-events: auto;
+  opacity: 0.9;
+  transition:
+    transform 0.15s ease,
+    opacity 0.15s ease;
+  z-index: 1;
+}
+
+.event-marker:hover {
+  transform: translate(-50%, -50%) scale(1.4);
+  opacity: 1;
+}
+
+/* Event tooltip */
+.event-tooltip {
+  position: absolute;
+  transform: translateX(-50%) translateY(-100%);
+  background-color: var(--background-color);
+  color: var(--primary-text-color);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--divider-color);
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* Replay mode toggle button */
+.replay-mode-toggle {
+  background-color: var(--control-background-color);
+  color: var(--primary-text-color);
+  border: 1px solid var(--divider-color);
+  border-radius: 4px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  margin-left: 8px;
+  transition: border-color 0.2s;
+}
+
+.replay-mode-toggle:hover {
+  border-color: var(--accent-color);
+}
+
+.replay-mode-toggle:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}

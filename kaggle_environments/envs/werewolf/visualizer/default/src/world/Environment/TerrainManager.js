@@ -19,23 +19,24 @@ export class TerrainManager {
   loadIslandModel() {
     const baseUrl = `${import.meta.env.BASE_URL}static/werewolf/island/`;
     const textureUrls = {
-        base: baseUrl + '_0930062431_texture.png',
-        normal: baseUrl + '_0930062431_texture_normal.png',
-        metallic: baseUrl + '_0930062431_texture_metallic.png',
-        roughness: baseUrl + '_0930062431_texture_roughness.png'
+      base: baseUrl + '_0930062431_texture.png',
+      normal: baseUrl + '_0930062431_texture_normal.png',
+      metallic: baseUrl + '_0930062431_texture_metallic.png',
+      roughness: baseUrl + '_0930062431_texture_roughness.png',
     };
 
-    const texturePromise = this.assetManager.loadTextures(textureUrls).then(textures => {
-        [textures.base, textures.normal, textures.metallic, textures.roughness].forEach((texture) => {
-            texture.encoding = this.THREE.sRGBEncoding;
-            texture.flipY = true;
-        });
-        return textures;
+    const texturePromise = this.assetManager.loadTextures(textureUrls).then((textures) => {
+      [textures.base, textures.normal, textures.metallic, textures.roughness].forEach((texture) => {
+        texture.encoding = this.THREE.sRGBEncoding;
+        texture.flipY = true;
+      });
+      return textures;
     });
 
     const modelPromise = this.assetManager.loadFBX(baseUrl + '_0930062431_texture.fbx');
 
-    Promise.all([texturePromise, modelPromise]).then(([textures, fbx]) => {
+    Promise.all([texturePromise, modelPromise])
+      .then(([textures, fbx]) => {
         fbx.scale.setScalar(0.02);
         fbx.position.y = -19.8;
         fbx.rotation.y = Math.PI / 8;
@@ -64,7 +65,8 @@ export class TerrainManager {
         this.scene.add(fbx);
         this.islandModel = fbx;
         console.debug('Island model loaded successfully');
-    }).catch(error => {
+      })
+      .catch((error) => {
         console.error('Error loading island model:', error);
         // Fallback
         const groundGeometry = new this.THREE.CircleGeometry(20, 64);
@@ -80,54 +82,55 @@ export class TerrainManager {
         ground.position.y = -0.1;
         ground.receiveShadow = true;
         this.scene.add(ground);
-    });
+      });
   }
 
   loadTownModel() {
     const cliffBase = `${import.meta.env.BASE_URL}static/werewolf/cliff/`;
     const werewolfBase = `${import.meta.env.BASE_URL}static/werewolf/`;
-    
+
     console.debug('[Town Loader] Loading cliff scene with splatmap...');
 
     const textureUrls = {
-        splatMap: cliffBase + 'cliff_splatmap.png',
-        texBase: cliffBase + 'aerial_rocks_02_diff_1k.jpg',
-        texRed: cliffBase + 'aerial_grass_rock_diff_1k.jpg',
-        texGreen: cliffBase + 'rock_boulder_dry_diff_1k.jpg'
+      splatMap: cliffBase + 'cliff_splatmap.png',
+      texBase: cliffBase + 'aerial_rocks_02_diff_1k.jpg',
+      texRed: cliffBase + 'aerial_grass_rock_diff_1k.jpg',
+      texGreen: cliffBase + 'rock_boulder_dry_diff_1k.jpg',
     };
 
-    this.assetManager.loadTextures(textureUrls).then(textures => {
-        const { splatMap, texBase, texRed, texGreen } = textures;
+    this.assetManager.loadTextures(textureUrls).then((textures) => {
+      const { splatMap, texBase, texRed, texGreen } = textures;
 
-        // Configure detailed textures
-        [texBase, texRed, texGreen].forEach(t => {
-            t.wrapS = this.THREE.RepeatWrapping;
-            t.wrapT = this.THREE.RepeatWrapping;
-            t.encoding = this.THREE.sRGBEncoding;
-            t.flipY = false; // Important for GLTF models
-        });
-        
-        splatMap.encoding = this.THREE.LinearEncoding;
-        splatMap.colorSpace = THREE.NoColorSpace;
-        splatMap.flipY = false; // Match UV orientation
+      // Configure detailed textures
+      [texBase, texRed, texGreen].forEach((t) => {
+        t.wrapS = this.THREE.RepeatWrapping;
+        t.wrapT = this.THREE.RepeatWrapping;
+        t.encoding = this.THREE.sRGBEncoding;
+        t.flipY = false; // Important for GLTF models
+      });
 
-        // Custom material with splatmap logic
-        const customMaterial = new this.THREE.MeshStandardMaterial({
-            roughness: 1.0,
-            metalness: 0.0,
-            side: this.THREE.DoubleSide,
-            color: 0xffffff, // Base color white so textures show up correctly
-            map: texBase // Triggers USE_MAP and USE_UV defines
-        });
+      splatMap.encoding = this.THREE.LinearEncoding;
+      splatMap.colorSpace = THREE.NoColorSpace;
+      splatMap.flipY = false; // Match UV orientation
 
-        customMaterial.onBeforeCompile = (shader) => {
-            shader.uniforms.splatMap = { value: splatMap };
-            shader.uniforms.texBase = { value: texBase };
-            shader.uniforms.texRed = { value: texRed };
-            shader.uniforms.texGreen = { value: texGreen };
-            shader.uniforms.repeat = { value: 10.0 };
+      // Custom material with splatmap logic
+      const customMaterial = new this.THREE.MeshStandardMaterial({
+        roughness: 1.0,
+        metalness: 0.0,
+        side: this.THREE.DoubleSide,
+        color: 0xffffff, // Base color white so textures show up correctly
+        map: texBase, // Triggers USE_MAP and USE_UV defines
+      });
 
-            shader.fragmentShader = `
+      customMaterial.onBeforeCompile = (shader) => {
+        shader.uniforms.splatMap = { value: splatMap };
+        shader.uniforms.texBase = { value: texBase };
+        shader.uniforms.texRed = { value: texRed };
+        shader.uniforms.texGreen = { value: texGreen };
+        shader.uniforms.repeat = { value: 10.0 };
+
+        shader.fragmentShader =
+          `
                 uniform sampler2D splatMap;
                 uniform sampler2D texBase;
                 uniform sampler2D texRed;
@@ -170,9 +173,9 @@ export class TerrainManager {
                 }
             ` + shader.fragmentShader;
 
-            shader.fragmentShader = shader.fragmentShader.replace(
-                '#include <map_fragment>',
-                `
+        shader.fragmentShader = shader.fragmentShader.replace(
+          '#include <map_fragment>',
+          `
                 // Sample splatmap using standard UVs
                 vec4 splat = texture2D(splatMap, vUv);
                 
@@ -206,76 +209,78 @@ export class TerrainManager {
 
                 diffuseColor *= texelColor;
                 `
-            );
-        };
+        );
+      };
 
-        const loadGLB = (url, isCliff) => {
-            this.assetManager.loadGLTF(url).then((gltf) => {
-                    console.debug(`[Town Loader] Loaded ${url}`);
-                    const model = gltf.scene;
-                    model.scale.setScalar(14.0); 
-                    model.position.set(0, 0, 0);
+      const loadGLB = (url, isCliff) => {
+        this.assetManager
+          .loadGLTF(url)
+          .then((gltf) => {
+            console.debug(`[Town Loader] Loaded ${url}`);
+            const model = gltf.scene;
+            model.scale.setScalar(14.0);
+            model.position.set(0, 0, 0);
 
-                    model.traverse((child) => {
-                        if (child.isMesh) {
-                            child.castShadow = true;
-                            child.receiveShadow = true;
-                            
-                            if (isCliff) {
-                                child.material = customMaterial;
-                            } else {
-                                // Ensure standard materials look okay
-                                if (child.material && child.material.map) {
-                                    child.material.map.encoding = this.THREE.sRGBEncoding;
-                                }
-                            }
-                        }
-                    });
-                    
-                    this.scene.add(model);
-                    if (isCliff) this.townModel = model;
-                })
-                .catch((error) => {
-                    console.error(`[Town Loader] Error loading ${url}:`, error);
-                });
-        };
+            model.traverse((child) => {
+              if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
 
-        loadGLB(cliffBase + 'cliff_mesh.glb', true);
-        loadGLB(werewolfBase + 'tower.glb', false);
-        loadGLB(werewolfBase + 'town_center.glb', false);
+                if (isCliff) {
+                  child.material = customMaterial;
+                } else {
+                  // Ensure standard materials look okay
+                  if (child.material && child.material.map) {
+                    child.material.map.encoding = this.THREE.sRGBEncoding;
+                  }
+                }
+              }
+            });
+
+            this.scene.add(model);
+            if (isCliff) this.townModel = model;
+          })
+          .catch((error) => {
+            console.error(`[Town Loader] Error loading ${url}:`, error);
+          });
+      };
+
+      loadGLB(cliffBase + 'cliff_mesh.glb', true);
+      loadGLB(werewolfBase + 'tower.glb', false);
+      loadGLB(werewolfBase + 'town_center.glb', false);
     });
   }
 
   loadGround() {
     console.debug('[Ground Loader] Creating realistic rocky terrain...');
-    
+
     const groundBase = `${import.meta.env.BASE_URL}static/werewolf/ground/`;
     const textureUrls = {
-        color: groundBase + 'rocky_terrain_02_diff_1k.jpg',
-        displacement: groundBase + 'rocky_terrain_02_disp_1k.png'
+      color: groundBase + 'rocky_terrain_02_diff_1k.jpg',
+      displacement: groundBase + 'rocky_terrain_02_disp_1k.png',
     };
 
-    this.assetManager.loadTextures(textureUrls).then(textures => {
-        [textures.color, textures.displacement].forEach((texture) => {
-          texture.wrapS = this.THREE.RepeatWrapping;
-          texture.wrapT = this.THREE.RepeatWrapping;
-          texture.repeat.set(16, 16);
-        });
+    this.assetManager.loadTextures(textureUrls).then((textures) => {
+      [textures.color, textures.displacement].forEach((texture) => {
+        texture.wrapS = this.THREE.RepeatWrapping;
+        texture.wrapT = this.THREE.RepeatWrapping;
+        texture.repeat.set(16, 16);
+      });
 
-        const groundGeometry = new this.THREE.CircleGeometry(200, 128);
-        const groundMaterial = new this.THREE.MeshStandardMaterial({
-          map: textures.color,
-          displacementMap: textures.displacement,
-          displacementScale: 0.5,
-          roughness: 0.8, // Default high roughness for rock
-        });
+      const groundGeometry = new this.THREE.CircleGeometry(200, 128);
+      const groundMaterial = new this.THREE.MeshStandardMaterial({
+        map: textures.color,
+        displacementMap: textures.displacement,
+        displacementScale: 0.5,
+        roughness: 0.8, // Default high roughness for rock
+      });
 
-        const ground = new this.THREE.Mesh(groundGeometry, groundMaterial);
-        ground.rotation.x = -Math.PI / 2;
-        ground.position.y = -0.75;
-        ground.receiveShadow = true;
-        this.scene.add(ground);
-        console.debug('[Ground Loader] Rocky terrain created and added to the scene.');
+      const ground = new this.THREE.Mesh(groundGeometry, groundMaterial);
+      ground.rotation.x = -Math.PI / 2;
+      ground.position.y = -0.75;
+      ground.receiveShadow = true;
+      this.scene.add(ground);
+      console.debug('[Ground Loader] Rocky terrain created and added to the scene.');
     });
   }
 }

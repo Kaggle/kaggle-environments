@@ -15,8 +15,6 @@
     "vite": "^5.0.0"
   },
   "dependencies": {
-    "@kaggle-environments/core": "workspace:*",
-    "htm": "^3.1.1",
-    "preact": "^10.13.2"
+    "@kaggle-environments/core": "workspace:*"
   }
 }

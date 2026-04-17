@@ -15,13 +15,11 @@
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "skipLibCheck": true,
-    "jsx": "preserve",
-    "jsxImportSource": "preact",
+    "jsx": "react-jsx",
     "types": ["vite/client"],
     "baseUrl": ".",
     "paths": {
-      "@kaggle-environments/core": ["core/src/index.ts"],
-      "@kaggle-environments/common": ["common/src/index.ts"]
+      "@kaggle-environments/core": ["core/src/index.ts"]
     }
   }
 }

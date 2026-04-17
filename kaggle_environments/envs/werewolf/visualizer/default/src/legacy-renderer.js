@@ -1,16 +1,12 @@
 import { ThreeModules } from './world/ThreeLoader.js';
 import { World } from './world/World.js';
-import {
-  playAudioFrom,
-  stopAndClearAudio,
-  setAudioContext
-} from './audio/AudioController.js';
+import { playAudioFrom, stopAndClearAudio, setAudioContext } from './audio/AudioController.js';
 import {
   createPlayerIdReplacer,
   updateEventLog,
   FALLBACK_THUMBNAIL_IMG,
   shuffleIds,
-  createPlayerCapsule
+  createPlayerCapsule,
 } from './utils/helpers.js';
 import { tryLoadAudioMap } from './audio/AudioController.js';
 import { disambiguateDisplayNames, simplifyDisplayNames, augmentPlayerMapWithVariations } from './utils/nameUtils.js';
@@ -65,58 +61,106 @@ window.addEventListener('replayer-speed', (e) => {
 });
 
 export function renderer(context, parent) {
-  const { replay, step, height = 1000, width = 1500 } = context;
+  const { replay, step } = context;
+  const width = parent.clientWidth || 1500;
+  const height = parent.clientHeight || 1000;
   const environment = replay;
   const parentId = parent.id;
 
-  if (window.kaggleWerewolf && replay && replay.info) {
-    window.kaggleWerewolf.episodeId = replay.info.EpisodeId;
+  // Initialize audio state early (before any code that references it)
+  if (!window.kaggleWerewolf) {
+    window.kaggleWerewolf = {
+      audioQueue: [],
+      isAudioPlaying: false,
+      isAudioEnabled: false,
+      isPaused: false,
+      lastPlayedStep: parseInt(sessionStorage.getItem('ww_lastPlayedStep') || '-1', 10),
+      audioPlayer: new Audio(),
+      playbackRate: 1,
+      allEvents: null,
+      audioContextActivated: false,
+      audioMapAttempted: false,
+      episodeId: null,
+    };
+  }
+  const audioState = window.kaggleWerewolf;
+
+  if (replay && replay.info) {
+    audioState.episodeId = replay.info.EpisodeId;
   }
 
   let playerNamesFor3D = [];
   let playerThumbnailsFor3D = {};
 
-  // Set audio context immediately
-  // POlyfill/Wrap setCurrentStep to handle audio-driven updates without stopping playback
-  // We MUST use direct synchronous control (unstable_replayerControls) if available,
-  // because the default postMessage approach is async and causes our isSystemMove flag
-  // to reset before the step update actually happens.
-  const originalSetCurrentStep = context.setCurrentStep;
-  context.setCurrentStep = (s) => {
-    if (window.kaggleWerewolf) window.kaggleWerewolf.isSystemMove = true;
-    try {
-      if (context.unstable_replayerControls) {
-        context.unstable_replayerControls.setStep(s);
-      } else if (originalSetCurrentStep) {
-        originalSetCurrentStep(s);
-      }
-    } finally {
-      if (window.kaggleWerewolf) window.kaggleWerewolf.isSystemMove = false;
-    }
-  };
-
-  // Override setPlaying to update the Visualizer UI state (Play/Pause button)
-  // The default implementation only posts a message which the visualizer ignores.
-  if (context.unstable_replayerControls && context.unstable_replayerControls.setPlaying) {
-    const originalSetPlaying = context.setPlaying;
-    context.setPlaying = (playing) => {
-      // Update UI
-      context.unstable_replayerControls.setPlaying(playing);
-      // Call original (postMessage) just in case
-      if (originalSetPlaying) originalSetPlaying(playing);
-    };
-  }
+  // Set audio context with playback controls
   setAudioContext(context);
 
+  // Register playback handlers to intercept play/pause for audio-driven playback
+  if (context.registerPlaybackHandlers) {
+    context.registerPlaybackHandlers({
+      onPlay: () => {
+        if (audioState.isAudioEnabled) {
+          // Audio is enabled - we take over playback
+          context.setPlaying(true);
+          let currentDisplayStep = window.wwCurrentStep || 0;
+          const newStepsLength = window.werewolfGamePlayer?.displayEvents?.length || 0;
+          if (!audioState.isPaused && currentDisplayStep === newStepsLength - 1) {
+            currentDisplayStep = 0;
+            context.setStep(0);
+            window.wwCurrentStep = 0;
+          }
+          const allEventsIndex = window.werewolfGamePlayer?.displayStepToAllEventsIndex?.[currentDisplayStep];
+          if (allEventsIndex === undefined) {
+            context.setPlaying(false);
+            return true; // We handled it (even though we couldn't play)
+          }
+          audioState.isPaused = false;
+          playAudioFrom(allEventsIndex, true);
+          return true; // We handled playback
+        }
+        // Audio not enabled - return false to let default playback happen
+        return false;
+      },
+      onPause: () => {
+        audioState.isPaused = true;
+        if (audioState.isAudioPlaying && audioState.audioPlayer) {
+          audioState.audioPlayer.pause();
+        }
+      },
+    });
+  }
+
+  // Detect user-initiated step changes (not from audio playback) and stop audio
+  // Audio playback sets isAudioPlaying = true and advances steps via setStep
+  // If the step changes unexpectedly (not adjacent to current), stop audio
+  const expectedStep = window.wwCurrentStep;
+  if (expectedStep !== undefined && step !== expectedStep && step !== expectedStep + 1) {
+    // Step jumped - likely user clicked slider, stop audio
+    if (audioState.isAudioPlaying) {
+      stopAndClearAudio(audioState, parentId);
+      audioState.isPaused = true;
+    }
+  }
+  window.wwCurrentStep = step;
+
   const systemEntryTypeSet = new Set([
-    'moderator_announcement', 'elimination', 'vote_request', 'heal_request',
-    'heal_result', 'inspect_request', 'inspect_result', 'bidding_info',
-    'bid_result', 'day_start', 'night_start',
+    'moderator_announcement',
+    'elimination',
+    'vote_request',
+    'heal_request',
+    'heal_result',
+    'inspect_request',
+    'inspect_result',
+    'bidding_info',
+    'bid_result',
+    'day_start',
+    'night_start',
   ]);
 
   // Initialize or update werewolfGamePlayer when visualizerData is available
   // We check if allEvents length differs to detect when a new replay is loaded
-  const shouldInitPlayer = !window.werewolfGamePlayer ||
+  const shouldInitPlayer =
+    !window.werewolfGamePlayer ||
     (environment.visualizerData &&
       window.werewolfGamePlayer.allEvents?.length !== environment.visualizerData.allEvents?.length);
 
@@ -134,12 +178,10 @@ export function renderer(context, parent) {
         reasoningCounter: 0,
       };
       // Reconstruct displayEvents for internal use
-      window.werewolfGamePlayer.displayEvents = vData.displayStepToAllEventsIndex.map(
-        (idx) => vData.allEvents[idx]
-      );
+      window.werewolfGamePlayer.displayEvents = vData.displayStepToAllEventsIndex.map((idx) => vData.allEvents[idx]);
       window.wwCurrentStep = step || 0;
     } else {
-      console.warn("Visualizer Data not found. Ensure the transformer is processing the replay.");
+      console.warn('Visualizer Data not found. Ensure the transformer is processing the replay.');
       window.werewolfGamePlayer = {
         initialized: false,
         allEvents: [],
@@ -155,26 +197,7 @@ export function renderer(context, parent) {
     window.werewolfGamePlayer.initialized = true;
   }
 
-  // --- Audio State ---
-  // --- Audio State ---
-  const audioMap = window.AUDIO_MAP || {};
-  if (!window.kaggleWerewolf) {
-    window.kaggleWerewolf = {
-      audioQueue: [],
-      isAudioPlaying: false,
-      isAudioEnabled: false,
-      isPaused: false,
-      lastPlayedStep: parseInt(sessionStorage.getItem('ww_lastPlayedStep') || '-1', 10),
-      audioPlayer: new Audio(),
-      playbackRate: 1,
-      allEvents: null,
-      audioContextActivated: false,
-      audioMapAttempted: false, // flag to prevent spamming fetches
-      episodeId: null,
-    };
-  }
-  const audioState = window.kaggleWerewolf;
-
+  // --- Audio State (continued) ---
   // Ensure Episode ID is synchronized with replay data
   const episodeId = environment.id || (environment.info && environment.info.EpisodeId);
   if (episodeId) {
@@ -194,65 +217,6 @@ export function renderer(context, parent) {
     tryLoadAudioMap(episodeId);
   }
 
-  // --- Patch Controls ---
-  // Track which instance we patched to handle HMR correctly
-  const playerInstance = context.unstable_replayerControls?._replayerInstance;
-  const shouldPatchControls = playerInstance &&
-    window.werewolfPatchedInstance !== playerInstance;
-
-  if (shouldPatchControls) {
-    window.werewolfPatchedInstance = playerInstance;
-    const originalSetStep = playerInstance.setStep.bind(playerInstance);
-    const originalPlay = playerInstance.play.bind(playerInstance);
-    const originalPause = playerInstance.pause.bind(playerInstance);
-
-    playerInstance.setStep = (newStep) => {
-      // Only stop audio if this is a USER interaction (not a system auto-advance)
-      if (!audioState.isSystemMove) {
-        stopAndClearAudio(audioState, parentId);
-        audioState.isPaused = true;
-      }
-      const currentStep = window.wwCurrentStep || 0;
-      if (newStep !== currentStep + 1) {
-        resetThreeJsState();
-      }
-      window.wwCurrentStep = newStep;
-      originalSetStep(newStep);
-    };
-
-    playerInstance.play = (continuing) => {
-      if (audioState.isAudioEnabled) {
-        originalPause();
-        context.setPlaying(true); // Use adapter interface
-        // FIX: Use window.wwCurrentStep to get the LIVE step, not context.step (which is static)
-        let currentDisplayStep = window.wwCurrentStep || 0;
-        const newStepsLength = window.werewolfGamePlayer.displayEvents.length;
-        if (!continuing && !audioState.isPaused && currentDisplayStep === newStepsLength - 1) {
-          currentDisplayStep = 0;
-          originalSetStep(0);
-          window.wwCurrentStep = 0; // Ensure sync
-        }
-        const allEventsIndex = window.werewolfGamePlayer.displayStepToAllEventsIndex[currentDisplayStep];
-        if (allEventsIndex === undefined) {
-          context.setPlaying(false); // Use adapter interface
-          return;
-        }
-        playAudioFrom(allEventsIndex, true);
-      } else {
-        originalPlay(continuing);
-      }
-    };
-
-    playerInstance.pause = () => {
-      originalPause();
-      context.setPlaying(false); // Use adapter interface
-      audioState.isPaused = true;
-      if (audioState.isAudioPlaying) {
-        audioState.audioPlayer.pause();
-      }
-    };
-  }
-
   // --- UI Setup ---
   let mainContainer = parent.querySelector('.main-container');
 
@@ -265,13 +229,20 @@ export function renderer(context, parent) {
 
     if (threeState.initialized) {
       // Re-attach canvas if needed (e.g. if parent changed)
-      if (threeState.world && threeState.world.sceneManager.renderer.domElement && !parent.contains(threeState.world.sceneManager.renderer.domElement)) {
+      if (
+        threeState.world &&
+        threeState.world.sceneManager.renderer.domElement &&
+        !parent.contains(threeState.world.sceneManager.renderer.domElement)
+      ) {
         parent.appendChild(threeState.world.sceneManager.renderer.domElement);
         parent.appendChild(threeState.world.sceneManager.labelRenderer.domElement);
       }
 
       // Handle Resize - use actual parent dimensions
-      if (threeState.world && (threeState.world.options.width !== actualWidth || threeState.world.options.height !== actualHeight)) {
+      if (
+        threeState.world &&
+        (threeState.world.options.width !== actualWidth || threeState.world.options.height !== actualHeight)
+      ) {
         threeState.world.resize(actualWidth, actualHeight);
       }
       return;
@@ -301,8 +272,8 @@ export function renderer(context, parent) {
         threeState.resizeObserver.observe(parent);
       }
     } catch (err) {
-      console.error("Failed to initialize 3D world", err);
-      parent.textContent = "Error loading 3D assets.";
+      console.error('Failed to initialize 3D world', err);
+      parent.textContent = 'Error loading 3D assets.';
     }
   }
 
@@ -374,7 +345,7 @@ export function renderer(context, parent) {
             break;
           }
         } catch (e) {
-          console.error("Error parsing GameStartDataEntry", e);
+          console.error('Error parsing GameStartDataEntry', e);
         }
       }
     }
@@ -394,7 +365,7 @@ export function renderer(context, parent) {
 
   playerNamesFor3D = [...allPlayerNamesList];
   playerThumbnailsFor3D = { ...playerThumbnails };
-  allPlayerNamesList.forEach(id => {
+  allPlayerNamesList.forEach((id) => {
     const conf = agentConfigMap.get(id);
     if (conf && conf.thumbnail) {
       playerThumbnailsFor3D[id] = conf.thumbnail;
@@ -425,7 +396,7 @@ export function renderer(context, parent) {
   disambiguateDisplayNames(gameState.players);
 
   const playerMap = new Map();
-  gameState.players.forEach(p => {
+  gameState.players.forEach((p) => {
     playerMap.set(p.name, p);
     if (p.display_name && p.display_name !== p.name) {
       playerMap.set(p.display_name, p);
@@ -434,7 +405,6 @@ export function renderer(context, parent) {
 
   // Augment with variations (Inverse cleanup lookup + Title Casing)
   augmentPlayerMapWithVariations(playerMap, gameState.players);
-
 
   // Always update replacers to handle map/logic changes
   player.playerIdReplacer = createPlayerIdReplacer(playerMap);
@@ -450,17 +420,24 @@ export function renderer(context, parent) {
       const data = historyEvent.data;
       if (data) {
         const p = playerMap.get(data.player_id);
-        if (p) { p.role = data.role; p.team = data.team; }
+        if (p) {
+          p.role = data.role;
+          p.team = data.team;
+        }
       }
     }
   });
 
   function threatStringToLevel(threatString) {
     switch (threatString) {
-      case 'SAFE': return 0;
-      case 'UNEASY': return 0.5;
-      case 'DANGER': return 1.0;
-      default: return 0;
+      case 'SAFE':
+        return 0;
+      case 'UNEASY':
+        return 0.5;
+      case 'DANGER':
+        return 1.0;
+      default:
+        return 0;
     }
   }
 
@@ -479,7 +456,14 @@ export function renderer(context, parent) {
     const historyEvent = allEvents[i];
     const data = historyEvent.data;
     const timestamp = historyEvent.created_at;
-    const commonProps = { step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, allEventsIndex: i, timestamp, event_name: historyEvent.event_name };
+    const commonProps = {
+      step: historyEvent.kaggleStep,
+      day: historyEvent.day,
+      phase: historyEvent.phase,
+      allEventsIndex: i,
+      timestamp,
+      event_name: historyEvent.event_name,
+    };
 
     if (data && data.actor_id && data.perceived_threat_level) {
       const threatScore = threatStringToLevel(data.perceived_threat_level);
@@ -492,7 +476,11 @@ export function renderer(context, parent) {
         if (match) {
           gameState.eventLog.push({ type: 'timeout', ...commonProps, actor_id: match[1], reasoning: 'Timed out' });
         }
-      } else if (historyEvent.event_name === 'day_start' || historyEvent.event_name === 'night_start' || systemEntryTypeSet.has(historyEvent.event_name)) {
+      } else if (
+        historyEvent.event_name === 'day_start' ||
+        historyEvent.event_name === 'night_start' ||
+        systemEntryTypeSet.has(historyEvent.event_name)
+      ) {
         gameState.eventLog.push({ type: 'system', ...commonProps, text: historyEvent.description });
       }
       continue;
@@ -500,21 +488,71 @@ export function renderer(context, parent) {
 
     // Process event types (simplified mapping)
     if (historyEvent.dataType === 'ChatDataEntry') {
-      gameState.eventLog.push({ type: 'chat', ...commonProps, actor_id: data.actor_id, speaker: data.actor_id, message: data.message, reasoning: data.reasoning, mentioned_player_ids: data.mentioned_player_ids || [] });
+      gameState.eventLog.push({
+        type: 'chat',
+        ...commonProps,
+        actor_id: data.actor_id,
+        speaker: data.actor_id,
+        message: data.message,
+        reasoning: data.reasoning,
+        mentioned_player_ids: data.mentioned_player_ids || [],
+      });
     } else if (historyEvent.dataType === 'DayExileVoteDataEntry') {
-      gameState.eventLog.push({ type: 'vote', ...commonProps, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning });
+      gameState.eventLog.push({
+        type: 'vote',
+        ...commonProps,
+        actor_id: data.actor_id,
+        target: data.target_id,
+        reasoning: data.reasoning,
+      });
     } else if (historyEvent.dataType === 'WerewolfNightVoteDataEntry') {
-      gameState.eventLog.push({ type: 'night_vote', ...commonProps, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning });
+      gameState.eventLog.push({
+        type: 'night_vote',
+        ...commonProps,
+        actor_id: data.actor_id,
+        target: data.target_id,
+        reasoning: data.reasoning,
+      });
     } else if (historyEvent.dataType === 'DoctorHealActionDataEntry') {
-      gameState.eventLog.push({ type: 'doctor_heal_action', ...commonProps, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning });
+      gameState.eventLog.push({
+        type: 'doctor_heal_action',
+        ...commonProps,
+        actor_id: data.actor_id,
+        target: data.target_id,
+        reasoning: data.reasoning,
+      });
     } else if (historyEvent.dataType === 'SeerInspectActionDataEntry') {
-      gameState.eventLog.push({ type: 'seer_inspection', ...commonProps, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning });
+      gameState.eventLog.push({
+        type: 'seer_inspection',
+        ...commonProps,
+        actor_id: data.actor_id,
+        target: data.target_id,
+        reasoning: data.reasoning,
+      });
     } else if (historyEvent.dataType === 'DayExileElectedDataEntry') {
-      gameState.eventLog.push({ type: 'exile', ...commonProps, name: data.elected_player_id, role: data.elected_player_role_name });
+      gameState.eventLog.push({
+        type: 'exile',
+        ...commonProps,
+        name: data.elected_player_id,
+        role: data.elected_player_role_name,
+      });
     } else if (historyEvent.dataType === 'WerewolfNightEliminationDataEntry') {
-      gameState.eventLog.push({ type: 'elimination', ...commonProps, name: data.eliminated_player_id, role: data.eliminated_player_role_name });
+      gameState.eventLog.push({
+        type: 'elimination',
+        ...commonProps,
+        name: data.eliminated_player_id,
+        role: data.eliminated_player_role_name,
+      });
     } else if (historyEvent.dataType === 'SeerInspectResultDataEntry') {
-      gameState.eventLog.push({ type: 'seer_inspection_result', ...commonProps, actor_id: data.actor_id, seer: data.actor_id, target: data.target_id, role: data.role, team: data.team });
+      gameState.eventLog.push({
+        type: 'seer_inspection_result',
+        ...commonProps,
+        actor_id: data.actor_id,
+        seer: data.actor_id,
+        target: data.target_id,
+        role: data.role,
+        team: data.team,
+      });
     } else if (historyEvent.dataType === 'DoctorSaveDataEntry') {
       gameState.eventLog.push({ type: 'save', ...commonProps, saved_player: data.saved_player_id });
     } else if (historyEvent.dataType === 'PhaseDividerDataEntry') {
@@ -523,7 +561,15 @@ export function renderer(context, parent) {
       gameState.gameWinner = data.winner_team;
       const winners = gameState.players.filter((p) => p.team === data.winner_team).map((p) => p.name);
       const losers = gameState.players.filter((p) => p.team !== data.winner_team).map((p) => p.name);
-      gameState.eventLog.push({ type: 'game_over', ...commonProps, day: Infinity, phase: 'GAME_OVER', winner: data.winner_team, winners, losers });
+      gameState.eventLog.push({
+        type: 'game_over',
+        ...commonProps,
+        day: Infinity,
+        phase: 'GAME_OVER',
+        winner: data.winner_team,
+        winners,
+        losers,
+      });
     } else if (historyEvent.dataType === 'DiscussionOrderDataEntry') {
       gameState.eventLog.push({ type: 'system', ...commonProps, text: historyEvent.description });
     } else if (systemEntryTypeSet.has(historyEvent.event_name)) {
@@ -543,7 +589,10 @@ export function renderer(context, parent) {
   sessionStorage.setItem('ww_lastPlayedStep', eventStep);
 
   // Update Player Status based on Log
-  gameState.players.forEach((p) => { p.is_alive = true; p.status = 'Alive'; });
+  gameState.players.forEach((p) => {
+    p.is_alive = true;
+    p.status = 'Alive';
+  });
   gameState.eventLog.forEach((entry) => {
     if (entry.type === 'exile' || entry.type === 'elimination') {
       const player = playerMap.get(entry.name);
@@ -580,8 +629,8 @@ export function renderer(context, parent) {
     // 1. Find the corresponding display step
     const displayStep = window.werewolfGamePlayer.allEventsIndexToDisplayStep[index];
     // 2. Jump slider
-    if (displayStep !== undefined && context.unstable_replayerControls) {
-      context.unstable_replayerControls.setStep(displayStep);
+    if (displayStep !== undefined && context.setStep) {
+      context.setStep(displayStep);
     }
     // 3. Play
     playAudioFrom(index, true);
@@ -594,12 +643,13 @@ export function renderer(context, parent) {
   function setup3DPlayers() {
     if (!threeState.world) return;
     threeState.players3DInitialized = true;
-    threeState.world.characterManager.initializePlayers(gameState, playerNamesFor3D, playerThumbnailsFor3D, threeState.world.uiManager)
+    threeState.world.characterManager
+      .initializePlayers(gameState, playerNamesFor3D, playerThumbnailsFor3D, threeState.world.uiManager)
       .then(() => {
         updateSceneFromGameState(gameState, playerMap, nameToHighlight);
       })
-      .catch(e => {
-        console.error("Error initializing players", e);
+      .catch((e) => {
+        console.error('Error initializing players', e);
         threeState.players3DInitialized = false;
       });
   }
@@ -627,7 +677,7 @@ export function renderer(context, parent) {
     world.characterManager.resetAnimations();
 
     // Hide chat bubbles
-    world.characterManager.playerObjects.forEach(p => {
+    world.characterManager.playerObjects.forEach((p) => {
       if (p.playerUI && p.playerUI.element) p.playerUI.element.classList.remove('chat-active');
     });
 
@@ -638,7 +688,7 @@ export function renderer(context, parent) {
     if (lastEvent && lastEvent.phase) phase = lastEvent.phase;
 
     // Update Player Statuses
-    gameState.players.forEach(player => {
+    gameState.players.forEach((player) => {
       const threatLevel = gameState.playerThreatLevels.get(player.name) || 0;
       let primaryStatus = 'default';
       if (!player.is_alive) primaryStatus = 'dead';
@@ -646,7 +696,8 @@ export function renderer(context, parent) {
       else if (player.role === 'Doctor' && phase.toUpperCase() === 'NIGHT') primaryStatus = 'doctor';
       else if (player.role === 'Seer' && phase.toUpperCase() === 'NIGHT') primaryStatus = 'seer';
 
-      const justDied = lastEvent && (lastEvent.type === 'exile' || lastEvent.type === 'elimination') && lastEvent.name === player.name;
+      const justDied =
+        lastEvent && (lastEvent.type === 'exile' || lastEvent.type === 'elimination') && lastEvent.name === player.name;
       world.characterManager.updatePlayerStatus(player.name, player, primaryStatus, threatLevel, justDied);
     });
 
@@ -655,20 +706,29 @@ export function renderer(context, parent) {
 
     // Voting Visuals
     const currentVotes = new Map();
-    const lastNightStart = logUpToCurrentStep.findLastIndex(e => e.type === 'phase_divider' && e.divider === 'NIGHT START');
-    const lastDayVoteStart = logUpToCurrentStep.findLastIndex(e => e.type === 'phase_divider' && e.divider === 'DAY VOTE START');
+    const lastNightStart = logUpToCurrentStep.findLastIndex(
+      (e) => e.type === 'phase_divider' && e.divider === 'NIGHT START'
+    );
+    const lastDayVoteStart = logUpToCurrentStep.findLastIndex(
+      (e) => e.type === 'phase_divider' && e.divider === 'DAY VOTE START'
+    );
     const sessionStartIndex = Math.max(lastNightStart, lastDayVoteStart);
 
     let isVotingSession = false;
     if (sessionStartIndex > -1) {
-      const lastOutcomeEventIndex = logUpToCurrentStep.findLastIndex(e => e.type === 'exile' || e.type === 'elimination' || e.type === 'save');
-      if (sessionStartIndex > lastOutcomeEventIndex || (lastOutcomeEventIndex > -1 && lastOutcomeEventIndex === logUpToCurrentStep.length - 1)) {
+      const lastOutcomeEventIndex = logUpToCurrentStep.findLastIndex(
+        (e) => e.type === 'exile' || e.type === 'elimination' || e.type === 'save'
+      );
+      if (
+        sessionStartIndex > lastOutcomeEventIndex ||
+        (lastOutcomeEventIndex > -1 && lastOutcomeEventIndex === logUpToCurrentStep.length - 1)
+      ) {
         isVotingSession = true;
       }
     }
 
     if (isVotingSession) {
-      const alivePlayerNames = new Set(gameState.players.filter(p => p.is_alive).map(p => p.name));
+      const alivePlayerNames = new Set(gameState.players.filter((p) => p.is_alive).map((p) => p.name));
       const relevantEvents = logUpToCurrentStep.slice(sessionStartIndex);
       for (const event of relevantEvents) {
         if (['vote', 'night_vote', 'doctor_heal_action', 'seer_inspection'].includes(event.type)) {
@@ -735,7 +795,7 @@ export function renderer(context, parent) {
             return cleanedContent;
           });
 
-          // Do not replace IDs here, let UIManager do it after markdown parsing to avoid escaping HTML capsules (if parsed) 
+          // Do not replace IDs here, let UIManager do it after markdown parsing to avoid escaping HTML capsules (if parsed)
           // or just to allow correct order.
           world.uiManager.displayModeratorAnnouncement(announcement, false);
           subtitleShown = true;
@@ -771,15 +831,15 @@ export function renderer(context, parent) {
           break;
         case 'vote_request':
           // Match text exactly with add_audio.py for audio playback
-          world.uiManager.displayModeratorAnnouncement("Wake up Werewolves, who would you like to eliminate?", false);
+          world.uiManager.displayModeratorAnnouncement('Wake up Werewolves, who would you like to eliminate?', false);
           subtitleShown = true;
           break;
         case 'heal_request':
-          world.uiManager.displayModeratorAnnouncement("Wake up Doctor, who would you like to save?", false);
+          world.uiManager.displayModeratorAnnouncement('Wake up Doctor, who would you like to save?', false);
           subtitleShown = true;
           break;
         case 'inspect_request':
-          world.uiManager.displayModeratorAnnouncement("Wake up Seer, who would you like to inspect?", false);
+          world.uiManager.displayModeratorAnnouncement('Wake up Seer, who would you like to inspect?', false);
           subtitleShown = true;
           break;
       }
@@ -793,20 +853,34 @@ export function renderer(context, parent) {
         if (playerObj && playerObj.playerUI) {
           // Determine if this is an action (not chat)
           const isAction = lastEvent.type !== 'chat';
-          world.uiManager.displayPlayerBubble(playerObj.playerUI, rawMessage, rawReasoning, lastEvent.timestamp, isAction);
+          world.uiManager.displayPlayerBubble(
+            playerObj.playerUI,
+            rawMessage,
+            rawReasoning,
+            lastEvent.timestamp,
+            isAction
+          );
           world.characterManager.updatePlayerActive(actorName);
           subtitleShown = true;
         }
       }
 
       if (lastEvent.type === 'game_over') {
-        if (lastEvent.winners) lastEvent.winners.forEach(w => { if (playerMap.has(w)) world.characterManager.triggerVictoryAnimation(w); });
-        if (lastEvent.losers) lastEvent.losers.forEach(l => { if (playerMap.has(l)) world.characterManager.triggerDefeatedAnimation(l); });
+        if (lastEvent.winners)
+          lastEvent.winners.forEach((w) => {
+            if (playerMap.has(w)) world.characterManager.triggerVictoryAnimation(w);
+          });
+        if (lastEvent.losers)
+          lastEvent.losers.forEach((l) => {
+            if (playerMap.has(l)) world.characterManager.triggerDefeatedAnimation(l);
+          });
         const winMsg = `The game is over. The ${lastEvent.winner} team has won!`;
         world.uiManager.displayModeratorAnnouncement(winMsg, true);
         subtitleShown = true;
       } else if (lastEvent.event_name === 'moderator_announcement') {
-        gameState.players.forEach(p => { if (p.is_alive) world.characterManager.updatePlayerActive(p.name); });
+        gameState.players.forEach((p) => {
+          if (p.is_alive) world.characterManager.updatePlayerActive(p.name);
+        });
       } else if (lastEvent.actor_id && playerMap.has(lastEvent.actor_id)) {
         world.characterManager.updatePlayerActive(lastEvent.actor_id);
       }
@@ -822,15 +896,23 @@ export function renderer(context, parent) {
     if (!subtitleShown) {
       // Check if the current event is a "Silent" system event (e.g. phase divider, day start)
       // If it IS silent, we do NOT clear. We let the previous message stick.
-      const silentEventTypes = ['phase_divider', 'day_start', 'night_start', 'vote_request', 'heal_request', 'inspect_request'];
-      const isSilent = lastEvent && (silentEventTypes.includes(lastEvent.type) || silentEventTypes.includes(lastEvent.event_name));
+      const silentEventTypes = [
+        'phase_divider',
+        'day_start',
+        'night_start',
+        'vote_request',
+        'heal_request',
+        'inspect_request',
+      ];
+      const isSilent =
+        lastEvent && (silentEventTypes.includes(lastEvent.type) || silentEventTypes.includes(lastEvent.event_name));
 
       // If it's NOT a silent event (meaning it probably SHOULD have shown something but didn't, or it's a new turn),
       // or if we have changed PHASE significantly (though usually phase change has a divider),
-      // AND we aren't in a "sticky" state... 
-      // Actually, simplest logic for better UX: 
+      // AND we aren't in a "sticky" state...
+      // Actually, simplest logic for better UX:
       // Only clear if we have a NEW active event that replaces the visuals but has no text (rare).
-      // OR if we explicitly want to clear. 
+      // OR if we explicitly want to clear.
       // For now, let's just NOT clear on silent events.
 
       if (!isSilent) {
@@ -877,9 +959,13 @@ function updateUIPanels(parent, mainContainer, gameState, currentEvent, playerMa
         <div class="scoreboard-item"><div id="phase-indicator-capsule" class="phase-indicator"></div></div>
         <div class="scoreboard-item"><div class="scoreboard-label">Alive</div><div class="scoreboard-value alive">${alivePlayers}</div></div>
         <div class="scoreboard-item"><div class="scoreboard-label">Out</div><div class="scoreboard-value dead">${deadPlayers}</div></div>
-        ${werewolves > 0 || villagers > 0 ? `
+        ${
+          werewolves > 0 || villagers > 0
+            ? `
             <div class="scoreboard-item"><div class="scoreboard-label">Werewolves</div><div class="scoreboard-value werewolf">${werewolves}</div></div>
-            <div class="scoreboard-item"><div class="scoreboard-label">Villagers</div><div class="scoreboard-value villager">${villagers}</div></div>` : ''}
+            <div class="scoreboard-item"><div class="scoreboard-label">Villagers</div><div class="scoreboard-value villager">${villagers}</div></div>`
+            : ''
+        }
         <div class="scoreboard-item"><div class="scoreboard-action">${currentAction}</div></div>
     `;
 
@@ -887,9 +973,10 @@ function updateUIPanels(parent, mainContainer, gameState, currentEvent, playerMa
   if (phaseCapsule) {
     phaseCapsule.className = `phase-indicator ${isNight ? 'night' : 'day'}`;
     const phaseIcon = isNight ? '&#x1F319;' : '&#x2600;';
-    phaseCapsule.innerHTML = currentEvent.event_name === 'game_end' ?
-      `<span class="phase-icon">${phaseIcon}</span>` :
-      `<span class="phase-icon">${phaseIcon}</span><span>${currentEvent.day}</span>`;
+    phaseCapsule.innerHTML =
+      currentEvent.event_name === 'game_end'
+        ? `<span class="phase-icon">${phaseIcon}</span>`
+        : `<span class="phase-icon">${phaseIcon}</span><span>${currentEvent.day}</span>`;
   }
 
   let eventPanel = mainContainer.querySelector('.event-panel');

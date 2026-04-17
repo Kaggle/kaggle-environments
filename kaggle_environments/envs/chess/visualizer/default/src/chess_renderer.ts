@@ -1,4 +1,4 @@
-import { LegacyRendererOptions, ReplayData } from '@kaggle-environments/core';
+import { RendererOptions, ReplayData } from '@kaggle-environments/core';
 import { Chess } from 'chess.js';
 import { MOVES, OPENINGS, pieceImagesSrc } from './consts';
 
@@ -89,9 +89,11 @@ function drawPiece(c: CanvasRenderingContext2D, type: string, color: string, x: 
 
 // --- Main Renderer Function ---
 
-export function renderer(context: LegacyRendererOptions<ChessStep[]>) {
+export function renderer(context: RendererOptions<ChessStep[]>) {
   const environment = context.replay as ChessReplayData;
-  const { height = 400, parent, step, width = 400 } = context;
+  const { parent, step } = context;
+  const width = parent.clientWidth || 400;
+  const height = parent.clientHeight || 400;
 
   // Common Dimensions.
   const canvasSize = Math.min(height, width);

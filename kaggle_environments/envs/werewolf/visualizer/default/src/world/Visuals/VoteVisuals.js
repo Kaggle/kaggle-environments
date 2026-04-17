@@ -4,7 +4,7 @@ export class VoteVisuals {
     this.THREE = THREE;
     this.votingArcsGroup = votingArcsGroup;
     this.targetRingsGroup = targetRingsGroup;
-    
+
     this.activeVoteArcs = new Map();
     this.activeTargetRings = new Map();
     this.animatingTrails = [];
@@ -155,10 +155,22 @@ export class VoteVisuals {
         if (existingTrail.target !== targetName) {
           existingTrail.dispose();
           this.animatingTrails = this.animatingTrails.filter((t) => t !== existingTrail);
-          this.createVoteTriangleTrail(playerObjects.get(voterName), playerObjects.get(targetName), voterName, targetName, color);
+          this.createVoteTriangleTrail(
+            playerObjects.get(voterName),
+            playerObjects.get(targetName),
+            voterName,
+            targetName,
+            color
+          );
         }
       } else {
-        this.createVoteTriangleTrail(playerObjects.get(voterName), playerObjects.get(targetName), voterName, targetName, color);
+        this.createVoteTriangleTrail(
+          playerObjects.get(voterName),
+          playerObjects.get(targetName),
+          voterName,
+          targetName,
+          color
+        );
       }
     });
 

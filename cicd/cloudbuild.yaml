@@ -54,14 +54,14 @@ steps:
 
   # Step 4: Build all visualizers (runs in parallel with tests after CPU image is ready)
   - id: "build-all-visualizers"
-    name: "gcr.io/cloud-builders/npm"
+    name: "node:22"
     entrypoint: "bash"
     args:
       - "-c"
       - |
         set -e
         apt-get update && apt-get install -y jq
-        npm install -g pnpm
+        npm install -g pnpm@9
         pnpm install
         node web/scripts/sync-version.js
         pnpm build-ci
@@ -84,17 +84,29 @@ steps:
     secretEnv: ["NPM_TOKEN"]
 
   # Step 7: Deploy visualizers to GCS (after visualizers built, independent of NPM publish)
+  # Note: No -d flag, so files are only added/updated, never deleted.
+  # This ensures skipped games (not in ./build) remain untouched in GCS.
   - id: "deploy-to-gcs"
     name: "gcr.io/cloud-builders/gcloud"
-    entrypoint: "gsutil"
+    entrypoint: "gcloud"
     args:
-      - "-m"
+      - "storage"
       - "rsync"
-      - "-d"
-      - "-r"
+      - "--recursive"
       - "./build"
       - "gs://$_BUCKET_NAME/episode-visualizers"
     waitFor: ["build-all-visualizers"]
+
+  # Step 8: Update per-game index.json files (merge with existing GCS state)
+  # This ensures branch-deployed visualizers aren't lost when main builds.
+  - id: "update-game-indexes"
+    name: "gcr.io/cloud-builders/gcloud"
+    entrypoint: "python3"
+    args:
+      - "web/scripts/merge-game-indexes.py"
+      - "--bucket=$_BUCKET_NAME"
+      - "--build-dir=./build"
+    waitFor: ["deploy-to-gcs"]
 
 # Push Docker images to GCR
 images:

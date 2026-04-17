@@ -67,7 +67,8 @@ export async function tryLoadAudioMap(episodeId, envUrl) {
   if (!response && envUrl) {
     const localUrl = envUrl.startsWith('http') ? envUrl : `${window.location.origin}${envUrl}`;
     try {
-      if (usedUrl !== localUrl) { // Avoid duplicate retry
+      if (usedUrl !== localUrl) {
+        // Avoid duplicate retry
         response = await fetchMap(localUrl);
         usedUrl = localUrl;
       }
@@ -78,7 +79,7 @@ export async function tryLoadAudioMap(episodeId, envUrl) {
 
   // If both failed, abort
   if (!response) {
-    console.error("[Werewolf] Could not load audio map from any source.");
+    console.error('[Werewolf] Could not load audio map from any source.');
     return;
   }
 
@@ -86,7 +87,7 @@ export async function tryLoadAudioMap(episodeId, envUrl) {
     const data = await response.json();
 
     // Final resolved URL used for rebasing
-    const resolvedUrl = (response.url && !response.url.includes('blob:')) ? response.url : usedUrl;
+    const resolvedUrl = response.url && !response.url.includes('blob:') ? response.url : usedUrl;
 
     // Rebase audio paths relative to the map file directory
     const audioMapDir = resolvedUrl.substring(0, resolvedUrl.lastIndexOf('/') + 1);
@@ -248,7 +249,10 @@ export function loadQueueFrom(startIndex) {
         } else if (description.includes('Voting phase begins')) {
           audioEventDetails = { message: 'Exile voting begins!', speaker: 'moderator' };
         } else {
-          audioEventDetails = { message: applyTranscriptOverrides(entry.originalDescription || entry.description || ''), speaker: 'moderator' };
+          audioEventDetails = {
+            message: applyTranscriptOverrides(entry.originalDescription || entry.description || ''),
+            speaker: 'moderator',
+          };
         }
       } else if (!audioEventDetails && event_name === 'day_start') {
         audioEventDetails = { message: `Day ${day_count} begins!`, speaker: 'moderator' };
@@ -304,14 +308,14 @@ export function playAudioFrom(startIndex, isContinuous = true) {
 
 export function playNextInQueue(isContinuous = true) {
   if (!context) {
-    console.warn("Audio context not set.");
+    console.warn('Audio context not set.');
     return;
   }
 
   // Use a global or passed parent ID if possible, but context is safer
   // Assuming context has parent attached? No, context is the kaggle env context
-  // We need to find the parent element. 
-  // In the original code, parentId was available in scope. 
+  // We need to find the parent element.
+  // In the original code, parentId was available in scope.
   // We will assume 'app' or document search, or rely on context having a reference?
   // Actually, let's just look for #chat-log which is unique enough
   const currentParent = document.querySelector('.werewolf-parent') || document.body;
@@ -356,13 +360,11 @@ export function playNextInQueue(isContinuous = true) {
   // This is the slider logic, it should always run
   if (event.allEventsIndex !== undefined) {
     const displayStep = window.werewolfGamePlayer.allEventsIndexToDisplayStep[event.allEventsIndex];
-    console.debug(
-      `DEBUG: [playNextInQueue] Found displayStep: ${displayStep} for event index ${event.allEventsIndex}`
-    );
+    console.debug(`DEBUG: [playNextInQueue] Found displayStep: ${displayStep} for event index ${event.allEventsIndex}`);
 
-    if (displayStep !== undefined && context.setCurrentStep) {
+    if (displayStep !== undefined && context.setStep) {
       console.debug(`DEBUG: [playNextInQueue] ### ADVANCING SLIDER TO ${displayStep} ###`);
-      context.setCurrentStep(displayStep);
+      context.setStep(displayStep);
 
       // Use a short timeout to allow the DOM to update after the step change
       setTimeout(() => {
@@ -389,7 +391,7 @@ export function playNextInQueue(isContinuous = true) {
       }, 50); // A small delay to ensure the re-render completes
     } else {
       console.error(
-        `DEBUG: [playNextInQueue] CRITICAL: FAILED to advance slider. displayStep: ${displayStep}, playerControls: ${!!context.unstable_replayerControls}`
+        `DEBUG: [playNextInQueue] CRITICAL: FAILED to advance slider. displayStep: ${displayStep}, setStep: ${!!context?.setStep}`
       );
     }
   }
@@ -460,17 +462,17 @@ export function playNextInQueue(isContinuous = true) {
 
       audioState.audioPlayer.play().catch((e) => {
         console.warn(`DEBUG: [play.catch] Audio play rejected: ${currentPath}. Trying next...`, e);
-        // Often play() rejects if src is invalid or user interaction blocked, 
-        // but if it's a 404, onerror usually fires too. 
+        // Often play() rejects if src is invalid or user interaction blocked,
+        // but if it's a 404, onerror usually fires too.
         // To avoid double-calling, we might want to check audioState.isAudioPlaying?
-        // But simpler: just let onerror handle loading errors. 
+        // But simpler: just let onerror handle loading errors.
         // However, if play() fails due to interaction validation, we might want to stop?
-        // For 404s, play() usually returns a promise that stays pending until loaded? 
+        // For 404s, play() usually returns a promise that stays pending until loaded?
         // actually for 404, the browser fires error event on the element.
         // We'll let onerror handle logic to proceed, BUT if play() throws synchronously (e.g. NotAllowedError),
         // we might not get an onerror.
         if (e.name === 'NotAllowedError') {
-          console.error("Autoplay blocked. User interaction required.");
+          console.error('Autoplay blocked. User interaction required.');
           audioState.isAudioPlaying = false;
           // Don't retry other paths if it's an interaction issue
         }
@@ -483,12 +485,15 @@ export function playNextInQueue(isContinuous = true) {
     tryPlayAudio(0);
   } else {
     console.warn(`DEBUG: [playNextInQueue] No audio for event index: ${event.allEventsIndex}. Using setTimeout.`);
-    setTimeout(() => {
-      audioState.isAudioPlaying = false;
-      if (!audioState.isPaused && isContinuous) {
-        playNextInQueue(isContinuous);
-      }
-    }, context ? (context.speed || 1000) : 1000);
+    setTimeout(
+      () => {
+        audioState.isAudioPlaying = false;
+        if (!audioState.isPaused && isContinuous) {
+          playNextInQueue(isContinuous);
+        }
+      },
+      context ? context.speed || 1000 : 1000
+    );
   }
 }
 
@@ -500,7 +505,9 @@ export function stopAndClearAudio(state = audioState, parentId) {
   state.audioQueue = [];
   state.currentlyPlayingIndex = -1;
 
-  const currentParent = parentId ? document.getElementById(parentId) : (document.querySelector('.werewolf-parent') || document.body);
+  const currentParent = parentId
+    ? document.getElementById(parentId)
+    : document.querySelector('.werewolf-parent') || document.body;
   if (currentParent) {
     // Clear any "now-playing" highlights
     const nowPlayingElement = currentParent.querySelector('#chat-log .now-playing');

@@ -3,24 +3,39 @@ import checker from 'vite-plugin-checker';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import cssInjectedByJsPlugin from 'vite-plugin-css-injected-by-js';
 
+// Support custom port via environment variable (used by Playwright tests)
+const port = process.env.VITE_PORT ? parseInt(process.env.VITE_PORT, 10) : 5173;
+
 export default defineConfig({
   base: './',
   optimizeDeps: {
     exclude: ['@kaggle-environments/core'],
   },
+  build: {
+    rollupOptions: {
+      // Suppress "use client" directive warnings from MUI
+      onwarn(warning, warn) {
+        if (warning.code === 'MODULE_LEVEL_DIRECTIVE' && warning.message.includes('"use client"')) {
+          return;
+        }
+        warn(warning);
+      },
+    },
+  },
   server: {
     host: '0.0.0.0',
-    port: 5173,
+    port,
     cors: true,
   },
   preview: {
     host: '0.0.0.0',
-    port: 5173,
+    port,
     cors: true,
   },
   plugins: [
     tsconfigPaths(),
-    checker({ typescript: true }),
+    // Only run TypeScript checker in dev mode - production builds use explicit tsc
+    process.env.NODE_ENV !== 'production' && checker({ typescript: true }),
     // Inject CSS into JS bundle in production builds (matches dev behavior)
     cssInjectedByJsPlugin(),
     {
@@ -38,5 +53,5 @@ export default defineConfig({
         };
       },
     },
-  ],
+  ].filter(Boolean),
 });

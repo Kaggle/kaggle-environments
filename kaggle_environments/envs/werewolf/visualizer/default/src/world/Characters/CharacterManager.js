@@ -26,62 +26,62 @@ export class CharacterManager {
     };
 
     this.speakingAnimations = [];
-    
+
     this.initSharedResources();
   }
 
   initSharedResources() {
     this.shared = {
-        orbGeometry: new this.THREE.IcosahedronGeometry(0.25, 2),
-        baseOrbMaterial: new this.THREE.MeshStandardMaterial({
-            color: 0x00aa88,
-            emissive: 0x00aa88,
-            emissiveIntensity: 1,
-            transparent: true,
-            opacity: 1,
-            depthTest: false,
-        }),
-        glowGeometry: new this.THREE.SphereGeometry(0.4, 12, 8),
-        baseGlowMaterial: new this.THREE.MeshStandardMaterial({
-            color: 0x00aa88,
-            emissive: 0x00aa88,
-            emissiveIntensity: 0.15,
-            transparent: true,
-            opacity: 0.2,
-            depthTest: false,
-        }),
-        fallbackGeometry: new this.THREE.BoxGeometry(1.5, 3, 1.5),
-        baseFallbackMaterial: new this.THREE.MeshStandardMaterial({
-            roughness: 0.5,
-            metalness: 0.3,
-            emissiveIntensity: 0.2,
-        })
+      orbGeometry: new this.THREE.IcosahedronGeometry(0.25, 2),
+      baseOrbMaterial: new this.THREE.MeshStandardMaterial({
+        color: 0x00aa88,
+        emissive: 0x00aa88,
+        emissiveIntensity: 1,
+        transparent: true,
+        opacity: 1,
+        depthTest: false,
+      }),
+      glowGeometry: new this.THREE.SphereGeometry(0.4, 12, 8),
+      baseGlowMaterial: new this.THREE.MeshStandardMaterial({
+        color: 0x00aa88,
+        emissive: 0x00aa88,
+        emissiveIntensity: 0.15,
+        transparent: true,
+        opacity: 0.2,
+        depthTest: false,
+      }),
+      fallbackGeometry: new this.THREE.BoxGeometry(1.5, 3, 1.5),
+      baseFallbackMaterial: new this.THREE.MeshStandardMaterial({
+        roughness: 0.5,
+        metalness: 0.3,
+        emissiveIntensity: 0.2,
+      }),
     };
   }
 
   clearPlayers() {
-      this.playerObjects.forEach(player => {
-          // Remove UI Element from DOM
-          if (player.playerUI && player.playerUI.element && player.playerUI.element.parentNode) {
-              player.playerUI.element.parentNode.removeChild(player.playerUI.element);
+    this.playerObjects.forEach((player) => {
+      // Remove UI Element from DOM
+      if (player.playerUI && player.playerUI.element && player.playerUI.element.parentNode) {
+        player.playerUI.element.parentNode.removeChild(player.playerUI.element);
+      }
+
+      // Dispose resources
+      if (player.container) {
+        player.container.traverse((child) => {
+          if (child.isMesh) {
+            // Dispose materials (assuming all are cloned/unique to this instance)
+            if (child.material) {
+              const mats = Array.isArray(child.material) ? child.material : [child.material];
+              mats.forEach((m) => m.dispose());
+            }
+            // Note: We do NOT dispose geometries as they are either shared (orbs) or cached (FBX)
           }
-          
-          // Dispose resources
-          if (player.container) {
-              player.container.traverse(child => {
-                  if (child.isMesh) {
-                      // Dispose materials (assuming all are cloned/unique to this instance)
-                      if (child.material) {
-                          const mats = Array.isArray(child.material) ? child.material : [child.material];
-                          mats.forEach(m => m.dispose());
-                      }
-                      // Note: We do NOT dispose geometries as they are either shared (orbs) or cached (FBX)
-                  }
-              });
-              this.playerGroup.remove(player.container);
-          }
-      });
-      this.playerObjects.clear();
+        });
+        this.playerGroup.remove(player.container);
+      }
+    });
+    this.playerObjects.clear();
   }
 
   loadCharacterModel(role) {
@@ -93,48 +93,49 @@ export class CharacterManager {
 
     const modelPath = `${import.meta.env.BASE_URL}static/werewolf/models/${normalizedRole}/${normalizedRole}.fbx`;
 
-    const modelPromise = this.assetManager.loadFBX(modelPath)
-        .then((fbx) => {
-          fbx.scale.setScalar(0.05);
+    const modelPromise = this.assetManager
+      .loadFBX(modelPath)
+      .then((fbx) => {
+        fbx.scale.setScalar(0.05);
 
-          const animations = {};
-          if (fbx.animations && fbx.animations.length > 0) {
-            fbx.animations.forEach((clip) => {
-              if (clip.name.startsWith('Armature|')) return;
+        const animations = {};
+        if (fbx.animations && fbx.animations.length > 0) {
+          fbx.animations.forEach((clip) => {
+            if (clip.name.startsWith('Armature|')) return;
 
-              let animName = clip.name;
-              if (animName.toLowerCase().includes('idle') || animName.toLowerCase().includes('standing')) {
-                animations['Idle'] = clip;
-                clip.name = 'Idle';
-              } else if (animName.toLowerCase().includes('talk')) {
-                animations['Talking'] = clip;
-                clip.name = 'Talking';
-              } else if (animName.toLowerCase().includes('point')) {
-                animations['Pointing'] = clip;
-                clip.name = 'Pointing';
-              } else if (animName.toLowerCase().includes('victory') || animName.toLowerCase().includes('win')) {
-                animations['Victory'] = clip;
-                clip.name = 'Victory';
-              } else if (animName.toLowerCase().includes('defeat') || animName.toLowerCase().includes('lose')) {
-                animations['Defeated'] = clip;
-                clip.name = 'Defeated';
-              } else if (animName.toLowerCase().includes('dying') || animName.toLowerCase().includes('death')) {
-                animations['Dying'] = clip;
-                clip.name = 'Dying';
-              } else {
-                animations[animName] = clip;
-              }
-            });
-          }
+            let animName = clip.name;
+            if (animName.toLowerCase().includes('idle') || animName.toLowerCase().includes('standing')) {
+              animations['Idle'] = clip;
+              clip.name = 'Idle';
+            } else if (animName.toLowerCase().includes('talk')) {
+              animations['Talking'] = clip;
+              clip.name = 'Talking';
+            } else if (animName.toLowerCase().includes('point')) {
+              animations['Pointing'] = clip;
+              clip.name = 'Pointing';
+            } else if (animName.toLowerCase().includes('victory') || animName.toLowerCase().includes('win')) {
+              animations['Victory'] = clip;
+              clip.name = 'Victory';
+            } else if (animName.toLowerCase().includes('defeat') || animName.toLowerCase().includes('lose')) {
+              animations['Defeated'] = clip;
+              clip.name = 'Defeated';
+            } else if (animName.toLowerCase().includes('dying') || animName.toLowerCase().includes('death')) {
+              animations['Dying'] = clip;
+              clip.name = 'Dying';
+            } else {
+              animations[animName] = clip;
+            }
+          });
+        }
 
-          this.animationCache.set(normalizedRole, Promise.resolve(animations));
-          return fbx;
-        })
-        .catch((error) => {
-            throw new Error(
-              `Failed to load merged model for role '${role}' (normalized: '${normalizedRole}'): ${error.message || error}`
-            );
-        });
+        this.animationCache.set(normalizedRole, Promise.resolve(animations));
+        return fbx;
+      })
+      .catch((error) => {
+        throw new Error(
+          `Failed to load merged model for role '${role}' (normalized: '${normalizedRole}'): ${error.message || error}`
+        );
+      });
 
     this.modelCache.set(normalizedRole, modelPromise);
     return modelPromise;
@@ -150,10 +151,10 @@ export class CharacterManager {
 
   async initializePlayers(gameState, playerNames, playerThumbnails, uiManager) {
     if (this.playerObjects.size > 0) {
-        // Already initialized
-        return;
+      // Already initialized
+      return;
     }
-    
+
     // Ensure clean slate
     this.clearPlayers();
 
@@ -198,9 +199,9 @@ export class CharacterManager {
             child.receiveShadow = true;
             if (child.material) {
               // Clone material to allow independent modification and disposal
-              child.material = Array.isArray(child.material) 
-                  ? child.material.map(m => m.clone()) 
-                  : child.material.clone();
+              child.material = Array.isArray(child.material)
+                ? child.material.map((m) => m.clone())
+                : child.material.clone();
 
               const materials = Array.isArray(child.material) ? child.material : [child.material];
               materials.forEach((mat) => {
@@ -233,7 +234,7 @@ export class CharacterManager {
       } else {
         const fallbackColor =
           role === 'Werewolf' ? 0x880000 : role === 'Doctor' ? 0x008800 : role === 'Seer' ? 0x4b0082 : 0x4466ff;
-        
+
         const fallbackMaterial = this.shared.baseFallbackMaterial.clone();
         fallbackMaterial.color.setHex(fallbackColor);
         fallbackMaterial.emissive.setHex(fallbackColor);
@@ -266,18 +267,17 @@ export class CharacterManager {
       const angleToCenter = Math.atan2(playerContainer.position.x, playerContainer.position.z);
       playerContainer.rotation.y = angleToCenter + Math.PI;
 
-      const thumbnailUrl =
-        playerThumbnails[name] || FALLBACK_THUMBNAIL_IMG;
+      const thumbnailUrl = playerThumbnails[name] || FALLBACK_THUMBNAIL_IMG;
 
       const focusCallback = (playerName) => {
-          if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
-              const leftPanel = document.querySelector('.left-panel');
-              const eventPanel = document.querySelector('.event-panel');
-              const leftW = (leftPanel && leftPanel.offsetParent !== null) ? leftPanel.offsetWidth : 0;
-              const rightW = (eventPanel && eventPanel.offsetParent !== null) ? eventPanel.offsetWidth : 0;
-              
-              window.werewolfThreeJs.demo.focusOnPlayer(playerName, leftW, rightW);
-          }
+        if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
+          const leftPanel = document.querySelector('.left-panel');
+          const eventPanel = document.querySelector('.event-panel');
+          const leftW = leftPanel && leftPanel.offsetParent !== null ? leftPanel.offsetWidth : 0;
+          const rightW = eventPanel && eventPanel.offsetParent !== null ? eventPanel.offsetWidth : 0;
+
+          window.werewolfThreeJs.demo.focusOnPlayer(playerName, leftW, rightW);
+        }
       };
 
       const playerUI = uiManager.createPlayerUI(name, displayName, thumbnailUrl, focusCallback);
@@ -305,7 +305,7 @@ export class CharacterManager {
 
   resetAnimations() {
     this.playerObjects.forEach((player, playerName) => {
-        this.playAnimation(playerName, 'Idle');
+      this.playAnimation(playerName, 'Idle');
     });
   }
 
@@ -325,18 +325,21 @@ export class CharacterManager {
     if (!player) return;
 
     // Optimization: Skip redundant updates if state hasn't changed and no event trigger
-    if (!justDied && player.lastState &&
-        player.lastState.status === status &&
-        player.lastState.threatLevel === threatLevel &&
-        player.lastState.role === (player_info ? player_info.role : null)) {
-        return;
+    if (
+      !justDied &&
+      player.lastState &&
+      player.lastState.status === status &&
+      player.lastState.threatLevel === threatLevel &&
+      player.lastState.role === (player_info ? player_info.role : null)
+    ) {
+      return;
     }
 
     // Update cache
     player.lastState = {
-        status: status,
-        threatLevel: threatLevel,
-        role: player_info ? player_info.role : null
+      status: status,
+      threatLevel: threatLevel,
+      role: player_info ? player_info.role : null,
     };
 
     const { orb, orbLight, glow, container, mixer, animations, currentAction } = player;
@@ -376,7 +379,7 @@ export class CharacterManager {
     glow.material.emissive.setHex(0x00aa88);
     glow.material.emissiveIntensity = 0.15;
     glow.visible = true;
-    
+
     container.scale.setScalar(1.0);
     container.position.y = 0;
     container.rotation.x = 0;
@@ -549,21 +552,21 @@ export class CharacterManager {
     if (!player || !player.isAlive) return;
 
     if (targetName) {
-        const target = this.playerObjects.get(targetName);
-        if (target) {
-            const dx = target.container.position.x - player.container.position.x;
-            const dz = target.container.position.z - player.container.position.z;
-            const angleToTarget = Math.atan2(dx, dz);
-            
-            player.container.rotation.y = angleToTarget;
+      const target = this.playerObjects.get(targetName);
+      if (target) {
+        const dx = target.container.position.x - player.container.position.x;
+        const dz = target.container.position.z - player.container.position.z;
+        const angleToTarget = Math.atan2(dx, dz);
 
-            if (player.rotationResetTimer) clearTimeout(player.rotationResetTimer);
-            
-            player.rotationResetTimer = setTimeout(() => {
-                player.container.rotation.y = player.baseAngle + Math.PI;
-                player.rotationResetTimer = null;
-            }, duration);
-        }
+        player.container.rotation.y = angleToTarget;
+
+        if (player.rotationResetTimer) clearTimeout(player.rotationResetTimer);
+
+        player.rotationResetTimer = setTimeout(() => {
+          player.container.rotation.y = player.baseAngle + Math.PI;
+          player.rotationResetTimer = null;
+        }, duration);
+      }
     }
 
     this.playAnimation(playerName, 'Pointing', { fadeInDuration: 0.2, fadeOutDuration: 0.2 });
@@ -642,8 +645,8 @@ export class CharacterManager {
       player.isAlive = true;
 
       if (player.rotationResetTimer) {
-          clearTimeout(player.rotationResetTimer);
-          player.rotationResetTimer = null;
+        clearTimeout(player.rotationResetTimer);
+        player.rotationResetTimer = null;
       }
       player.container.rotation.y = player.baseAngle + Math.PI;
 
