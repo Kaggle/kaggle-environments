@@ -78,14 +78,14 @@ class ParseResult:
     """Result of parsing an LLM response.
 
     Attributes:
-        matched_action: The legal action string that was matched, or ``None``
+        legal_action: The legal action string that was matched, or ``None``
             if no legal move could be matched.
-        extracted_action: The raw move the model attempted to play (even if
+        raw_action: The raw move the model attempted to play (even if
             illegal).  Used to build rethink prompts.
     """
 
-    matched_action: str | None = None
-    extracted_action: str | None = None
+    legal_action: str | None = None
+    raw_action: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -99,12 +99,8 @@ class GameHarness(Protocol):
     def get_legal_moves(
         self,
         observation: Mapping[str, Any],
-    ) -> tuple[list[int], list[str]]:
-        """Return ``(legal_action_ints, legal_action_strings)``.
-
-        ``legal_action_ints[i]`` is the integer action id corresponding to
-        ``legal_action_strings[i]``.
-        """
+    ) -> dict[int, str]:
+        """Return a mapping from legal action id to its string form."""
         ...
 
     def make_prompt(
@@ -129,7 +125,7 @@ class GameHarness(Protocol):
     ) -> ParseResult:
         """Extract a move from the LLM response.
 
-        Returns a ``ParseResult``.  If ``matched_action`` is not ``None`` it
+        Returns a ``ParseResult``.  If ``legal_action`` is not ``None`` it
         must be one of the strings in ``legal_action_strings``.
         """
         ...
@@ -251,12 +247,12 @@ def create_agent_fn(
         observation = obs if isinstance(obs, dict) else vars(obs)
 
         # -- legal moves --
-        legal_actions, legal_action_strings = game_harness.get_legal_moves(
-            observation,
-        )
-        if not legal_actions:
+        legal_moves = game_harness.get_legal_moves(observation)
+        if not legal_moves:
             _TELEMETRY(no_legal_actions=True)
             raise ValueError("No legal actions available.")
+        legal_action_strings = list(legal_moves.values())
+        legal_actions = list(legal_moves.keys())
 
         # -- prompt / parse / retry loop --
         previous_response: str | None = None
@@ -291,19 +287,19 @@ def create_agent_fn(
 
             result = game_harness.parse_response(content, legal_action_strings)
 
-            if result.matched_action is not None:
-                idx = legal_action_strings.index(result.matched_action)
-                move_history.append(result.matched_action)
+            if result.legal_action is not None:
+                idx = legal_action_strings.index(result.legal_action)
+                move_history.append(result.legal_action)
                 _TELEMETRY(
                     action_is_legal=True,
                     legal_action={
-                        "extracted_action": result.extracted_action,
-                        "matched_action": result.matched_action,
+                        "raw_action": result.raw_action,
+                        "legal_action": result.legal_action,
                     },
                 )
                 return {
                     "submission": legal_actions[idx],
-                    "actionString": result.matched_action,
+                    "actionString": result.legal_action,
                     "thoughts": last_content,
                     "status": "OK",
                 }
@@ -313,11 +309,11 @@ def create_agent_fn(
                 action_is_legal=False,
                 parse_failure={
                     "attempt": attempt + 1,
-                    "extracted_action": result.extracted_action,
+                    "raw_action": result.raw_action,
                     "response_preview": content[:200],
                 },
             )
-            previous_action = result.extracted_action
+            previous_action = result.raw_action
             previous_response = content
             _log.warning(
                 "Attempt %d: failed to parse a legal move.", attempt + 1,
