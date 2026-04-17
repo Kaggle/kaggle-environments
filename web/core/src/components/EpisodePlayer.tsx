@@ -406,6 +406,7 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
             speedModifier={state.speed}
             onPlayChange={handlePlayChange}
             onStepChange={actions.setStep}
+            onSpeedChange={actions.setSpeed}
           />
         </InlineControlsContainer>
       )}
