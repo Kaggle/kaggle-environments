@@ -120,7 +120,7 @@ class GameHarness(Protocol):
         """Build the LLM prompt for the current game state.
 
         On the first attempt ``previous_response`` and ``previous_action`` are
-        ``None``.  On rethink attempts they carry the model's prior output and
+        ``None``.  On rethink attempts, they carry the model's prior output and
         the (possibly illegal) move it tried to play.
         """
         ...
