@@ -60,7 +60,7 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     }
 
     // 2. (PRIORITY 2) No HMR replay data. Check for VITE_REPLAY_FILE in dev mode.
-    else if (import.meta.env?.DEV) {
+    else if (import.meta.env?.DEV || import.meta.env?.VITE_REPLAY_FILE) {
       const replayFile = import.meta.env.VITE_REPLAY_FILE;
       if (replayFile) {
         fetch(replayFile)
