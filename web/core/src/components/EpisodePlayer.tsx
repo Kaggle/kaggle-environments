@@ -171,9 +171,11 @@ const VisuallyHidden = styled('div')`
   border: 0;
 `;
 
+const EMPTY_AGENTS: any[] = [];
+
 export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   replay: rawReplay,
-  agents = [],
+  agents = EMPTY_AGENTS,
   gameName,
   GameRenderer,
   ui = 'side-panel',
