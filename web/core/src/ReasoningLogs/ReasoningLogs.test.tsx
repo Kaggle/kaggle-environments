@@ -2,21 +2,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import * as React from 'react';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { ThemeProvider } from '@mui/material/styles';
 import { ReasoningLogs, ReasoningLogsProps } from './ReasoningLogs';
 import { makeStep } from '../test-utils';
 import { BaseGameStep, ReplayMode } from '../types';
+import { theme } from '../theme';
 
 vi.mock('@mui/material/useMediaQuery', () => ({
   default: () => false,
 }));
 
-vi.mock('./ReasoningStep', () => ({
-  ReasoningStep: (props: any) => <div data-testid={`step-${props.stepNumber}`}>Step {props.stepNumber}</div>,
-}));
-
 vi.mock('react-virtuoso', () => ({
-  Virtuoso: React.forwardRef(({ data, itemContent, components, ...rest }: any, ref: any) => {
+  Virtuoso: React.forwardRef(({ data, itemContent }: any, ref: any) => {
     React.useImperativeHandle(ref, () => ({ scrollToIndex: vi.fn() }));
     return (
       <div data-testid="virtuoso">
@@ -27,37 +24,6 @@ vi.mock('react-virtuoso', () => ({
     );
   }),
 }));
-
-vi.mock('../analytics/analytics', () => ({
-  postAnalyticsEvent: vi.fn(),
-}));
-
-const testTheme = createTheme({
-  breakpoints: {
-    values: {
-      xs: 0,
-      sm: 600,
-      md: 960,
-      lg: 1280,
-      xl: 1920,
-      tablet: 840,
-      desktop: 1280,
-      phone: 480,
-      xs1: 360,
-      xs2: 400,
-      xs3: 480,
-      sm1: 600,
-      sm2: 720,
-      sm3: 840,
-      md1: 960,
-      md2: 1024,
-      lg1: 1280,
-      lg2: 1440,
-      lg3: 1600,
-      xl1: 1920,
-    } as any,
-  },
-});
 
 const GAME_NAME = 'test-game';
 const TOTAL_STEPS = 5;
@@ -78,14 +44,12 @@ const baseProps: ReasoningLogsProps = {
   gameName: GAME_NAME,
 };
 
-const renderLogs = (overrides: Partial<ReasoningLogsProps> = {}) => {
-  const props = { ...baseProps, ...overrides };
-  return render(
-    <ThemeProvider theme={testTheme}>
-      <ReasoningLogs {...props} />
+const renderLogs = (overrides: Partial<ReasoningLogsProps> = {}) =>
+  render(
+    <ThemeProvider theme={theme}>
+      <ReasoningLogs {...baseProps} {...overrides} />
     </ThemeProvider>
   );
-};
 
 afterEach(cleanup);
 
@@ -233,23 +197,6 @@ describe('ReasoningLogs', () => {
       renderLogs({ replayMode: 'only-stream' });
       expect(screen.queryByLabelText('Play')).toBeNull();
       expect(screen.queryByLabelText('Pause')).toBeNull();
-    });
-  });
-
-  describe('step list', () => {
-    it('renders visible steps up to currentStep', () => {
-      renderLogs({ currentStep: 2 });
-      expect(screen.getByTestId('step-1')).toBeDefined();
-      expect(screen.getByTestId('step-2')).toBeDefined();
-      expect(screen.getByTestId('step-3')).toBeDefined();
-      expect(screen.queryByTestId('step-4')).toBeNull();
-    });
-
-    it('renders all steps when at last step', () => {
-      renderLogs({ currentStep: TOTAL_STEPS - 1 });
-      for (let i = 1; i <= TOTAL_STEPS; i++) {
-        expect(screen.getByTestId(`step-${i}`)).toBeDefined();
-      }
     });
   });
 

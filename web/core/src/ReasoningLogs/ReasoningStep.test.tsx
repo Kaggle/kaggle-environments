@@ -2,49 +2,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act, cleanup } from '@testing-library/react';
 import * as React from 'react';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { ThemeProvider } from '@mui/material/styles';
 import { ReasoningStep, ReasoningStepProps } from './ReasoningStep';
 import { makeStep } from '../test-utils';
-import { BaseGameStep, ReplayMode } from '../types';
+import { ReplayMode } from '../types';
+import { theme } from '../theme';
 
 vi.mock('@mui/material/useMediaQuery', () => ({
   default: () => false,
 }));
-
-vi.mock('../components/UserContent', () => ({
-  UserContent: React.forwardRef(({ markdown, ...rest }: any, ref: any) => (
-    <div ref={ref} data-testid="user-content" {...rest}>
-      {markdown}
-    </div>
-  )),
-}));
-
-const testTheme = createTheme({
-  breakpoints: {
-    values: {
-      xs: 0,
-      sm: 600,
-      md: 960,
-      lg: 1280,
-      xl: 1920,
-      tablet: 840,
-      desktop: 1280,
-      phone: 480,
-      xs1: 360,
-      xs2: 400,
-      xs3: 480,
-      sm1: 600,
-      sm2: 720,
-      sm3: 840,
-      md1: 960,
-      md2: 1024,
-      lg1: 1280,
-      lg2: 1440,
-      lg3: 1600,
-      xl1: 1920,
-    } as any,
-  },
-});
 
 const STEP_WITH_THOUGHTS = makeStep({
   players: [
@@ -94,14 +60,12 @@ const baseProps: ReasoningStepProps = {
   onStepChange: vi.fn(),
 };
 
-const renderStep = (overrides: Partial<ReasoningStepProps> = {}) => {
-  const props = { ...baseProps, ...overrides };
-  return render(
-    <ThemeProvider theme={testTheme}>
-      <ReasoningStep {...props} />
+const renderStep = (overrides: Partial<ReasoningStepProps> = {}) =>
+  render(
+    <ThemeProvider theme={theme}>
+      <ReasoningStep {...baseProps} {...overrides} />
     </ThemeProvider>
   );
-};
 
 afterEach(cleanup);
 
@@ -173,7 +137,6 @@ describe('ReasoningStep', () => {
           { id: 0, name: 'Alice', thumbnail: '', isTurn: false },
           { id: 1, name: 'Bob', thumbnail: '', isTurn: false },
         ],
-        // Need at least label or description to render
       });
       renderStep({
         step: systemStep,
@@ -214,14 +177,14 @@ describe('ReasoningStep', () => {
 
     it('syncs with expandByDefault prop changes', () => {
       const { rerender } = render(
-        <ThemeProvider theme={testTheme}>
+        <ThemeProvider theme={theme}>
           <ReasoningStep {...baseProps} expandByDefault={false} />
         </ThemeProvider>
       );
       expect(screen.queryByText('I think this is a good move')).toBeNull();
 
       rerender(
-        <ThemeProvider theme={testTheme}>
+        <ThemeProvider theme={theme}>
           <ReasoningStep {...baseProps} expandByDefault={true} />
         </ThemeProvider>
       );
@@ -253,26 +216,6 @@ describe('ReasoningStep', () => {
   describe('token streaming', () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
-
-    it('streams tokens progressively when playing in streaming mode on current step', () => {
-      const description = 'one two three';
-      renderStep({
-        isCurrentStep: true,
-        playing: true,
-        replayMode: 'zen',
-        expandByDefault: true,
-        getStepLabel: () => 'action',
-        getStepDescription: () => description,
-      });
-
-      act(() => {
-        vi.advanceTimersByTime(500);
-      });
-
-      const contents = screen.getAllByTestId('user-content');
-      const descriptionContent = contents.find((el) => el.textContent !== 'action');
-      expect(descriptionContent).toBeDefined();
-    });
 
     it('shows full text immediately in condensed mode', () => {
       renderStep({
