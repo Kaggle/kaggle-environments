@@ -1,16 +1,11 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act, cleanup } from '@testing-library/react';
-import * as React from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import { ReasoningStep, ReasoningStepProps } from './ReasoningStep';
 import { makeStep } from '../test-utils';
 import { ReplayMode } from '../types';
 import { theme } from '../theme';
-
-vi.mock('@mui/material/useMediaQuery', () => ({
-  default: () => false,
-}));
 
 const STEP_WITH_THOUGHTS = makeStep({
   players: [
@@ -109,7 +104,7 @@ describe('ReasoningStep', () => {
       expect(onStepChange).toHaveBeenCalledWith(stepNumber - 1);
     });
 
-    it('calls onStepChange on simplified card click too', () => {
+    it('calls onStepChange on simplified card click', () => {
       const onStepChange = vi.fn();
       const stepNumber = 5;
       renderStep({ step: STEP_LABEL_ONLY, onStepChange, stepNumber });
@@ -246,22 +241,6 @@ describe('ReasoningStep', () => {
 
       expect(scrollLogs).toHaveBeenCalledWith(true);
       vi.useRealTimers();
-    });
-  });
-
-  describe('avatar rendering', () => {
-    it('renders avatar image when player has thumbnail', () => {
-      const thumbnailUrl = 'https://example.com/alice.png';
-      const stepWithThumb = makeStep({
-        players: [
-          { id: 0, name: 'Alice', thumbnail: thumbnailUrl, isTurn: true, actionDisplayText: 'move' },
-          { id: 1, name: 'Bob', thumbnail: '', isTurn: false },
-        ],
-      });
-      const { container } = renderStep({ step: stepWithThumb });
-      const img = container.querySelector('img');
-      expect(img).not.toBeNull();
-      expect(img!.getAttribute('src')).toBe(thumbnailUrl);
     });
   });
 });

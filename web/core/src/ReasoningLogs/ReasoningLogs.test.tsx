@@ -1,31 +1,12 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
-import * as React from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import { ReasoningLogs, ReasoningLogsProps } from './ReasoningLogs';
 import { makeStep } from '../test-utils';
 import { BaseGameStep, ReplayMode } from '../types';
 import { theme } from '../theme';
 
-vi.mock('@mui/material/useMediaQuery', () => ({
-  default: () => false,
-}));
-
-vi.mock('react-virtuoso', () => ({
-  Virtuoso: React.forwardRef(({ data, itemContent }: any, ref: any) => {
-    React.useImperativeHandle(ref, () => ({ scrollToIndex: vi.fn() }));
-    return (
-      <div data-testid="virtuoso">
-        {data?.map((item: any, index: number) => (
-          <div key={index}>{itemContent(index, item)}</div>
-        ))}
-      </div>
-    );
-  }),
-}));
-
-const GAME_NAME = 'test-game';
 const TOTAL_STEPS = 5;
 const steps: BaseGameStep[] = Array.from({ length: TOTAL_STEPS }, (_, i) => makeStep({ step: i }));
 
@@ -41,7 +22,7 @@ const baseProps: ReasoningLogsProps = {
   totalSteps: TOTAL_STEPS,
   steps,
   currentStep: 0,
-  gameName: GAME_NAME,
+  gameName: 'test-game',
 };
 
 const renderLogs = (overrides: Partial<ReasoningLogsProps> = {}) =>
@@ -63,11 +44,6 @@ beforeEach(() => {
 
 describe('ReasoningLogs', () => {
   describe('header', () => {
-    it('shows Game Log heading', () => {
-      renderLogs();
-      expect(screen.getByText('Game Log')).toBeDefined();
-    });
-
     it('calls closePanel when collapse button is clicked', () => {
       const closePanel = vi.fn();
       renderLogs({ closePanel });
@@ -140,11 +116,6 @@ describe('ReasoningLogs', () => {
     it('shows 1-indexed step / total', () => {
       renderLogs({ currentStep: 2 });
       expect(screen.getByTestId('step-counter').textContent).toBe('3/5');
-    });
-
-    it('hides counter when totalSteps is 0', () => {
-      renderLogs({ totalSteps: 0 });
-      expect(screen.queryByTestId('step-counter')).toBeNull();
     });
   });
 

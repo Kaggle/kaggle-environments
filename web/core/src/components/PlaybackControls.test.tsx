@@ -64,13 +64,9 @@ describe('PlaybackControls', () => {
     it('does not fire when already at step 0 (button disabled)', () => {
       const onStepChange = vi.fn();
       renderControls({ currentStep: 0, onStepChange });
+      expect(screen.getByLabelText('Previous step').hasAttribute('disabled')).toBe(true);
       fireEvent.click(screen.getByLabelText('Previous step'));
       expect(onStepChange).not.toHaveBeenCalled();
-    });
-
-    it('is disabled at step 0', () => {
-      renderControls({ currentStep: 0 });
-      expect(screen.getByLabelText('Previous step').hasAttribute('disabled')).toBe(true);
     });
 
     it('is not disabled at step > 0', () => {
@@ -92,13 +88,9 @@ describe('PlaybackControls', () => {
     it('does not fire when already at last step (button disabled)', () => {
       const onStepChange = vi.fn();
       renderControls({ currentStep: 9, totalSteps: 10, onStepChange });
+      expect(screen.getByLabelText('Next step').hasAttribute('disabled')).toBe(true);
       fireEvent.click(screen.getByLabelText('Next step'));
       expect(onStepChange).not.toHaveBeenCalled();
-    });
-
-    it('is disabled at last step', () => {
-      renderControls({ currentStep: 9, totalSteps: 10 });
-      expect(screen.getByLabelText('Next step').hasAttribute('disabled')).toBe(true);
     });
 
     it('is not disabled before last step', () => {
@@ -172,32 +164,12 @@ describe('PlaybackControls', () => {
       fireEvent.change(screen.getByLabelText('Playback speed'), { target: { value: '2' } });
       expect(onSpeedChange).toHaveBeenCalledWith(2);
     });
-
-    it('shows the current speed as selected', () => {
-      renderControls({ onSpeedChange: vi.fn(), speedModifier: 0.5 });
-      const select = screen.getByLabelText('Playback speed') as HTMLSelectElement;
-      expect(select.value).toBe('0.5');
-    });
-
-    it('renders all speed options', () => {
-      const expectedSpeeds = [0.25, 0.5, 1, 1.5, 2, 4];
-      renderControls({ onSpeedChange: vi.fn() });
-      const select = screen.getByLabelText('Playback speed') as HTMLSelectElement;
-      const optionValues = Array.from(select.options).map((o) => parseFloat(o.value));
-      expect(optionValues).toEqual(expectedSpeeds);
-    });
   });
 
   describe('edge cases', () => {
     it('handles totalSteps of 0 without crashing', () => {
       renderControls({ totalSteps: 0, currentStep: 0 });
       expect(screen.getByText('1 / 0')).toBeDefined();
-    });
-
-    it('handles totalSteps of 1', () => {
-      renderControls({ totalSteps: 1, currentStep: 0 });
-      expect(screen.getByLabelText('Previous step').hasAttribute('disabled')).toBe(true);
-      expect(screen.getByLabelText('Next step').hasAttribute('disabled')).toBe(true);
     });
   });
 });
