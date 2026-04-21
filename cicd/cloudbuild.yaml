@@ -1,5 +1,5 @@
 # Unified CI/CD pipeline for kaggle-environments
-# Builds Docker images, runs tests, and publishes to PyPI, NPM, and GCS
+# Builds Docker images, runs tests, and publishes to PyPI and GCS
 #
 # Triggered on push to master branch
 
@@ -75,15 +75,7 @@ steps:
     waitFor: ["run-tests"]
     secretEnv: ["PYPI_TOKEN"]
 
-  # Step 6: Publish to NPM (after visualizers built)
-  - id: "publish-to-npm"
-    name: "gcr.io/cloud-builders/npm"
-    entrypoint: "bash"
-    args: ["web/scripts/publish-core.sh"]
-    waitFor: ["build-all-visualizers"]
-    secretEnv: ["NPM_TOKEN"]
-
-  # Step 7: Deploy visualizers to GCS (after visualizers built, independent of NPM publish)
+  # Step 6: Deploy visualizers to GCS (after visualizers built)
   # Note: No -d flag, so files are only added/updated, never deleted.
   # This ensures skipped games (not in ./build) remain untouched in GCS.
   - id: "deploy-to-gcs"
@@ -97,7 +89,7 @@ steps:
       - "gs://$_BUCKET_NAME/episode-visualizers"
     waitFor: ["build-all-visualizers"]
 
-  # Step 8: Update per-game index.json files (merge with existing GCS state)
+  # Step 7: Update per-game index.json files (merge with existing GCS state)
   # This ensures branch-deployed visualizers aren't lost when main builds.
   - id: "update-game-indexes"
     name: "gcr.io/cloud-builders/gcloud"
@@ -120,8 +112,6 @@ availableSecrets:
   secretManager:
     - versionName: projects/kaggle-cicd/secrets/pypi-token/versions/latest
       env: "PYPI_TOKEN"
-    - versionName: projects/kaggle-cicd/secrets/npm-token-kaggle-environments/versions/latest
-      env: "NPM_TOKEN"
 
 options:
   pool:
@@ -134,6 +124,5 @@ tags:
     "kaggle-environments",
     "docker-build",
     "pypi-publish",
-    "npm-publish",
     "visualizer-deployment",
   ]
