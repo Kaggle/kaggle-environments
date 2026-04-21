@@ -184,7 +184,8 @@ html, body, #app {
 }
 
 .game-over-modal .result-text {
-  font-family: 'Mynerve', cursive;
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
   font-size: 1.1rem;
   color: #8ac4ff;
 }

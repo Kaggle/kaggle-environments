@@ -173,6 +173,27 @@ class AgentFnTest(absltest.TestCase):
         },
     )
     @patch("kaggle_environments.envs.open_spiel_env.games.go.harness.litellm")
+    def test_setup_step_returns_noop(self, mock_litellm):
+        """On the initial setup step the observation has no legal moves;
+        the harness must return submission=-1 without calling the LLM."""
+        from kaggle_environments.envs.open_spiel_env.games.go.harness import agent_fn
+
+        mock_litellm.drop_params = True
+
+        result = agent_fn({"step": 0, "remainingOverageTime": 60}, {})
+
+        self.assertEqual(result, {"submission": -1})
+        mock_litellm.completion.assert_not_called()
+
+    @patch.dict(
+        "os.environ",
+        {
+            "MODEL_NAME": "test-model",
+            "MODEL_PROXY_KEY": "test-key",
+            "MODEL_PROXY_URL": "dummy_url",
+        },
+    )
+    @patch("kaggle_environments.envs.open_spiel_env.games.go.harness.litellm")
     def test_successful_move(self, mock_litellm):
         from kaggle_environments.envs.open_spiel_env.games.go.harness import agent_fn
 

@@ -17,7 +17,7 @@ createReplayVisualizer(
   new ReplayAdapter({
     gameName: 'orbit_wars',
     renderer: renderer as any,
-    ui: 'side-panel',
+    ui: 'inline',
     getStepRenderTime: (step, replayMode, speedModifier) => getOrbitWarsStepRenderTime(step, replayMode, speedModifier),
   })
 );

@@ -1,10 +1,22 @@
 import unittest
 import math
 from types import SimpleNamespace
-from kaggle_environments.envs.orbit_wars.orbit_wars import interpreter
+from kaggle_environments.envs.orbit_wars.orbit_wars import (
+    interpreter,
+    generate_planets,
+    distance,
+    CENTER,
+    ROTATION_RADIUS_LIMIT,
+)
 
 
 class TestOrbitWars(unittest.TestCase):
+
+    def _advance_step_counter(self, state):
+        next_step = getattr(state[0].observation, "step", 0) + 1
+        for agent_state in state:
+            agent_state.observation.step = next_step
+        return state
 
     def test_symmetry(self):
         # Mock state for step 0
@@ -144,6 +156,100 @@ class TestOrbitWars(unittest.TestCase):
         owners = set(p[1] for p in owned)
         self.assertEqual(owners, {0, 1, 2, 3})
 
+    def test_comet_spawn_keeps_initial_planets_synced_across_players(self):
+        state = [
+            SimpleNamespace(
+                observation=SimpleNamespace(step=0),
+                action=[],
+                status="ACTIVE",
+                reward=0,
+            )
+        ] + [
+            SimpleNamespace(
+                observation=SimpleNamespace(player=i),
+                action=[],
+                status="ACTIVE",
+                reward=0,
+            )
+            for i in range(1, 4)
+        ]
+        env = SimpleNamespace(
+            configuration=SimpleNamespace(shipSpeed=5, episodeSteps=120, cometSpeed=4),
+            done=False,
+        )
+
+        state = interpreter(state, env)
+        state = self._advance_step_counter(state)
+
+        for _ in range(49):
+            for agent_state in state:
+                agent_state.action = []
+            state = interpreter(state, env)
+            state = self._advance_step_counter(state)
+
+        obs0 = state[0].observation
+
+        self.assertTrue(obs0.comets)
+        self.assertEqual(len(obs0.initial_planets), len(obs0.planets))
+        for other_state in state[1:]:
+            other_obs = other_state.observation
+            self.assertEqual(obs0.comet_planet_ids, other_obs.comet_planet_ids)
+            self.assertEqual(obs0.initial_planets, other_obs.initial_planets)
+
+    def test_generate_planets_has_diagonal_orbiting_group(self):
+        # The y=x diagonal orbiting group should always be generated
+        for _ in range(50):
+            planets = generate_planets()
+            num_groups = len(planets) // 4
+            found_diagonal = False
+            for g in range(num_groups):
+                p = planets[g * 4]  # Q1 planet
+                orb_r = distance((p[2], p[3]), (CENTER, CENTER))
+                is_orbiting = orb_r + p[4] < ROTATION_RADIUS_LIMIT
+                on_diagonal = abs((p[2] - CENTER) - (p[3] - CENTER)) < 0.01
+                if is_orbiting and on_diagonal:
+                    found_diagonal = True
+                    break
+            self.assertTrue(found_diagonal, "No y=x diagonal orbiting group found")
+
+    def test_4p_start_always_static_or_diagonal(self):
+        # In 4p, starting planets must be static or on the y=x diagonal
+        for _ in range(100):
+            state = [
+                SimpleNamespace(
+                    observation=SimpleNamespace(step=0),
+                    action=[],
+                    status="ACTIVE",
+                    reward=0,
+                ),
+            ] + [
+                SimpleNamespace(
+                    observation=SimpleNamespace(player=i),
+                    action=[],
+                    status="ACTIVE",
+                    reward=0,
+                )
+                for i in range(1, 4)
+            ]
+            env = SimpleNamespace(
+                configuration=SimpleNamespace(shipSpeed=5, episodeSteps=500, cometSpeed=4),
+                done=False,
+            )
+            new_state = interpreter(state, env)
+            obs = new_state[0].observation
+            owned = [p for p in obs.planets if p[1] != -1]
+            self.assertEqual(len(owned), 4)
+
+            q1 = owned[0]  # Player 0's planet (Q1)
+            orb_r = distance((q1[2], q1[3]), (CENTER, CENTER))
+            is_orbiting = orb_r + q1[4] < ROTATION_RADIUS_LIMIT
+            if is_orbiting:
+                # Must be on the y=x diagonal
+                self.assertAlmostEqual(
+                    q1[2] - CENTER, q1[3] - CENTER, places=2,
+                    msg="4p orbiting start not on y=x diagonal"
+                )
+
     def _make_state(self, planets, fleets, step=1):
         """Helper to build a minimal 2-player state for testing."""
         return [
@@ -170,6 +276,34 @@ class TestOrbitWars(unittest.TestCase):
             ),
         ]
 
+    def _make_state_4p(self, planets, fleets, step=1):
+        """Helper to build a minimal 4-player state for testing."""
+        return [
+            SimpleNamespace(
+                observation=SimpleNamespace(
+                    step=step,
+                    planets=planets,
+                    fleets=fleets,
+                    next_fleet_id=100,
+                    angular_velocity=0.01,
+                    initial_planets=[p[:] for p in planets],
+                    comets=[],
+                    comet_planet_ids=[],
+                ),
+                action=[],
+                status="ACTIVE",
+                reward=0,
+            ),
+        ] + [
+            SimpleNamespace(
+                observation=SimpleNamespace(player=i),
+                action=[],
+                status="ACTIVE",
+                reward=0,
+            )
+            for i in range(1, 4)
+        ]
+
     def test_rewards_set_at_max_steps(self):
         # When the game reaches episodeSteps without elimination,
         # rewards should reflect each player's total ships.
@@ -187,12 +321,116 @@ class TestOrbitWars(unittest.TestCase):
         )
 
         new_state = interpreter(state, env)
-        # Both players survive, so rewards should be set based on ships
-        # Player 0: 50 ships + 1 production = 51
-        # Player 1: 30 ships + 1 production = 31
-        self.assertEqual(new_state[0].reward, 51)
-        self.assertEqual(new_state[1].reward, 31)
+        # Player 0 has more ships (51 vs 31), so wins
+        self.assertEqual(new_state[0].reward, 1)
+        self.assertEqual(new_state[1].reward, -1)
         self.assertEqual(new_state[0].status, "DONE")
+
+    def test_reward_elimination_winner_and_loser(self):
+        # Player 0 has planets, player 1 has nothing -> elimination
+        planets = [
+            [0, 0, 80, 80, 3, 50, 1],
+        ]
+        state = self._make_state(planets, [])
+        env = SimpleNamespace(
+            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500, cometSpeed=4),
+            done=False,
+        )
+
+        new_state = interpreter(state, env)
+        self.assertEqual(new_state[0].reward, 1)
+        self.assertEqual(new_state[1].reward, -1)
+        self.assertEqual(new_state[0].status, "DONE")
+        self.assertEqual(new_state[1].status, "DONE")
+
+    def test_reward_elimination_via_fleets_only(self):
+        # Player 1 has no planets but has a fleet -> not eliminated yet
+        planets = [
+            [0, 0, 80, 80, 3, 50, 1],
+        ]
+        fleets = [
+            [0, 1, 30, 30, 0.0, 99, 10],
+        ]
+        state = self._make_state(planets, fleets)
+        env = SimpleNamespace(
+            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500, cometSpeed=4),
+            done=False,
+        )
+
+        new_state = interpreter(state, env)
+        # Player 1 still has a fleet, game continues
+        self.assertEqual(new_state[0].status, "ACTIVE")
+        self.assertEqual(new_state[0].reward, 0)
+
+    def test_reward_tie_at_max_steps(self):
+        # Both players have equal ships at game end -> both get 1
+        planets = [
+            [0, 0, 80, 80, 3, 30, 1],
+            [1, 1, 20, 20, 3, 30, 1],
+        ]
+        state = self._make_state(planets, [], step=498)
+        env = SimpleNamespace(
+            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500, cometSpeed=4),
+            done=False,
+        )
+
+        new_state = interpreter(state, env)
+        # Both have 31 ships (30 + 1 production), both win
+        self.assertEqual(new_state[0].reward, 1)
+        self.assertEqual(new_state[1].reward, 1)
+
+    def test_reward_all_eliminated(self):
+        # No players have planets or fleets -> all lose
+        planets = [
+            [0, -1, 80, 80, 3, 50, 1],
+        ]
+        state = self._make_state(planets, [])
+        env = SimpleNamespace(
+            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500, cometSpeed=4),
+            done=False,
+        )
+
+        new_state = interpreter(state, env)
+        # Neither player is alive, both get -1
+        self.assertEqual(new_state[0].reward, -1)
+        self.assertEqual(new_state[1].reward, -1)
+
+    def test_reward_4_player_elimination(self):
+        # Only player 2 survives
+        planets = [
+            [0, 2, 80, 80, 3, 40, 1],
+        ]
+        state = self._make_state_4p(planets, [])
+        env = SimpleNamespace(
+            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500, cometSpeed=4),
+            done=False,
+        )
+
+        new_state = interpreter(state, env)
+        self.assertEqual(new_state[0].reward, -1)
+        self.assertEqual(new_state[1].reward, -1)
+        self.assertEqual(new_state[2].reward, 1)
+        self.assertEqual(new_state[3].reward, -1)
+
+    def test_reward_includes_fleet_ships(self):
+        # Player 0 has fewer planet ships but more fleet ships
+        planets = [
+            [0, 0, 80, 80, 3, 10, 1],
+            [1, 1, 20, 20, 3, 30, 1],
+        ]
+        fleets = [
+            [0, 0, 50, 30, 0.0, 0, 50],  # P0 fleet with 50 ships
+        ]
+        state = self._make_state(planets, fleets, step=498)
+        env = SimpleNamespace(
+            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500, cometSpeed=4),
+            done=False,
+        )
+
+        new_state = interpreter(state, env)
+        # P0: 11 planet + 50 fleet = 61, P1: 31 planet = 31
+        self.assertEqual(new_state[0].reward, 1)
+        self.assertEqual(new_state[1].reward, -1)
 
     def test_fleet_removed_when_hitting_sun(self):
         # Planet far from sun, fleet aimed directly at the sun
