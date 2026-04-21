@@ -130,9 +130,40 @@ class CoreHarnessTest(absltest.TestCase):
     def test_no_legal_moves_raises(self):
         harness = _SimpleHarness(num_actions=0)
         agent = create_agent_fn(harness)
+        active_obs = {"playerId": 0, "currentPlayer": 0, "isTerminal": False}
         with patch.dict("os.environ", _ENV, clear=False):
             with self.assertRaisesRegex(ValueError, "No legal actions"):
-                agent({}, {})
+                agent(active_obs, {})
+
+    def test_terminal_obs_returns_inactive(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion",
+        ) as mock_call:
+            result = agent({"isTerminal": True, "playerId": 0, "currentPlayer": 0}, {})
+        self.assertEqual(result, {"submission": None, "status": "INACTIVE"})
+        mock_call.assert_not_called()
+
+    def test_not_our_turn_returns_inactive(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion",
+        ) as mock_call:
+            result = agent({"isTerminal": False, "playerId": 0, "currentPlayer": 1}, {})
+        self.assertEqual(result, {"submission": None, "status": "INACTIVE"})
+        mock_call.assert_not_called()
+
+    def test_empty_obs_returns_inactive(self):
+        harness = _SimpleHarness(num_actions=0)
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion",
+        ) as mock_call:
+            result = agent({"remainingOverageTime": 60, "step": 0}, {})
+        self.assertEqual(result, {"submission": None, "status": "INACTIVE"})
+        mock_call.assert_not_called()
 
     def test_missing_env_var_raises(self):
         harness = _SimpleHarness()
