@@ -76,12 +76,15 @@ steps:
     secretEnv: ["PYPI_TOKEN"]
 
   # Step 6: Publish to NPM (after visualizers built)
+  # Non-blocking: an npm-side auth/token failure should not block the Docker
+  # image push at the end of the build (images: section only fires on success).
   - id: "publish-to-npm"
     name: "gcr.io/cloud-builders/npm"
     entrypoint: "bash"
     args: ["web/scripts/publish-core.sh"]
     waitFor: ["build-all-visualizers"]
     secretEnv: ["NPM_TOKEN"]
+    allowFailure: true
 
   # Step 7: Deploy visualizers to GCS (after visualizers built, independent of NPM publish)
   # Note: No -d flag, so files are only added/updated, never deleted.
