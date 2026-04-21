@@ -246,9 +246,37 @@ def create_agent_fn(
 
         observation = obs if isinstance(obs, dict) else vars(obs)
 
+        # -- inactive-call guard --
+        # Runners may invoke the agent when it isn't actually our turn (game
+        # over, opponent to move, or the very first probe before the env
+        # interpreter has populated state). Return a no-op rather than crash.
+        is_terminal = observation.get("isTerminal")
+        player_id = observation.get("playerId")
+        current_player = observation.get("currentPlayer")
+        if is_terminal:
+            _TELEMETRY(inactive_call="terminal")
+            return {"submission": None, "status": "INACTIVE"}
+        if (
+            player_id is not None
+            and current_player is not None
+            and player_id != current_player
+        ):
+            _TELEMETRY(inactive_call="not_our_turn")
+            return {"submission": None, "status": "INACTIVE"}
+
         # -- legal moves --
         legal_moves = game_harness.get_legal_moves(observation)
         if not legal_moves:
+            # Distinguish "obs not yet populated" (None signals) from a real
+            # bug (it IS our turn but the game offers nothing).
+            if player_id is None and current_player is None:
+                _log.warning(
+                    "core_harness: agent invoked with empty observation "
+                    "(keys=%s); returning no-op.",
+                    sorted(observation.keys()),
+                )
+                _TELEMETRY(inactive_call="empty_obs")
+                return {"submission": None, "status": "INACTIVE"}
             _TELEMETRY(no_legal_actions=True)
             raise ValueError("No legal actions available.")
         legal_action_strings = list(legal_moves.values())
