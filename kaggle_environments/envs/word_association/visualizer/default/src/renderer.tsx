@@ -328,7 +328,7 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
     if (agent0IsActive && agent0Act !== null && typeof agent0Act === 'object' && 'clue' in agent0Act) {
       logEntries.push(
         <ChatBubble key={`s${i}-0`} team="blue" isSpymaster={true}>
-          <ActorName>Blue Spymaster</ActorName>
+          <ActorName>Blue Cluemaster</ActorName>
           Clue: <strong>{agent0Act.clue}</strong> for {agent0Act.number} words.
         </ChatBubble>
       );
@@ -336,7 +336,7 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
     if (agent2IsActive && agent2Act !== null && typeof agent2Act === 'object' && 'clue' in agent2Act) {
       logEntries.push(
         <ChatBubble key={`s${i}-2`} team="yellow" isSpymaster={true}>
-          <ActorName>Yellow Spymaster</ActorName>
+          <ActorName>Yellow Cluemaster</ActorName>
           Clue: <strong>{agent2Act.clue}</strong> for {agent2Act.number} words.
         </ChatBubble>
       );
@@ -432,7 +432,7 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
 
   const formatMissionLog = () => {
     if (isGameOver) return 'Results';
-    const playerTurns = ['🔷 Blue Spymaster', '🔷 Blue Guesser', '⬜ Yellow Spymaster', '⬜ Yellow Guesser'];
+    const playerTurns = ['🔷 Blue Cluemaster', '🔷 Blue Guesser', '⬜ Yellow Cluemaster', '⬜ Yellow Guesser'];
     return `Mission Log - ${playerTurns[state.current_turn] || ''}`;
   };
 

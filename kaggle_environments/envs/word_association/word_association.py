@@ -85,7 +85,7 @@ def process_action(state, config):
         end_game(winner="yellow" if current_turn in [0, 1] else "blue")
         return
 
-    # SPYMASTER TURN
+    # CLUEMASTER TURN
     if current_turn in [0, 2]:
         if not isinstance(action, dict) or "clue" not in action or "number" not in action:
             active_agent.status = "INVALID"

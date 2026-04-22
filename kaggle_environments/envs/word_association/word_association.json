@@ -57,7 +57,7 @@
       "type": "array"
     },
     "current_turn": {
-      "description": "0: Blue Spymaster, 1: Blue Guesser, 2: Yellow Spymaster, 3: Yellow Guesser.",
+      "description": "0: Blue Cluemaster, 1: Blue Guesser, 2: Yellow Cluemaster, 3: Yellow Guesser.",
       "type": "integer"
     },
     "clue": {
@@ -65,16 +65,16 @@
       "type": "string"
     },
     "guesses_remaining": {
-      "description": "The number of guesses the Guesser has left based on the Spymaster's clue.",
+      "description": "The number of guesses the Guesser has left based on the Cluemaster's clue.",
       "type": "integer"
     },
     "clue_number": {
-      "description": "The original number associated with the Spymaster's clue.",
+      "description": "The original number associated with the Cluemaster's clue.",
       "type": "integer"
     }
   },
   "action": {
-    "description": "For Spymasters: a clue string formatted like 'word, 2' or a dict. Number can be 0 (unlimited guesses, 0 related words, 1 min guess) or -1 (unlimited guesses, infinity related words, 1 min guess). For Guessers: the index (0-24) to guess, or -1 to pass.",
+    "description": "For Cluemasters: a clue string formatted like 'word, 2' or a dict. Number can be 0 (unlimited guesses, 0 related words, 1 min guess) or -1 (unlimited guesses, infinity related words, 1 min guess). For Guessers: the index (0-24) to guess, or -1 to pass.",
     "type": [
       "string",
       "integer",
