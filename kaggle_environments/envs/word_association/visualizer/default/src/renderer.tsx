@@ -95,7 +95,7 @@ const Grid = styled.div`
   margin: auto;
 `;
 
-const getCardBackgroundColor = (role: string, revealed: boolean, spymasterView: boolean) => {
+const getCardBackgroundColor = (role: string, revealed: boolean, cluemasterView: boolean) => {
   if (revealed) {
     switch (role) {
       case 'blue':
@@ -110,7 +110,7 @@ const getCardBackgroundColor = (role: string, revealed: boolean, spymasterView: 
     }
   }
 
-  if (spymasterView) {
+  if (cluemasterView) {
     switch (role) {
       case 'blue':
         return 'rgba(32, 190, 255, 0.3)';
@@ -135,14 +135,14 @@ const getCardColor = (role: string, revealed: boolean) => {
   return '#ffffff';
 };
 
-const CardContainer = styled.div<{ revealed: boolean; spymasterView: boolean; role: string }>`
+const CardContainer = styled.div<{ revealed: boolean; cluemasterView: boolean; role: string }>`
   perspective: 1000px;
   width: 100%;
   height: 100%;
   cursor: default;
   border-radius: 12px;
   border: ${(props) =>
-    !props.revealed && props.spymasterView
+    !props.revealed && props.cluemasterView
       ? `2px dashed ${getCardBackgroundColor(props.role, true, false)}`
       : '2px solid transparent'};
 `;
@@ -174,8 +174,8 @@ const CardFace = styled.div`
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 `;
 
-const CardFront = styled(CardFace)<{ role: string; spymasterView: boolean }>`
-  background-color: ${(props) => getCardBackgroundColor(props.role, false, props.spymasterView)};
+const CardFront = styled(CardFace)<{ role: string; cluemasterView: boolean }>`
+  background-color: ${(props) => getCardBackgroundColor(props.role, false, props.cluemasterView)};
   color: #ffffff;
 
   overflow: hidden;
@@ -200,8 +200,8 @@ const CardFront = styled(CardFace)<{ role: string; spymasterView: boolean }>`
   }
 `;
 
-const CardBack = styled(CardFace)<{ role: string; revealed: boolean; spymasterView: boolean }>`
-  background-color: ${(props) => getCardBackgroundColor(props.role, true, props.spymasterView)};
+const CardBack = styled(CardFace)<{ role: string; revealed: boolean; cluemasterView: boolean }>`
+  background-color: ${(props) => getCardBackgroundColor(props.role, true, props.cluemasterView)};
   color: ${(props) => getCardColor(props.role, true)};
   transform: rotateY(180deg);
   box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
@@ -240,7 +240,7 @@ const LogContent = styled.div`
 
 interface ChatBubbleProps {
   team: 'blue' | 'yellow' | 'system';
-  isSpymaster: boolean;
+  isCluemaster: boolean;
 }
 
 const ChatBubble = styled.div<ChatBubbleProps>`
@@ -249,8 +249,8 @@ const ChatBubble = styled.div<ChatBubbleProps>`
     props.team === 'system' ? 'center' : props.team === 'blue' ? 'flex-start' : 'flex-end'};
   background-color: ${(props: ChatBubbleProps) => {
     if (props.team === 'system') return '#333';
-    if (props.team === 'blue') return props.isSpymaster ? '#0088cc' : '#20BEFF';
-    return props.isSpymaster ? '#b29c1f' : '#E5CF4A';
+    if (props.team === 'blue') return props.isCluemaster ? '#0088cc' : '#20BEFF';
+    return props.isCluemaster ? '#b29c1f' : '#E5CF4A';
   }};
   color: ${(props: ChatBubbleProps) => (props.team === 'yellow' ? '#121212' : '#ffffff')};
   padding: 12px 16px;
@@ -283,7 +283,7 @@ interface GameState {
 
 export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererProps) => {
   const { replay, step } = options;
-  const [spymasterView, setSpymasterView] = useState(false);
+  const [cluemasterView, setCluemasterView] = useState(false);
 
   const currentStepData = replay.steps[step] as any;
   const currentEnvStep = Array.isArray(currentStepData) ? currentStepData : currentStepData.rawAgents;
@@ -327,7 +327,7 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
 
     if (agent0IsActive && agent0Act !== null && typeof agent0Act === 'object' && 'clue' in agent0Act) {
       logEntries.push(
-        <ChatBubble key={`s${i}-0`} team="blue" isSpymaster={true}>
+        <ChatBubble key={`s${i}-0`} team="blue" isCluemaster={true}>
           <ActorName>Blue Cluemaster</ActorName>
           Clue: <strong>{agent0Act.clue}</strong> for {agent0Act.number} words.
         </ChatBubble>
@@ -335,7 +335,7 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
     }
     if (agent2IsActive && agent2Act !== null && typeof agent2Act === 'object' && 'clue' in agent2Act) {
       logEntries.push(
-        <ChatBubble key={`s${i}-2`} team="yellow" isSpymaster={true}>
+        <ChatBubble key={`s${i}-2`} team="yellow" isCluemaster={true}>
           <ActorName>Yellow Cluemaster</ActorName>
           Clue: <strong>{agent2Act.clue}</strong> for {agent2Act.number} words.
         </ChatBubble>
@@ -344,7 +344,7 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
     if (agent1IsActive && agent1Act !== null && typeof agent1Act === 'number') {
       if (agent1Act === -1) {
         logEntries.push(
-          <ChatBubble key={`s${i}-1-pass`} team="blue" isSpymaster={false}>
+          <ChatBubble key={`s${i}-1-pass`} team="blue" isCluemaster={false}>
             <ActorName>Blue Guesser</ActorName>
             Ended turn.
           </ChatBubble>
@@ -353,7 +353,7 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
         const word = prevTurn[0].observation.words[agent1Act];
         const actualRole = prevTurn[0].observation.roles[agent1Act];
         logEntries.push(
-          <ChatBubble key={`s${i}-1`} team="blue" isSpymaster={false}>
+          <ChatBubble key={`s${i}-1`} team="blue" isCluemaster={false}>
             <ActorName>Blue Guesser</ActorName>
             Guessed: <strong>{word}</strong> ({actualRole})
           </ChatBubble>
@@ -363,7 +363,7 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
     if (agent3IsActive && agent3Act !== null && typeof agent3Act === 'number') {
       if (agent3Act === -1) {
         logEntries.push(
-          <ChatBubble key={`s${i}-3-pass`} team="yellow" isSpymaster={false}>
+          <ChatBubble key={`s${i}-3-pass`} team="yellow" isCluemaster={false}>
             <ActorName>Yellow Guesser</ActorName>
             Ended turn.
           </ChatBubble>
@@ -372,7 +372,7 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
         const word = prevTurn[0].observation.words[agent3Act];
         const actualRole = prevTurn[0].observation.roles[agent3Act];
         logEntries.push(
-          <ChatBubble key={`s${i}-3`} team="yellow" isSpymaster={false}>
+          <ChatBubble key={`s${i}-3`} team="yellow" isCluemaster={false}>
             <ActorName>Yellow Guesser</ActorName>
             Guessed: <strong>{word}</strong> ({actualRole})
           </ChatBubble>
@@ -445,8 +445,8 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
             <TeamScore team="blue">Blue: {blueRemaining}</TeamScore>
             <TeamScore team="yellow">Yellow: {yellowRemaining}</TeamScore>
           </ScoreBoard>
-          <ToggleButton active={spymasterView} onClick={() => setSpymasterView(!spymasterView)}>
-            {spymasterView ? '👁 Cluemaster View' : '👓 Guesser View'}
+          <ToggleButton active={cluemasterView} onClick={() => setCluemasterView(!cluemasterView)}>
+            {cluemasterView ? '👁 Cluemaster View' : '👓 Guesser View'}
           </ToggleButton>
         </TopBar>
 
@@ -456,13 +456,13 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
               key={index}
               role={state.roles[index]}
               revealed={state.revealed[index]}
-              spymasterView={spymasterView || isGameOver}
+              cluemasterView={cluemasterView || isGameOver}
             >
               <CardInner revealed={state.revealed[index] || isGameOver}>
-                <CardFront role={state.roles[index]} spymasterView={spymasterView || isGameOver}>
+                <CardFront role={state.roles[index]} cluemasterView={cluemasterView || isGameOver}>
                   {word}
                 </CardFront>
-                <CardBack role={state.roles[index]} revealed={true} spymasterView={spymasterView || isGameOver}>
+                <CardBack role={state.roles[index]} revealed={true} cluemasterView={cluemasterView || isGameOver}>
                   {word}
                 </CardBack>
               </CardInner>
