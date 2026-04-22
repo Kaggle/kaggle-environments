@@ -446,7 +446,7 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
             <TeamScore team="yellow">Yellow: {yellowRemaining}</TeamScore>
           </ScoreBoard>
           <ToggleButton active={spymasterView} onClick={() => setSpymasterView(!spymasterView)}>
-            {spymasterView ? '👁 Spymaster View' : '👓 Guesser View'}
+            {spymasterView ? '👁 Cluemaster View' : '👓 Guesser View'}
           </ToggleButton>
         </TopBar>
 
