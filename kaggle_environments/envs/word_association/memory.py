@@ -33,7 +33,7 @@ def track_turn(observation, state):
             if obs.current_game_turns:
                 last_turn = obs.current_game_turns[-1]
                 last_turn["guesses"].append(words[i])
-                # Read full roles from agent 0 (Spymaster)
+                # Read full roles from agent 0 (Cluemaster)
                 full_roles = state[0].observation.roles
                 last_turn["results"].append(full_roles[i])
             obs._last_revealed[i] = True
