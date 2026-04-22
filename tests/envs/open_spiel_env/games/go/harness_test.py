@@ -27,14 +27,11 @@ def _make_observation(state, game, player_id=0):
     return {
         "observationString": state.observation_string(player_id),
         "playerId": player_id,
-        "serializedGameAndState": pyspiel.serialize_game_and_state(
-            game.__wrapped__, state.__wrapped__
-        ),
+        "serializedGameAndState": pyspiel.serialize_game_and_state(game.__wrapped__, state.__wrapped__),
     }
 
 
 class ParseGoResponseTest(absltest.TestCase):
-
     def test_parse_json_move(self):
         legal = ["B a1", "B b2", "B e5", "B Pass"]
         response = '```json\n{"move": "e5"}\n```'
@@ -63,7 +60,7 @@ class ParseGoResponseTest(absltest.TestCase):
 
     def test_parse_malformed_json_falls_back(self):
         legal = ["B a1", "B e5"]
-        response = '```json\n{bad json}\n```\nI play e5.'
+        response = "```json\n{bad json}\n```\nI play e5."
         self.assertEqual(_parse_go_response(response, legal), "B e5")
 
     def test_parse_no_json_no_coord_returns_none(self):
@@ -73,7 +70,6 @@ class ParseGoResponseTest(absltest.TestCase):
 
 
 class MakeGoPromptTest(absltest.TestCase):
-
     def test_basic_prompt(self):
         observation = {
             "observationString": '{"board_size": 9, "komi": 7.5}',
@@ -127,7 +123,6 @@ class MakeGoPromptTest(absltest.TestCase):
 
 
 class GetLegalMovesTest(absltest.TestCase):
-
     def test_from_provided_actions(self):
         observation = {
             "legalActions": [0, 1, 81],
@@ -154,11 +149,11 @@ class GetLegalMovesTest(absltest.TestCase):
 
 
 class AgentFnTest(absltest.TestCase):
-
     def setUp(self):
         super().setUp()
         # Reset module-level state before each test
         import kaggle_environments.envs.open_spiel_env.games.go.harness as h
+
         h._SETUP_COMPLETE = False
         h._MODEL_NAME = None
         h._LITELLM_KWARGS = {}
@@ -182,7 +177,11 @@ class AgentFnTest(absltest.TestCase):
 
         result = agent_fn({"step": 0, "remainingOverageTime": 60}, {})
 
-        self.assertEqual(result, {"submission": -1})
+        self.assertEqual(result["submission"], -1)
+        self.assertEqual(result["actionString"], None)
+        self.assertEqual(result["thoughts"], None)
+        self.assertEqual(result["status"], "OK; Setup step; model not called.")
+        self.assertEqual(result["generate_returns"], [])
         mock_litellm.completion.assert_not_called()
 
     @patch.dict(
@@ -199,8 +198,12 @@ class AgentFnTest(absltest.TestCase):
 
         mock_litellm.drop_params = True
         mock_response = MagicMock()
+        mock_response.usage = {}
         mock_response.choices = [
-            MagicMock(message=MagicMock(content='```json\n{"move": "e5"}\n```'))
+            MagicMock(
+                message=MagicMock(content='```json\n{"move": "e5"}\n```'),
+                finish_reason="stop",
+            )
         ]
         mock_litellm.completion.return_value = mock_response
 
@@ -230,12 +233,20 @@ class AgentFnTest(absltest.TestCase):
 
         # First response: bad move, second response: good move
         bad_response = MagicMock()
+        bad_response.usage = {}
         bad_response.choices = [
-            MagicMock(message=MagicMock(content='```json\n{"move": "z9"}\n```'))
+            MagicMock(
+                message=MagicMock(content='```json\n{"move": "z9"}\n```'),
+                finish_reason="stop",
+            )
         ]
         good_response = MagicMock()
+        good_response.usage = {}
         good_response.choices = [
-            MagicMock(message=MagicMock(content='```json\n{"move": "a1"}\n```'))
+            MagicMock(
+                message=MagicMock(content='```json\n{"move": "a1"}\n```'),
+                finish_reason="stop",
+            )
         ]
         mock_litellm.completion.side_effect = [bad_response, good_response]
 
@@ -263,9 +274,7 @@ class AgentFnTest(absltest.TestCase):
         mock_litellm.drop_params = True
 
         bad_response = MagicMock()
-        bad_response.choices = [
-            MagicMock(message=MagicMock(content="I don't know what to play"))
-        ]
+        bad_response.choices = [MagicMock(message=MagicMock(content="I don't know what to play"))]
         mock_litellm.completion.return_value = bad_response
 
         game = go_proxy.GoGame({"board_size": 9, "komi": 7.5})

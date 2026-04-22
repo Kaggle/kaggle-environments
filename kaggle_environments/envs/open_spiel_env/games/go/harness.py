@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import time
 from typing import Any, Mapping, Sequence
 
 import litellm
@@ -108,7 +109,8 @@ def _extract_move_from_json(response: str) -> str | None:
 
 
 def _match_move_to_legal(
-    move: str, legal_moves: Sequence[str],
+    move: str,
+    legal_moves: Sequence[str],
 ) -> str | None:
     """Match a move string (e.g. "e5", "PASS") to a legal move string."""
     move_lower = move.lower()
@@ -179,6 +181,61 @@ def _get_legal_moves(
     return legal_actions, legal_action_strings
 
 
+# --- GenerateReturn-style logging payload ---
+
+
+def _usage_to_dict(usage: Any) -> dict[str, Any]:
+    """Normalize litellm usage object to a plain dict."""
+    if usage is None:
+        return {}
+    if hasattr(usage, "model_dump"):
+        return usage.model_dump()
+    if hasattr(usage, "dict"):
+        return usage.dict()
+    try:
+        return dict(usage)
+    except Exception:
+        return {}
+
+
+def _build_generate_return(
+    messages: list[dict[str, str]],
+    model: str,
+    reasoning_effort: str,
+    response: Any,
+    duration_secs: float,
+) -> dict[str, Any]:
+    """Build a GenerateReturn-shaped dict from a litellm response.
+
+    Mirrors game_arena.harness.model_generation.GenerateReturn so the
+    Kaggle Go visualizer (which reads action.generate_returns[i]) can
+    render prompt/response/thoughts consistently across harnesses.
+    """
+    content = response.choices[0].message.content
+    usage = _usage_to_dict(getattr(response, "usage", None))
+    reasoning_tokens = (usage.get("completion_tokens_details") or {}).get("reasoning_tokens")
+    return {
+        "main_response": content,
+        # litellm exposes gemini thoughts inline; keep both fields populated
+        # for downstream compatibility.
+        "main_response_and_thoughts": content,
+        "request_for_logging": {
+            "model": model,
+            "messages": messages,
+            "reasoning_effort": reasoning_effort,
+        },
+        "response_for_logging": {
+            "content": content,
+            "finish_reason": getattr(response.choices[0], "finish_reason", None),
+        },
+        "generation_tokens": usage.get("completion_tokens"),
+        "prompt_tokens": usage.get("prompt_tokens"),
+        "reasoning_tokens": reasoning_tokens,
+        "total_tokens": usage.get("total_tokens"),
+        "duration_success_only_secs": duration_secs,
+    }
+
+
 # --- Agent ---
 
 
@@ -186,12 +243,32 @@ _SETUP_COMPLETE = False
 _MODEL_NAME = None
 _LITELLM_KWARGS: dict[str, str] = {}
 _MOVE_HISTORY: list[str] = []
+_REASONING_EFFORT = "high"
+
+
+def _setup_action(status: str) -> dict[str, Any]:
+    """Return an inactive-turn action payload with the rich shape."""
+    return {
+        "submission": -1,
+        "actionString": None,
+        "thoughts": None,
+        "status": status,
+        "generate_returns": [],
+    }
 
 
 def agent_fn(
-    obs: dict[str, Any] | Any, config: dict[str, Any],
-) -> dict[str, int]:
-    """Kaggle-compatible Go agent backed by an LLM."""
+    obs: dict[str, Any] | Any,
+    config: dict[str, Any],
+) -> dict[str, Any]:
+    """Kaggle-compatible Go agent backed by an LLM.
+
+    Returns a KaggleSpielActionWithExtras-shaped dict: the `submission`
+    integer action plus `actionString`, `thoughts`, `status`, and
+    `generate_returns` (JSON-serialized GenerateReturn dicts, one per
+    model call). The Go visualizer consumes these extras to render
+    prompts and model thoughts.
+    """
     global _SETUP_COMPLETE, _MODEL_NAME, _LITELLM_KWARGS
 
     if not _SETUP_COMPLETE:
@@ -209,10 +286,7 @@ def agent_fn(
                 "api_base": f"{os.environ['MODEL_PROXY_URL']}/openapi",
                 "api_key": os.environ["MODEL_PROXY_KEY"],
             }
-        elif (
-            "gemini" in _MODEL_NAME.lower()
-            and not _MODEL_NAME.startswith("gemini/")
-        ):
+        elif "gemini" in _MODEL_NAME.lower() and not _MODEL_NAME.startswith("gemini/"):
             _MODEL_NAME = f"gemini/{_MODEL_NAME}"
 
         _SETUP_COMPLETE = True
@@ -221,8 +295,9 @@ def agent_fn(
     legal_actions, legal_action_strings = _get_legal_moves(observation)
 
     if not legal_actions:
-        return {"submission": -1}
+        return _setup_action("OK; Setup step; model not called.")
 
+    generate_returns: list[dict[str, Any]] = []
     previous_response = None
     previous_action = None
     content = ""
@@ -234,30 +309,50 @@ def agent_fn(
             previous_response=previous_response,
             previous_action=previous_action,
         )
+        messages = [{"role": "user", "content": prompt}]
 
         try:
+            start = time.perf_counter()
             response = litellm.completion(
                 model=_MODEL_NAME,
-                messages=[{"role": "user", "content": prompt}],
-                reasoning_effort="high",
+                messages=messages,
+                reasoning_effort=_REASONING_EFFORT,
                 **_LITELLM_KWARGS,
             )
+            duration = time.perf_counter() - start
             content = response.choices[0].message.content.strip()
         except Exception as e:
             print(f"[Go Harness] LLM call failed on attempt {attempt + 1}: {e}")
             raise
 
+        generate_returns.append(
+            _build_generate_return(
+                messages=messages,
+                model=_MODEL_NAME,
+                reasoning_effort=_REASONING_EFFORT,
+                response=response,
+                duration_secs=duration,
+            )
+        )
+
         action_str = _parse_go_response(content, legal_action_strings)
         if action_str is not None:
             idx = legal_action_strings.index(action_str)
             _MOVE_HISTORY.append(action_str)
-            return {"submission": legal_actions[idx]}
+            thoughts = "\n\n".join(g["main_response"] for g in generate_returns)
+            status = "OK"
+            if len(generate_returns) > 1:
+                status = f"OK; parsed legal move on retry {len(generate_returns)}."
+            return {
+                "submission": legal_actions[idx],
+                "actionString": action_str,
+                "thoughts": thoughts,
+                "status": status,
+                "generate_returns": [json.dumps(g) for g in generate_returns],
+            }
 
         previous_action = _extract_move_from_json(content)
         previous_response = content
         print(f"[Go Harness] Attempt {attempt + 1} failed to parse a legal move.")
 
-    raise ValueError(
-        f"Failed to parse a legal move after 2 attempts. "
-        f"Last response: {content[:200]}"
-    )
+    raise ValueError(f"Failed to parse a legal move after 2 attempts. Last response: {content[:200]}")
