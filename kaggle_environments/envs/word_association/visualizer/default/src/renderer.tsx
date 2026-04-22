@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { GameRendererProps } from '@kaggle-environments/core';
-// We import emotion styled components since @kaggle-environments/core provides it
 import styled from '@emotion/styled';
 
-// Define the styled components for our modern sleek visualizer
 const AppContainer = styled.div`
   display: flex;
   flex-direction: row;
@@ -49,7 +47,7 @@ const Title = styled.h1`
   font-size: 24px;
   font-weight: 700;
   margin: 0;
-  background: linear-gradient(90deg, #ff4081 0%, #2196f3 100%);
+  background: linear-gradient(90deg, #20beff 0%, #ffffff 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 `;
@@ -76,11 +74,11 @@ const ScoreBoard = styled.div`
   gap: 16px;
 `;
 
-const TeamScore = styled.div<{ team: 'red' | 'blue' }>`
-  background-color: ${(props: { team: 'red' | 'blue' }) =>
-    props.team === 'red' ? 'rgba(244, 67, 54, 0.2)' : 'rgba(33, 150, 243, 0.2)'};
-  color: ${(props: { team: 'red' | 'blue' }) => (props.team === 'red' ? '#ff8a80' : '#82b1ff')};
-  border: 1px solid ${(props: { team: 'red' | 'blue' }) => (props.team === 'red' ? '#f44336' : '#2196f3')};
+const TeamScore = styled.div<{ team: 'blue' | 'white' }>`
+  background-color: ${(props: { team: 'blue' | 'white' }) =>
+    props.team === 'blue' ? 'rgba(32, 190, 255, 0.2)' : 'rgba(255, 255, 255, 0.2)'};
+  color: ${(props: { team: 'blue' | 'white' }) => (props.team === 'blue' ? '#20BEFF' : '#ffffff')};
+  border: 1px solid ${(props: { team: 'blue' | 'white' }) => (props.team === 'blue' ? '#20BEFF' : '#ffffff')};
   padding: 8px 16px;
   border-radius: 8px;
   font-weight: bold;
@@ -100,24 +98,24 @@ const Grid = styled.div`
 const getCardBackgroundColor = (role: string, revealed: boolean, spymasterView: boolean) => {
   if (revealed) {
     switch (role) {
-      case 'red':
-        return '#f44336'; // Material Red 500
       case 'blue':
-        return '#2196f3'; // Material Blue 500
+        return '#20BEFF';
+      case 'white':
+        return '#FFFFFF';
       case 'assassin':
-        return '#212121'; // Dark Grey
+        return '#212121';
       case 'neutral':
       default:
-        return '#e0e0e0'; // Light Grey
+        return '#e0e0e0';
     }
   }
 
   if (spymasterView) {
     switch (role) {
-      case 'red':
-        return 'rgba(244, 67, 54, 0.3)';
       case 'blue':
-        return 'rgba(33, 150, 243, 0.3)';
+        return 'rgba(32, 190, 255, 0.3)';
+      case 'white':
+        return 'rgba(255, 255, 255, 0.3)';
       case 'assassin':
         return 'rgba(33, 33, 33, 0.5)';
       case 'neutral':
@@ -126,12 +124,12 @@ const getCardBackgroundColor = (role: string, revealed: boolean, spymasterView: 
     }
   }
 
-  return '#424242'; // Default unrevealed dark grey
+  return '#424242';
 };
 
 const getCardColor = (role: string, revealed: boolean) => {
   if (revealed) {
-    if (role === 'neutral') return '#000000';
+    if (role === 'neutral' || role === 'white') return '#000000';
     return '#ffffff';
   }
   return '#ffffff';
@@ -142,8 +140,6 @@ const CardContainer = styled.div<{ revealed: boolean; spymasterView: boolean; ro
   width: 100%;
   height: 100%;
   cursor: default;
-
-  /* Subtle pulsing border if spymaster views an unrevealed card */
   border-radius: 12px;
   border: ${(props) =>
     !props.revealed && props.spymasterView
@@ -182,7 +178,6 @@ const CardFront = styled(CardFace)<{ role: string; spymasterView: boolean }>`
   background-color: ${(props) => getCardBackgroundColor(props.role, false, props.spymasterView)};
   color: #ffffff;
 
-  /* Subtle shine effect */
   overflow: hidden;
   &::before {
     content: '';
@@ -228,7 +223,6 @@ const LogContent = styled.div`
   flex-direction: column;
   gap: 16px;
 
-  /* Custom scrollbar */
   &::-webkit-scrollbar {
     width: 8px;
   }
@@ -245,23 +239,24 @@ const LogContent = styled.div`
 `;
 
 interface ChatBubbleProps {
-  team: 'red' | 'blue' | 'system';
+  team: 'blue' | 'white' | 'system';
   isSpymaster: boolean;
 }
+
 const ChatBubble = styled.div<ChatBubbleProps>`
   max-width: 85%;
   align-self: ${(props: ChatBubbleProps) =>
-    props.team === 'system' ? 'center' : props.team === 'red' ? 'flex-start' : 'flex-end'};
+    props.team === 'system' ? 'center' : props.team === 'blue' ? 'flex-start' : 'flex-end'};
   background-color: ${(props: ChatBubbleProps) => {
     if (props.team === 'system') return '#333';
-    if (props.team === 'red') return props.isSpymaster ? '#b71c1c' : '#f44336';
-    return props.isSpymaster ? '#0d47a1' : '#2196f3';
+    if (props.team === 'blue') return props.isSpymaster ? '#0088cc' : '#20BEFF';
+    return props.isSpymaster ? '#e0e0e0' : '#FFFFFF';
   }};
-  color: white;
+  color: ${(props: ChatBubbleProps) => (props.team === 'white' ? '#121212' : '#ffffff')};
   padding: 12px 16px;
   border-radius: 16px;
-  border-bottom-left-radius: ${(props: ChatBubbleProps) => (props.team === 'red' ? '4px' : '16px')};
-  border-bottom-right-radius: ${(props: ChatBubbleProps) => (props.team === 'blue' ? '4px' : '16px')};
+  border-bottom-left-radius: ${(props: ChatBubbleProps) => (props.team === 'blue' ? '4px' : '16px')};
+  border-bottom-right-radius: ${(props: ChatBubbleProps) => (props.team === 'white' ? '4px' : '16px')};
   font-size: 14px;
   line-height: 1.4;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
@@ -276,7 +271,6 @@ const ActorName = styled.div`
   letter-spacing: 0.5px;
 `;
 
-// Types and Helper parsing
 interface GameState {
   words: string[];
   roles: string[];
@@ -294,33 +288,26 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
   const currentStepData = replay.steps[step] as any;
   const currentEnvStep = Array.isArray(currentStepData) ? currentStepData : currentStepData.rawAgents;
 
-  // Access global environment state via the first agent's observation
   const state: GameState = currentEnvStep[0].observation;
 
   if (!state || !state.words) {
-    console.log('State or words missing, initializing...');
     return <div style={{ color: 'white', padding: 20 }}>Initializing...</div>;
   }
 
-  // Calculate remaining unrevealed words for each team for the scoreboard
-  const redRemaining = state.roles.filter((r, i) => r === 'red' && !state.revealed[i]).length;
   const blueRemaining = state.roles.filter((r, i) => r === 'blue' && !state.revealed[i]).length;
+  const whiteRemaining = state.roles.filter((r, i) => r === 'white' && !state.revealed[i]).length;
 
-  // Build the game log dynamically up to the current step
   const logEntries: React.ReactNode[] = [];
 
-  // We iterate through all history up to current step
   for (let i = 1; i <= step; i++) {
     const pastStepData = replay.steps[i] as any;
     const pastStep = Array.isArray(pastStepData) ? pastStepData : pastStepData.rawAgents;
 
-    // Find who moved in this step. The easiest way is to look at the actions.
     const agent0Act = pastStep[0].action;
     const agent1ActRaw = pastStep[1].action;
     const agent2Act = pastStep[2].action;
     const agent3ActRaw = pastStep[3].action;
 
-    // Handle either dicts {"guess": 1} or directly number (1)
     const agent1Act =
       typeof agent1ActRaw === 'object' && agent1ActRaw !== null && 'guess' in agent1ActRaw
         ? agent1ActRaw.guess
@@ -330,7 +317,6 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
         ? agent3ActRaw.guess
         : agent3ActRaw;
 
-    // Check whose turn it wasn't. The action at replay.steps[i] was produced given the observation at replay.steps[i-1].
     const prevTurnData = i > 0 ? (replay.steps[i - 1] as any) : null;
     const prevTurn = prevTurnData ? (Array.isArray(prevTurnData) ? prevTurnData : prevTurnData.rawAgents) : null;
     const currentTurnVal = prevTurn ? prevTurn[0].observation.current_turn : -1;
@@ -341,16 +327,16 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
 
     if (agent0IsActive && agent0Act !== null && typeof agent0Act === 'object' && 'clue' in agent0Act) {
       logEntries.push(
-        <ChatBubble key={`s${i}-0`} team="red" isSpymaster={true}>
-          <ActorName>Red Spymaster</ActorName>
+        <ChatBubble key={`s${i}-0`} team="blue" isSpymaster={true}>
+          <ActorName>Blue Spymaster</ActorName>
           Clue: <strong>{agent0Act.clue}</strong> for {agent0Act.number} words.
         </ChatBubble>
       );
     }
     if (agent2IsActive && agent2Act !== null && typeof agent2Act === 'object' && 'clue' in agent2Act) {
       logEntries.push(
-        <ChatBubble key={`s${i}-2`} team="blue" isSpymaster={true}>
-          <ActorName>Blue Spymaster</ActorName>
+        <ChatBubble key={`s${i}-2`} team="white" isSpymaster={true}>
+          <ActorName>White Spymaster</ActorName>
           Clue: <strong>{agent2Act.clue}</strong> for {agent2Act.number} words.
         </ChatBubble>
       );
@@ -358,18 +344,17 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
     if (agent1IsActive && agent1Act !== null && typeof agent1Act === 'number') {
       if (agent1Act === -1) {
         logEntries.push(
-          <ChatBubble key={`s${i}-1-pass`} team="red" isSpymaster={false}>
-            <ActorName>Red Guesser</ActorName>
+          <ChatBubble key={`s${i}-1-pass`} team="blue" isSpymaster={false}>
+            <ActorName>Blue Guesser</ActorName>
             Ended turn.
           </ChatBubble>
         );
       } else {
-        // Find the role in the preceding step's state before it was revealed
         const word = prevTurn[0].observation.words[agent1Act];
         const actualRole = prevTurn[0].observation.roles[agent1Act];
         logEntries.push(
-          <ChatBubble key={`s${i}-1`} team="red" isSpymaster={false}>
-            <ActorName>Red Guesser</ActorName>
+          <ChatBubble key={`s${i}-1`} team="blue" isSpymaster={false}>
+            <ActorName>Blue Guesser</ActorName>
             Guessed: <strong>{word}</strong> ({actualRole})
           </ChatBubble>
         );
@@ -378,8 +363,8 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
     if (agent3IsActive && agent3Act !== null && typeof agent3Act === 'number') {
       if (agent3Act === -1) {
         logEntries.push(
-          <ChatBubble key={`s${i}-3-pass`} team="blue" isSpymaster={false}>
-            <ActorName>Blue Guesser</ActorName>
+          <ChatBubble key={`s${i}-3-pass`} team="white" isSpymaster={false}>
+            <ActorName>White Guesser</ActorName>
             Ended turn.
           </ChatBubble>
         );
@@ -387,8 +372,8 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
         const word = prevTurn[0].observation.words[agent3Act];
         const actualRole = prevTurn[0].observation.roles[agent3Act];
         logEntries.push(
-          <ChatBubble key={`s${i}-3`} team="blue" isSpymaster={false}>
-            <ActorName>Blue Guesser</ActorName>
+          <ChatBubble key={`s${i}-3`} team="white" isSpymaster={false}>
+            <ActorName>White Guesser</ActorName>
             Guessed: <strong>{word}</strong> ({actualRole})
           </ChatBubble>
         );
@@ -396,7 +381,6 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
     }
   }
 
-  // Scroll to bottom effect (Hack because we don't have a direct ref easily accessible across rerenders here)
   useEffect(() => {
     const logContainer = document.getElementById('log-content');
     if (logContainer) {
@@ -404,12 +388,10 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
     }
   }, [step]);
 
-  // Check for game over
   const isGameOver = currentEnvStep[0].status === 'DONE';
   let winnerText: React.ReactNode = null;
 
   if (isGameOver) {
-    // Check if the game ended due to the assassin being picked
     const assassinIndex = state.roles.findIndex((role) => role === 'assassin');
     const assassinRevealed = assassinIndex !== -1 && state.revealed[assassinIndex];
 
@@ -417,36 +399,42 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
       if (state.reward === 1 || currentEnvStep[0].reward === 1) {
         winnerText = (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.2' }}>
-            <span style={{ color: '#f44336' }}>🟥 RED TEAM WINS! 🟥</span>
+            <span style={{ color: '#20BEFF' }}>🔷 BLUE WINS! 🔷</span>
             <span style={{ fontSize: '14px', color: '#aaaaaa', marginTop: '4px', fontWeight: 'normal' }}>
-              (Blue team picked the Assassin)
+              (White picked the Assassin)
             </span>
           </div>
         );
       } else if (currentEnvStep[2].reward === 1) {
         winnerText = (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.2' }}>
-            <span style={{ color: '#2196f3' }}>🟦 BLUE TEAM WINS! 🟦</span>
+            <span style={{ color: '#FFFFFF' }}>⬜ WHITE WINS! ⬜</span>
             <span style={{ fontSize: '14px', color: '#aaaaaa', marginTop: '4px', fontWeight: 'normal' }}>
-              (Red team picked the Assassin)
+              (Blue picked the Assassin)
             </span>
           </div>
         );
       }
     } else {
       if (state.reward === 1 || currentEnvStep[0].reward === 1) {
-        winnerText = <span style={{ color: '#f44336' }}>🟥 RED TEAM WINS! 🟥</span>;
+        winnerText = <span style={{ color: '#20BEFF' }}>🔷 BLUE WINS! 🔷</span>;
       } else if (currentEnvStep[2].reward === 1) {
-        winnerText = <span style={{ color: '#2196f3' }}>🟦 BLUE TEAM WINS! 🟦</span>;
-      } else if (redRemaining === 0) {
-        winnerText = <span style={{ color: '#f44336' }}>🟥 RED TEAM WINS! 🟥</span>;
+        winnerText = <span style={{ color: '#FFFFFF' }}>⬜ WHITE WINS! ⬜</span>;
       } else if (blueRemaining === 0) {
-        winnerText = <span style={{ color: '#2196f3' }}>🟦 BLUE TEAM WINS! 🟦</span>;
+        winnerText = <span style={{ color: '#20BEFF' }}>🔷 BLUE WINS! 🔷</span>;
+      } else if (whiteRemaining === 0) {
+        winnerText = <span style={{ color: '#FFFFFF' }}>⬜ WHITE WINS! ⬜</span>;
       } else {
         winnerText = 'GAME OVER';
       }
     }
   }
+
+  const formatMissionLog = () => {
+    if (isGameOver) return 'Results';
+    const playerTurns = ['🔷 Blue Spymaster', '🔷 Blue Guesser', '⬜ White Spymaster', '⬜ White Guesser'];
+    return `Mission Log - ${playerTurns[state.current_turn] || ''}`;
+  };
 
   return (
     <AppContainer>
@@ -454,8 +442,8 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
         <TopBar>
           <Title>{isGameOver ? winnerText : 'WORD ASSOCIATION'}</Title>
           <ScoreBoard>
-            <TeamScore team="red">Red: {redRemaining}</TeamScore>
             <TeamScore team="blue">Blue: {blueRemaining}</TeamScore>
+            <TeamScore team="white">White: {whiteRemaining}</TeamScore>
           </ScoreBoard>
           <ToggleButton active={spymasterView} onClick={() => setSpymasterView(!spymasterView)}>
             {spymasterView ? '👁 Spymaster View' : '👓 Guesser View'}
@@ -484,11 +472,7 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
       </BoardPane>
 
       <LogPane>
-        <LogHeader>
-          {isGameOver
-            ? 'Results'
-            : `Mission Log ${state.current_turn === 0 ? '🟥 Spymaster' : state.current_turn === 1 ? '🟥 Guesser' : state.current_turn === 2 ? '🟦 Spymaster' : '🟦 Guesser'}`}
-        </LogHeader>
+        <LogHeader>{formatMissionLog()}</LogHeader>
         <LogContent id="log-content">
           {logEntries.length === 0 ? (
             <div style={{ opacity: 0.5, textAlign: 'center', marginTop: 20 }}>

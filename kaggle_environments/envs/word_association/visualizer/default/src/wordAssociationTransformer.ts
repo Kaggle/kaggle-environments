@@ -41,7 +41,12 @@ export const wordAssociationTransformer = (environment: ReplayData, _gameName: s
         actionDisplayText = '';
       }
 
-      const roleNames = ['Red Spymaster', 'Red Guesser', 'Blue Spymaster', 'Blue Guesser'];
+      const roleNames = [
+        'Blue Spymaster',
+        'Blue Guesser',
+        'White Spymaster',
+        'White Guesser',
+      ];
       const baseName = roleNames[idx] || `Agent ${idx}`;
       const teamName = environment.info?.TeamNames?.[idx];
       const displayName = teamName ? `${baseName} (${teamName})` : baseName;
