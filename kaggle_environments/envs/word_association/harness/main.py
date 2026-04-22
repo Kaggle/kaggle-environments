@@ -44,7 +44,7 @@ class LLMWordAssociationAgent:
         words = obs.words
         revealed = obs.revealed
         turn = obs.current_turn
-        team = "blue" if turn == 0 else "kaggle_yellow"
+        team = "blue" if turn == 0 else "yellow"
         
         prompt = f"You are the {team.upper()} Spymaster in Word Association.\n\n"
         prompt += f"Your goal is to get your team to guess all your {team.upper()} words while avoiding the opposite team's words and the assassin.\n"
@@ -117,7 +117,7 @@ class LLMWordAssociationAgent:
         clue = obs.clue
         remaining = obs.guesses_remaining
         turn = obs.current_turn
-        team = "blue" if turn == 1 else "kaggle_yellow"
+        team = "blue" if turn == 1 else "yellow"
         
         clue_number = obs.clue_number
         prompt = f"You are the {team.upper()} Guesser in Word Association.\n\n"

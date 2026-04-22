@@ -41,7 +41,7 @@ export const wordAssociationTransformer = (environment: ReplayData, _gameName: s
         actionDisplayText = '';
       }
 
-      const roleNames = ['Blue Spymaster', 'Blue Guesser', 'Kaggle Yellow Spymaster', 'Kaggle Yellow Guesser'];
+      const roleNames = ['Blue Spymaster', 'Blue Guesser', 'Yellow Spymaster', 'Yellow Guesser'];
       const baseName = roleNames[idx] || `Agent ${idx}`;
       const teamName = environment.info?.TeamNames?.[idx];
       const displayName = teamName ? `${baseName} (${teamName})` : baseName;

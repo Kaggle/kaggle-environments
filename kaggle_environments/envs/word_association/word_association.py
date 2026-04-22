@@ -23,16 +23,16 @@ def initialize_game(state, config):
     sampled_words = rng.sample(all_words, board_size)
     
     # Determine playing order and word counts
-    starting_team = rng.choice(["blue", "kaggle_yellow"])
+    starting_team = rng.choice(["blue", "yellow"])
     if starting_team == "blue":
         blue_count = starting_team_words
-        kaggle_yellow_count = second_team_words
+        yellow_count = second_team_words
     else:
         blue_count = second_team_words
-        kaggle_yellow_count = starting_team_words
+        yellow_count = starting_team_words
     
     # Assign roles
-    roles = ["blue"] * blue_count + ["kaggle_yellow"] * kaggle_yellow_count + ["assassin"] * 1
+    roles = ["blue"] * blue_count + ["yellow"] * yellow_count + ["assassin"] * 1
     roles += ["neutral"] * (board_size - len(roles))
     rng.shuffle(roles)
     
@@ -74,7 +74,7 @@ def process_action(state, config):
                 state[i].status = "DONE"
             if winner == "blue":
                 state[i].reward = 1 if i in [0, 1] else -1
-            elif winner == "kaggle_yellow":
+            elif winner == "yellow":
                 state[i].reward = 1 if i in [2, 3] else -1
             else:
                 state[i].reward = 0
@@ -82,14 +82,14 @@ def process_action(state, config):
     # Handle Agent Failure / Invalid Action
     if action is None:
         active_agent.status = "INVALID"
-        end_game(winner="kaggle_yellow" if current_turn in [0, 1] else "blue")
+        end_game(winner="yellow" if current_turn in [0, 1] else "blue")
         return
 
     # SPYMASTER TURN
     if current_turn in [0, 2]:
         if not isinstance(action, dict) or "clue" not in action or "number" not in action:
             active_agent.status = "INVALID"
-            end_game(winner="kaggle_yellow" if current_turn == 0 else "blue")
+            end_game(winner="yellow" if current_turn == 0 else "blue")
             return
             
         # Clue validation
@@ -97,7 +97,7 @@ def process_action(state, config):
         words = state[0].observation.words
         revealed = state[0].observation.revealed
         roles = state[0].observation.roles
-        opponent_team = "kaggle_yellow" if current_turn == 0 else "blue"
+        opponent_team = "yellow" if current_turn == 0 else "blue"
         
         is_invalid_clue = False
         if " " in normalized_clue or "-" in normalized_clue:
@@ -126,12 +126,12 @@ def process_action(state, config):
                 
             # Check if penalty won the game for opponent
             blue_left = sum(1 for i in range(BOARD_SIZE) if roles[i] == "blue" and not state[0].observation.revealed[i])
-            kaggle_yellow_left = sum(1 for i in range(BOARD_SIZE) if roles[i] == "kaggle_yellow" and not state[0].observation.revealed[i])
+            yellow_left = sum(1 for i in range(BOARD_SIZE) if roles[i] == "yellow" and not state[0].observation.revealed[i])
             
             if blue_left == 0:
                 end_game(winner="blue")
-            elif kaggle_yellow_left == 0:
-                end_game(winner="kaggle_yellow")
+            elif yellow_left == 0:
+                end_game(winner="yellow")
             else:
                 for i in range(4):
                     state[i].status = "ACTIVE" if i == state[0].observation.current_turn else "INACTIVE"
@@ -156,7 +156,7 @@ def process_action(state, config):
         
         if not isinstance(guess_val, int) or guess_val < -1 or guess_val > BOARD_SIZE - 1:
             active_agent.status = "INVALID"
-            end_game(winner="kaggle_yellow" if current_turn == 1 else "blue")
+            end_game(winner="yellow" if current_turn == 1 else "blue")
             return
             
         # Pass
@@ -166,7 +166,7 @@ def process_action(state, config):
             # 0 ("zero") and -1 ("infinity") clues both give unlimited guesses but STILL require at least 1 guess
             if state[0].observation.guesses_remaining == expected_remaining:
                 active_agent.status = "INVALID"
-                end_game(winner="kaggle_yellow" if current_turn == 1 else "blue")
+                end_game(winner="yellow" if current_turn == 1 else "blue")
                 return
                 
             for s in state:
@@ -177,7 +177,7 @@ def process_action(state, config):
             # Check if already revealed
             if state[0].observation.revealed[guess_val]:
                 active_agent.status = "INVALID"
-                end_game(winner="kaggle_yellow" if current_turn == 1 else "blue")
+                end_game(winner="yellow" if current_turn == 1 else "blue")
                 return
                 
             # Reveal
@@ -186,11 +186,11 @@ def process_action(state, config):
             
             roles = state[0].observation.roles
             guessed_role = roles[guess_val]
-            team_color = "blue" if current_turn == 1 else "kaggle_yellow"
+            team_color = "blue" if current_turn == 1 else "yellow"
             
             # Assassin check
             if guessed_role == "assassin":
-                end_game(winner="kaggle_yellow" if team_color == "blue" else "blue")
+                end_game(winner="yellow" if team_color == "blue" else "blue")
                 return
                 
             # Neutral or Opponent word
@@ -214,13 +214,13 @@ def process_action(state, config):
         revealed = state[0].observation.revealed
         roles = state[0].observation.roles
         blue_left = sum(1 for i in range(BOARD_SIZE) if roles[i] == "blue" and not revealed[i])
-        kaggle_yellow_left = sum(1 for i in range(BOARD_SIZE) if roles[i] == "kaggle_yellow" and not revealed[i])
+        yellow_left = sum(1 for i in range(BOARD_SIZE) if roles[i] == "yellow" and not revealed[i])
         
         if blue_left == 0:
             end_game(winner="blue")
             return
-        elif kaggle_yellow_left == 0:
-            end_game(winner="kaggle_yellow")
+        elif yellow_left == 0:
+            end_game(winner="yellow")
             return
 
         # Next turn setup if not done
@@ -257,7 +257,7 @@ def interpreter(state, env):
         if is_done:
             winner = None
             if state[0].reward == 1: winner = "blue"
-            elif state[2].reward == 1: winner = "kaggle_yellow"
+            elif state[2].reward == 1: winner = "yellow"
             
             window_size = env.configuration.get("memory_window_size", 0)
             save_game_to_history(obs, winner, window_size)
@@ -275,7 +275,7 @@ def interpreter(state, env):
                 # Reset agent statuses based on new current_turn
                 active_agent = state[0].observation.current_turn
                 for i in range(4):
-                    state[i].status = "ACTIVE" if i == active_agent else "INACTIVE"
+                    state[i].status = "ACTIVE" if i == state[0].observation.current_turn else "INACTIVE"
                     state[i].reward = 0
                     
     return state
