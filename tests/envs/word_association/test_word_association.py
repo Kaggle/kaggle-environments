@@ -29,10 +29,10 @@ def test_random_start_counts():
     env = make("word_association")
     roles = env.state[0].observation.roles
     blue_count = sum(1 for r in roles if r == "blue")
-    white_count = sum(1 for r in roles if r == "white")
+    kaggle_yellow_count = sum(1 for r in roles if r == "kaggle_yellow")
     
     # One team must have 9, the other must have 8
-    assert (blue_count == 9 and white_count == 8) or (blue_count == 8 and white_count == 9)
+    assert (blue_count == 9 and kaggle_yellow_count == 8) or (blue_count == 8 and kaggle_yellow_count == 9)
     
     # The starting team is determined by who has 9 words
     turn = env.state[0].observation.current_turn
@@ -92,7 +92,7 @@ def test_clue_validation():
     
     words = state[0].observation.words
     first_word = words[0]
-    opponent_team = "white" if turn == 0 else "blue"
+    opponent_team = "kaggle_yellow" if turn == 0 else "blue"
     opp_before = sum(1 for i in range(25) if state[0].observation.roles[i] == opponent_team and not state[0].observation.revealed[i])
     
     env.step([{"clue": first_word[1:4], "number": 1} if i == turn else None for i in range(4)])
@@ -107,7 +107,7 @@ def test_space_hyphen_validation():
     state = env.reset()
     turn = state[0].observation.current_turn
     
-    opponent_team = "white" if turn == 0 else "blue"
+    opponent_team = "kaggle_yellow" if turn == 0 else "blue"
     opp_before = sum(1 for i in range(25) if state[0].observation.roles[i] == opponent_team and not state[0].observation.revealed[i])
     
     # Try clue with space
@@ -121,7 +121,7 @@ def test_space_hyphen_validation():
     # Reset for hyphen test
     state = env.reset()
     turn = state[0].observation.current_turn
-    opponent_team = "white" if turn == 0 else "blue"
+    opponent_team = "kaggle_yellow" if turn == 0 else "blue"
     opp_before = sum(1 for i in range(25) if state[0].observation.roles[i] == opponent_team and not state[0].observation.revealed[i])
     
     # Try clue with hyphen

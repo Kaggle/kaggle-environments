@@ -49,7 +49,7 @@
       "type": "array"
     },
     "roles": {
-      "description": "List of 25 roles for each word ('blue', 'white', 'neutral', 'assassin'). Masked for Guessers.",
+      "description": "List of 25 roles for each word ('blue', 'kaggle_yellow', 'neutral', 'assassin'). Masked for Guessers.",
       "type": "array"
     },
     "revealed": {
@@ -57,7 +57,7 @@
       "type": "array"
     },
     "current_turn": {
-      "description": "0: Blue Spymaster, 1: Blue Guesser, 2: White Spymaster, 3: White Guesser.",
+      "description": "0: Blue Spymaster, 1: Blue Guesser, 2: Kaggle Yellow Spymaster, 3: Kaggle Yellow Guesser.",
       "type": "integer"
     },
     "clue": {
