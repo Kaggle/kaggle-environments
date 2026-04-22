@@ -1,5 +1,6 @@
-import unittest
 import math
+import random
+import unittest
 from types import SimpleNamespace
 from kaggle_environments.envs.orbit_wars.orbit_wars import (
     interpreter,
@@ -157,6 +158,9 @@ class TestOrbitWars(unittest.TestCase):
         self.assertEqual(owners, {0, 1, 2, 3})
 
     def test_comet_spawn_keeps_initial_planets_synced_across_players(self):
+        # Comet spawning is RNG-driven; seed so the 49-step window is
+        # deterministic and reliably contains a spawn.
+        random.seed(0)
         state = [
             SimpleNamespace(
                 observation=SimpleNamespace(step=0),
