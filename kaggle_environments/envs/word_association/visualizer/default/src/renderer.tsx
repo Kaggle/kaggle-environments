@@ -102,7 +102,7 @@ const getCardBackgroundColor = (role: string, revealed: boolean, cluemasterView:
         return '#20BEFF';
       case 'yellow':
         return '#E5CF4A';
-      case 'assassin':
+      case 'trap':
         return '#212121';
       case 'neutral':
       default:
@@ -116,7 +116,7 @@ const getCardBackgroundColor = (role: string, revealed: boolean, cluemasterView:
         return 'rgba(32, 190, 255, 0.3)';
       case 'yellow':
         return 'rgba(229, 207, 74, 0.3)';
-      case 'assassin':
+      case 'trap':
         return 'rgba(33, 33, 33, 0.5)';
       case 'neutral':
       default:
@@ -392,16 +392,16 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
   let winnerText: React.ReactNode = null;
 
   if (isGameOver) {
-    const assassinIndex = state.roles.findIndex((role) => role === 'assassin');
-    const assassinRevealed = assassinIndex !== -1 && state.revealed[assassinIndex];
+    const trapIndex = state.roles.findIndex((role) => role === 'trap');
+    const trapRevealed = trapIndex !== -1 && state.revealed[trapIndex];
 
-    if (assassinRevealed) {
+    if (trapRevealed) {
       if (state.reward === 1 || currentEnvStep[0].reward === 1) {
         winnerText = (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.2' }}>
             <span style={{ color: '#20BEFF' }}>🔷 BLUE WINS! 🔷</span>
             <span style={{ fontSize: '14px', color: '#aaaaaa', marginTop: '4px', fontWeight: 'normal' }}>
-              (Yellow picked the Assassin)
+              (Yellow picked the Trap)
             </span>
           </div>
         );
@@ -410,7 +410,7 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.2' }}>
             <span style={{ color: '#E5CF4A' }}>⬜ YELLOW WINS! ⬜</span>
             <span style={{ fontSize: '14px', color: '#aaaaaa', marginTop: '4px', fontWeight: 'normal' }}>
-              (Blue picked the Assassin)
+              (Blue picked the Trap)
             </span>
           </div>
         );

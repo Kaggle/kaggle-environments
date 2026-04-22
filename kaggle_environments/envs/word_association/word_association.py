@@ -32,7 +32,7 @@ def initialize_game(state, config):
         yellow_count = starting_team_words
     
     # Assign roles
-    roles = ["blue"] * blue_count + ["yellow"] * yellow_count + ["assassin"] * 1
+    roles = ["blue"] * blue_count + ["yellow"] * yellow_count + ["trap"] * 1
     roles += ["neutral"] * (board_size - len(roles))
     rng.shuffle(roles)
     
@@ -188,8 +188,8 @@ def process_action(state, config):
             guessed_role = roles[guess_val]
             team_color = "blue" if current_turn == 1 else "yellow"
             
-            # Assassin check
-            if guessed_role == "assassin":
+            # Trap check
+            if guessed_role == "trap":
                 end_game(winner="yellow" if team_color == "blue" else "blue")
                 return
                 

@@ -47,7 +47,7 @@ class LLMWordAssociationAgent:
         team = "blue" if turn == 0 else "yellow"
         
         prompt = f"You are the {team.upper()} Cluemaster in Word Association.\n\n"
-        prompt += f"Your goal is to get your team to guess all your {team.upper()} words while avoiding the opposite team's words and the assassin.\n"
+        prompt += f"Your goal is to get your team to guess all your {team.upper()} words while avoiding the opposite team's words and the trap word.\n"
         
         # Inject memory context (past games and current turns)
         prompt = self._inject_memory_context(prompt, obs, config)
@@ -62,7 +62,7 @@ class LLMWordAssociationAgent:
         prompt += "VALIDITY RULES FOR CLUES:\n"
         prompt += "- The clue must be a SINGLE WORD. It CANNOT contain spaces or hyphens.\n"
         prompt += "- The clue CANNOT contain or be contained within any unrevealed word currently hidden on the board (e.g., if 'DOG' is hidden, your clue cannot be 'DOGS' or 'HOTDOG').\n"
-        prompt += "Note: A clue number of 0 means 'unlimited guesses, but 0 words relate to this clue' (often used to help guessers avoid the assassin or opponent words). A clue number of -1 means 'infinity' (unlimited guesses, for when you want them to guess remaining words from previous clues).\n"
+        prompt += "Note: A clue number of 0 means 'unlimited guesses, but 0 words relate to this clue' (often used to help guessers avoid the trap or opponent words). A clue number of -1 means 'infinity' (unlimited guesses, for when you want them to guess remaining words from previous clues).\n"
         prompt += 'You MUST format your response as valid JSON like this:\n'
         prompt += '{"thinking": "I see CAT and DOG, so ANIMAL connects 2 words...", "clue": "ANIMAL", "number": 2}\n'
         prompt += "Do not include any other text or markdown formatting outside of the JSON block."
@@ -121,7 +121,7 @@ class LLMWordAssociationAgent:
         
         clue_number = obs.clue_number
         prompt = f"You are the {team.upper()} Guesser in Word Association.\n\n"
-        prompt += f"Your goal is to correctly guess your team's words based on the Cluemaster's clues while avoiding the opposite team's words and the assassin.\n"
+        prompt += f"Your goal is to correctly guess your team's words based on the Cluemaster's clues while avoiding the opposite team's words and the trap word.\n"
         
         # Inject memory context (past games and current turns)
         prompt = self._inject_memory_context(prompt, obs, config)
@@ -150,7 +150,7 @@ class LLMWordAssociationAgent:
                     prompt += f"You have correctly guessed {correct_guesses} times for this clue already (Guessed: {guesses_str}), meaning there are {words_remaining} words related to the clue remaining.\n\n"
         
         if clue_number == 0:
-            prompt += "A clue number of 0 means NONE of your remaining words relate to this clue (often used to point out the assassin). You get unlimited guesses, but you MUST still make at least one guess.\n\n"
+            prompt += "A clue number of 0 means NONE of your remaining words relate to this clue (often used to point out the trap). You get unlimited guesses, but you MUST still make at least one guess.\n\n"
         elif clue_number == -1:
             prompt += "A clue number of -1 means 'Infinity'. You get unlimited guesses based on this clue and previous clues. You must make at least one guess.\n\n"
             
