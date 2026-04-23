@@ -1,4 +1,5 @@
 import type { RendererOptions } from '@kaggle-environments/core';
+import type { AmazonsStep } from './transformers/amazonsTransformer';
 
 type Cell = 'X' | 'O' | '#' | '.';
 type Board = Cell[][];
@@ -23,14 +24,9 @@ const HIGHLIGHT_FROM = 'rgba(189, 238, 255, 0.55)';
 const HIGHLIGHT_TO = 'rgba(255, 215, 96, 0.65)';
 const HIGHLIGHT_SHOOT = 'rgba(154, 51, 36, 0.25)';
 
-function parseObservation(rawStep: any): AmazonsObservation | null {
-  const raw = rawStep?.[0]?.observation?.observationString;
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as AmazonsObservation;
-  } catch {
-    return null;
-  }
+function asObservation(step: AmazonsStep | undefined): AmazonsObservation | null {
+  if (!step?.boardState) return null;
+  return step.boardState as AmazonsObservation;
 }
 
 interface BoardDiff {
@@ -72,10 +68,10 @@ function makePlayerCard(label: string, glyphClass: 'x' | 'o', active: boolean): 
   `;
 }
 
-function findPrevStep(steps: any[], step: number): any | null {
+function findPrevObservation(steps: AmazonsStep[], step: number): AmazonsObservation | null {
   for (let i = step - 1; i >= 0; i--) {
-    const obs = parseObservation(steps[i]);
-    if (obs) return steps[i];
+    const obs = asObservation(steps[i]);
+    if (obs) return obs;
   }
   return null;
 }
@@ -209,9 +205,9 @@ function cellName([row, col]: [number, number]): string {
   return `${'abcdefghij'[col] ?? '?'}${row + 1}`;
 }
 
-export function renderer(options: RendererOptions) {
+export function renderer(options: RendererOptions<AmazonsStep[]>) {
   const { step, replay, parent } = options;
-  const steps = (replay?.steps ?? []) as any[];
+  const steps = (replay?.steps ?? []) as AmazonsStep[];
 
   parent.innerHTML = `
     <div class="renderer-container">
@@ -229,7 +225,7 @@ export function renderer(options: RendererOptions) {
   const annotation = parent.querySelector('.amazons-annotation') as HTMLDivElement;
   if (!canvas) return;
 
-  const obs = parseObservation(steps[step]);
+  const obs = asObservation(steps[step]);
 
   if (!obs) {
     header.innerHTML = `${makePlayerCard('Black (X)', 'x', false)}<span style="color:${SOFT_INK}">vs</span>${makePlayerCard('White (O)', 'o', false)}`;
@@ -255,8 +251,7 @@ export function renderer(options: RendererOptions) {
   if (!ctx) return;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  const prevStep = findPrevStep(steps, step);
-  const prevObs = prevStep ? parseObservation(prevStep) : null;
+  const prevObs = findPrevObservation(steps, step);
   const diff = diffBoards(prevObs?.board ?? null, obs.board);
 
   drawBoard(ctx, rect.width, rect.height, obs, diff);
