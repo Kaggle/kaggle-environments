@@ -18,17 +18,10 @@
   "specification": {
     "action": {
       "description": "For Cluemasters: a clue string formatted like 'word, 2' or a dict. Number can be 0 (unlimited guesses, 0 related words, 1 min guess) or -1 (unlimited guesses, infinity related words, 1 min guess). For Guessers: the index (0-24) to guess, or -1 to pass.",
-      "type": [
-        "string",
-        "integer",
-        "object",
-        "null"
-      ],
+      "type": ["string", "integer", "object", "null"],
       "default": 0
     },
-    "agents": [
-      4
-    ],
+    "agents": [4],
     "configuration": {
       "episodeSteps": {
         "description": "Maximum number of steps in the episode.",
@@ -73,10 +66,7 @@
         "description": "Maximum number of past games to keep in history. Set to 0 for unlimited."
       },
       "seed": {
-        "type": [
-          "integer",
-          "null"
-        ],
+        "type": ["integer", "null"],
         "default": null,
         "description": "Seed for random board generation. Set to null for random play."
       }
@@ -127,10 +117,7 @@
       }
     },
     "reward": {
-      "type": [
-        "number",
-        "null"
-      ],
+      "type": ["number", "null"],
       "default": 0
     }
   },
@@ -1278,12 +1265,8 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["FINGER"],
+              "results": ["yellow"]
             }
           ],
           "_last_clue": "PRINT",
@@ -1415,12 +1398,8 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["FINGER"],
+              "results": ["yellow"]
             }
           ],
           "_last_clue": "PRINT",
@@ -1552,12 +1531,8 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["FINGER"],
+              "results": ["yellow"]
             }
           ],
           "_last_clue": "PRINT",
@@ -1693,12 +1668,8 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["FINGER"],
+              "results": ["yellow"]
             }
           ],
           "_last_clue": "PRINT",
@@ -1833,14 +1804,8 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             }
           ],
           "_last_clue": "PRINT",
@@ -1972,14 +1937,8 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             }
           ],
           "_last_clue": "PRINT",
@@ -2111,14 +2070,8 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             }
           ],
           "_last_clue": "PRINT",
@@ -2254,14 +2207,8 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             }
           ],
           "_last_clue": "PRINT",
@@ -2396,14 +2343,8 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             }
           ],
           "_last_clue": "PRINT",
@@ -2535,14 +2476,8 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             }
           ],
           "_last_clue": "PRINT",
@@ -2674,14 +2609,8 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             }
           ],
           "_last_clue": "PRINT",
@@ -2817,14 +2746,8 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             }
           ],
           "_last_clue": "PRINT",
@@ -2964,14 +2887,8 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
@@ -3110,14 +3027,8 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
@@ -3256,14 +3167,8 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
@@ -3402,14 +3307,8 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
@@ -3551,25 +3450,15 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO"
-              ],
-              "results": [
-                "blue"
-              ]
+              "guesses": ["VOLCANO"],
+              "results": ["blue"]
             }
           ],
           "_last_clue": "SHIELD",
@@ -3705,25 +3594,15 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO"
-              ],
-              "results": [
-                "blue"
-              ]
+              "guesses": ["VOLCANO"],
+              "results": ["blue"]
             }
           ],
           "_last_clue": "SHIELD",
@@ -3855,25 +3734,15 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO"
-              ],
-              "results": [
-                "blue"
-              ]
+              "guesses": ["VOLCANO"],
+              "results": ["blue"]
             }
           ],
           "_last_clue": "SHIELD",
@@ -4005,25 +3874,15 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO"
-              ],
-              "results": [
-                "blue"
-              ]
+              "guesses": ["VOLCANO"],
+              "results": ["blue"]
             }
           ],
           "_last_clue": "SHIELD",
@@ -4158,27 +4017,15 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA"
-              ],
-              "results": [
-                "blue",
-                "blue"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA"],
+              "results": ["blue", "blue"]
             }
           ],
           "_last_clue": "SHIELD",
@@ -4314,27 +4161,15 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA"
-              ],
-              "results": [
-                "blue",
-                "blue"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA"],
+              "results": ["blue", "blue"]
             }
           ],
           "_last_clue": "SHIELD",
@@ -4466,27 +4301,15 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA"
-              ],
-              "results": [
-                "blue",
-                "blue"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA"],
+              "results": ["blue", "blue"]
             }
           ],
           "_last_clue": "SHIELD",
@@ -4618,27 +4441,15 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA"
-              ],
-              "results": [
-                "blue",
-                "blue"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA"],
+              "results": ["blue", "blue"]
             }
           ],
           "_last_clue": "SHIELD",
@@ -4773,29 +4584,15 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             }
           ],
           "_last_clue": "SHIELD",
@@ -4931,29 +4728,15 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             }
           ],
           "_last_clue": "SHIELD",
@@ -5085,29 +4868,15 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             }
           ],
           "_last_clue": "SHIELD",
@@ -5239,29 +5008,15 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             }
           ],
           "_last_clue": "SHIELD",
@@ -5396,29 +5151,15 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
@@ -5557,29 +5298,15 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
@@ -5723,29 +5450,15 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
@@ -5884,29 +5597,15 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
@@ -6048,40 +5747,22 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["QUARRY"],
+              "results": ["yellow"]
             }
           ],
           "_last_clue": "STONE",
@@ -6213,40 +5894,22 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["QUARRY"],
+              "results": ["yellow"]
             }
           ],
           "_last_clue": "STONE",
@@ -6378,40 +6041,22 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["QUARRY"],
+              "results": ["yellow"]
             }
           ],
           "_last_clue": "STONE",
@@ -6547,40 +6192,22 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["QUARRY"],
+              "results": ["yellow"]
             }
           ],
           "_last_clue": "STONE",
@@ -6715,42 +6342,22 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["QUARRY", "LICHEN"],
+              "results": ["yellow", "yellow"]
             }
           ],
           "_last_clue": "STONE",
@@ -6882,42 +6489,22 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["QUARRY", "LICHEN"],
+              "results": ["yellow", "yellow"]
             }
           ],
           "_last_clue": "STONE",
@@ -7049,42 +6636,22 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["QUARRY", "LICHEN"],
+              "results": ["yellow", "yellow"]
             }
           ],
           "_last_clue": "STONE",
@@ -7220,42 +6787,22 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["QUARRY", "LICHEN"],
+              "results": ["yellow", "yellow"]
             }
           ],
           "_last_clue": "STONE",
@@ -7390,44 +6937,22 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             }
           ],
           "_last_clue": "STONE",
@@ -7559,44 +7084,22 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             }
           ],
           "_last_clue": "STONE",
@@ -7728,44 +7231,22 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             }
           ],
           "_last_clue": "STONE",
@@ -7901,44 +7382,22 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             }
           ],
           "_last_clue": "STONE",
@@ -8078,44 +7537,22 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
@@ -8254,44 +7691,22 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
@@ -8430,44 +7845,22 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
@@ -8606,44 +7999,22 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
@@ -8785,55 +8156,29 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP"
-              ],
-              "results": [
-                "blue"
-              ]
+              "guesses": ["STIRRUP"],
+              "results": ["blue"]
             }
           ],
           "_last_clue": "LEATHER",
@@ -8969,55 +8314,29 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP"
-              ],
-              "results": [
-                "blue"
-              ]
+              "guesses": ["STIRRUP"],
+              "results": ["blue"]
             }
           ],
           "_last_clue": "LEATHER",
@@ -9149,55 +8468,29 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP"
-              ],
-              "results": [
-                "blue"
-              ]
+              "guesses": ["STIRRUP"],
+              "results": ["blue"]
             }
           ],
           "_last_clue": "LEATHER",
@@ -9329,55 +8622,29 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP"
-              ],
-              "results": [
-                "blue"
-              ]
+              "guesses": ["STIRRUP"],
+              "results": ["blue"]
             }
           ],
           "_last_clue": "LEATHER",
@@ -9512,57 +8779,29 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP"
-              ],
-              "results": [
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP"],
+              "results": ["blue", "blue"]
             }
           ],
           "_last_clue": "LEATHER",
@@ -9698,57 +8937,29 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP"
-              ],
-              "results": [
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP"],
+              "results": ["blue", "blue"]
             }
           ],
           "_last_clue": "LEATHER",
@@ -9880,57 +9091,29 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP"
-              ],
-              "results": [
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP"],
+              "results": ["blue", "blue"]
             }
           ],
           "_last_clue": "LEATHER",
@@ -10062,57 +9245,29 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP"
-              ],
-              "results": [
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP"],
+              "results": ["blue", "blue"]
             }
           ],
           "_last_clue": "LEATHER",
@@ -10247,59 +9402,29 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             }
           ],
           "_last_clue": "LEATHER",
@@ -10435,59 +9560,29 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             }
           ],
           "_last_clue": "LEATHER",
@@ -10619,59 +9714,29 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             }
           ],
           "_last_clue": "LEATHER",
@@ -10803,59 +9868,29 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             }
           ],
           "_last_clue": "LEATHER",
@@ -10990,59 +10025,29 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
@@ -11181,59 +10186,29 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
@@ -11377,59 +10352,29 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
@@ -11568,59 +10513,29 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
@@ -11762,70 +10677,36 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["PITCHER"],
+              "results": ["yellow"]
             }
           ],
           "_last_clue": "BASEBALL",
@@ -11957,70 +10838,36 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["PITCHER"],
+              "results": ["yellow"]
             }
           ],
           "_last_clue": "BASEBALL",
@@ -12152,70 +10999,36 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["PITCHER"],
+              "results": ["yellow"]
             }
           ],
           "_last_clue": "BASEBALL",
@@ -12351,70 +11164,36 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["PITCHER"],
+              "results": ["yellow"]
             }
           ],
           "_last_clue": "BASEBALL",
@@ -12549,72 +11328,36 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             }
           ],
           "_last_clue": "BASEBALL",
@@ -12746,72 +11489,36 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             }
           ],
           "_last_clue": "BASEBALL",
@@ -12943,72 +11650,36 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             }
           ],
           "_last_clue": "BASEBALL",
@@ -13144,72 +11815,36 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             }
           ],
           "_last_clue": "BASEBALL",
@@ -13349,72 +11984,36 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
@@ -13553,72 +12152,36 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
@@ -13757,72 +12320,36 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
@@ -13961,72 +12488,36 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
@@ -14168,83 +12659,43 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             }
           ],
           "_last_clue": "DRINK",
@@ -14380,83 +12831,43 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             }
           ],
           "_last_clue": "DRINK",
@@ -14588,83 +12999,43 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             }
           ],
           "_last_clue": "DRINK",
@@ -14796,83 +13167,43 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             }
           ],
           "_last_clue": "DRINK",
@@ -15007,83 +13338,43 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             },
             {
               "team": "blue",
@@ -15222,83 +13513,43 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             },
             {
               "team": "blue",
@@ -15442,83 +13693,43 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             },
             {
               "team": "blue",
@@ -15657,83 +13868,43 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             },
             {
               "team": "blue",
@@ -15875,94 +14046,50 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             },
             {
               "team": "blue",
               "clue": "RACING",
               "num": 1,
-              "guesses": [
-                "CHARIOT"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["CHARIOT"],
+              "results": ["yellow"]
             }
           ],
           "_last_clue": "RACING",
@@ -16094,94 +14221,50 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             },
             {
               "team": "blue",
               "clue": "RACING",
               "num": 1,
-              "guesses": [
-                "CHARIOT"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["CHARIOT"],
+              "results": ["yellow"]
             }
           ],
           "_last_clue": "RACING",
@@ -16313,94 +14396,50 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             },
             {
               "team": "blue",
               "clue": "RACING",
               "num": 1,
-              "guesses": [
-                "CHARIOT"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["CHARIOT"],
+              "results": ["yellow"]
             }
           ],
           "_last_clue": "RACING",
@@ -16536,94 +14575,50 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             },
             {
               "team": "blue",
               "clue": "RACING",
               "num": 1,
-              "guesses": [
-                "CHARIOT"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["CHARIOT"],
+              "results": ["yellow"]
             }
           ],
           "_last_clue": "RACING",
@@ -16758,94 +14753,50 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             },
             {
               "team": "blue",
               "clue": "RACING",
               "num": 1,
-              "guesses": [
-                "CHARIOT"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["CHARIOT"],
+              "results": ["yellow"]
             }
           ],
           "_last_clue": "RACING",
@@ -16977,94 +14928,50 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             },
             {
               "team": "blue",
               "clue": "RACING",
               "num": 1,
-              "guesses": [
-                "CHARIOT"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["CHARIOT"],
+              "results": ["yellow"]
             }
           ],
           "_last_clue": "RACING",
@@ -17196,94 +15103,50 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             },
             {
               "team": "blue",
               "clue": "RACING",
               "num": 1,
-              "guesses": [
-                "CHARIOT"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["CHARIOT"],
+              "results": ["yellow"]
             }
           ],
           "_last_clue": "RACING",
@@ -17419,94 +15282,50 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             },
             {
               "team": "blue",
               "clue": "RACING",
               "num": 1,
-              "guesses": [
-                "CHARIOT"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["CHARIOT"],
+              "results": ["yellow"]
             }
           ],
           "_last_clue": "RACING",
@@ -17646,94 +15465,50 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             },
             {
               "team": "blue",
               "clue": "RACING",
               "num": 1,
-              "guesses": [
-                "CHARIOT"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["CHARIOT"],
+              "results": ["yellow"]
             },
             {
               "team": "red",
@@ -17872,94 +15647,50 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             },
             {
               "team": "blue",
               "clue": "RACING",
               "num": 1,
-              "guesses": [
-                "CHARIOT"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["CHARIOT"],
+              "results": ["yellow"]
             },
             {
               "team": "red",
@@ -18098,94 +15829,50 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             },
             {
               "team": "blue",
               "clue": "RACING",
               "num": 1,
-              "guesses": [
-                "CHARIOT"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["CHARIOT"],
+              "results": ["yellow"]
             },
             {
               "team": "red",
@@ -18324,94 +16011,50 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             },
             {
               "team": "blue",
               "clue": "RACING",
               "num": 1,
-              "guesses": [
-                "CHARIOT"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["CHARIOT"],
+              "results": ["yellow"]
             },
             {
               "team": "red",
@@ -18553,105 +16196,57 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             },
             {
               "team": "blue",
               "clue": "RACING",
               "num": 1,
-              "guesses": [
-                "CHARIOT"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["CHARIOT"],
+              "results": ["yellow"]
             },
             {
               "team": "red",
               "clue": "SIP",
               "num": 2,
-              "guesses": [
-                "STRAW"
-              ],
-              "results": [
-                "blue"
-              ]
+              "guesses": ["STRAW"],
+              "results": ["blue"]
             }
           ],
           "_last_clue": "SIP",
@@ -18787,105 +16382,57 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             },
             {
               "team": "blue",
               "clue": "RACING",
               "num": 1,
-              "guesses": [
-                "CHARIOT"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["CHARIOT"],
+              "results": ["yellow"]
             },
             {
               "team": "red",
               "clue": "SIP",
               "num": 2,
-              "guesses": [
-                "STRAW"
-              ],
-              "results": [
-                "blue"
-              ]
+              "guesses": ["STRAW"],
+              "results": ["blue"]
             }
           ],
           "_last_clue": "SIP",
@@ -19017,105 +16564,57 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             },
             {
               "team": "blue",
               "clue": "RACING",
               "num": 1,
-              "guesses": [
-                "CHARIOT"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["CHARIOT"],
+              "results": ["yellow"]
             },
             {
               "team": "red",
               "clue": "SIP",
               "num": 2,
-              "guesses": [
-                "STRAW"
-              ],
-              "results": [
-                "blue"
-              ]
+              "guesses": ["STRAW"],
+              "results": ["blue"]
             }
           ],
           "_last_clue": "SIP",
@@ -19247,105 +16746,57 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             },
             {
               "team": "blue",
               "clue": "RACING",
               "num": 1,
-              "guesses": [
-                "CHARIOT"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["CHARIOT"],
+              "results": ["yellow"]
             },
             {
               "team": "red",
               "clue": "SIP",
               "num": 2,
-              "guesses": [
-                "STRAW"
-              ],
-              "results": [
-                "blue"
-              ]
+              "guesses": ["STRAW"],
+              "results": ["blue"]
             }
           ],
           "_last_clue": "SIP",
@@ -19480,107 +16931,57 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             },
             {
               "team": "blue",
               "clue": "RACING",
               "num": 1,
-              "guesses": [
-                "CHARIOT"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["CHARIOT"],
+              "results": ["yellow"]
             },
             {
               "team": "red",
               "clue": "SIP",
               "num": 2,
-              "guesses": [
-                "STRAW",
-                "FLASK"
-              ],
-              "results": [
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STRAW", "FLASK"],
+              "results": ["blue", "blue"]
             }
           ],
           "_last_clue": "SIP",
@@ -19716,107 +17117,57 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             },
             {
               "team": "blue",
               "clue": "RACING",
               "num": 1,
-              "guesses": [
-                "CHARIOT"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["CHARIOT"],
+              "results": ["yellow"]
             },
             {
               "team": "red",
               "clue": "SIP",
               "num": 2,
-              "guesses": [
-                "STRAW",
-                "FLASK"
-              ],
-              "results": [
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STRAW", "FLASK"],
+              "results": ["blue", "blue"]
             }
           ],
           "_last_clue": "SIP",
@@ -19948,107 +17299,57 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             },
             {
               "team": "blue",
               "clue": "RACING",
               "num": 1,
-              "guesses": [
-                "CHARIOT"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["CHARIOT"],
+              "results": ["yellow"]
             },
             {
               "team": "red",
               "clue": "SIP",
               "num": 2,
-              "guesses": [
-                "STRAW",
-                "FLASK"
-              ],
-              "results": [
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STRAW", "FLASK"],
+              "results": ["blue", "blue"]
             }
           ],
           "_last_clue": "SIP",
@@ -20180,107 +17481,57 @@
               "team": "blue",
               "clue": "PRINT",
               "num": 2,
-              "guesses": [
-                "FINGER",
-                "RIDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow"
-              ]
+              "guesses": ["FINGER", "RIDGE"],
+              "results": ["yellow", "yellow"]
             },
             {
               "team": "red",
               "clue": "SHIELD",
               "num": 2,
-              "guesses": [
-                "VOLCANO",
-                "UMBRELLA",
-                "BLANKET"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "yellow"
-              ]
+              "guesses": ["VOLCANO", "UMBRELLA", "BLANKET"],
+              "results": ["blue", "blue", "yellow"]
             },
             {
               "team": "blue",
               "clue": "STONE",
               "num": 2,
-              "guesses": [
-                "QUARRY",
-                "LICHEN",
-                "WEDGE"
-              ],
-              "results": [
-                "yellow",
-                "yellow",
-                "neutral"
-              ]
+              "guesses": ["QUARRY", "LICHEN", "WEDGE"],
+              "results": ["yellow", "yellow", "neutral"]
             },
             {
               "team": "red",
               "clue": "LEATHER",
               "num": 2,
-              "guesses": [
-                "STIRRUP",
-                "STRAP",
-                "GATE"
-              ],
-              "results": [
-                "blue",
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STIRRUP", "STRAP", "GATE"],
+              "results": ["blue", "blue", "blue"]
             },
             {
               "team": "blue",
               "clue": "BASEBALL",
               "num": 1,
-              "guesses": [
-                "PITCHER",
-                "LENS"
-              ],
-              "results": [
-                "yellow",
-                "blue"
-              ]
+              "guesses": ["PITCHER", "LENS"],
+              "results": ["yellow", "blue"]
             },
             {
               "team": "red",
               "clue": "DRINK",
               "num": 2,
-              "guesses": [
-                "CHALICE"
-              ],
-              "results": [
-                "neutral"
-              ]
+              "guesses": ["CHALICE"],
+              "results": ["neutral"]
             },
             {
               "team": "blue",
               "clue": "RACING",
               "num": 1,
-              "guesses": [
-                "CHARIOT"
-              ],
-              "results": [
-                "yellow"
-              ]
+              "guesses": ["CHARIOT"],
+              "results": ["yellow"]
             },
             {
               "team": "red",
               "clue": "SIP",
               "num": 2,
-              "guesses": [
-                "STRAW",
-                "FLASK"
-              ],
-              "results": [
-                "blue",
-                "blue"
-              ]
+              "guesses": ["STRAW", "FLASK"],
+              "results": ["blue", "blue"]
             }
           ],
           "_last_clue": "SIP",
@@ -20316,18 +17567,8 @@
       }
     ]
   ],
-  "rewards": [
-    1,
-    1,
-    -1,
-    -1
-  ],
-  "statuses": [
-    "DONE",
-    "DONE",
-    "DONE",
-    "DONE"
-  ],
+  "rewards": [1, 1, -1, -1],
+  "statuses": ["DONE", "DONE", "DONE", "DONE"],
   "schema_version": 1,
   "info": {}
 }
