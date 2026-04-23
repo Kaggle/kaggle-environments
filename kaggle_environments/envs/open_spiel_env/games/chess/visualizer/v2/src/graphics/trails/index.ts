@@ -8,6 +8,7 @@ interface PieceTrackingState {
   y: number;
   lastSpawn: number;
   liveCount: number;
+  hasBurst: boolean;
 }
 
 interface LiveParticle {
@@ -24,6 +25,7 @@ interface LiveParticle {
   followLerp: number;
   align: boolean;
   spin: boolean;
+  baseRotation: number;
 }
 
 export interface TrailSystem {
@@ -46,7 +48,16 @@ export function createTrails(engine: Engine): TrailSystem {
   const tracking = new Map<Sprite, PieceTrackingState>();
   const particles: LiveParticle[] = [];
 
-  function spawn(piece: Sprite, config: TrailConfig, x: number, y: number, now: number, state: PieceTrackingState) {
+  function spawn(
+    piece: Sprite,
+    config: TrailConfig,
+    x: number,
+    y: number,
+    now: number,
+    state: PieceTrackingState,
+    dx: number,
+    dy: number
+  ) {
     const { squareSize, textures, resources } = engine;
     const textureName = config.textures[Math.floor(Math.random() * config.textures.length)];
     const texture = textures[textureName];
@@ -55,10 +66,23 @@ export function createTrails(engine: Engine): TrailSystem {
     const sizeFactor = rand(config.size[0], config.size[1]);
     const scale = (squareSize * sizeFactor) / texture.width;
 
+    const directionAligned = config.spin || config.align;
+    const baseRotation = directionAligned && (dx !== 0 || dy !== 0) ? Math.atan2(dy, dx) + Math.PI / 2 : 0;
+
     const sprite = new Sprite({ texture, anchor: 0.5 });
     sprite.scale.set(scale);
     sprite.alpha = config.alpha;
-    sprite.position.set(x, y);
+    sprite.rotation = baseRotation;
+
+    let spawnX = x;
+    let spawnY = y;
+    if (config.scatter) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = Math.random() * config.scatter * squareSize;
+      spawnX += Math.cos(angle) * dist;
+      spawnY += Math.sin(angle) * dist;
+    }
+    sprite.position.set(spawnX, spawnY);
 
     let driftDx = 0;
     let driftDy = 0;
@@ -90,6 +114,7 @@ export function createTrails(engine: Engine): TrailSystem {
       followLerp,
       align: config.align ?? false,
       spin: config.spin ?? false,
+      baseRotation,
     });
   }
 
@@ -108,7 +133,7 @@ export function createTrails(engine: Engine): TrailSystem {
 
     const state = tracking.get(sprite);
     if (!state) {
-      tracking.set(sprite, { x, y, lastSpawn: now, liveCount: 0 });
+      tracking.set(sprite, { x, y, lastSpawn: now, liveCount: 0, hasBurst: false });
       return;
     }
 
@@ -118,13 +143,15 @@ export function createTrails(engine: Engine): TrailSystem {
     state.y = y;
 
     if (dx * dx + dy * dy < MOVE_THRESHOLD * MOVE_THRESHOLD) return;
+    if (config.burst && state.hasBurst) return;
     if (config.rate > 0 && now - state.lastSpawn < config.rate) return;
     if (config.max != null && state.liveCount >= config.max) return;
 
     state.lastSpawn = now;
+    if (config.burst) state.hasBurst = true;
 
     for (let i = 0; i < config.count; i++) {
-      spawn(sprite, config, x, y, now, state);
+      spawn(sprite, config, x, y, now, state, dx, dy);
     }
   }
 
@@ -167,7 +194,7 @@ export function createTrails(engine: Engine): TrailSystem {
       p.sprite.scale.set(p.startScale * remaining);
 
       if (p.spin && !p.align) {
-        p.sprite.rotation = t;
+        p.sprite.rotation = p.baseRotation + t;
       }
     }
   }
