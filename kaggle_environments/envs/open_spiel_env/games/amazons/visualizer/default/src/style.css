@@ -1,0 +1,104 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+
+html, body, #app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.renderer-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background-color: #f5f1e2;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+  box-sizing: border-box;
+  padding: 12px;
+  color: #050001;
+  container-type: inline-size;
+}
+
+.renderer-container canvas {
+  position: relative;
+  flex-grow: 1;
+  width: 100%;
+  max-width: 512px;
+  aspect-ratio: 1 / 1;
+  min-height: 0;
+}
+
+.sketched-border {
+  border: 1px dashed #3c3b37;
+}
+
+.amazons-header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 8px 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  flex-shrink: 0;
+  gap: 16px;
+}
+
+.amazons-player-card {
+  padding: 4px 12px;
+  background-color: white;
+  font-weight: 700;
+  transition: scale 300ms, background-color 300ms;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.amazons-player-card.active {
+  background-color: #bdeeff;
+  scale: 1.05;
+}
+
+.amazons-player-card .amazons-glyph {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.amazons-player-card.x .amazons-glyph { background-color: #050001; }
+.amazons-player-card.o .amazons-glyph { background-color: #ffffff; border: 1px solid #050001; }
+
+.amazons-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 16px;
+  background-color: white;
+  font-size: 0.9rem;
+  font-weight: 600;
+  min-height: 18px;
+  min-width: 220px;
+  margin-top: 8px;
+  flex-shrink: 0;
+  text-align: center;
+  gap: 2px;
+}
+
+.amazons-status .amazons-annotation {
+  font-family: 'Mynerve', cursive;
+  font-weight: 400;
+  color: #444343;
+  font-size: 0.95rem;
+}
+
+@container (max-width: 680px) {
+  .amazons-header { font-size: 1rem; }
+  .amazons-status { font-size: 0.8rem; min-width: 160px; }
+}
