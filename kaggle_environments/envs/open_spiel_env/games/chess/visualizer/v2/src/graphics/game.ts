@@ -1,6 +1,7 @@
 import type { Chess } from 'chess.js';
 import { drawBoard } from './board';
 import { engine, initialiseEngine, type Engine } from './engine';
+import { syncCapture } from './capture';
 import { syncHighlights } from './highlights';
 import { loadPieceTextureAtlas, syncPieces } from './pieces';
 import { createTrails } from './trails';
@@ -45,6 +46,7 @@ export async function createGame(canvas: HTMLCanvasElement): Promise<Game> {
 
       trails.clear();
 
+      syncCapture(eng, chess, snap);
       syncHighlights(eng, chess, reducedMotion);
       syncPieces(eng, chess, snap);
     },

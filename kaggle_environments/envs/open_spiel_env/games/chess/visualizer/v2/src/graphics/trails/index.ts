@@ -73,7 +73,7 @@ export function createTrails(engine: Engine): TrailSystem {
       driftDy = Math.sin(angle) * radius;
     }
 
-    resources.trails.addChild(sprite);
+    resources.vfx.addChild(sprite);
     state.liveCount++;
 
     particles.push({
@@ -134,7 +134,7 @@ export function createTrails(engine: Engine): TrailSystem {
       const age = now - p.spawnTime;
 
       if (age >= p.lifetime) {
-        engine.resources.trails.removeChild(p.sprite);
+        engine.resources.vfx.removeChild(p.sprite);
         const state = tracking.get(p.piece);
         if (state) state.liveCount--;
         particles.splice(i, 1);
@@ -183,7 +183,7 @@ export function createTrails(engine: Engine): TrailSystem {
 
   return {
     clear() {
-      engine.resources.trails.removeChildren();
+      engine.resources.vfx.removeChildren();
       particles.length = 0;
       tracking.clear();
     },

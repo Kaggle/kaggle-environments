@@ -8,7 +8,7 @@ export function engine() {
     background: new Container(),
     highlights: new Container(),
     pieces: new Container(),
-    trails: new Container(),
+    vfx: new Container(),
     animating: new Container(),
   } satisfies Record<Layer, Container>;
 

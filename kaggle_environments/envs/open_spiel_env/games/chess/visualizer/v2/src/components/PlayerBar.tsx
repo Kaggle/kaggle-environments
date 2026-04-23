@@ -12,7 +12,9 @@ import queenBlackPath from '../assets/images/queen-b-small.webp';
 import queenWhitePath from '../assets/images/queen-w-small.webp';
 import rookBlackPath from '../assets/images/rook-b-small.webp';
 import rookWhitePath from '../assets/images/rook-w-small.webp';
+import { motion } from 'motion/react';
 import useGameStore from '../stores/useGameStore.ts';
+import usePreferences from '../stores/usePreferences.ts';
 import { BrandLogo } from './BrandLogo.tsx';
 import { takenPieces } from '../utils/takenPieces.ts';
 import styles from './Playerbar.module.css';
@@ -49,6 +51,7 @@ interface Props {
 
 export default function PlayerBar({ color }: Props) {
   const game = useGameStore((state) => state.game);
+  const reducedMotion = usePreferences((state) => state.reducedMotion);
   const headers = game.getHeaders();
   const name = headers[color];
   const opponent = color === 'w' ? 'b' : 'w';
@@ -76,8 +79,10 @@ export default function PlayerBar({ color }: Props) {
       </div>
       <div className={styles.captures}>
         {temp__captures.map((piece, index) => (
-          <img
+          <motion.img
             key={index}
+            initial={reducedMotion ? false : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
             src={pieceImages[opponent][piece]}
             alt={`captured ${opponent} ${piece}`}
             width="64"
