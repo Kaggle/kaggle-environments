@@ -85,7 +85,7 @@ body,
   flex: 1 1 0;
   min-width: 0;
   min-height: 0;
-  max-width: 420px;
+  height: 100%;
 }
 
 .board-card .board-label {
@@ -96,11 +96,12 @@ body,
 }
 
 .board-card canvas {
+  /* Override .viewer canvas { position: absolute; ... } from web/core. */
   position: relative;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 1.4 / 1;
+  display: block;
+  max-width: 100%;
   max-height: 100%;
+  /* aspect-ratio is set dynamically by the renderer to match board dims. */
   background: transparent;
 }
 
