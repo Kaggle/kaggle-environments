@@ -70,7 +70,7 @@
       "type": "array",
       "default": []
     },
-    "remainingOverageTime": 2
+    "remainingOverageTime": 60
   },
   "action": {
     "description": "List of moves to make. Each move is [from_planet_id, direction_angle, num_ships]",
