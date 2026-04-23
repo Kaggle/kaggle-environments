@@ -55,16 +55,23 @@
 
 .captures {
   --capture-size: 2em;
+  /* Board grid is inset from the canvas edge by BOARD_PADDING_RATIO / (BOARD_SIZE + 2 * BOARD_PADDING_RATIO). */
+  --board-inset: calc(var(--board-width, 0px) * 0.4 / 8.8);
 
   display: grid;
   grid-template-columns: repeat(6, var(--capture-size));
   user-select: none;
+
+  [data-player="w"] & {
+    margin-left: var(--board-inset);
+  }
 
   [data-player="b"] & {
     justify-self: end;
     display: flex;
     flex-wrap: wrap-reverse;
     width: calc(6 * var(--capture-size));
+    margin-right: var(--board-inset);
 
     & img {
       width: var(--capture-size);
