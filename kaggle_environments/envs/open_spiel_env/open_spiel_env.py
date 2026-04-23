@@ -848,6 +848,7 @@ DEFAULT_REPEATED_POKERKIT_GAME_STRING = (
 )
 
 GAMES_LIST = [
+    "amazons",
     "backgammon",
     "checkers",
     "chess",
