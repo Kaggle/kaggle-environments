@@ -8,10 +8,9 @@ export function engine() {
     background: new Container(),
     highlights: new Container(),
     pieces: new Container(),
+    trails: new Container(),
+    animating: new Container(),
   } satisfies Record<Layer, Container>;
-
-  // Animated pieces set zIndex = 1 to draw above stationary siblings.
-  resources.pieces.sortableChildren = true;
 
   for (const layer of LAYERS) app.stage.addChild(resources[layer]);
 

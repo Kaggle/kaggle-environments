@@ -3,7 +3,6 @@ import { Chess } from 'chess.js';
 import { animate, AnimationOptions } from 'motion';
 import type { Engine } from '../engine';
 import { squareToPixel } from '../coordinates';
-import { SCRUB_THRESHOLD_MS } from '../../constants';
 
 import spritesheetData from '../../assets/sprites/sprites.json';
 import spritesheetPath from '../../assets/sprites/sprites.png';
@@ -41,24 +40,11 @@ function getAnimationSources(chess: Chess): Map<string, string> | null {
   return sources;
 }
 
-export function syncPieces(engine: Engine, chess: Chess, step: number, reducedMotion: boolean) {
+export function syncPieces(engine: Engine, chess: Chess, snap: boolean) {
   const { squareSize, textures, resources } = engine;
 
-  // Snap when:
-  //   1. The user prefers reduced motion.
-  //   2. The user went backwards.
-  //   3. The user is scrubbing.
-  const now = performance.now();
-  const isFirstUpdate = engine.lastUpdateTime === 0;
-  const timeSinceLastUpdate = now - engine.lastUpdateTime;
-  const goingBackwards = step < engine.lastStep;
-  const scrubbingForward = !isFirstUpdate && timeSinceLastUpdate < SCRUB_THRESHOLD_MS;
-  const snap = reducedMotion || goingBackwards || scrubbingForward;
-
-  engine.lastUpdateTime = now;
-  engine.lastStep = step;
-
   resources.pieces.removeChildren();
+  resources.animating.removeChildren();
 
   const sources = snap ? null : getAnimationSources(chess);
 
@@ -71,6 +57,7 @@ export function syncPieces(engine: Engine, chess: Chess, step: number, reducedMo
       if (!texture) continue;
 
       const sprite = new Sprite({ texture, anchor: 0.5 });
+      sprite.label = cell.type;
       sprite.scale.set(squareSize / texture.width);
 
       const target = squareToPixel(cell.square, squareSize, 'white', engine.boardOffset);
@@ -79,9 +66,7 @@ export function syncPieces(engine: Engine, chess: Chess, step: number, reducedMo
       if (isAnimating) {
         const start = squareToPixel(isAnimating, squareSize, 'white', engine.boardOffset);
         sprite.position.set(start.x, start.y);
-        // Ensure animating pieces render above stationary pieces.
-        sprite.zIndex = 1;
-        resources.pieces.addChild(sprite);
+        resources.animating.addChild(sprite);
         engine.animations.add(animate(sprite.position, target, SPRING_CONFIG));
       } else {
         sprite.position.set(target.x, target.y);

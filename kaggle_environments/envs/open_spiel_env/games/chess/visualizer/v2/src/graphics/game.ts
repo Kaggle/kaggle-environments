@@ -1,12 +1,22 @@
 import type { Chess } from 'chess.js';
 import { drawBoard } from './board';
-import { engine, initialiseEngine } from './engine';
+import { engine, initialiseEngine, type Engine } from './engine';
 import { syncHighlights } from './highlights';
 import { loadPieceTextureAtlas, syncPieces } from './pieces';
+import { createTrails } from './trails';
+import { SCRUB_THRESHOLD_MS } from '../constants';
 
 export interface Game {
   update: (chess: Chess, step: number, reducedMotion: boolean) => void;
   destroy: () => void;
+}
+
+function detectSnap(eng: Engine, step: number, reducedMotion: boolean, now: number): boolean {
+  const isFirstUpdate = eng.lastUpdateTime === 0;
+  const timeSinceLastUpdate = now - eng.lastUpdateTime;
+  const goingBackwards = step < eng.lastStep;
+  const scrubbingForward = !isFirstUpdate && timeSinceLastUpdate < SCRUB_THRESHOLD_MS;
+  return reducedMotion || goingBackwards || scrubbingForward;
 }
 
 export async function createGame(canvas: HTMLCanvasElement): Promise<Game> {
@@ -20,16 +30,26 @@ export async function createGame(canvas: HTMLCanvasElement): Promise<Game> {
   board.cacheAsTexture(true);
   eng.resources.background.addChild(board);
 
+  const trails = createTrails(eng);
+
   return {
     update(chess: Chess, step: number, reducedMotion: boolean) {
       // Stop all in-flight animations before rebuilding sprites.
       for (const anim of eng.animations) anim.stop();
       eng.animations.clear();
 
+      const now = performance.now();
+      const snap = detectSnap(eng, step, reducedMotion, now);
+      eng.lastUpdateTime = now;
+      eng.lastStep = step;
+
+      trails.clear();
+
       syncHighlights(eng, chess, reducedMotion);
-      syncPieces(eng, chess, step, reducedMotion);
+      syncPieces(eng, chess, snap);
     },
     destroy() {
+      trails.destroy();
       // TODO(pim-at-stink): https://github.com/pixijs/pixijs/issues/11977
       board.cacheAsTexture(false);
       // Stop any in-flight spring animations before tearing down the stage,
