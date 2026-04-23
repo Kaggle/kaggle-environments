@@ -1,0 +1,1093 @@
+{
+  "id": "7451fe8c-3f2c-11f1-96e9-122fb404ab4e",
+  "name": "open_spiel_dark_hex",
+  "title": "Open Spiel: dark_hex",
+  "description": "Kaggle environment wrapper for OpenSpiel games.\nFor game implementation details see:\nhttps://github.com/google-deepmind/open_spiel/tree/master/open_spiel/games",
+  "version": "0.1.0",
+  "module_version": "1.18.0",
+  "configuration": {
+    "includeLegalActions": true,
+    "episodeSteps": 117,
+    "actTimeout": 3600,
+    "runTimeout": 172800,
+    "openSpielGameString": "dark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)",
+    "openSpielGameName": "dark_hex",
+    "openSpielGameParameters": {
+      "board_size": 3,
+      "gameversion": "cdh",
+      "num_cols": 3,
+      "num_rows": 3,
+      "obstype": "reveal-nothing"
+    },
+    "observationType": "observation",
+    "useOpenings": false,
+    "useImage": false,
+    "loadPresetHands": false,
+    "metadata": {}
+  },
+  "specification": {
+    "action": {
+      "description": "Action object MUST contain a field `submission`, and MAY contain arbitrary additional information.",
+      "type": "object",
+      "default": {
+        "submission": -1
+      }
+    },
+    "agents": [2],
+    "configuration": {
+      "episodeSteps": {
+        "description": "Maximum number of steps in the episode.",
+        "type": "integer",
+        "minimum": 1,
+        "default": 117
+      },
+      "actTimeout": {
+        "description": "Maximum runtime (seconds) to obtain an action from an agent.",
+        "type": "number",
+        "minimum": 0,
+        "default": 3600
+      },
+      "runTimeout": {
+        "description": "Maximum runtime (seconds) of an episode (not necessarily DONE).",
+        "type": "number",
+        "minimum": 0,
+        "default": 172800
+      },
+      "openSpielGameString": {
+        "description": "The full game string including parameters.",
+        "type": "string",
+        "default": "dark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)"
+      },
+      "openSpielGameName": {
+        "description": "The short_name of the OpenSpiel game to load.",
+        "type": "string",
+        "default": "dark_hex"
+      },
+      "openSpielGameParameters": {
+        "description": "Game parameters for Open Spiel game.",
+        "type": "object",
+        "default": {
+          "board_size": 3,
+          "gameversion": "cdh",
+          "num_cols": 3,
+          "num_rows": 3,
+          "obstype": "reveal-nothing"
+        },
+        "properties": {}
+      },
+      "observationType": {
+        "description": "Type of observation string: 'observation' or 'information_state'.",
+        "type": "string",
+        "default": "observation"
+      },
+      "useOpenings": {
+        "description": "Whether to start from a position in an opening book.",
+        "type": "boolean",
+        "default": false
+      },
+      "useImage": {
+        "description": "If true, indicates the observation is intended to be rendered as an image. Note that currently the agent harness is responsible for the actual rendering; no image is passed in the observation.",
+        "type": "boolean",
+        "default": false
+      },
+      "includeLegalActions": {
+        "description": "If true, include legalActions and legalActionStrings in observations. Defaults to false since these can be derived from serializedGameAndState.",
+        "type": "boolean",
+        "default": false
+      },
+      "seed": {
+        "description": "Integer currently only used for selecting starting position.",
+        "type": "number"
+      },
+      "initialActions": {
+        "description": "Actions applied to initial state before play begins to set up starting position.",
+        "type": "array"
+      },
+      "loadPresetHands": {
+        "description": "Repeated poker only. Load preset hand chance actions from preset_hands.jsonl.",
+        "type": "boolean",
+        "default": false
+      },
+      "presetHands": {
+        "description": "Repeated poker only. List of per-hand chance action sequences to use instead of random chance.",
+        "type": "array"
+      },
+      "metadata": {
+        "description": "Arbitrary metadata.",
+        "type": "object",
+        "default": {},
+        "properties": {}
+      }
+    },
+    "info": {},
+    "observation": {
+      "remainingOverageTime": {
+        "description": "Total remaining banked time (seconds) that can be used in excess of per-step actTimeouts -- agent is disqualified with TIMEOUT status when this drops below 0.",
+        "shared": false,
+        "type": "number",
+        "minimum": 0,
+        "default": 12
+      },
+      "step": {
+        "description": "Current step within the episode.",
+        "type": "integer",
+        "shared": true,
+        "minimum": 0,
+        "default": 0
+      },
+      "properties": {
+        "openSpielGameString": {
+          "description": "Full game string including parameters.",
+          "type": "string",
+          "default": "dark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)"
+        },
+        "openSpielGameName": {
+          "description": "Short name of the OpenSpiel game.",
+          "type": "string",
+          "default": "dark_hex"
+        },
+        "observationString": {
+          "description": "String representation of state.",
+          "type": "string"
+        },
+        "legalActions": {
+          "description": "List of OpenSpiel legal action integers. Only included if includeLegalActions is true.",
+          "type": "array"
+        },
+        "legalActionStrings": {
+          "description": "List of OpenSpiel legal action strings. Only included if includeLegalActions is true.",
+          "type": "array"
+        },
+        "currentPlayer": {
+          "description": "ID of player whose turn it is.",
+          "type": "integer"
+        },
+        "playerId": {
+          "description": "ID of the agent receiving this observation.",
+          "type": "integer"
+        },
+        "isTerminal": {
+          "description": "Boolean indicating game end.",
+          "type": "boolean"
+        },
+        "serializedGameAndState": {
+          "description": "Enables reconstructing the Game and State objects.",
+          "type": "string"
+        },
+        "remainingOverageTime": 60,
+        "step": 0
+      },
+      "default": {}
+    },
+    "reward": {
+      "type": ["number", "null"],
+      "default": 0.0
+    }
+  },
+  "steps": [
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": 0.0,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 0
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": 0.0,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": null,
+          "actionSubmittedToString": null,
+          "actionApplied": null,
+          "timeTaken": null,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 1,
+          "observationString": "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \".\", \".\"], [\".\", \".\", \".\"], [\".\", \".\", \".\"]]}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=\nmove_number=0\n__dict__=gASV4gAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMtSMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KCgqUYnMu\n",
+          "legalActions": [0, 1, 2, 3, 4, 5, 6, 7, 8],
+          "legalActionStrings": [
+            "a1",
+            "b1",
+            "c1",
+            "a2",
+            "b2",
+            "c2",
+            "a3",
+            "b3",
+            "c3"
+          ]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \".\", \".\"], [\".\", \".\", \".\"], [\".\", \".\", \".\"]]}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=\nmove_number=0\n__dict__=gASV4gAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMtSMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KCgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 2
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 2,
+          "actionSubmittedToString": "c1",
+          "actionApplied": 2,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 2,
+          "observationString": "{\"current_player\": \"o\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \".\", \"x\"], [\".\", \".\", \".\"], [\".\", \".\", \".\"]]}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2\nmove_number=1\n__dict__=gASV4wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMtiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoKlGJzLg==\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": \"o\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \".\", \".\"], [\".\", \".\", \".\"], [\".\", \".\", \".\"]]}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2\nmove_number=1\n__dict__=gASV4wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMtiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoKlGJzLg==\n",
+          "legalActions": [0, 1, 2, 3, 4, 5, 6, 7, 8],
+          "legalActionStrings": [
+            "a1",
+            "b1",
+            "c1",
+            "a2",
+            "b2",
+            "c2",
+            "a3",
+            "b3",
+            "c3"
+          ]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 3,
+          "observationString": "{\"current_player\": \"o\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \".\", \"x\"], [\".\", \".\", \".\"], [\".\", \".\", \".\"]]}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2\nmove_number=2\n__dict__=gASV5QAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMuCMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": {
+          "submission": 2
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 2,
+          "actionSubmittedToString": "c1",
+          "actionApplied": 2,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": \"o\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \".\", \"x\"], [\".\", \".\", \".\"], [\".\", \".\", \".\"]]}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2\nmove_number=2\n__dict__=gASV5QAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMuCMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCgqUYnMu\n",
+          "legalActions": [0, 1, 3, 4, 5, 6, 7, 8],
+          "legalActionStrings": ["a1", "b1", "a2", "b2", "c2", "a3", "b3", "c3"]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 4,
+          "observationString": "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \".\", \"x\"], [\".\", \".\", \".\"], [\".\", \".\", \".\"]]}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7\nmove_number=3\n__dict__=gASV5wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMuiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKCpRicy4=\n",
+          "legalActions": [0, 1, 3, 4, 5, 6, 7, 8],
+          "legalActionStrings": ["a1", "b1", "a2", "b2", "c2", "a3", "b3", "c3"]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 7
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 7,
+          "actionSubmittedToString": "b3",
+          "actionApplied": 7,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \".\", \"x\"], [\".\", \".\", \".\"], [\".\", \"o\", \".\"]]}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7\nmove_number=3\n__dict__=gASV5wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMuiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKCpRicy4=\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 4
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 4,
+          "actionSubmittedToString": "b2",
+          "actionApplied": 4,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 5,
+          "observationString": "{\"current_player\": \"o\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \".\", \"x\"], [\".\", \"x\", \".\"], [\".\", \".\", \".\"]]}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4\nmove_number=4\n__dict__=gASV6QAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMvCMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAoKlGJzLg==\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": \"o\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \".\", \"x\"], [\".\", \".\", \".\"], [\".\", \"o\", \".\"]]}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4\nmove_number=4\n__dict__=gASV6QAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMvCMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAoKlGJzLg==\n",
+          "legalActions": [0, 1, 3, 4, 5, 6, 8],
+          "legalActionStrings": ["a1", "b1", "a2", "b2", "c2", "a3", "c3"]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 6,
+          "observationString": "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \".\", \"x\"], [\".\", \"x\", \".\"], [\".\", \".\", \".\"]]}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8\nmove_number=5\n__dict__=gASV6wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMviMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CgqUYnMu\n",
+          "legalActions": [0, 1, 3, 5, 6, 7, 8],
+          "legalActionStrings": ["a1", "b1", "a2", "c2", "a3", "b3", "c3"]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 8
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 8,
+          "actionSubmittedToString": "c3",
+          "actionApplied": 8,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \".\", \"x\"], [\".\", \".\", \".\"], [\".\", \"o\", \"o\"]]}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8\nmove_number=5\n__dict__=gASV6wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMviMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 8
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 8,
+          "actionSubmittedToString": "c3",
+          "actionApplied": 8,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 7,
+          "observationString": "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \".\", \"x\"], [\".\", \"x\", \".\"], [\".\", \".\", \"o\"]]}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8,0:8\nmove_number=6\n__dict__=gASV7QAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMwCMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CjgKCpRicy4=\n",
+          "legalActions": [0, 1, 3, 5, 6, 7],
+          "legalActionStrings": ["a1", "b1", "a2", "c2", "a3", "b3"]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \".\", \"x\"], [\".\", \".\", \".\"], [\".\", \"o\", \"o\"]]}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8,0:8\nmove_number=6\n__dict__=gASV7QAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMwCMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CjgKCpRicy4=\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 3
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 3,
+          "actionSubmittedToString": "a2",
+          "actionApplied": 3,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 8,
+          "observationString": "{\"current_player\": \"o\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \".\", \"x\"], [\"x\", \"x\", \".\"], [\".\", \".\", \"o\"]]}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8,0:8,0:3\nmove_number=7\n__dict__=gASV7wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMwiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CjgKMwoKlGJzLg==\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": \"o\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \".\", \"x\"], [\".\", \".\", \".\"], [\".\", \"o\", \"o\"]]}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8,0:8,0:3\nmove_number=7\n__dict__=gASV7wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMwiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CjgKMwoKlGJzLg==\n",
+          "legalActions": [0, 1, 3, 4, 5, 6],
+          "legalActionStrings": ["a1", "b1", "a2", "b2", "c2", "a3"]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 9,
+          "observationString": "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \".\", \"x\"], [\"x\", \"x\", \".\"], [\".\", \".\", \"o\"]]}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8,0:8,0:3,1:1\nmove_number=8\n__dict__=gASV8QAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMxCMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CjgKMwoxCgqUYnMu\n",
+          "legalActions": [0, 1, 5, 6, 7],
+          "legalActionStrings": ["a1", "b1", "c2", "a3", "b3"]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 1
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 1,
+          "actionSubmittedToString": "b1",
+          "actionApplied": 1,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \"o\", \"x\"], [\".\", \".\", \".\"], [\".\", \"o\", \"o\"]]}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8,0:8,0:3,1:1\nmove_number=8\n__dict__=gASV8QAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMxCMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CjgKMwoxCgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 1
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 1,
+          "actionSubmittedToString": "b1",
+          "actionApplied": 1,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 10,
+          "observationString": "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \"o\", \"x\"], [\"x\", \"x\", \".\"], [\".\", \".\", \"o\"]]}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8,0:8,0:3,1:1,0:1\nmove_number=9\n__dict__=gASV8wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMxiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CjgKMwoxCjEKCpRicy4=\n",
+          "legalActions": [0, 5, 6, 7],
+          "legalActionStrings": ["a1", "c2", "a3", "b3"]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \"o\", \"x\"], [\".\", \".\", \".\"], [\".\", \"o\", \"o\"]]}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8,0:8,0:3,1:1,0:1\nmove_number=9\n__dict__=gASV8wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMxiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CjgKMwoxCjEKCpRicy4=\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 7
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 7,
+          "actionSubmittedToString": "b3",
+          "actionApplied": 7,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 11,
+          "observationString": "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \"o\", \"x\"], [\"x\", \"x\", \".\"], [\".\", \"o\", \"o\"]]}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8,0:8,0:3,1:1,0:1,0:7\nmove_number=10\n__dict__=gASV9QAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMyCMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CjgKMwoxCjEKNwoKlGJzLg==\n",
+          "legalActions": [0, 5, 6],
+          "legalActionStrings": ["a1", "c2", "a3"]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \"o\", \"x\"], [\".\", \".\", \".\"], [\".\", \"o\", \"o\"]]}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8,0:8,0:3,1:1,0:1,0:7\nmove_number=10\n__dict__=gASV9QAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMyCMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CjgKMwoxCjEKNwoKlGJzLg==\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 5
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 5,
+          "actionSubmittedToString": "c2",
+          "actionApplied": 5,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 12,
+          "observationString": "{\"current_player\": \"o\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \"o\", \"x\"], [\"x\", \"x\", \"x\"], [\".\", \"o\", \"o\"]]}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8,0:8,0:3,1:1,0:1,0:7,0:5\nmove_number=11\n__dict__=gASV9wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMyiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CjgKMwoxCjEKNwo1CgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": \"o\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \"o\", \"x\"], [\".\", \".\", \".\"], [\".\", \"o\", \"o\"]]}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8,0:8,0:3,1:1,0:1,0:7,0:5\nmove_number=11\n__dict__=gASV9wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMyiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CjgKMwoxCjEKNwo1CgqUYnMu\n",
+          "legalActions": [0, 3, 4, 5, 6],
+          "legalActionStrings": ["a1", "a2", "b2", "c2", "a3"]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 13,
+          "observationString": "{\"current_player\": \"o\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \"o\", \"x\"], [\"x\", \"x\", \"x\"], [\".\", \"o\", \"o\"]]}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8,0:8,0:3,1:1,0:1,0:7,0:5,1:4\nmove_number=12\n__dict__=gASV+QAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMzCMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CjgKMwoxCjEKNwo1CjQKCpRicy4=\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": {
+          "submission": 4
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 4,
+          "actionSubmittedToString": "b2",
+          "actionApplied": 4,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": \"o\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \"o\", \"x\"], [\".\", \"x\", \".\"], [\".\", \"o\", \"o\"]]}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8,0:8,0:3,1:1,0:1,0:7,0:5,1:4\nmove_number=12\n__dict__=gASV+QAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMzCMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CjgKMwoxCjEKNwo1CjQKCpRicy4=\n",
+          "legalActions": [0, 3, 5, 6],
+          "legalActionStrings": ["a1", "a2", "c2", "a3"]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 14,
+          "observationString": "{\"current_player\": \"o\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \"o\", \"x\"], [\"x\", \"x\", \"x\"], [\".\", \"o\", \"o\"]]}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8,0:8,0:3,1:1,0:1,0:7,0:5,1:4,1:3\nmove_number=13\n__dict__=gASV+wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMziMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CjgKMwoxCjEKNwo1CjQKMwoKlGJzLg==\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": {
+          "submission": 3
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 3,
+          "actionSubmittedToString": "a2",
+          "actionApplied": 3,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": \"o\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \"o\", \"x\"], [\"x\", \"x\", \".\"], [\".\", \"o\", \"o\"]]}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8,0:8,0:3,1:1,0:1,0:7,0:5,1:4,1:3\nmove_number=13\n__dict__=gASV+wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMziMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CjgKMwoxCjEKNwo1CjQKMwoKlGJzLg==\n",
+          "legalActions": [0, 5, 6],
+          "legalActionStrings": ["a1", "c2", "a3"]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 15,
+          "observationString": "{\"current_player\": \"o\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \"o\", \"x\"], [\"x\", \"x\", \"x\"], [\".\", \"o\", \"o\"]]}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8,0:8,0:3,1:1,0:1,0:7,0:5,1:4,1:3,1:5\nmove_number=14\n__dict__=gASV/QAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSM0CMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CjgKMwoxCjEKNwo1CjQKMwo1CgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": {
+          "submission": 5
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 5,
+          "actionSubmittedToString": "c2",
+          "actionApplied": 5,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": \"o\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \"o\", \"x\"], [\"x\", \"x\", \"x\"], [\".\", \"o\", \"o\"]]}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8,0:8,0:3,1:1,0:1,0:7,0:5,1:4,1:3,1:5\nmove_number=14\n__dict__=gASV/QAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSM0CMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CjgKMwoxCjEKNwo1CjQKMwo1CgqUYnMu\n",
+          "legalActions": [0, 6],
+          "legalActionStrings": ["a1", "a3"]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 16,
+          "observationString": "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\".\", \"o\", \"x\"], [\"x\", \"x\", \"x\"], [\".\", \"o\", \"o\"]]}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8,0:8,0:3,1:1,0:1,0:7,0:5,1:4,1:3,1:5,1:0\nmove_number=15\n__dict__=gASV/wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSM0iMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CjgKMwoxCjEKNwo1CjQKMwo1CjAKCpRicy4=\n",
+          "legalActions": [0, 6],
+          "legalActionStrings": ["a1", "a3"]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 0
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 0,
+          "actionSubmittedToString": "a1",
+          "actionApplied": 0,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\"o\", \"o\", \"x\"], [\"x\", \"x\", \"x\"], [\".\", \"o\", \"o\"]]}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8,0:8,0:3,1:1,0:1,0:7,0:5,1:4,1:3,1:5,1:0\nmove_number=15\n__dict__=gASV/wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSM0iMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CjgKMwoxCjEKNwo1CjQKMwo1CjAKCpRicy4=\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 0
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 0,
+          "actionSubmittedToString": "a1",
+          "actionApplied": 0,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 17,
+          "observationString": "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\"o\", \"o\", \"x\"], [\"x\", \"x\", \"x\"], [\".\", \"o\", \"o\"]]}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8,0:8,0:3,1:1,0:1,0:7,0:5,1:4,1:3,1:5,1:0,0:0\nmove_number=16\n__dict__=gASVAQEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSM1CMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CjgKMwoxCjEKNwo1CjQKMwo1CjAKMAoKlGJzLg==\n",
+          "legalActions": [6],
+          "legalActionStrings": ["a3"]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\"o\", \"o\", \"x\"], [\"x\", \"x\", \"x\"], [\".\", \"o\", \"o\"]]}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8,0:8,0:3,1:1,0:1,0:7,0:5,1:4,1:3,1:5,1:0,0:0\nmove_number=16\n__dict__=gASVAQEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSM1CMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CjgKMwoxCjEKNwo1CjQKMwo1CjAKMAoKlGJzLg==\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 6
+        },
+        "reward": 1.0,
+        "info": {
+          "actionSubmitted": 6,
+          "actionSubmittedToString": "a3",
+          "actionApplied": 6,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 18,
+          "observationString": "{\"current_player\": \"terminal\", \"is_terminal\": true, \"winner\": \"x\", \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\"o\", \"o\", \"x\"], [\"x\", \"x\", \"x\"], [\"x\", \"o\", \"o\"]]}",
+          "currentPlayer": -4,
+          "playerId": 0,
+          "isTerminal": true,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8,0:8,0:3,1:1,0:1,0:7,0:5,1:4,1:3,1:5,1:0,0:0,0:6\nmove_number=17\n__dict__=gASVAwEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSM1iMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CjgKMwoxCjEKNwo1CjQKMwo1CjAKMAo2CgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "DONE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": -1.0,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": \"terminal\", \"is_terminal\": true, \"winner\": \"x\", \"num_rows\": 3, \"num_cols\": 3, \"board\": [[\"o\", \"o\", \"x\"], [\"x\", \"x\", \"x\"], [\".\", \"o\", \"o\"]]}",
+          "currentPlayer": -4,
+          "playerId": 1,
+          "isTerminal": true,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)\n[State]\nhistory=0:2,1:2,1:7,0:4,1:8,0:8,0:3,1:1,0:1,0:7,0:5,1:4,1:3,1:5,1:0,0:0,0:6\nmove_number=17\n__dict__=gASVAwEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSM1iMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRhcmtfaGV4KGJvYXJkX3NpemU9MyxnYW1ldmVyc2lvbj1jZGgsbnVtX2NvbHM9MyxudW1fcm93cz0zLG9ic3R5cGU9cmV2ZWFsLW5vdGhpbmcpCltTdGF0ZV0KMgoyCjcKNAo4CjgKMwoxCjEKNwo1CjQKMwo1CjAKMAo2CgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "DONE"
+      }
+    ]
+  ],
+  "rewards": [1.0, -1.0],
+  "statuses": ["DONE", "DONE"],
+  "schema_version": 1,
+  "info": {
+    "openSpielGameStringResolved": "dark_hex_proxy(board_size=3,gameversion=cdh,num_cols=3,num_rows=3,obstype=reveal-nothing)",
+    "stateHistory": [
+      "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board_player_x\": [[\".\", \".\", \".\"], [\".\", \".\", \".\"], [\".\", \".\", \".\"]], \"board_player_o\": [[\".\", \".\", \".\"], [\".\", \".\", \".\"], [\".\", \".\", \".\"]]}",
+      "{\"current_player\": \"o\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board_player_x\": [[\".\", \".\", \"x\"], [\".\", \".\", \".\"], [\".\", \".\", \".\"]], \"board_player_o\": [[\".\", \".\", \".\"], [\".\", \".\", \".\"], [\".\", \".\", \".\"]]}",
+      "{\"current_player\": \"o\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board_player_x\": [[\".\", \".\", \"x\"], [\".\", \".\", \".\"], [\".\", \".\", \".\"]], \"board_player_o\": [[\".\", \".\", \"x\"], [\".\", \".\", \".\"], [\".\", \".\", \".\"]]}",
+      "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board_player_x\": [[\".\", \".\", \"x\"], [\".\", \".\", \".\"], [\".\", \".\", \".\"]], \"board_player_o\": [[\".\", \".\", \"x\"], [\".\", \".\", \".\"], [\".\", \"o\", \".\"]]}",
+      "{\"current_player\": \"o\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board_player_x\": [[\".\", \".\", \"x\"], [\".\", \"x\", \".\"], [\".\", \".\", \".\"]], \"board_player_o\": [[\".\", \".\", \"x\"], [\".\", \".\", \".\"], [\".\", \"o\", \".\"]]}",
+      "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board_player_x\": [[\".\", \".\", \"x\"], [\".\", \"x\", \".\"], [\".\", \".\", \".\"]], \"board_player_o\": [[\".\", \".\", \"x\"], [\".\", \".\", \".\"], [\".\", \"o\", \"o\"]]}",
+      "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board_player_x\": [[\".\", \".\", \"x\"], [\".\", \"x\", \".\"], [\".\", \".\", \"o\"]], \"board_player_o\": [[\".\", \".\", \"x\"], [\".\", \".\", \".\"], [\".\", \"o\", \"o\"]]}",
+      "{\"current_player\": \"o\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board_player_x\": [[\".\", \".\", \"x\"], [\"x\", \"x\", \".\"], [\".\", \".\", \"o\"]], \"board_player_o\": [[\".\", \".\", \"x\"], [\".\", \".\", \".\"], [\".\", \"o\", \"o\"]]}",
+      "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board_player_x\": [[\".\", \".\", \"x\"], [\"x\", \"x\", \".\"], [\".\", \".\", \"o\"]], \"board_player_o\": [[\".\", \"o\", \"x\"], [\".\", \".\", \".\"], [\".\", \"o\", \"o\"]]}",
+      "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board_player_x\": [[\".\", \"o\", \"x\"], [\"x\", \"x\", \".\"], [\".\", \".\", \"o\"]], \"board_player_o\": [[\".\", \"o\", \"x\"], [\".\", \".\", \".\"], [\".\", \"o\", \"o\"]]}",
+      "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board_player_x\": [[\".\", \"o\", \"x\"], [\"x\", \"x\", \".\"], [\".\", \"o\", \"o\"]], \"board_player_o\": [[\".\", \"o\", \"x\"], [\".\", \".\", \".\"], [\".\", \"o\", \"o\"]]}",
+      "{\"current_player\": \"o\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board_player_x\": [[\".\", \"o\", \"x\"], [\"x\", \"x\", \"x\"], [\".\", \"o\", \"o\"]], \"board_player_o\": [[\".\", \"o\", \"x\"], [\".\", \".\", \".\"], [\".\", \"o\", \"o\"]]}",
+      "{\"current_player\": \"o\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board_player_x\": [[\".\", \"o\", \"x\"], [\"x\", \"x\", \"x\"], [\".\", \"o\", \"o\"]], \"board_player_o\": [[\".\", \"o\", \"x\"], [\".\", \"x\", \".\"], [\".\", \"o\", \"o\"]]}",
+      "{\"current_player\": \"o\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board_player_x\": [[\".\", \"o\", \"x\"], [\"x\", \"x\", \"x\"], [\".\", \"o\", \"o\"]], \"board_player_o\": [[\".\", \"o\", \"x\"], [\"x\", \"x\", \".\"], [\".\", \"o\", \"o\"]]}",
+      "{\"current_player\": \"o\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board_player_x\": [[\".\", \"o\", \"x\"], [\"x\", \"x\", \"x\"], [\".\", \"o\", \"o\"]], \"board_player_o\": [[\".\", \"o\", \"x\"], [\"x\", \"x\", \"x\"], [\".\", \"o\", \"o\"]]}",
+      "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board_player_x\": [[\".\", \"o\", \"x\"], [\"x\", \"x\", \"x\"], [\".\", \"o\", \"o\"]], \"board_player_o\": [[\"o\", \"o\", \"x\"], [\"x\", \"x\", \"x\"], [\".\", \"o\", \"o\"]]}",
+      "{\"current_player\": \"x\", \"is_terminal\": false, \"winner\": null, \"num_rows\": 3, \"num_cols\": 3, \"board_player_x\": [[\"o\", \"o\", \"x\"], [\"x\", \"x\", \"x\"], [\".\", \"o\", \"o\"]], \"board_player_o\": [[\"o\", \"o\", \"x\"], [\"x\", \"x\", \"x\"], [\".\", \"o\", \"o\"]]}",
+      "{\"current_player\": \"terminal\", \"is_terminal\": true, \"winner\": \"x\", \"num_rows\": 3, \"num_cols\": 3, \"board_player_x\": [[\"o\", \"o\", \"x\"], [\"x\", \"x\", \"x\"], [\"x\", \"o\", \"o\"]], \"board_player_o\": [[\"o\", \"o\", \"x\"], [\"x\", \"x\", \"x\"], [\".\", \"o\", \"o\"]]}"
+    ],
+    "actionHistory": [
+      "2",
+      "2",
+      "7",
+      "4",
+      "8",
+      "8",
+      "3",
+      "1",
+      "1",
+      "7",
+      "5",
+      "4",
+      "3",
+      "5",
+      "0",
+      "0",
+      "6"
+    ],
+    "moveDurations": [
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0
+    ]
+  }
+}
