@@ -368,7 +368,7 @@ class Environment:
                 "logs": self.logs,
                 **kwargs,
             }
-            args = [self]
+            args = [self, mode]
             player_html = get_player(
                 window_kaggle, self.html_renderer(*args[: self.html_renderer.__code__.co_argcount])
             )
