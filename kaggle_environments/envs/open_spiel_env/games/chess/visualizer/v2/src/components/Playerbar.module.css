@@ -54,12 +54,21 @@
 }
 
 .captures {
+  --capture-size: 2em;
+
   display: grid;
-  grid-template-columns: repeat(6, 2em);
+  grid-template-columns: repeat(6, var(--capture-size));
   user-select: none;
 
   [data-player="b"] & {
     justify-self: end;
+    display: flex;
+    flex-wrap: wrap-reverse;
+    width: calc(6 * var(--capture-size));
+
+    & img {
+      width: var(--capture-size);
+    }
   }
 
   & img {

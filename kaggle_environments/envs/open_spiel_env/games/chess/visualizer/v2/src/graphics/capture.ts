@@ -24,7 +24,6 @@ export function syncCapture(engine: Engine, chess: Chess, snap: boolean) {
 
   const pos = squareToPixel(captureSquare, squareSize, 'white', boardOffset);
 
-  // Captured piece — scales out under the puff cloud.
   const piece = new Sprite({ texture, anchor: 0.5 });
   piece.scale.set(squareSize / texture.width);
   piece.position.set(pos.x, pos.y);
