@@ -266,13 +266,29 @@ export function renderer(options: RendererOptions) {
   boards.appendChild(xCard);
   boards.appendChild(oCard);
 
+  // Natural aspect of the hex parallelogram board. Used to fit the canvas
+  // into the card without leaving large empty bands.
+  const numRows = observation.num_rows;
+  const aspect = ((numCols + (numRows - 1) / 2) * Math.sqrt(3)) / ((numRows - 1) * 1.5 + 2);
+
   const drawCard = (card: HTMLDivElement, obs: DarkHexObservation | null, ownerIdx: number) => {
     const canvas = card.querySelector('canvas') as HTMLCanvasElement;
-    canvas.width = 0;
-    canvas.height = 0;
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = Math.max(1, Math.floor(rect.width));
-    canvas.height = Math.max(1, Math.floor(rect.height));
+    canvas.style.width = '0';
+    canvas.style.height = '0';
+    const cardRect = card.getBoundingClientRect();
+    const label = card.querySelector('.board-label') as HTMLElement | null;
+    const labelH = label ? label.getBoundingClientRect().height : 0;
+    const gap = 8; // matches .board-card { gap } in style.css
+    const availW = cardRect.width;
+    const availH = Math.max(0, cardRect.height - labelH - gap);
+    let cssW = Math.min(availW, availH * aspect);
+    let cssH = cssW / aspect;
+    cssW = Math.max(1, Math.floor(cssW));
+    cssH = Math.max(1, Math.floor(cssH));
+    canvas.style.width = `${cssW}px`;
+    canvas.style.height = `${cssH}px`;
+    canvas.width = cssW;
+    canvas.height = cssH;
     const ctx = canvas.getContext('2d');
     if (!ctx || !obs) return;
 
