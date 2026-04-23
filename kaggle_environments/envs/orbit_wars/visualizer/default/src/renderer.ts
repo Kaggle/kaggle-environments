@@ -178,15 +178,11 @@ export function renderer(options: RendererOptions) {
     }
   });
 
-  // Size canvas: always square, fill available space, handle DPR
+  // Size canvas: CSS handles square fitting and centering via aspect-ratio,
+  // max-width/max-height, and flexbox on the wrapper. We just set the
+  // drawing-surface resolution to match the CSS-computed display size.
   const dpr = window.devicePixelRatio || 1;
-  const wrapperRect = canvasWrapper.getBoundingClientRect();
-  const cssSize = Math.max(100, Math.floor(Math.min(wrapperRect.width, wrapperRect.height)));
-  canvas.style.width = `${cssSize}px`;
-  canvas.style.height = `${cssSize}px`;
-  canvas.style.position = 'absolute';
-  canvas.style.left = `${(wrapperRect.width - cssSize) / 2}px`;
-  canvas.style.top = `${(wrapperRect.height - cssSize) / 2}px`;
+  const cssSize = Math.max(100, Math.floor(canvas.getBoundingClientRect().width));
   canvas.width = Math.round(cssSize * dpr);
   canvas.height = Math.round(cssSize * dpr);
 
