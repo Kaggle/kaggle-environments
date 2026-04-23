@@ -1,12 +1,16 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-interface Preferences {
+export interface PreferencesState {
   showHeroAnimations: boolean;
   showAnnotations: boolean;
+  showHighlights: boolean;
   soundEnabled: boolean;
   reducedMotion: boolean;
-  toggle: (key: 'showHeroAnimations' | 'showAnnotations' | 'soundEnabled' | 'reducedMotion') => void;
+}
+
+interface Preferences extends PreferencesState {
+  toggle: (key: keyof PreferencesState) => void;
 }
 
 const usePreferences = create<Preferences>()(
@@ -14,6 +18,7 @@ const usePreferences = create<Preferences>()(
     (set) => ({
       showHeroAnimations: true,
       showAnnotations: true,
+      showHighlights: true,
       soundEnabled: false,
       reducedMotion: false,
       toggle: (key) => set((state) => ({ [key]: !state[key] })),
@@ -24,6 +29,7 @@ const usePreferences = create<Preferences>()(
       partialize: (state) => ({
         showHeroAnimations: state.showHeroAnimations,
         showAnnotations: state.showAnnotations,
+        showHighlights: state.showHighlights,
         reducedMotion: state.reducedMotion,
       }),
     }

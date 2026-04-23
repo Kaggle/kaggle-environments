@@ -4,6 +4,7 @@ import type { Chess } from 'chess.js';
 import type { Engine } from '../engine';
 import { squareToPixel } from '../coordinates';
 import { GRID_LINE_WIDTH } from '../constants';
+import type { PreferencesState } from '../../stores/usePreferences';
 
 const HIGHLIGHT_COLOR = 0xbdeeff;
 const FROM_ALPHA = 0.4;
@@ -11,10 +12,12 @@ const TO_ALPHA = 0.7;
 const FADE_DURATION = 0.25; // seconds
 const TO_DELAY = 0.18; // seconds — "to" square fades in slightly after "from"
 
-export function syncHighlights(engine: Engine, chess: Chess, reducedMotion: boolean) {
+export function syncHighlights(engine: Engine, chess: Chess, prefs: PreferencesState) {
   const { squareSize, boardOffset, resources } = engine;
 
   resources.highlights.removeChildren();
+
+  if (!prefs.showHighlights) return;
 
   const lastMove = chess.history({ verbose: true }).at(-1);
   if (!lastMove) return;
@@ -39,7 +42,7 @@ export function syncHighlights(engine: Engine, chess: Chess, reducedMotion: bool
     sprite.height = size;
     resources.highlights.addChild(sprite);
 
-    if (reducedMotion) {
+    if (prefs.reducedMotion) {
       sprite.alpha = alpha;
     } else {
       sprite.alpha = 0;

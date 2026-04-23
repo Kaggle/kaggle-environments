@@ -1,15 +1,24 @@
 import { memo, useEffect, useRef } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { createGame, type Game } from '../graphics/game';
 import useGameStore from '../stores/useGameStore';
-import usePreferences from '../stores/usePreferences';
+import usePreferences, { type PreferencesState } from '../stores/usePreferences';
 import styles from './GameBoard.module.css';
+
+const selectPrefs = (s: PreferencesState): PreferencesState => ({
+  showHeroAnimations: s.showHeroAnimations,
+  showAnnotations: s.showAnnotations,
+  showHighlights: s.showHighlights,
+  soundEnabled: s.soundEnabled,
+  reducedMotion: s.reducedMotion,
+});
 
 export default memo(function GameBoard() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<Game | null>(null);
   const chess = useGameStore((state) => state.game);
   const step = useGameStore((state) => state.options.step);
-  const reducedMotion = usePreferences((state) => state.reducedMotion);
+  const prefs = usePreferences(useShallow(selectPrefs));
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -27,7 +36,7 @@ export default memo(function GameBoard() {
         }
         gameRef.current = game;
         const state = useGameStore.getState();
-        game.update(state.game, state.options.step, usePreferences.getState().reducedMotion);
+        game.update(state.game, state.options.step, selectPrefs(usePreferences.getState()));
       });
     });
 
@@ -40,8 +49,8 @@ export default memo(function GameBoard() {
   }, []);
 
   useEffect(() => {
-    gameRef.current?.update(chess, step, reducedMotion);
-  }, [chess, step, reducedMotion]);
+    gameRef.current?.update(chess, step, prefs);
+  }, [chess, step, prefs]);
 
   return (
     <div id="board" className={styles.board}>
