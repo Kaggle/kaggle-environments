@@ -76,26 +76,28 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertTrue(all(status == "DONE" for status in json_data["statuses"]))
 
     def test_amazons_manual_playthrough(self):
-        env = make("open_spiel_amazons", debug=True)
+        # Walks player 0 (X) through one full Amazons turn (from -> to -> shoot)
+        # by picking the first legal action at each sub-action, and verifies
+        # the proxy advances `phase` through all three values and then resets
+        # to "from" for player O. Picking from `legalActions` keeps this test
+        # robust to pyspiel version differences in the starting layout.
+        env = make("open_spiel_amazons", {"includeLegalActions": True}, debug=True)
         env.reset()
         env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
-        # Player 0 (X) plays one full Amazons turn: from -> to -> shoot.
-        # Action encoding is row*10 + col, with row and col 0-indexed.
-        # Phase advances from -> to -> shoot, then resets to "from" for player O.
-        env.step([{"submission": 60}, {"submission": -1}])  # X from (row=6, col=0).
-        self.assertEqual(json.loads(env.state[0]["observation"]["observationString"])["phase"], "to")
-        env.step([{"submission": 15}, {"submission": -1}])  # X to   (row=1, col=5).
-        self.assertEqual(json.loads(env.state[0]["observation"]["observationString"])["phase"], "shoot")
-        env.step([{"submission": 4}, {"submission": -1}])  # X shoot(row=0, col=4).
-        # After three sub-actions it is player 1's (O) turn.
-        self.assertEqual(env.state[0]["status"], "INACTIVE")
-        self.assertEqual(env.state[1]["status"], "ACTIVE")
-        obs = json.loads(env.state[1]["observation"]["observationString"])
-        self.assertEqual(obs["current_player"], "o")
-        self.assertEqual(obs["phase"], "from")
-        self.assertFalse(obs["is_terminal"])
-        # Burned square (the arrow) shows up as '#' at (row=0, col=4).
-        self.assertEqual(obs["board"][0][4], "#")
+        for expected_next_phase in ("to", "shoot", "from"):
+            legal = env.state[0]["observation"]["legalActions"]
+            env.step([{"submission": legal[0]}, {"submission": -1}])
+            obs = json.loads(env.state[0]["observation"]["observationString"])
+            if expected_next_phase == "from":
+                # After three sub-actions it is player 1's (O) turn.
+                obs = json.loads(env.state[1]["observation"]["observationString"])
+                self.assertEqual(env.state[0]["status"], "INACTIVE")
+                self.assertEqual(env.state[1]["status"], "ACTIVE")
+                self.assertEqual(obs["current_player"], "o")
+            self.assertEqual(obs["phase"], expected_next_phase)
+            self.assertFalse(obs["is_terminal"])
+        # An arrow (burned square) was fired somewhere on the board.
+        self.assertTrue(any("#" in row for row in obs["board"]))
 
     def test_amazons_terminal_state(self):
         # Drive an Amazons game to natural termination using only legal random
