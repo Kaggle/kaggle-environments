@@ -5,15 +5,17 @@ export const MOVE_THRESHOLD = 0.5; // px — ignore sub-pixel jitter
 export interface TrailConfig {
   textures: string[];
   size: [number, number]; // scale range (relative to squareSize)
-  rate: number; // seconds between spawns (0 = every frame with movement — pair with max to cap)
+  rate: number; // seconds between spawns
   count: number; // particles per spawn
   lifetime: number; // seconds until fully faded
   alpha: number;
-  drift?: number; // wander radius (relative to squareSize)
+  drift?: number; // wander radius (relative to squareSize) — animates over lifetime
+  scatter?: number; // random spawn offset (relative to squareSize) — no movement after
   follow?: number; // lerp factor — particles follow the piece
   max?: number; // max live particles per piece (for follow mode)
   spin?: boolean;
   align?: boolean; // rotate toward movement direction
+  burst?: boolean; // spawn once on movement start, then stop
 }
 
 export const TRAIL_CONFIGS: Record<PieceType, TrailConfig> = {
@@ -49,6 +51,7 @@ export const TRAIL_CONFIGS: Record<PieceType, TrailConfig> = {
     lifetime: 1.2,
     alpha: 0.65,
     drift: 0.5,
+    spin: true,
   },
 
   // Knight: shadow afterimage
@@ -63,14 +66,17 @@ export const TRAIL_CONFIGS: Record<PieceType, TrailConfig> = {
     max: 1,
   },
 
-  // Rook: steady, direct debris
+  // Rook: heavy burst of debris scattered around start position
   r: {
     textures: ['particles/rook1.png', 'particles/rook2.png', 'particles/rook3.png', 'particles/rook4.png'],
-    size: [0.08, 0.12],
-    rate: 0.01,
-    count: 3,
-    lifetime: 0.6,
-    alpha: 0.7,
+    size: [0.1, 0.35],
+    rate: 0,
+    count: 8,
+    lifetime: 2.1,
+    alpha: 1,
+    scatter: 0.4,
+    burst: true,
+    follow: 0.0005,
   },
 
   // Pawn: zippy directional marks
@@ -83,6 +89,7 @@ export const TRAIL_CONFIGS: Record<PieceType, TrailConfig> = {
     alpha: 0.7,
     follow: 0.015,
     max: 5,
+    scatter: 0.5,
     align: true,
   },
 };
