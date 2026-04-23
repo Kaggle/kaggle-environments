@@ -68,7 +68,6 @@ function isEnvVisualizerPath(pkgPath) {
 const KNOWN_STANDALONE_GAME_DIRS = new Set([
   'cabt',
   'chess',
-  'codenames',
   'connectx',
   'halite',
   'hungry_geese',
@@ -78,8 +77,10 @@ const KNOWN_STANDALONE_GAME_DIRS = new Set([
   'lux_ai_s2',
   'lux_ai_s3',
   'mab',
+  'orbit_wars',
   'rps',
   'werewolf',
+  'word_association',
 ]);
 
 const errors = [];
