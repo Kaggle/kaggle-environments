@@ -38,10 +38,10 @@ interface AmazonsPlayer {
   generateReturns: string[] | null;
 }
 
-type Cell = 'X' | 'O' | '#' | '.';
+export type AmazonsCell = 'X' | 'O' | '#' | '.';
 
-interface AmazonsBoardState {
-  board: Cell[][];
+export interface AmazonsBoardState {
+  board: AmazonsCell[][];
   board_size: number;
   current_player: string;
   phase: 'from' | 'to' | 'shoot' | null;
@@ -59,6 +59,9 @@ export interface AmazonsStep {
 }
 
 function parseThoughts(action?: AmazonsAction): string {
+  // Prefer the Go-harness ``main_response_and_thoughts`` payload when
+  // generate_returns is populated; fall through to ``action.thoughts`` if
+  // generate_returns is missing, fails to parse, or doesn't carry the field.
   if (action?.generate_returns?.[0]) {
     try {
       const parsed = JSON.parse(action.generate_returns[0]);
@@ -99,7 +102,9 @@ export const amazonsTransformer = (environment: any): AmazonsStep[] => {
   rawSteps.forEach((step, index) => {
     const players: AmazonsPlayer[] = step.map((p, i): AmazonsPlayer => {
       const submission = p.action?.submission;
-      const isTurn = submission !== undefined && submission !== null && submission !== -1;
+      // Match Go: an action with submission undefined or -1 is a no-op
+      // (the env's setup step or the inactive player).
+      const isTurn = submission !== undefined && submission !== -1;
       return {
         id: i,
         name: teamNames[i] ?? (i === 0 ? 'Black (X)' : 'White (O)'),

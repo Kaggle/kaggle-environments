@@ -1,18 +1,7 @@
 import type { RendererOptions } from '@kaggle-environments/core';
-import type { AmazonsStep } from './transformers/amazonsTransformer';
+import type { AmazonsBoardState, AmazonsCell, AmazonsStep } from './transformers/amazonsTransformer';
 
-type Cell = 'X' | 'O' | '#' | '.';
-type Board = Cell[][];
-
-interface AmazonsObservation {
-  board: Board;
-  board_size: number;
-  current_player: string;
-  phase: 'from' | 'to' | 'shoot' | null;
-  move_number: number;
-  is_terminal: boolean;
-  winner: string | null;
-}
+type Board = AmazonsCell[][];
 
 const INK = '#050001';
 const SOFT_INK = '#3c3b37';
@@ -24,9 +13,8 @@ const HIGHLIGHT_FROM = 'rgba(189, 238, 255, 0.55)';
 const HIGHLIGHT_TO = 'rgba(255, 215, 96, 0.65)';
 const HIGHLIGHT_SHOOT = 'rgba(154, 51, 36, 0.25)';
 
-function asObservation(step: AmazonsStep | undefined): AmazonsObservation | null {
-  if (!step?.boardState) return null;
-  return step.boardState as AmazonsObservation;
+function asObservation(step: AmazonsStep | undefined): AmazonsBoardState | null {
+  return step?.boardState ?? null;
 }
 
 interface BoardDiff {
@@ -68,7 +56,7 @@ function makePlayerCard(label: string, glyphClass: 'x' | 'o', active: boolean): 
   `;
 }
 
-function findPrevObservation(steps: AmazonsStep[], step: number): AmazonsObservation | null {
+function findPrevObservation(steps: AmazonsStep[], step: number): AmazonsBoardState | null {
   for (let i = step - 1; i >= 0; i--) {
     const obs = asObservation(steps[i]);
     if (obs) return obs;
@@ -80,7 +68,7 @@ function drawBoard(
   c: CanvasRenderingContext2D,
   width: number,
   height: number,
-  obs: AmazonsObservation,
+  obs: AmazonsBoardState,
   diff: BoardDiff
 ) {
   c.clearRect(0, 0, width, height);
@@ -174,7 +162,7 @@ function drawBoard(
   }
 }
 
-function describeStatus(obs: AmazonsObservation, diff: BoardDiff): { primary: string; annotation: string } {
+function describeStatus(obs: AmazonsBoardState, diff: BoardDiff): { primary: string; annotation: string } {
   if (obs.is_terminal) {
     if (obs.winner === 'draw') {
       return { primary: 'Draw', annotation: 'no legal moves remain' };
