@@ -874,6 +874,7 @@ GAMES_LIST = [
     "repeated_game(stage_game=matrix_pd(),num_repetitions=100)",
     "tic_tac_toe",
     "snake",
+    "y(board_size=8)",
     DEFAULT_UNIVERSAL_POKER_GAME_STRING,
     DEFAULT_REPEATED_POKER_GAME_STRING,
     DEFAULT_REPEATED_POKERKIT_GAME_STRING,
