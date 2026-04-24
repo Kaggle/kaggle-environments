@@ -216,8 +216,27 @@ class TestOrbitWars(unittest.TestCase):
                     break
             self.assertTrue(found_diagonal, "No y=x diagonal orbiting group found")
 
-    def test_4p_start_always_static_or_diagonal(self):
-        # In 4p, starting planets must be static or on the y=x diagonal
+    def test_generate_planets_has_diagonal_static_group(self):
+        # The y=x diagonal static group should always be generated
+        for _ in range(50):
+            planets = generate_planets()
+            num_groups = len(planets) // 4
+            found_diagonal = False
+            for g in range(num_groups):
+                p = planets[g * 4]  # Q1 planet
+                orb_r = distance((p[2], p[3]), (CENTER, CENTER))
+                is_static = orb_r + p[4] >= ROTATION_RADIUS_LIMIT
+                on_diagonal = abs((p[2] - CENTER) - (p[3] - CENTER)) < 0.01
+                if is_static and on_diagonal:
+                    found_diagonal = True
+                    break
+            self.assertTrue(found_diagonal, "No y=x diagonal static group found")
+
+    def test_4p_start_always_on_diagonal(self):
+        # In 4p, starting planets (orbiting OR static) must be on the y=x
+        # diagonal so the 4 player copies sit symmetrically.
+        saw_static = False
+        saw_orbiting = False
         for _ in range(100):
             state = [
                 SimpleNamespace(
@@ -247,12 +266,18 @@ class TestOrbitWars(unittest.TestCase):
             q1 = owned[0]  # Player 0's planet (Q1)
             orb_r = distance((q1[2], q1[3]), (CENTER, CENTER))
             is_orbiting = orb_r + q1[4] < ROTATION_RADIUS_LIMIT
+            self.assertAlmostEqual(
+                q1[2] - CENTER, q1[3] - CENTER, places=2,
+                msg="4p start not on y=x diagonal"
+            )
             if is_orbiting:
-                # Must be on the y=x diagonal
-                self.assertAlmostEqual(
-                    q1[2] - CENTER, q1[3] - CENTER, places=2,
-                    msg="4p orbiting start not on y=x diagonal"
-                )
+                saw_orbiting = True
+            else:
+                saw_static = True
+
+        # Across 100 episodes both start types should appear (random pick).
+        self.assertTrue(saw_static, "4p never picked a static-diagonal start")
+        self.assertTrue(saw_orbiting, "4p never picked an orbiting-diagonal start")
 
     def _make_state(self, planets, fleets, step=1):
         """Helper to build a minimal 2-player state for testing."""
