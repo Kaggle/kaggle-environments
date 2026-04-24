@@ -22,6 +22,11 @@
       "description": "Speed of comets in units per turn along their orbital path.",
       "type": "number",
       "default": 4.0
+    },
+    "seed": {
+      "description": "Seed used to deterministically generate planets and comets. If unset, one is chosen at random and recorded back into the configuration so the episode can be reproduced.",
+      "type": "integer",
+      "default": null
     }
   },
   "reward": {
@@ -80,9 +85,9 @@
       "minItems": 3,
       "maxItems": 3,
       "items": [
-        {"type": "integer", "description": "Source planet ID"},
-        {"type": "number", "description": "Angle in radians"},
-        {"type": "integer", "description": "Number of ships"}
+        { "type": "integer", "description": "Source planet ID" },
+        { "type": "number", "description": "Angle in radians" },
+        { "type": "integer", "description": "Number of ships" }
       ]
     },
     "default": []

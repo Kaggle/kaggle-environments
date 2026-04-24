@@ -43,9 +43,11 @@ def point_to_segment_distance(p, v, w):
     return distance(p, projection)
 
 
-def generate_planets():
+def generate_planets(rng=None):
+    if rng is None:
+        rng = random
     planets = []
-    num_q1 = random.randint(MIN_PLANET_GROUPS, MAX_PLANET_GROUPS)
+    num_q1 = rng.randint(MIN_PLANET_GROUPS, MAX_PLANET_GROUPS)
     id_counter = 0
 
     # Phase 1: Generate 3 guaranteed static planet groups using polar coordinates.
@@ -54,15 +56,15 @@ def generate_planets():
     for _ in range(5000):
         if static_groups >= MIN_STATIC_GROUPS:
             break
-        prod = random.randint(1, 5)
+        prod = rng.randint(1, 5)
         r = 1 + math.log(prod)
-        angle = random.uniform(0, math.pi / 2)  # Q1 angle from center
+        angle = rng.uniform(0, math.pi / 2)  # Q1 angle from center
         min_orbital = ROTATION_RADIUS_LIMIT - r
         # Max orbital radius constrained by board edges
         max_orbital = (BOARD_SIZE - CENTER - r) / max(math.cos(angle), math.sin(angle))
         if min_orbital > max_orbital:
             continue
-        orbital_r = random.uniform(min_orbital, max_orbital)
+        orbital_r = rng.uniform(min_orbital, max_orbital)
         x = CENTER + orbital_r * math.cos(angle)
         y = CENTER + orbital_r * math.sin(angle)
 
@@ -75,7 +77,7 @@ def generate_planets():
         if (x - CENTER) < r + 5 or (y - CENTER) < r + 5:
             continue
 
-        ships = min(random.randint(5, 99), random.randint(5, 99))
+        ships = min(rng.randint(5, 99), rng.randint(5, 99))
         temp_planets = [
             [id_counter, -1, x, y, r, ships, prod],
             [id_counter + 1, -1, BOARD_SIZE - x, y, r, ships, prod],
@@ -103,17 +105,17 @@ def generate_planets():
     # copies are evenly spaced (π/2 apart). The y=x diagonal (angle=π/4)
     # gives exactly this: copies at π/4, 3π/4, 5π/4, 7π/4.
     for _ in range(1000):
-        prod = random.randint(1, 5)
+        prod = rng.randint(1, 5)
         r = 1 + math.log(prod)
         min_orbital = SUN_RADIUS + r + 10
         max_orbital = ROTATION_RADIUS_LIMIT - r
         if min_orbital >= max_orbital:
             continue
-        orbital_r = random.uniform(min_orbital, max_orbital)
+        orbital_r = rng.uniform(min_orbital, max_orbital)
         x = CENTER + orbital_r * math.cos(math.pi / 4)
         y = CENTER + orbital_r * math.sin(math.pi / 4)
 
-        ships = min(random.randint(5, 99), random.randint(5, 99))
+        ships = min(rng.randint(5, 99), rng.randint(5, 99))
         temp_planets = [
             [id_counter, -1, x, y, r, ships, prod],
             [id_counter + 1, -1, BOARD_SIZE - x, y, r, ships, prod],
@@ -154,10 +156,10 @@ def generate_planets():
         attempts += 1
         if attempts >= max_attempts:
             break
-        prod = random.randint(1, 5)
+        prod = rng.randint(1, 5)
         r = 1 + math.log(prod)
-        x = random.uniform(CENTER + 15, BOARD_SIZE - r - 5)
-        y = random.uniform(CENTER + 15, BOARD_SIZE - r - 5)
+        x = rng.uniform(CENTER + 15, BOARD_SIZE - r - 5)
+        y = rng.uniform(CENTER + 15, BOARD_SIZE - r - 5)
 
         orbital_radius = distance((x, y), (CENTER, CENTER))
 
@@ -172,7 +174,7 @@ def generate_planets():
                 continue
 
         valid = True
-        ships = random.randint(5, 30)
+        ships = rng.randint(5, 30)
         temp_planets = [
             [id_counter, -1, x, y, r, ships, prod],
             [id_counter + 1, -1, BOARD_SIZE - x, y, r, ships, prod],
@@ -218,20 +220,23 @@ def generate_comet_paths(
     spawn_step,
     comet_planet_ids=None,
     comet_speed=4.0,
+    rng=None,
 ):
     """Generate 4 symmetric elliptical orbit paths for extra-solar objects.
 
     Returns list of 4 paths (one per quadrant symmetry), each path a list
     of [x, y] positions at comet_speed units/turn.  Returns None on failure.
     """
+    if rng is None:
+        rng = random
     if comet_planet_ids is None:
         comet_planet_ids = set()
     else:
         comet_planet_ids = set(comet_planet_ids)
     for _ in range(300):
         # Highly eccentric ellipse with sun at one focus
-        e = random.uniform(0.75, 0.93)
-        a = random.uniform(60, 150)
+        e = rng.uniform(0.75, 0.93)
+        a = rng.uniform(60, 150)
         perihelion = a * (1 - e)
         if perihelion < SUN_RADIUS + COMET_RADIUS:
             continue
@@ -239,7 +244,7 @@ def generate_comet_paths(
         b = a * math.sqrt(1 - e**2)
         c_val = a * e
         # Orientation: perihelion direction from sun (keep in Q4 quadrant)
-        phi = random.uniform(math.pi / 6, math.pi / 3)
+        phi = rng.uniform(math.pi / 6, math.pi / 3)
 
         # Dense sample around perihelion half of orbit
         dense = []
@@ -359,9 +364,20 @@ def interpreter(state, env):
 
     # Initialize game state if not already done
     if not hasattr(obs0, "planets") or not obs0.planets:
-        angular_velocity = random.uniform(0.025, 0.05)
+        # Resolve / record episode seed so planet & comet generation are
+        # reproducible from the replay configuration.
+        seed = get(configuration, "seed", None)
+        if seed is None:
+            seed = random.randrange(2**31)
+            try:
+                configuration.seed = seed
+            except (AttributeError, TypeError):
+                configuration["seed"] = seed
+        init_rng = random.Random(seed)
+
+        angular_velocity = init_rng.uniform(0.025, 0.05)
         obs0.angular_velocity = angular_velocity
-        obs0.planets = generate_planets()
+        obs0.planets = generate_planets(init_rng)
         obs0.initial_planets = [p.copy() for p in obs0.planets]
         obs0.fleets = []
         obs0.next_fleet_id = 0
@@ -371,7 +387,7 @@ def interpreter(state, env):
         # Assign home planets — pick a random symmetric group of 4
         num_groups = len(obs0.planets) // 4
         if num_groups > 0:
-            home_group = random.randint(0, num_groups - 1)
+            home_group = init_rng.randint(0, num_groups - 1)
             base = home_group * 4
 
             if num_agents == 4:
@@ -442,20 +458,25 @@ def interpreter(state, env):
     step = get(obs0, "step", 0)
     comet_speed = configuration.cometSpeed
     if (step + 1) in COMET_SPAWN_STEPS:
+        # Derive a per-spawn RNG from the episode seed so comet shape and
+        # ship counts are reproducible from the replay configuration.
+        episode_seed = get(configuration, "seed", 0) or 0
+        comet_rng = random.Random(f"orbit_wars-comet-{episode_seed}-{step + 1}")
         comet_paths = generate_comet_paths(
             obs0.initial_planets,
             obs0.angular_velocity,
             step + 1,
             obs0.comet_planet_ids,
             comet_speed,
+            rng=comet_rng,
         )
         if comet_paths:
             next_id = max(p[0] for p in obs0.planets) + 1
             comet_ships = min(
-                random.randint(1, 99),
-                random.randint(1, 99),
-                random.randint(1, 99),
-                random.randint(1, 99),
+                comet_rng.randint(1, 99),
+                comet_rng.randint(1, 99),
+                comet_rng.randint(1, 99),
+                comet_rng.randint(1, 99),
             )
             group = {"planet_ids": [], "paths": comet_paths, "path_index": -1}
             for i, p_path in enumerate(comet_paths):
