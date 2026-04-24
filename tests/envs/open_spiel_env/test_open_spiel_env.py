@@ -95,7 +95,11 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertEqual(sorted(rewards), [-1.0, 1.0])
 
     def test_y_manual_playthrough(self):
-        env = make("open_spiel_y", debug=True)
+        env = make(
+            "open_spiel_y",
+            configuration={"openSpielGameParameters": {"board_size": 8}},
+            debug=True,
+        )
         env.reset()
         env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
         # P0 connects the left column (a1..a8), touching all three sides.
