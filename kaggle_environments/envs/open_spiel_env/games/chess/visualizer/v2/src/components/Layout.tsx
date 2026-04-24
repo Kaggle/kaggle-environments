@@ -5,6 +5,7 @@ import GameBoard from './GameBoard';
 import Annotation from './Annotation';
 import { SoundEffects } from './SoundEffects.tsx';
 import VersusBanner from './VersusBanner';
+import CheckBanner from './CheckBanner';
 import GameOver from './GameOver';
 import HeroAnimation from './HeroAnimation';
 import useBoardRect from '../hooks/useBoardRect';
@@ -26,6 +27,7 @@ export default memo(function Layout() {
       </div>
       <PlayerBar color="w" />
       <VersusBanner />
+      <CheckBanner />
       <Vignette />
       <SoundEffects />
       <GameOver />
