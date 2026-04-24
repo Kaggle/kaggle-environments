@@ -1,6 +1,6 @@
 import { createReplayVisualizer, ReplayAdapter } from '@kaggle-environments/core';
 import { renderer } from './renderer';
-import { darkHexTransformer } from './transformers/darkHexTransformer';
+import { yTransformer } from './transformers/yTransformer';
 import './style.css';
 
 const app = document.getElementById('app');
@@ -15,12 +15,12 @@ if (import.meta.env?.DEV && import.meta.hot) {
 createReplayVisualizer(
   app,
   new ReplayAdapter({
-    gameName: 'open_spiel_dark_hex',
+    gameName: 'open_spiel_y',
     renderer: renderer as any,
     ui: 'side-panel',
     transformer: (replay) => ({
       ...replay,
-      steps: darkHexTransformer(replay),
+      steps: yTransformer(replay),
       isTransformed: true,
     }),
   })
