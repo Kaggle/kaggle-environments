@@ -65,7 +65,7 @@ class TileGrid:
                 result[y, x, 0] = tile_type_encoding.get(tile.type, 0)
                 result[y, x, 1] = tile.player if tile.player else 0
 
-                if tile.health is not None and tile.max_health is not None:
+                if tile.health is not None and tile.max_health is not None and tile.max_health > 0:
                     result[y, x, 2] = (tile.health / tile.max_health) * 100
                 else:
                     result[y, x, 2] = 0

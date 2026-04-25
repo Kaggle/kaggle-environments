@@ -43,11 +43,13 @@ class GameState:
 
         Args:
             map_data: 2D array containing map information
-            num_players: Number of players (default 2)
+            num_players: Number of players (must be 2; the kaggle env spec is 2-player)
             max_turns: Maximum turns for the game (None = unlimited)
             enabled_units: List of enabled unit types (default all units enabled)
             fog_of_war: Enable fog of war (default False for backward compatibility)
         """
+        if num_players != 2:
+            raise ValueError(f"GameState (kaggle vendored copy) is 2-player only; got num_players={num_players}")
         self.grid = TileGrid(map_data)
         self.units: List[Unit] = []
         self.current_player: int = 1
@@ -151,9 +153,11 @@ class GameState:
         if player is not None:
             if player in self.visibility_maps:
                 self.visibility_maps[player].update(self)
+                self.visibility_maps[player].clear_stale_unit_memory(max_turns=10, current_turn=self.turn_number)
         else:
             for vis_map in self.visibility_maps.values():
                 vis_map.update(self)
+                vis_map.clear_stale_unit_memory(max_turns=10, current_turn=self.turn_number)
 
     def get_visible_units_for_player(self, player: int, include_own: bool = True) -> List[Unit]:
         """Get units visible to a specific player."""
@@ -352,10 +356,7 @@ class GameState:
             remaining_units = [u for u in self.units if u.player == defeated_player]
             if not remaining_units:
                 self.game_over = True
-                if self.num_players == 2:
-                    self.winner = 2 if defeated_player == 1 else 1
-                else:
-                    self.winner = defeated_player + 1 if defeated_player < self.num_players else 1
+                self.winner = 2 if defeated_player == 1 else 1
 
         if not result["attacker_alive"]:
             attacker_tile = self.grid.get_tile(attacker.x, attacker.y)
@@ -369,12 +370,9 @@ class GameState:
             remaining_units = [u for u in self.units if u.player == defeated_player]
             if not remaining_units:
                 self.game_over = True
-                if self.num_players == 2:
-                    self.winner = 2 if defeated_player == 1 else 1
-                else:
-                    self.winner = defeated_player + 1 if defeated_player < self.num_players else 1
+                self.winner = 2 if defeated_player == 1 else 1
 
-        if result['attacker_alive']:
+        if result["attacker_alive"]:
             attacker.can_move = False
             attacker.can_attack = False
         self._invalidate_cache()
@@ -610,6 +608,11 @@ class GameState:
             self.current_player = 1
             self.turn_number += 1
 
+            # Once all players have moved, check the turn limit (draw on cap).
+            if self.max_turns is not None and self.turn_number >= self.max_turns:
+                self.game_over = True
+                self.winner = None
+
         self.mechanics.decrement_paralysis(self.units, self.current_player)
         self.mechanics.decrement_paralyze_cooldowns(self.units, self.current_player)
         self.mechanics.decrement_haste_cooldowns(self.units, self.current_player)
@@ -649,11 +652,11 @@ class GameState:
 
         self.record_action("resign", player=player)
 
-        if self.num_players == 2:
-            self.winner = 2 if player == 1 else 1
-        else:
-            self.winner = player + 1 if player < self.num_players else 1
+        # Remove the resigning player's units (matches the upstream engine).
+        self.units = [u for u in self.units if u.player != player]
+        self._invalidate_cache()
 
+        self.winner = 2 if player == 1 else 1
         self.game_over = True
 
     def get_legal_actions(self, player: Optional[int] = None) -> Dict[str, List[Any]]:
@@ -661,7 +664,7 @@ class GameState:
         if player is None:
             player = self.current_player
 
-        if self._cache_valid and player in self._legal_actions_cache:
+        if self._legal_actions_cache_valid and player in self._legal_actions_cache:
             return self._legal_actions_cache[player]
 
         legal_actions: Dict[str, Any] = {
@@ -690,12 +693,18 @@ class GameState:
                     reachable = unit.get_reachable_positions(
                         self.grid.width,
                         self.grid.height,
-                        lambda x, y: self.mechanics.can_move_to_position(x, y, self.grid, self.units),
+                        lambda x, y, _u=unit: self.mechanics.can_move_to_position(
+                            x, y, self.grid, self.units, moving_unit=_u
+                        ),
                     )
                     for pos in reachable:
-                        legal_actions["move"].append(
-                            {"unit": unit, "from_x": unit.x, "from_y": unit.y, "to_x": pos[0], "to_y": pos[1]}
-                        )
+                        # Only include positions valid as final destinations (not occupied).
+                        if self.mechanics.can_move_to_position(
+                            pos[0], pos[1], self.grid, self.units, moving_unit=unit, is_destination=True
+                        ):
+                            legal_actions["move"].append(
+                                {"unit": unit, "from_x": unit.x, "from_y": unit.y, "to_x": pos[0], "to_y": pos[1]}
+                            )
 
                 if unit.can_attack:
                     if unit.type in ["M", "A", "S"]:
@@ -751,7 +760,7 @@ class GameState:
                     if tile.is_capturable() and tile.player != player:
                         legal_actions["seize"].append({"unit": unit, "tile": tile})
 
-        if self._cache_valid:
+        if self._legal_actions_cache_valid:
             self._legal_actions_cache[player] = legal_actions
 
         return legal_actions
@@ -764,6 +773,7 @@ class GameState:
             "num_players": self.num_players,
             "player_gold": self.player_gold,
             "turn_number": self.turn_number,
+            "max_turns": self.max_turns,
             "game_over": self.game_over,
             "winner": self.winner,
             "map_file": self.map_file_used,
@@ -773,6 +783,7 @@ class GameState:
             "fog_of_war_method": self.fog_of_war_method,
             "units": [unit.to_dict() for unit in self.units],
             "tiles": self.grid.to_dict()["tiles"],
+            "action_history": self.action_history,
         }
 
     def to_numpy(self, for_player: Optional[int] = None) -> Dict[str, np.ndarray]:
@@ -841,7 +852,13 @@ class GameState:
         fog_of_war = save_data.get("fog_of_war", False)
         fog_of_war_method = save_data.get("fog_of_war_method", "simple_radius" if fog_of_war else "none")
 
-        game = cls(map_data, save_data.get("num_players", 2), enabled_units=enabled_units, fog_of_war=fog_of_war)
+        game = cls(
+            map_data,
+            save_data.get("num_players", 2),
+            max_turns=save_data.get("max_turns"),
+            enabled_units=enabled_units,
+            fog_of_war=fog_of_war,
+        )
         game.fog_of_war_method = fog_of_war_method
 
         game.current_player = save_data.get("current_player", 1)
@@ -854,6 +871,7 @@ class GameState:
 
         game.map_file_used = save_data.get("map_file")
         game.player_configs = save_data.get("player_configs", [])
+        game.action_history = save_data.get("action_history", [])
 
         game.units = []
         for unit_data in save_data.get("units", []):

@@ -276,6 +276,8 @@ class Unit:
             "attack_buff_cooldown": self.attack_buff_cooldown,
             "defence_buff_turns": self.defence_buff_turns,
             "attack_buff_turns": self.attack_buff_turns,
+            "original_x": self.original_x,
+            "original_y": self.original_y,
         }
 
     @classmethod
@@ -294,6 +296,6 @@ class Unit:
         unit.attack_buff_cooldown = data.get("attack_buff_cooldown", 0)
         unit.defence_buff_turns = data.get("defence_buff_turns", 0)
         unit.attack_buff_turns = data.get("attack_buff_turns", 0)
-        unit.original_x = unit.x
-        unit.original_y = unit.y
+        unit.original_x = data.get("original_x", unit.x)
+        unit.original_y = data.get("original_y", unit.y)
         return unit

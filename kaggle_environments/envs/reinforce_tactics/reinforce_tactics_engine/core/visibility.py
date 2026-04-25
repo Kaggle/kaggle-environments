@@ -6,7 +6,7 @@ implementing a simple radius-based visibility model (Option A).
 """
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -128,8 +128,7 @@ class VisibilityMap:
             for x in range(self.width):
                 tile = game_state.grid.get_tile(x, y)
                 if tile.player == self.player and tile.type in STRUCTURE_VISION_RANGES:
-                    vision_range = calculate_vision_radius(
-                        tile.type, is_structure=True)
+                    vision_range = calculate_vision_radius(tile.type, is_structure=True)
                     self._add_vision_radius(x, y, vision_range)
 
         # Step 3: Update state array
@@ -353,7 +352,7 @@ def get_visible_units(game_state: "GameState", player: int, include_own: bool = 
     return visible
 
 
-def get_visible_tiles_info(game_state: "GameState", player: int) -> List[Tuple[int, int, "any", int]]:
+def get_visible_tiles_info(game_state: "GameState", player: int) -> List[Tuple[int, int, Any, int]]:
     """Get list of tiles with visibility information.
 
     Args:

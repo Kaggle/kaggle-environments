@@ -125,11 +125,17 @@ def _process_turn(state, env, game, active_idx, key):
 
     # Check win condition
     if game.game_over:
-        winner_idx = game.winner - 1
-        state[winner_idx].reward = 1
-        state[winner_idx].status = "DONE"
-        state[1 - winner_idx].reward = -1
-        state[1 - winner_idx].status = "DONE"
+        if game.winner is None:
+            # Draw (e.g., game's own max_turns cap)
+            for i in range(2):
+                state[i].reward = 0
+                state[i].status = "DONE"
+        else:
+            winner_idx = game.winner - 1
+            state[winner_idx].reward = 1
+            state[winner_idx].status = "DONE"
+            state[1 - winner_idx].reward = -1
+            state[1 - winner_idx].status = "DONE"
         _update_observations(state, game, env.configuration)
         _games.pop(key, None)
         return

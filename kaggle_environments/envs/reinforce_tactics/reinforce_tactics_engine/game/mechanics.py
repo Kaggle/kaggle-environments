@@ -427,32 +427,11 @@ class GameMechanics:
                 if counter_damage > 0:
                     attacker_alive = attacker.take_damage(counter_damage)
 
-        # Calculate counter damage for response (even if 0, or if evaded)
-        counter_damage_for_response = 0
-        if target_alive and not target.is_paralyzed() and not evade_applied:
-            # Adjust counter_damage if Archer attacked melee unit
-            if attacker.type == "A" and target.type not in ["A", "M", "S"]:
-                counter_damage_for_response = 0
-            else:
-                base_counter = GameMechanics._calculate_counter_damage(target, attacker.x, attacker.y, grid)
-
-                # Apply attack buff to counter-attacker (target)
-                if target.has_attack_buff():
-                    base_counter = int(base_counter * (1 + SORCERER_ATTACK_BUFF_AMOUNT))
-
-                counter_damage_for_response = GameMechanics.apply_defence_reduction(base_counter, attacker.defence)
-
-                # Apply defence buff to attacker receiving counter damage
-                if attacker.has_defence_buff():
-                    counter_damage_for_response = max(
-                        1, int(counter_damage_for_response * (1 - SORCERER_DEFENCE_BUFF_AMOUNT))
-                    )
-
         return {
             "attacker_alive": attacker_alive,
             "target_alive": target_alive,
             "damage": attack_damage,
-            "counter_damage": counter_damage_for_response,
+            "counter_damage": counter_damage,
             "charge_bonus": charge_applied,
             "flank_bonus": flank_applied,
             "evade": evade_applied,
