@@ -9,11 +9,14 @@ export interface PlaybackControlsProps {
   // Callbacks
   onPlayChange: (playing?: boolean) => void;
   onStepChange: (step: number) => void;
+  onSpeedChange?: (speed: number) => void;
 
   // Styling
   className?: string;
   style?: React.CSSProperties;
 }
+
+const SPEED_OPTIONS = [0.25, 0.5, 1, 1.5, 2, 4];
 
 const controlsStyles: React.CSSProperties = {
   display: 'flex',
@@ -43,12 +46,24 @@ const stepCounterStyles: React.CSSProperties = {
   textAlign: 'center',
 };
 
+const speedSelectStyles: React.CSSProperties = {
+  background: '#2a2a2a',
+  color: '#fff',
+  border: '1px solid #444',
+  borderRadius: '4px',
+  padding: '4px 6px',
+  fontSize: '13px',
+  cursor: 'pointer',
+};
+
 export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   playing,
   currentStep,
   totalSteps,
+  speedModifier,
   onPlayChange,
   onStepChange,
+  onSpeedChange,
   className,
   style,
 }) => {
@@ -146,6 +161,22 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
         />
       </div>
       <span style={stepCounterStyles}>{stepDisplay}</span>
+
+      {onSpeedChange && (
+        <select
+          style={speedSelectStyles}
+          value={speedModifier}
+          onChange={(e) => onSpeedChange(parseFloat(e.target.value))}
+          aria-label="Playback speed"
+          title="Playback speed"
+        >
+          {SPEED_OPTIONS.map((s) => (
+            <option key={s} value={s}>
+              {s}x
+            </option>
+          ))}
+        </select>
+      )}
     </div>
   );
 };

@@ -18,7 +18,7 @@ def run_llm_game():
         os.environ["MODEL_PROXY_URL"] = "dummy_url"
 
     print("Initializing Word Association Game with LLM Agents...")
-    env = make("word_association", configuration={"games_per_episode": 3}, debug=True)
+    env = make("word_association", configuration={"games_per_episode": 1}, debug=True)
     
     # We use our litellm harness for all 4 slots.
     # Kaggle environments requires an absolute or properly relative path
@@ -45,9 +45,9 @@ def run_llm_game():
         
     rewards = [state.reward for state in env.state]
     if rewards[0] > 0:
-        print("WINNER: Team Red 🟥")
-    elif rewards[2] > 0:
         print("WINNER: Team Blue 🟦")
+    elif rewards[2] > 0:
+        print("WINNER: Team Yellow 🟨")
     else:
         print("Result: Tie or Error")
 

@@ -29,11 +29,17 @@ html, body, #app {
   flex: 1 1 0;
   width: 100%;
   min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  container-type: size;
 }
 
 .renderer-container canvas {
   display: block;
-  flex-shrink: 0;
+  position: static;
+  width: min(100cqw, 100cqh);
+  height: min(100cqw, 100cqh);
 }
 
 .header {

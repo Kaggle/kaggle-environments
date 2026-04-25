@@ -14,10 +14,10 @@ class LLMWordAssociationAgent:
     def __call__(self, obs, config):
         turn = obs.current_turn
         
-        # 0: Red Spymaster, 2: Blue Spymaster
+        # 0: Blue Cluemaster, 2: Yellow Cluemaster
         if turn in [0, 2]:
-            return self.spymaster_turn(obs, config)
-        # 1: Red Guesser, 3: Blue Guesser
+            return self.cluemaster_turn(obs, config)
+        # 1: Blue Guesser, 3: Yellow Guesser
         else:
             return self.guesser_turn(obs, config)
 
@@ -39,15 +39,15 @@ class LLMWordAssociationAgent:
             
         return prompt
 
-    def spymaster_turn(self, obs, config):
+    def cluemaster_turn(self, obs, config):
         roles = obs.roles
         words = obs.words
         revealed = obs.revealed
         turn = obs.current_turn
-        team = "red" if turn == 0 else "blue"
+        team = "blue" if turn == 0 else "yellow"
         
-        prompt = f"You are the {team.upper()} Spymaster in Word Association.\n\n"
-        prompt += f"Your goal is to get your team to guess all your {team.upper()} words while avoiding the opposite team's words and the assassin.\n"
+        prompt = f"You are the {team.upper()} Cluemaster in Word Association.\n\n"
+        prompt += f"Your goal is to get your team to guess all your {team.upper()} words while avoiding the opposite team's words and the trap word.\n"
         
         # Inject memory context (past games and current turns)
         prompt = self._inject_memory_context(prompt, obs, config)
@@ -62,7 +62,7 @@ class LLMWordAssociationAgent:
         prompt += "VALIDITY RULES FOR CLUES:\n"
         prompt += "- The clue must be a SINGLE WORD. It CANNOT contain spaces or hyphens.\n"
         prompt += "- The clue CANNOT contain or be contained within any unrevealed word currently hidden on the board (e.g., if 'DOG' is hidden, your clue cannot be 'DOGS' or 'HOTDOG').\n"
-        prompt += "Note: A clue number of 0 means 'unlimited guesses, but 0 words relate to this clue' (often used to help guessers avoid the assassin or opponent words). A clue number of -1 means 'infinity' (unlimited guesses, for when you want them to guess remaining words from previous clues).\n"
+        prompt += "Note: A clue number of 0 means 'unlimited guesses, but 0 words relate to this clue' (often used to help guessers avoid the trap or opponent words). A clue number of -1 means 'infinity' (unlimited guesses, for when you want them to guess remaining words from previous clues).\n"
         prompt += 'You MUST format your response as valid JSON like this:\n'
         prompt += '{"thinking": "I see CAT and DOG, so ANIMAL connects 2 words...", "clue": "ANIMAL", "number": 2}\n'
         prompt += "Do not include any other text or markdown formatting outside of the JSON block."
@@ -71,14 +71,14 @@ class LLMWordAssociationAgent:
         last_error = None
         for attempt in range(3):
             try:
-                print(f"[{team.upper()} SPYMASTER] Calling model {self.model_name} (Attempt {attempt+1}/3)...")
+                print(f"[{team.upper()} CLUEMASTER] Calling model {self.model_name} (Attempt {attempt+1}/3)...")
                 response = litellm.completion(
                     model=self.model_name,
                     messages=messages,
                     reasoning_effort="high",
                     **self.litellm_kwargs
                 )
-                print(f"[{team.upper()} SPYMASTER] Received response.")
+                print(f"[{team.upper()} CLUEMASTER] Received response.")
                 content = response.choices[0].message.content.strip()
                 
                 # Clean possible markdown format
@@ -103,13 +103,13 @@ class LLMWordAssociationAgent:
                 return result
             except Exception as e:
                 last_error = e
-                print(f"[{team.upper()} SPYMASTER] Parse failed on attempt {attempt+1}: {e}")
+                print(f"[{team.upper()} CLUEMASTER] Parse failed on attempt {attempt+1}: {e}")
                 err_msg = f"Your previous response failed to parse or was invalid. Error: {e}.\nRaw response:\n{content if 'content' in locals() else 'None'}\nPlease correct your response and format it as valid JSON strictly adhering to the original instructions."
                 messages.append({"role": "assistant", "content": content if 'content' in locals() else ""})
                 messages.append({"role": "user", "content": err_msg})
                 
         # We must fail loudly per the harness rules if it fails after retries
-        raise ValueError(f"Failed to parse Spymaster response from model after retries. Last Error: {last_error}. Raw response: {content if 'content' in locals() else 'None'}")
+        raise ValueError(f"Failed to parse Cluemaster response from model after retries. Last Error: {last_error}. Raw response: {content if 'content' in locals() else 'None'}")
 
     def guesser_turn(self, obs, config):
         words = obs.words
@@ -117,11 +117,12 @@ class LLMWordAssociationAgent:
         clue = obs.clue
         remaining = obs.guesses_remaining
         turn = obs.current_turn
-        team = "red" if turn == 1 else "blue"
+        team = "blue" if turn == 1 else "yellow"
         
         clue_number = obs.clue_number
         prompt = f"You are the {team.upper()} Guesser in Word Association.\n\n"
-        prompt += f"Your goal is to correctly guess your team's words based on the Spymaster's clues while avoiding the opposite team's words and the assassin.\n"
+        prompt += "Your goal is to correctly guess your team's words based on the Cluemaster's clues while avoiding the opposite team's words and the trap word.\n"
+        prompt += "You must make at least one guess before you are allowed to pass, or else you forfeit the game.\n"
         
         # Inject memory context (past games and current turns)
         prompt = self._inject_memory_context(prompt, obs, config)
@@ -130,7 +131,7 @@ class LLMWordAssociationAgent:
         if hasattr(obs, "current_game_turns") and obs.current_game_turns:
             prompt += "Note: The last entry in the 'Clues and guesses in this game so far' list above represents your current turn, showing the guesses you have already made for the current clue.\n\n"
         
-        prompt += f"The clue from your Spymaster is: '{clue}' for {clue_number} words. (You have {remaining} guesses remaining this turn.)\n\n"
+        prompt += f"The clue from your Cluemaster is: '{clue}' for {clue_number} words. (You have {remaining} guesses remaining this turn.)\n\n"
         
         if clue_number > 0:
             prompt += f"If you correctly guess {clue_number} words based on this clue, you may make a bonus guess based on all information you've received so far.\n\n"
@@ -150,7 +151,7 @@ class LLMWordAssociationAgent:
                     prompt += f"You have correctly guessed {correct_guesses} times for this clue already (Guessed: {guesses_str}), meaning there are {words_remaining} words related to the clue remaining.\n\n"
         
         if clue_number == 0:
-            prompt += "A clue number of 0 means NONE of your remaining words relate to this clue (often used to point out the assassin). You get unlimited guesses, but you MUST still make at least one guess.\n\n"
+            prompt += "A clue number of 0 means NONE of your remaining words relate to this clue (often used to point out the trap). You get unlimited guesses, but you MUST still make at least one guess.\n\n"
         elif clue_number == -1:
             prompt += "A clue number of -1 means 'Infinity'. You get unlimited guesses based on this clue and previous clues. You must make at least one guess.\n\n"
             
@@ -164,7 +165,7 @@ class LLMWordAssociationAgent:
                 
         prompt += "\nThink step-by-step about which unrevealed word matches the clue best. Provide your reasoning in a 'thinking' key.\n"
         prompt += "Then provide the integer index of the ONE word you want to guess right now in a 'guess' key.\n"
-        prompt += "If you want to end your turn without guessing, set 'guess' to -1.\n"
+        prompt += "If you want to pass, set 'guess' to -1. NOTE: You are NOT allowed to pass (-1) on your very first turn without making at least one guess for the current clue, or else you forfeit the game. If you do, your action will be marked INVALID and your team will lose.\n"
         prompt += "You MUST format your response as valid JSON like this:\n"
         prompt += '{"thinking": "The clue is ANIMAL. Cat is at index 4, so I will guess 4...", "guess": 4}\n'
         prompt += "Do not include any other text or markdown formatting outside of the JSON block."

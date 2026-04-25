@@ -709,6 +709,15 @@ def _get_html_renderer_content(
 # --- Agents ---
 
 
+_RANDOM_THOUGHT_WORDS = (
+    "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta",
+    "iota", "kappa", "lambda", "mu", "nu", "xi", "omicron", "pi",
+    "rho", "sigma", "tau", "upsilon", "phi", "chi", "psi", "omega",
+    "ponder", "muse", "wonder", "consider", "reflect", "imagine", "explore", "drift",
+    "spark", "ripple", "echo", "shadow", "horizon", "lantern", "cascade", "ember",
+)
+
+
 def random_agent(
     observation: dict[str, Any],
     configuration: dict[str, Any],
@@ -719,7 +728,8 @@ def random_agent(
     if not legal_actions:
         return None
     action = random.choice(legal_actions)
-    return {"submission": int(action)}
+    thoughts = " ".join(random.choices(_RANDOM_THOUGHT_WORDS, k=8))
+    return {"submission": int(action), "thoughts": thoughts}
 
 
 AGENT_REGISTRY = {
@@ -848,10 +858,12 @@ DEFAULT_REPEATED_POKERKIT_GAME_STRING = (
 )
 
 GAMES_LIST = [
+    "amazons",
     "backgammon",
     "checkers",
     "chess",
     "connect_four",
+    "dark_hex",
     "gin_rummy",
     "go(board_size=9)",
     "goofspiel(num_cards=4,points_order=descending,returns_type=total_points)",
@@ -862,6 +874,7 @@ GAMES_LIST = [
     "repeated_game(stage_game=matrix_pd(),num_repetitions=100)",
     "tic_tac_toe",
     "snake",
+    "y",
     DEFAULT_UNIVERSAL_POKER_GAME_STRING,
     DEFAULT_REPEATED_POKER_GAME_STRING,
     DEFAULT_REPEATED_POKERKIT_GAME_STRING,
