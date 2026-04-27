@@ -718,6 +718,22 @@ class TestOrbitWars(unittest.TestCase):
             self.assertIsNone(s, msg=f"agent saw generated seed={s}")
         self.assertIsNotNone(env.info.get("seed"))
 
+    def test_scrubbed_config_passes_remote_agent_make(self):
+        # On the agent server, action_act re-invokes make() with the config
+        # the local env sent over. After scrub that config has seed=null, so
+        # the schema must allow null — otherwise make() raises InvalidArgument
+        # and the agent server returns an error response with no "action" key,
+        # surfacing as KeyError: 'action' in the local UrlAgent wrapper.
+        from kaggle_environments import make
+
+        # Simulate a config that has already been scrubbed by the interpreter.
+        env = make(
+            "orbit_wars",
+            configuration={"seed": None, "episodeSteps": 60},
+            debug=True,
+        )
+        self.assertIsNone(env.configuration.get("seed"))
+
 
 if __name__ == "__main__":
     unittest.main()
