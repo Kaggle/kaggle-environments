@@ -73,6 +73,7 @@ class OpenSpielEnvTest(absltest.TestCase):
         env.step([{"submission": 999}, {"submission": -1}])  # Invalid action.
         self.assertTrue(env.done)
         playthrough = env.toJSON()
+        self.assertEqual(playthrough["statuses"], ["INVALID", "DONE"])
         self.assertEqual(
             playthrough["rewards"],
             [
@@ -135,6 +136,7 @@ class OpenSpielEnvTest(absltest.TestCase):
         env.step([{"submission": 0}, {"submission": -1}])
         self.assertTrue(env.done)
         playthrough = env.toJSON()
+        self.assertEqual(playthrough["statuses"], ["INVALID", "DONE"])
         self.assertEqual(
             playthrough["rewards"],
             [
@@ -189,6 +191,7 @@ class OpenSpielEnvTest(absltest.TestCase):
         env.step([{"submission": 999}, {"submission": -1}])  # Invalid action.
         self.assertTrue(env.done)
         playthrough = env.toJSON()
+        self.assertEqual(playthrough["statuses"], ["INVALID", "DONE"])
         self.assertEqual(
             playthrough["rewards"],
             [
@@ -198,7 +201,7 @@ class OpenSpielEnvTest(absltest.TestCase):
         )
 
     def test_tic_tac_toe_agent_playthrough(self):
-        env = make("open_spiel_tic_tac_toe", debug=True)
+        env = make("open_spiel_tic_tac_toe", {"includeLegalActions": True}, debug=True)
         env.run(["random", "random"])
         json = env.toJSON()
         self.assertEqual(json["name"], "open_spiel_tic_tac_toe")
@@ -230,7 +233,7 @@ class OpenSpielEnvTest(absltest.TestCase):
                 break
         self.assertEqual(i, 1)  # Zeroth step is setup step, should fail next step.
         json = env.toJSON()
-        self.assertTrue(all([status == "DONE" for status in json["statuses"]]))
+        self.assertEqual(json["statuses"], ["INVALID", "DONE"])
         self.assertEqual(
             json["rewards"],
             [
@@ -240,7 +243,7 @@ class OpenSpielEnvTest(absltest.TestCase):
         )
 
     def test_amazons_agent_playthrough(self):
-        env = make("open_spiel_amazons", debug=True)
+        env = make("open_spiel_amazons", {"includeLegalActions": True}, debug=True)
         env.run(["random", "random"])
         json_data = env.toJSON()
         self.assertEqual(json_data["name"], "open_spiel_amazons")
@@ -290,6 +293,7 @@ class OpenSpielEnvTest(absltest.TestCase):
         env.step([{"submission": 999}, {"submission": -1}])  # Invalid action.
         self.assertTrue(env.done)
         json_data = env.toJSON()
+        self.assertEqual(json_data["statuses"], ["INVALID", "DONE"])
         self.assertEqual(json_data["rewards"][0], open_spiel_env.DEFAULT_INVALID_ACTION_REWARD)
         self.assertEqual(json_data["rewards"][1], -open_spiel_env.DEFAULT_INVALID_ACTION_REWARD)
 
@@ -714,7 +718,7 @@ class OpenSpielEnvTest(absltest.TestCase):
 
     def test_goofspiel_agent_playthrough(self):
         open_spiel_env._register_game_envs(["goofspiel(num_cards=4,points_order=descending,returns_type=total_points)"])
-        env = make("open_spiel_goofspiel", debug=True)
+        env = make("open_spiel_goofspiel", {"includeLegalActions": True}, debug=True)
         env.run(["random", "random"])
         json = env.toJSON()
         self.assertEqual(json["name"], "open_spiel_goofspiel")
@@ -734,11 +738,11 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertEqual(env.state[1]["status"], "ACTIVE")
         # Play all 4 rounds: both players submit actions each step.
         # With descending point order and 4 cards, there are 4 bidding rounds.
-        # Legal actions are card indices (0-3 initially).
-        for _ in range(4):
+        # Each card can only be used once, so submit different cards each round.
+        for i in range(4):
             if env.done:
                 break
-            env.step([{"submission": 0}, {"submission": 0}])
+            env.step([{"submission": i}, {"submission": i}])
         self.assertTrue(env.done)
         json = env.toJSON()
         self.assertTrue(all([status == "DONE" for status in json["statuses"]]))
@@ -752,8 +756,8 @@ class OpenSpielEnvTest(absltest.TestCase):
         env.step([{"submission": 999}, {"submission": 0}])
         self.assertTrue(env.done)
         json = env.toJSON()
-        self.assertTrue(all([status == "DONE" for status in json["statuses"]]))
-        # Player 0 submitted invalid, so gets the penalty.
+        self.assertEqual(json["statuses"], ["INVALID", "DONE"])
+        # Player 0 submitted invalid, so gets the penalty (forfeit).
         self.assertEqual(json["rewards"][0], open_spiel_env.DEFAULT_INVALID_ACTION_REWARD)
         self.assertEqual(json["rewards"][1], -open_spiel_env.DEFAULT_INVALID_ACTION_REWARD)
 
@@ -776,7 +780,7 @@ class OpenSpielEnvTest(absltest.TestCase):
         """Test repeated Prisoner's Dilemma with random agents for 10 rounds."""
         env = make(
             "open_spiel_repeated_game",
-            {"openSpielGameParameters": {"num_repetitions": 10}},
+            {"openSpielGameParameters": {"num_repetitions": 10}, "includeLegalActions": True},
             debug=True,
         )
         env.run(["random", "random"])

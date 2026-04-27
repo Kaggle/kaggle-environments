@@ -552,9 +552,10 @@ def interpreter(
         elif invalid_action:
             if agent_state["status"] == "INVALID":
                 reward = DEFAULT_INVALID_ACTION_REWARD
+                status = "INVALID"
             else:
                 reward = -DEFAULT_INVALID_ACTION_REWARD
-            status = "DONE"
+                status = "DONE"
         elif os_state.is_terminal():
             status = "DONE"
             reward = os_state.returns()[player_id]
