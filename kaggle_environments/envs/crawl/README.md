@@ -14,7 +14,7 @@ The maze has **east/west symmetry**: the left half mirrors the right half, with 
 |------|------|------------|-------------|--------|-------------------|
 | **Factory** | — | unlimited | 2 turns | 4 | BUILD, JUMP (20-turn CD), indestructible |
 | **Scout** | 50 | 50 | 1 turn | 5 | Fast explorer |
-| **Worker** | 200 | 200 | 2 turns | 3 | EXPLODE (destroy wall), PETRIFY (become terrain) |
+| **Worker** | 200 | 200 | 2 turns | 3 | BUILD_DIR / REMOVE_DIR walls (100 energy) |
 | **Miner** | 300 | 300 | 2 turns | 3 | TRANSFORM into energy mine (requires mining node) |
 
 All robots consume 1 energy per turn. Robots with 0 energy are forced idle.
@@ -28,11 +28,13 @@ Each turn, you return a dictionary mapping robot UIDs to action strings.
 
 ### Factory Actions
 - `BUILD_SCOUT`, `BUILD_WORKER`, `BUILD_MINER` — Spawn a new robot in the cell **north** of the factory. Requires no wall between factory and spawn cell. 10-turn cooldown between builds.
-- `JUMP_NORTH`, `JUMP_SOUTH`, `JUMP_EAST`, `JUMP_WEST` — Leap 2 cells in a direction, ignoring the intermediate cell's walls. Landing cell must not be petrified or out of bounds. 20-turn cooldown.
+- `JUMP_NORTH`, `JUMP_SOUTH`, `JUMP_EAST`, `JUMP_WEST` — Leap 2 cells in a direction, ignoring the intermediate cell's walls. Landing cell must be in bounds. 20-turn cooldown.
 
 ### Worker Actions
-- `EXPLODE_NORTH`, `EXPLODE_SOUTH`, `EXPLODE_EAST`, `EXPLODE_WEST` — Destroy the worker and remove the wall between its cell and the adjacent cell in that direction. Costs 100 energy.
-- `PETRIFY` — Destroy the worker and turn its cell into an impassable terrain block. Costs 50 energy.
+- `BUILD_NORTH`, `BUILD_SOUTH`, `BUILD_EAST`, `BUILD_WEST` — Add a wall between the worker's cell and the adjacent cell in that direction. Costs 100 energy. The worker survives.
+- `REMOVE_NORTH`, `REMOVE_SOUTH`, `REMOVE_EAST`, `REMOVE_WEST` — Remove the wall between the worker's cell and the adjacent cell. Costs 100 energy. The worker survives.
+
+**Fixed walls (cannot be modified):** the outer perimeter (E/W of the leftmost and rightmost columns) and the central mirror axis (E of column `width/2 - 1` and W of column `width/2`). BUILD/REMOVE on a fixed wall, or where the wall is already in the requested state, still costs 100 energy but has no effect. Fixed walls are drawn as **double lines** in the visualizer.
 
 ### Miner Actions
 - `TRANSFORM` — Destroy the miner and create an energy mine at its position. **Requires the miner to be standing on a mining node.** Costs 100 energy. The mine receives the miner's remaining energy (up to mine max).
@@ -69,7 +71,6 @@ Each robot has a vision range (Manhattan distance). You can only see what's with
 | Data | Visible in range | Remembered after leaving range |
 |------|-----------------|-------------------------------|
 | Walls/layout | Yes | Yes (permanent) |
-| Petrified cells | Yes | Yes (permanent) |
 | Crystals | Yes | No |
 | Enemy robots | Yes | No |
 | Own robots | Always | N/A |
@@ -91,7 +92,7 @@ If a factory falls below the southern boundary, that player is eliminated.
 1. **Cooldown tick** — Decrement move, jump, and build cooldowns
 2. **Action validation** — Verify action legality
 3. **Energy consumption** — Each robot loses 1 energy; 0-energy robots forced idle
-4. **Special actions** — TRANSFORM, PETRIFY, EXPLODE, BUILD, TRANSFER (in that order)
+4. **Special actions** — TRANSFORM (miner), BUILD_DIR/REMOVE_DIR (worker walls), BUILD_SCOUT/WORKER/MINER (factory), TRANSFER (in that order)
 5. **Movement + combat** — Simultaneous movement, then resolve collisions
 6. **Crystal collection** — Robots on crystal cells collect energy
 7. **Mine energy fill** — Robots on friendly mines collect energy
@@ -127,7 +128,7 @@ If a factory falls below the southern boundary, that player is eliminated.
 def agent(obs, config):
     obs.player        # Your player index (0 or 1)
     obs.walls         # Flat array: index = (row - southBound) * width + col
-                      # Values: wall bitfield, -1 = undiscovered, 16 = petrified
+                      # Values: wall bitfield, -1 = undiscovered
     obs.crystals      # {"col,row": energy} — only currently visible
     obs.robots        # {"uid": [type, col, row, energy, owner, move_cd, jump_cd, build_cd]}
     obs.mines         # {"col,row": [energy, maxEnergy, owner]} — remembered once seen
@@ -139,10 +140,10 @@ def agent(obs, config):
 ### Wall Bitfield
 
 ```
-N = 1, E = 2, S = 4, W = 8, PETRIFIED = 16
+N = 1, E = 2, S = 4, W = 8
 ```
 
-Check for a wall: `if wall_value & 1:` means there's a north wall.
+Check for a wall: `if wall_value & 1:` means there's a north wall. Fixed walls (perimeter and middle axis) have the same bitfield representation but cannot be modified by workers; the visualizer renders them as double lines.
 
 ## Quick Start
 
@@ -180,8 +181,7 @@ env.render(mode="ipython", width=800, height=800)
 | `scoutCost` | 50 | Energy to build scout |
 | `workerCost` | 200 | Energy to build worker |
 | `minerCost` | 300 | Energy to build miner |
-| `explodeCost` | 100 | Energy for worker explode |
-| `petrifyCost` | 50 | Energy for worker petrify |
+| `wallActionCost` | 100 | Energy per worker BUILD_DIR / REMOVE_DIR (charged even on no-op) |
 | `transformCost` | 100 | Energy for miner transform |
 | `mineMaxEnergy` | 1000 | Max energy a mine stores |
 | `mineRate` | 50 | Mine energy generation per turn |

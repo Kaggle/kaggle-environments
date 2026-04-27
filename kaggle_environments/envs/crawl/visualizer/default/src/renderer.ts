@@ -5,7 +5,33 @@ const WALL_N = 1;
 const WALL_E = 2;
 const WALL_S = 4;
 const WALL_W = 8;
-const PETRIFIED = 16;
+
+// Walls workers cannot build or remove (mirrors crawl.py is_fixed_wall):
+// E/W perimeter and the central mirror axis. Rendered as double lines.
+function isFixedWall(col: number, dir: 'E' | 'W', width: number): boolean {
+  const half = Math.floor(width / 2);
+  if (dir === 'W' && col === 0) return true;
+  if (dir === 'E' && col === width - 1) return true;
+  if (dir === 'E' && col === half - 1) return true;
+  if (dir === 'W' && col === half) return true;
+  return false;
+}
+
+function drawDoubleLine(c: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number): void {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len === 0) return;
+  const nx = -dy / len;
+  const ny = dx / len;
+  const off = 1.5;
+  c.beginPath();
+  c.moveTo(x1 + nx * off, y1 + ny * off);
+  c.lineTo(x2 + nx * off, y2 + ny * off);
+  c.moveTo(x1 - nx * off, y1 - ny * off);
+  c.lineTo(x2 - nx * off, y2 - ny * off);
+  c.stroke();
+}
 
 // Robot type constants
 const FACTORY = 0;
@@ -320,27 +346,12 @@ export function renderer(options: CrawlOptions) {
       const { x, y } = cellToCanvas(col, row);
       const w = rowWalls ? rowWalls[col] : 0;
 
-      if (w === PETRIFIED) {
-        // Petrified cell: filled dark
-        c.fillStyle = '#5D4037';
-        c.fillRect(x, y, cellSize, cellSize);
-        // Draw cross-hatch
-        c.strokeStyle = '#3E2723';
-        c.lineWidth = 1;
-        c.beginPath();
-        c.moveTo(x, y);
-        c.lineTo(x + cellSize, y + cellSize);
-        c.moveTo(x + cellSize, y);
-        c.lineTo(x, y + cellSize);
-        c.stroke();
-        continue;
-      }
-
       // Cell background - subtle grid
       c.fillStyle = 'rgba(255, 255, 255, 0.15)';
       c.fillRect(x + 0.5, y + 0.5, cellSize - 1, cellSize - 1);
 
-      // Draw walls
+      // Draw walls. Fixed walls (perimeter + middle axis) draw as double
+      // lines to signal that workers cannot remove them.
       c.strokeStyle = '#3c3b37';
       c.lineWidth = 2;
 
@@ -357,16 +368,24 @@ export function renderer(options: CrawlOptions) {
         c.stroke();
       }
       if (w & WALL_E) {
-        c.beginPath();
-        c.moveTo(x + cellSize, y);
-        c.lineTo(x + cellSize, y + cellSize);
-        c.stroke();
+        if (isFixedWall(col, 'E', width)) {
+          drawDoubleLine(c, x + cellSize, y, x + cellSize, y + cellSize);
+        } else {
+          c.beginPath();
+          c.moveTo(x + cellSize, y);
+          c.lineTo(x + cellSize, y + cellSize);
+          c.stroke();
+        }
       }
       if (w & WALL_W) {
-        c.beginPath();
-        c.moveTo(x, y);
-        c.lineTo(x, y + cellSize);
-        c.stroke();
+        if (isFixedWall(col, 'W', width)) {
+          drawDoubleLine(c, x, y, x, y + cellSize);
+        } else {
+          c.beginPath();
+          c.moveTo(x, y);
+          c.lineTo(x, y + cellSize);
+          c.stroke();
+        }
       }
     }
   }

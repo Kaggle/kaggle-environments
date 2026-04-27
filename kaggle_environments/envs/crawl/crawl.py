@@ -9,7 +9,6 @@ from .agents import agents  # noqa: F401
 
 FACTORY, SCOUT, WORKER, MINER = 0, 1, 2, 3
 WALL_N, WALL_E, WALL_S, WALL_W = 1, 2, 4, 8
-PETRIFIED = 16
 
 DIR_OFFSETS = {
     "NORTH": (0, 1),
@@ -22,14 +21,29 @@ DIR_WALL_BIT = {"NORTH": WALL_N, "EAST": WALL_E, "SOUTH": WALL_S, "WEST": WALL_W
 
 MOVE_DIRS = {"NORTH", "SOUTH", "EAST", "WEST"}
 JUMP_ACTIONS = {"JUMP_NORTH", "JUMP_SOUTH", "JUMP_EAST", "JUMP_WEST"}
-EXPLODE_ACTIONS = {"EXPLODE_NORTH", "EXPLODE_SOUTH", "EXPLODE_EAST", "EXPLODE_WEST"}
+WALL_BUILD_ACTIONS = {"BUILD_NORTH", "BUILD_SOUTH", "BUILD_EAST", "BUILD_WEST"}
+WALL_REMOVE_ACTIONS = {"REMOVE_NORTH", "REMOVE_SOUTH", "REMOVE_EAST", "REMOVE_WEST"}
 TRANSFER_ACTIONS = {
     "TRANSFER_NORTH",
     "TRANSFER_SOUTH",
     "TRANSFER_EAST",
     "TRANSFER_WEST",
 }
-BUILD_ACTIONS = {"BUILD_SCOUT", "BUILD_WORKER", "BUILD_MINER"}
+FACTORY_BUILD_ACTIONS = {"BUILD_SCOUT", "BUILD_WORKER", "BUILD_MINER"}
+
+
+def is_fixed_wall(col, direction, width):
+    """Walls workers cannot build or remove: E/W perimeter and the central mirror axis."""
+    if direction == "WEST" and col == 0:
+        return True
+    if direction == "EAST" and col == width - 1:
+        return True
+    half = width // 2
+    if direction == "EAST" and col == half - 1:
+        return True
+    if direction == "WEST" and col == half:
+        return True
+    return False
 
 # Crush table: type that wins against another type
 # Factory crushes all non-factory units (and is indestructible against them);
@@ -270,10 +284,7 @@ def can_move_through(walls_dict, width, col, row, direction):
     row_walls = walls_dict[row_key]
     if col < 0 or col >= width:
         return False
-    cell_wall = row_walls[col]
-    if cell_wall == PETRIFIED:
-        return False
-    if cell_wall & DIR_WALL_BIT[direction]:
+    if row_walls[col] & DIR_WALL_BIT[direction]:
         return False
     dc, dr = DIR_OFFSETS[direction]
     nc, nr = col + dc, row + dr
@@ -281,8 +292,6 @@ def can_move_through(walls_dict, width, col, row, direction):
         return False
     nr_key = str(nr)
     if nr_key not in walls_dict:
-        return False
-    if walls_dict[nr_key][nc] == PETRIFIED:
         return False
     return True
 
@@ -571,13 +580,11 @@ def interpreter(state, env):
             valid = True  # Movement validity checked later with cooldowns/walls
         elif action in JUMP_ACTIONS:
             valid = rtype == FACTORY
-        elif action in EXPLODE_ACTIONS:
-            valid = rtype == WORKER
-        elif action == "PETRIFY":
+        elif action in WALL_BUILD_ACTIONS or action in WALL_REMOVE_ACTIONS:
             valid = rtype == WORKER
         elif action == "TRANSFORM":
             valid = rtype == MINER
-        elif action in BUILD_ACTIONS:
+        elif action in FACTORY_BUILD_ACTIONS:
             valid = rtype == FACTORY
         elif action in TRANSFER_ACTIONS:
             valid = True
@@ -628,61 +635,52 @@ def interpreter(state, env):
         del mining_nodes[key]
         destroyed.add(uid)
 
-    # 3b: PETRIFY (Worker -> terrain block)
-    for uid in list(robots.keys()):
-        if uid in destroyed:
-            continue
-        if validated_actions.get(uid) != "PETRIFY":
-            continue
-        r = robots[uid]
-        if r["energy"] < config.petrifyCost:
-            validated_actions[uid] = "IDLE"
-            continue
-        col, row = r["col"], r["row"]
-        row_key = str(row)
-        if row_key in walls:
-            walls[row_key][col] = PETRIFIED
-        # Add walls on neighbors facing this cell
-        for d, opp in [("NORTH", "SOUTH"), ("SOUTH", "NORTH"), ("EAST", "WEST"), ("WEST", "EAST")]:
-            dc, dr = DIR_OFFSETS[d]
-            nc, nr = col + dc, row + dr
-            nr_key = str(nr)
-            if 0 <= nc < width and nr_key in walls:
-                walls[nr_key][nc] |= DIR_WALL_BIT[opp]
-        destroyed.add(uid)
-
-    # 3c: EXPLODE (Worker destroys wall in direction)
+    # 3b: BUILD_DIR / REMOVE_DIR (Worker toggles wall in direction)
+    # Worker survives. Costs `wallActionCost` regardless of effect (no-op if
+    # the wall already exists for BUILD or doesn't exist for REMOVE, or if
+    # the wall is fixed). Out-of-bounds neighbor (off the map) is also a
+    # no-op but still charges. Insufficient energy → IDLE, no charge.
     for uid in list(robots.keys()):
         if uid in destroyed:
             continue
         action = validated_actions.get(uid, "IDLE")
-        if action not in EXPLODE_ACTIONS:
+        is_build = action in WALL_BUILD_ACTIONS
+        is_remove = action in WALL_REMOVE_ACTIONS
+        if not (is_build or is_remove):
             continue
         r = robots[uid]
-        if r["energy"] < config.explodeCost:
+        if r["energy"] < config.wallActionCost:
             validated_actions[uid] = "IDLE"
             continue
+        r["energy"] -= config.wallActionCost
         direction = action.split("_")[1]
         col, row = r["col"], r["row"]
         row_key = str(row)
-        # Remove wall from current cell
-        if row_key in walls and walls[row_key][col] != PETRIFIED:
-            walls[row_key][col] &= ~DIR_WALL_BIT[direction]
-        # Remove opposite wall from neighbor
+        if is_fixed_wall(col, direction, width):
+            continue  # charged, no effect
+        bit = DIR_WALL_BIT[direction]
+        opp_bit = DIR_WALL_BIT[OPPOSITE_DIR[direction]]
         dc, dr = DIR_OFFSETS[direction]
         nc, nr = col + dc, row + dr
         nr_key = str(nr)
-        opp = OPPOSITE_DIR[direction]
-        if 0 <= nc < width and nr_key in walls and walls[nr_key][nc] != PETRIFIED:
-            walls[nr_key][nc] &= ~DIR_WALL_BIT[opp]
-        destroyed.add(uid)
+        neighbor_in_map = 0 <= nc < width and nr_key in walls
+        if is_build:
+            if row_key in walls:
+                walls[row_key][col] |= bit
+            if neighbor_in_map:
+                walls[nr_key][nc] |= opp_bit
+        else:  # is_remove
+            if row_key in walls:
+                walls[row_key][col] &= ~bit
+            if neighbor_in_map:
+                walls[nr_key][nc] &= ~opp_bit
 
     # 3d: BUILD (Factory spawns robot to the north, combat resolves in Phase 4)
     for uid in list(robots.keys()):
         if uid in destroyed:
             continue
         action = validated_actions.get(uid, "IDLE")
-        if action not in BUILD_ACTIONS:
+        if action not in FACTORY_BUILD_ACTIONS:
             continue
         r = robots[uid]
 
@@ -802,8 +800,8 @@ def interpreter(state, env):
             dc, dr_off = DIR_OFFSETS[direction]
             # Jump lands 2 cells away, ignoring intermediate walls
             tc, tr = r["col"] + dc * 2, r["row"] + dr_off * 2
-            # Check destination is in bounds and not petrified
-            if 0 <= tc < width and south <= tr <= north and str(tr) in walls and walls[str(tr)][tc] != PETRIFIED:
+            # Check destination is in bounds
+            if 0 <= tc < width and south <= tr <= north and str(tr) in walls:
                 movements[uid] = (tc, tr)
                 r["jump_cooldown"] = config.factoryJumpCooldown
             else:
@@ -1127,27 +1125,19 @@ def renderer(state, env):
         top = f"{row:3d} +"
         for col in range(width):
             w = rw[col] if col < len(rw) else 0
-            if w == PETRIFIED:
-                top += "####+"
-            elif w & WALL_N:
-                top += "----+"
-            else:
-                top += "    +"
+            top += "----+" if (w & WALL_N) else "    +"
         out += top + "\n"
 
         # Cell row
         cell_line = "    "
         for col in range(width):
             w = rw[col] if col < len(rw) else 0
-            if w == PETRIFIED:
-                cell_line += "|####"
-            else:
-                wall_char = "|" if (w & WALL_W) else " "
-                content = cell_content.get((col, row), "")
-                cell_line += wall_char + content.center(4)
+            wall_char = "|" if (w & WALL_W) else " "
+            content = cell_content.get((col, row), "")
+            cell_line += wall_char + content.center(4)
         # Right edge
         last_w = rw[width - 1] if width - 1 < len(rw) else 0
-        cell_line += "|" if (last_w & WALL_E or last_w == PETRIFIED) else " "
+        cell_line += "|" if (last_w & WALL_E) else " "
         out += cell_line + "\n"
 
     # Bottom border
@@ -1157,10 +1147,7 @@ def renderer(state, env):
         rw = g_walls[south_key]
         for col in range(width):
             w = rw[col] if col < len(rw) else 0
-            if w == PETRIFIED or (w & WALL_S):
-                bottom += "----+"
-            else:
-                bottom += "    +"
+            bottom += "----+" if (w & WALL_S) else "    +"
     else:
         bottom += "----+" * width
     out += bottom + "\n"

@@ -45,9 +45,9 @@ def random_agent(observation, configuration):
             else:
                 actions[uid] = "NORTH"
         elif rtype == 2:  # Worker
-            if (w & 1) and energy >= configuration.explodeCost:
-                # Wall north — blow it up
-                actions[uid] = "EXPLODE_NORTH"
+            if (w & 1) and energy >= configuration.wallActionCost:
+                # Wall north — knock it down
+                actions[uid] = "REMOVE_NORTH"
             elif not (w & 1):
                 actions[uid] = "NORTH"
             else:

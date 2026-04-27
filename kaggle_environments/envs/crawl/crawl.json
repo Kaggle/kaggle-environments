@@ -70,16 +70,10 @@
       "default": 300,
       "minimum": 1
     },
-    "explodeCost": {
-      "description": "Energy required for a worker to explode and remove a wall.",
+    "wallActionCost": {
+      "description": "Energy a worker spends per BUILD_DIR or REMOVE_DIR action. Charged regardless of whether the wall changes (no-op on fixed walls or where the wall already matches the requested state).",
       "type": "integer",
       "default": 100,
-      "minimum": 1
-    },
-    "petrifyCost": {
-      "description": "Energy required for a worker to petrify into a terrain block.",
-      "type": "integer",
-      "default": 50,
       "minimum": 1
     },
     "transformCost": {
@@ -226,7 +220,7 @@
       "defaults": [0, 1]
     },
     "walls": {
-      "description": "Flat array of wall bitfields for discovered cells. Index = (row - southBound) * width + col. -1 = undiscovered. 16 = petrified.",
+      "description": "Flat array of wall bitfields for discovered cells. Index = (row - southBound) * width + col. -1 = undiscovered.",
       "type": "array",
       "items": {
         "type": "integer"
@@ -321,7 +315,7 @@
     "remainingOverageTime": 60
   },
   "action": {
-    "description": "Actions keyed by robot UID. Values are action strings: NORTH, SOUTH, EAST, WEST, BUILD_SCOUT, BUILD_WORKER, BUILD_MINER (spawns north of factory), EXPLODE_NORTH, EXPLODE_EAST, EXPLODE_SOUTH, EXPLODE_WEST, PETRIFY, TRANSFORM (requires mining node), TRANSFER_NORTH, TRANSFER_EAST, TRANSFER_SOUTH, TRANSFER_WEST, JUMP_NORTH, JUMP_EAST, JUMP_SOUTH, JUMP_WEST, IDLE.",
+    "description": "Actions keyed by robot UID. Values are action strings: NORTH, SOUTH, EAST, WEST, BUILD_SCOUT, BUILD_WORKER, BUILD_MINER (factory spawns north), BUILD_NORTH/SOUTH/EAST/WEST and REMOVE_NORTH/SOUTH/EAST/WEST (worker toggles a wall), TRANSFORM (miner, requires mining node), TRANSFER_NORTH/SOUTH/EAST/WEST, JUMP_NORTH/SOUTH/EAST/WEST (factory), IDLE.",
     "type": "object",
     "additionalProperties": {
       "type": "string"

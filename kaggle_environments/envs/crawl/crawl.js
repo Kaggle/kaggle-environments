@@ -6,7 +6,33 @@ async function renderer(context) {
   var WALL_E = 2;
   var WALL_S = 4;
   var WALL_W = 8;
-  var PETRIFIED = 16;
+
+  // Walls workers cannot build or remove (mirrors crawl.py is_fixed_wall):
+  // E/W perimeter and the central mirror axis.
+  function isFixedWall(col, dir, w) {
+    var half = (w / 2) | 0;
+    if (dir === 'W' && col === 0) return true;
+    if (dir === 'E' && col === w - 1) return true;
+    if (dir === 'E' && col === half - 1) return true;
+    if (dir === 'W' && col === half) return true;
+    return false;
+  }
+
+  function drawDoubleLine(c, x1, y1, x2, y2) {
+    var dx = x2 - x1;
+    var dy = y2 - y1;
+    var len = Math.sqrt(dx * dx + dy * dy);
+    if (len === 0) return;
+    var nx = -dy / len;
+    var ny = dx / len;
+    var off = 1.5;
+    c.beginPath();
+    c.moveTo(x1 + nx * off, y1 + ny * off);
+    c.lineTo(x2 + nx * off, y2 + ny * off);
+    c.moveTo(x1 - nx * off, y1 - ny * off);
+    c.lineTo(x2 - nx * off, y2 - ny * off);
+    c.stroke();
+  }
 
   // Robot type constants
   var FACTORY = 0;
@@ -160,25 +186,11 @@ async function renderer(context) {
         y = pos.y;
       var w = rowWalls ? rowWalls[col] : 0;
 
-      if (w === PETRIFIED) {
-        c.fillStyle = '#3a2a1a';
-        c.fillRect(x, y, cellSize, cellSize);
-        c.strokeStyle = '#5a3a1a';
-        c.lineWidth = 1;
-        c.beginPath();
-        c.moveTo(x, y);
-        c.lineTo(x + cellSize, y + cellSize);
-        c.moveTo(x + cellSize, y);
-        c.lineTo(x, y + cellSize);
-        c.stroke();
-        continue;
-      }
-
       // Cell background
       c.fillStyle = 'rgba(255, 255, 255, 0.03)';
       c.fillRect(x + 0.5, y + 0.5, cellSize - 1, cellSize - 1);
 
-      // Walls
+      // Walls. Fixed walls (perimeter + middle axis) draw as double lines.
       c.strokeStyle = '#556677';
       c.lineWidth = 2;
       if (w & WALL_N) {
@@ -194,16 +206,24 @@ async function renderer(context) {
         c.stroke();
       }
       if (w & WALL_E) {
-        c.beginPath();
-        c.moveTo(x + cellSize, y);
-        c.lineTo(x + cellSize, y + cellSize);
-        c.stroke();
+        if (isFixedWall(col, 'E', gridWidth)) {
+          drawDoubleLine(c, x + cellSize, y, x + cellSize, y + cellSize);
+        } else {
+          c.beginPath();
+          c.moveTo(x + cellSize, y);
+          c.lineTo(x + cellSize, y + cellSize);
+          c.stroke();
+        }
       }
       if (w & WALL_W) {
-        c.beginPath();
-        c.moveTo(x, y);
-        c.lineTo(x, y + cellSize);
-        c.stroke();
+        if (isFixedWall(col, 'W', gridWidth)) {
+          drawDoubleLine(c, x, y, x, y + cellSize);
+        } else {
+          c.beginPath();
+          c.moveTo(x, y);
+          c.lineTo(x, y + cellSize);
+          c.stroke();
+        }
       }
     }
   }
