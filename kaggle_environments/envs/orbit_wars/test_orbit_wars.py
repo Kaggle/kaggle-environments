@@ -622,5 +622,60 @@ class TestOrbitWars(unittest.TestCase):
         self.assertEqual(p[5], 25)  # 35 - 10 = 25
 
 
+    def test_seed_hidden_from_agents_but_in_replay(self):
+        # The seed drives planet placement and the comet schedule (which is
+        # supposed to be hidden info). Agents must NOT see the seed via the
+        # configuration they're handed, but the replay/env must still record
+        # it for reproducibility.
+        from kaggle_environments import make
+
+        seen_seeds = []
+        seen_configs = []
+
+        def spy_agent(observation, configuration):
+            seen_seeds.append(configuration.get("seed"))
+            seen_configs.append(dict(configuration))
+            return []
+
+        chosen_seed = 1234567
+        env = make(
+            "orbit_wars",
+            configuration={"seed": chosen_seed, "episodeSteps": 60},
+            debug=True,
+        )
+        env.run([spy_agent, spy_agent])
+
+        self.assertTrue(seen_seeds, "spy agent never received configuration")
+        for s, cfg in zip(seen_seeds, seen_configs):
+            self.assertIsNone(
+                s, msg=f"agent saw seed={s} in configuration: {cfg}"
+            )
+
+        # Seed must still be persisted on the env / replay for reproducibility.
+        self.assertEqual(env.info.get("seed"), chosen_seed)
+        replay = env.toJSON()
+        self.assertEqual(replay["info"].get("seed"), chosen_seed)
+        self.assertIsNone(replay["configuration"].get("seed"))
+
+    def test_seed_hidden_when_unset_by_user(self):
+        # When the user doesn't supply a seed, the interpreter generates one.
+        # That generated seed must also stay out of the agent's configuration
+        # view but be recorded in env.info.
+        from kaggle_environments import make
+
+        seen_seeds = []
+
+        def spy_agent(observation, configuration):
+            seen_seeds.append(configuration.get("seed"))
+            return []
+
+        env = make("orbit_wars", configuration={"episodeSteps": 60}, debug=True)
+        env.run([spy_agent, spy_agent])
+
+        for s in seen_seeds:
+            self.assertIsNone(s, msg=f"agent saw generated seed={s}")
+        self.assertIsNotNone(env.info.get("seed"))
+
+
 if __name__ == "__main__":
     unittest.main()
