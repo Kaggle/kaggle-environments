@@ -24,7 +24,7 @@
       "default": 4.0
     },
     "seed": {
-      "description": "Seed used to deterministically generate planets and comets. If unset, one is chosen at random and recorded back into the configuration so the episode can be reproduced.",
+      "description": "Optional input seed for deterministic planet/comet generation. The interpreter clears this from configuration after reading and stores the resolved seed on env.info['seed'] so it stays out of agent observations but is still recorded in the replay.",
       "type": "integer",
       "default": null
     }

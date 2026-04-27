@@ -315,20 +315,31 @@ def interpreter(state, env):
     num_agents = len(state)
     obs0 = state[0].observation
 
-    if env.done:
-        return state
-
-    # Initialize game state if not already done
+    # Initialize game state if not already done. Run this BEFORE the
+    # `env.done` early-return so initialization happens during env.reset()
+    # (when all agents are temporarily INACTIVE / "done"). That guarantees
+    # the seed is scrubbed from configuration before the first agent.act()
+    # call — otherwise agents would see the seed on turn 0.
     if not hasattr(obs0, "planets") or not obs0.planets:
-        # Resolve / record episode seed so planet & comet generation are
-        # reproducible from the replay configuration.
-        seed = get(configuration, "seed", None)
+        # Resolve episode seed and stash it on env.info so it persists into
+        # the replay but stays out of `configuration`, which is visible to
+        # agents. Agents must not be able to reconstruct the comet schedule.
+        if not hasattr(env, "info") or env.info is None:
+            env.info = {}
+        # Reuse the previously-resolved seed if env.reset() runs twice
+        # (e.g. make() + run() both trigger reset). Otherwise read from
+        # configuration, then fall back to a random one.
+        seed = env.info.get("seed")
+        if seed is None:
+            seed = get(configuration, "seed", None)
         if seed is None:
             seed = random.randrange(2**31)
-            try:
-                configuration.seed = seed
-            except (AttributeError, TypeError):
-                configuration["seed"] = seed
+        # Scrub seed from configuration so agents can't read it.
+        try:
+            configuration.seed = None
+        except (AttributeError, TypeError):
+            configuration["seed"] = None
+        env.info["seed"] = seed
         init_rng = random.Random(seed)
 
         angular_velocity = init_rng.uniform(0.025, 0.05)
@@ -371,6 +382,9 @@ def interpreter(state, env):
 
         return state
 
+    if env.done:
+        return state
+
     # Remove expired comets before fleet launch so agents can't act on them
     expired_comet_pids = []
     for group in obs0.comets:
@@ -398,8 +412,10 @@ def interpreter(state, env):
     comet_speed = configuration.cometSpeed
     if (step + 1) in COMET_SPAWN_STEPS:
         # Derive a per-spawn RNG from the episode seed so comet shape and
-        # ship counts are reproducible from the replay configuration.
-        episode_seed = get(configuration, "seed", 0) or 0
+        # ship counts are reproducible. Seed lives on env.info to keep it
+        # hidden from agents (see init block above).
+        env_info = getattr(env, "info", None) or {}
+        episode_seed = env_info.get("seed", 0) or 0
         comet_rng = random.Random(f"orbit_wars-comet-{episode_seed}-{step + 1}")
         comet_paths = generate_comet_paths(
             obs0.initial_planets,
