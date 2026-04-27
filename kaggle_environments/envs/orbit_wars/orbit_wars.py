@@ -492,6 +492,20 @@ def interpreter(state, env):
         fleet[3] += math.sin(angle) * speed
         new_pos = (fleet[2], fleet[3])
 
+        # Check if fleet path intersected any planet (continuous collision).
+        # Check planets first so fast fleets that would overshoot the bounds
+        # or sun still get credit for hitting a planet along the way.
+        hit_planet = False
+        for planet in obs0.planets:
+            planet_pos = (planet[2], planet[3])
+            if point_to_segment_distance(planet_pos, old_pos, new_pos) < planet[4]:
+                combat_lists[planet[0]].append(fleet)
+                fleets_to_remove.append(fleet)
+                hit_planet = True
+                break
+        if hit_planet:
+            continue
+
         # Check if fleet went out of bounds
         if not (0 <= fleet[2] <= BOARD_SIZE and 0 <= fleet[3] <= BOARD_SIZE):
             fleets_to_remove.append(fleet)
@@ -501,14 +515,6 @@ def interpreter(state, env):
         if point_to_segment_distance((CENTER, CENTER), old_pos, new_pos) < SUN_RADIUS:
             fleets_to_remove.append(fleet)
             continue
-
-        # Check if fleet path intersected any planet (continuous collision)
-        for planet in obs0.planets:
-            planet_pos = (planet[2], planet[3])
-            if point_to_segment_distance(planet_pos, old_pos, new_pos) < planet[4]:
-                combat_lists[planet[0]].append(fleet)
-                fleets_to_remove.append(fleet)
-                break
 
     # 3. Planet Movement & Sweep
     angular_velocity = obs0.angular_velocity
