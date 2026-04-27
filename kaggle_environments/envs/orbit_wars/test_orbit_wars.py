@@ -200,44 +200,13 @@ class TestOrbitWars(unittest.TestCase):
             self.assertEqual(obs0.comet_planet_ids, other_obs.comet_planet_ids)
             self.assertEqual(obs0.initial_planets, other_obs.initial_planets)
 
-    def test_generate_planets_has_diagonal_orbiting_group(self):
-        # The y=x diagonal orbiting group should always be generated
+    def test_4p_home_planets_rotationally_symmetric(self):
+        # In 4p, the 4 home planets must be a 4-fold rotationally symmetric
+        # set about the board center: rotating any home position by 90° CCW
+        # must land on another home position. This guarantees every player's
+        # view is identical (just rotated), so all are equidistant from
+        # the planet rotationally ahead and behind.
         for _ in range(50):
-            planets = generate_planets()
-            num_groups = len(planets) // 4
-            found_diagonal = False
-            for g in range(num_groups):
-                p = planets[g * 4]  # Q1 planet
-                orb_r = distance((p[2], p[3]), (CENTER, CENTER))
-                is_orbiting = orb_r + p[4] < ROTATION_RADIUS_LIMIT
-                on_diagonal = abs((p[2] - CENTER) - (p[3] - CENTER)) < 0.01
-                if is_orbiting and on_diagonal:
-                    found_diagonal = True
-                    break
-            self.assertTrue(found_diagonal, "No y=x diagonal orbiting group found")
-
-    def test_generate_planets_has_diagonal_static_group(self):
-        # The y=x diagonal static group should always be generated
-        for _ in range(50):
-            planets = generate_planets()
-            num_groups = len(planets) // 4
-            found_diagonal = False
-            for g in range(num_groups):
-                p = planets[g * 4]  # Q1 planet
-                orb_r = distance((p[2], p[3]), (CENTER, CENTER))
-                is_static = orb_r + p[4] >= ROTATION_RADIUS_LIMIT
-                on_diagonal = abs((p[2] - CENTER) - (p[3] - CENTER)) < 0.01
-                if is_static and on_diagonal:
-                    found_diagonal = True
-                    break
-            self.assertTrue(found_diagonal, "No y=x diagonal static group found")
-
-    def test_4p_start_always_on_diagonal(self):
-        # In 4p, starting planets (orbiting OR static) must be on the y=x
-        # diagonal so the 4 player copies sit symmetrically.
-        saw_static = False
-        saw_orbiting = False
-        for _ in range(100):
             state = [
                 SimpleNamespace(
                     observation=SimpleNamespace(step=0),
@@ -259,25 +228,22 @@ class TestOrbitWars(unittest.TestCase):
                 done=False,
             )
             new_state = interpreter(state, env)
-            obs = new_state[0].observation
-            owned = [p for p in obs.planets if p[1] != -1]
+            owned = [p for p in new_state[0].observation.planets if p[1] != -1]
             self.assertEqual(len(owned), 4)
-
-            q1 = owned[0]  # Player 0's planet (Q1)
-            orb_r = distance((q1[2], q1[3]), (CENTER, CENTER))
-            is_orbiting = orb_r + q1[4] < ROTATION_RADIUS_LIMIT
-            self.assertAlmostEqual(
-                q1[2] - CENTER, q1[3] - CENTER, places=2,
-                msg="4p start not on y=x diagonal"
-            )
-            if is_orbiting:
-                saw_orbiting = True
-            else:
-                saw_static = True
-
-        # Across 100 episodes both start types should appear (random pick).
-        self.assertTrue(saw_static, "4p never picked a static-diagonal start")
-        self.assertTrue(saw_orbiting, "4p never picked an orbiting-diagonal start")
+            positions = [(p[2], p[3]) for p in owned]
+            # Rotate each position 90° CCW about CENTER and verify it lands on
+            # another home position.
+            for x, y in positions:
+                rx = CENTER - (y - CENTER)
+                ry = CENTER + (x - CENTER)
+                self.assertTrue(
+                    any(
+                        math.isclose(rx, px, abs_tol=1e-5)
+                        and math.isclose(ry, py, abs_tol=1e-5)
+                        for px, py in positions
+                    ),
+                    msg=f"home set not 4-fold rotational: {positions}",
+                )
 
     def _make_state(self, planets, fleets, step=1):
         """Helper to build a minimal 2-player state for testing."""
