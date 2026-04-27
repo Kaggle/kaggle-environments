@@ -56,7 +56,9 @@ def _model_proxy_send(module: str, **kwargs: Any) -> None:
     url = os.environ.get("MODEL_PROXY_URL")
     if not token or not url or url == "dummy_url":
         return
-    endpoint = f"https://{urllib.parse.urlparse(url).netloc}/telemetry/logs"
+    parsed = urllib.parse.urlparse(url)
+    host = parsed.netloc or parsed.path.split("/", 1)[0]
+    endpoint = f"https://{host}/telemetry/logs"
     payload = json.dumps({module: kwargs}).encode("utf-8")
     req = urllib.request.Request(
         endpoint,
