@@ -263,7 +263,7 @@ def test_worker_remove_wall():
     obs = env.state[0].observation
     assert not (obs.globalWalls[str(row)][col] & WALL_N), "north wall not removed on worker cell"
     assert not (obs.globalWalls[str(row + 1)][col] & WALL_S), "south wall not removed on neighbor"
-    # Energy charged: 500 - wallActionCost(100) - energyPerTurn(1) = 399
+    # Energy charged: 500 - wallRemoveCost(100) - energyPerTurn(1) = 399
     assert obs.globalRobots[uid][3] == 399
 
 
@@ -352,7 +352,7 @@ def test_worker_action_charges_even_when_noop():
     env.step([{uid: "BUILD_NORTH"}, {}])
 
     obs = env.state[0].observation
-    assert obs.globalRobots[uid][3] == 399, "BUILD no-op should still charge wallActionCost"
+    assert obs.globalRobots[uid][3] == 399, "BUILD no-op should still charge wallBuildCost"
     assert obs.globalWalls[str(row)][col] & WALL_N
 
 
@@ -503,3 +503,240 @@ def test_step_500_tiebreak():
     # Both factories alive (idle agents), so result should be a 1/0/0.5 tiebreak,
     # not raw energy values.
     assert set(result["rewards"]).issubset({0, 0.5, 1})
+
+
+def _make_robot(env, rtype, col, row, owner=0, energy=200, uid=None):
+    """Inject a robot of arbitrary type for tests."""
+    if uid is None:
+        uid = f"test-{rtype}-{col}-{row}-{owner}"
+    env.state[0].observation.globalRobots[uid] = [rtype, col, row, energy, owner, 0, 0, 0]
+    return uid
+
+
+def _clear_walls_around(env, col, row, radius=1):
+    """Clear all walls in a 2*radius+1 square around (col, row)."""
+    walls = env.state[0].observation.globalWalls
+    for r in range(row - radius, row + radius + 1):
+        for c in range(col - radius, col + radius + 1):
+            if str(r) in walls and 0 <= c < env.configuration.width:
+                walls[str(r)][c] = 0
+
+
+# --- Build-onto-occupied-cell scenarios ---
+
+
+def test_build_onto_enemy_that_moves_away():
+    """Factory builds north onto enemy cell; enemy moves away same turn → no combat."""
+    env = make("crawl", configuration={"randomSeed": 42, "episodeSteps": 50}, debug=True)
+    env.reset(2)
+    obs = env.state[0].observation
+
+    f0 = next(uid for uid, d in obs.globalRobots.items() if d[0] == 0 and d[4] == 0)
+    fc, fr = obs.globalRobots[f0][1], obs.globalRobots[f0][2]
+
+    # Place enemy SCOUT at the spawn cell.
+    enemy = _make_robot(env, 1, fc, fr + 1, owner=1, energy=50, uid="enemy-scout")
+    _clear_walls_around(env, fc, fr + 1, radius=1)
+    obs.globalWalls[str(fr)][fc] &= ~1
+    obs.globalWalls[str(fr + 1)][fc] &= ~4
+
+    env.step([{f0: "BUILD_WORKER"}, {enemy: "NORTH"}])
+    obs = env.state[0].observation
+    assert enemy in obs.globalRobots, "scout should have escaped"
+    new_workers = [uid for uid, d in obs.globalRobots.items() if d[0] == 2 and d[4] == 0]
+    assert len(new_workers) == 1
+    assert obs.globalRobots[new_workers[0]][1:3] == [fc, fr + 1]
+
+
+def test_build_onto_enemy_that_stays():
+    """Factory builds north onto enemy that doesn't move → worker crushes scout."""
+    env = make("crawl", configuration={"randomSeed": 42, "episodeSteps": 50}, debug=True)
+    env.reset(2)
+    obs = env.state[0].observation
+
+    f0 = next(uid for uid, d in obs.globalRobots.items() if d[0] == 0 and d[4] == 0)
+    fc, fr = obs.globalRobots[f0][1], obs.globalRobots[f0][2]
+
+    enemy = _make_robot(env, 1, fc, fr + 1, owner=1, energy=50, uid="enemy-scout")
+    obs.globalWalls[str(fr)][fc] &= ~1
+    obs.globalWalls[str(fr + 1)][fc] &= ~4
+
+    env.step([{f0: "BUILD_WORKER"}, {}])
+    obs = env.state[0].observation
+    assert enemy not in obs.globalRobots
+    new_workers = [uid for uid, d in obs.globalRobots.items() if d[0] == 2 and d[4] == 0 and d[1] == fc and d[2] == fr + 1]
+    assert len(new_workers) == 1
+
+
+# --- 3-robot collisions ---
+
+
+def test_three_robot_collision_two_friendlies_one_enemy():
+    """2 P0 workers + 1 P1 scout converge on a cell. Workers mutually destroy
+    (same type), scout is also crushed by the workers → 0 survivors."""
+    env = make("crawl", configuration={"randomSeed": 42, "episodeSteps": 50}, debug=True)
+    env.reset(2)
+    tc, tr = 5, 5
+    _clear_walls_around(env, tc, tr, radius=1)
+    w1 = _make_robot(env, 2, tc, tr - 1, owner=0, uid="p0w1")
+    w2 = _make_robot(env, 2, tc - 1, tr, owner=0, uid="p0w2")
+    s = _make_robot(env, 1, tc, tr + 1, owner=1, energy=50, uid="p1s")
+    env.step([{w1: "NORTH", w2: "EAST"}, {s: "SOUTH"}])
+    obs = env.state[0].observation
+    on_target = [uid for uid, d in obs.globalRobots.items() if d[1] == tc and d[2] == tr]
+    assert len(on_target) == 0, f"all should be destroyed, got: {on_target}"
+    assert w1 not in obs.globalRobots
+    assert w2 not in obs.globalRobots
+    assert s not in obs.globalRobots
+
+
+def test_two_friendly_scouts_mutually_destroy():
+    """Two friendly scouts moving onto the same cell mutually annihilate (same type)."""
+    env = make("crawl", configuration={"randomSeed": 42, "episodeSteps": 50}, debug=True)
+    env.reset(2)
+    tc, tr = 5, 5
+    _clear_walls_around(env, tc, tr, radius=1)
+    a = _make_robot(env, 1, tc, tr - 1, owner=0, energy=50, uid="s1")
+    b = _make_robot(env, 1, tc - 1, tr, owner=0, energy=50, uid="s2")
+    env.step([{a: "NORTH", b: "EAST"}, {}])
+    obs = env.state[0].observation
+    assert a not in obs.globalRobots
+    assert b not in obs.globalRobots
+
+
+def test_friendly_worker_crushes_friendly_scout():
+    """Friendly worker + scout on same cell → scout crushed (worker > scout regardless of owner)."""
+    env = make("crawl", configuration={"randomSeed": 42, "episodeSteps": 50}, debug=True)
+    env.reset(2)
+    tc, tr = 5, 5
+    _clear_walls_around(env, tc, tr, radius=1)
+    w = _make_robot(env, 2, tc, tr - 1, owner=0, energy=200, uid="fw")
+    s = _make_robot(env, 1, tc - 1, tr, owner=0, energy=50, uid="fs")
+    env.step([{w: "NORTH", s: "EAST"}, {}])
+    obs = env.state[0].observation
+    assert w in obs.globalRobots, "friendly worker should survive"
+    assert s not in obs.globalRobots, "friendly scout should be crushed"
+
+
+def test_friendly_worker_into_friendly_factory():
+    """Friendly worker walking into own factory's cell → worker crushed, factory survives."""
+    env = make("crawl", configuration={"randomSeed": 42, "episodeSteps": 50}, debug=True)
+    env.reset(2)
+    obs = env.state[0].observation
+    f0 = next(uid for uid, d in obs.globalRobots.items() if d[0] == 0 and d[4] == 0)
+    fc, fr = obs.globalRobots[f0][1], obs.globalRobots[f0][2]
+    _clear_walls_around(env, fc, fr, radius=1)
+    w = _make_robot(env, 2, fc, fr - 1, owner=0, uid="friendly-worker")
+    env.step([{w: "NORTH"}, {}])
+    obs = env.state[0].observation
+    assert f0 in obs.globalRobots, "factory should survive"
+    assert w not in obs.globalRobots, "worker should be crushed by friendly factory"
+
+
+# --- Crystal consumption on combat ---
+
+
+def test_crystal_consumed_when_combat_kills_all():
+    """Two same-type enemies collide on a crystal cell; both die, crystal consumed."""
+    env = make(
+        "crawl",
+        configuration={"randomSeed": 42, "episodeSteps": 50, "crystalDensity": 0.0},
+        debug=True,
+    )
+    env.reset(2)
+    obs = env.state[0].observation
+    tc, tr = 5, 5
+    _clear_walls_around(env, tc, tr, radius=1)
+    obs.globalCrystals[f"{tc},{tr}"] = 30
+    a = _make_robot(env, 1, tc, tr - 1, owner=0, energy=50, uid="p0s")
+    b = _make_robot(env, 1, tc, tr + 1, owner=1, energy=50, uid="p1s")
+    env.step([{a: "NORTH"}, {b: "SOUTH"}])
+    obs = env.state[0].observation
+    assert a not in obs.globalRobots
+    assert b not in obs.globalRobots
+    assert f"{tc},{tr}" not in obs.globalCrystals, "crystal should be consumed by combat"
+
+
+def test_crystal_collected_by_combat_survivor():
+    """Worker crushes scout on a crystal cell; worker collects the crystal energy."""
+    env = make(
+        "crawl",
+        configuration={"randomSeed": 42, "episodeSteps": 50, "crystalDensity": 0.0},
+        debug=True,
+    )
+    env.reset(2)
+    obs = env.state[0].observation
+    tc, tr = 5, 5
+    _clear_walls_around(env, tc, tr, radius=1)
+    obs.globalCrystals[f"{tc},{tr}"] = 30
+    w = _make_robot(env, 2, tc, tr - 1, owner=0, energy=100, uid="p0w")
+    s = _make_robot(env, 1, tc, tr + 1, owner=1, energy=50, uid="p1s")
+    env.step([{w: "NORTH"}, {s: "SOUTH"}])
+    obs = env.state[0].observation
+    assert w in obs.globalRobots
+    assert s not in obs.globalRobots
+    assert f"{tc},{tr}" not in obs.globalCrystals
+    # 100 - 1 (energy/turn) + 30 (crystal) = 129
+    assert obs.globalRobots[w][3] == 129
+
+
+# --- Off-board death ---
+
+
+def test_unit_walks_off_south_edge_destroyed():
+    """A unit moving south past the southern bound (with no wall) is destroyed."""
+    env = make("crawl", configuration={"randomSeed": 42, "episodeSteps": 50}, debug=True)
+    env.reset(2)
+    obs = env.state[0].observation
+    south = obs.southBound
+    # Place a scout on the south boundary row and clear its south wall.
+    s = _make_robot(env, 1, 3, south, owner=0, energy=50, uid="south-scout")
+    obs.globalWalls[str(south)][3] &= ~4  # remove south wall
+    env.step([{s: "SOUTH"}, {}])
+    obs = env.state[0].observation
+    assert s not in obs.globalRobots, "unit should be destroyed walking off south edge"
+
+
+def test_unit_blocked_by_wall_at_south_edge():
+    """A south wall on the bottom row blocks the move; unit survives."""
+    env = make("crawl", configuration={"randomSeed": 42, "episodeSteps": 50}, debug=True)
+    env.reset(2)
+    obs = env.state[0].observation
+    south = obs.southBound
+    s = _make_robot(env, 1, 3, south, owner=0, energy=50, uid="south-scout")
+    obs.globalWalls[str(south)][3] |= 4  # ensure south wall present
+    env.step([{s: "SOUTH"}, {}])
+    obs = env.state[0].observation
+    assert s in obs.globalRobots, "wall should block off-edge move"
+
+
+def test_factory_jumps_off_north_edge_destroyed():
+    """Factory jumping past the northern bound is destroyed (cooldown consumed)."""
+    env = make("crawl", configuration={"randomSeed": 42, "episodeSteps": 50}, debug=True)
+    env.reset(2)
+    obs = env.state[0].observation
+    f0 = next(uid for uid, d in obs.globalRobots.items() if d[0] == 0 and d[4] == 0)
+    # Move the factory near the top so a JUMP_NORTH lands off-board.
+    obs.globalRobots[f0][1] = 3
+    obs.globalRobots[f0][2] = obs.northBound  # at the top → jump 2 north is off
+    env.step([{f0: "JUMP_NORTH"}, {}])
+    obs = env.state[0].observation
+    assert f0 not in obs.globalRobots, "factory should die jumping off the north edge"
+
+
+def test_factory_jumps_onto_enemy_unit_crushes():
+    """Factory jumping onto an enemy non-factory unit lands and crushes it."""
+    env = make("crawl", configuration={"randomSeed": 42, "episodeSteps": 50}, debug=True)
+    env.reset(2)
+    obs = env.state[0].observation
+    f0 = next(uid for uid, d in obs.globalRobots.items() if d[0] == 0 and d[4] == 0)
+    # Reposition factory to a known spot.
+    obs.globalRobots[f0][1] = 3
+    obs.globalRobots[f0][2] = obs.southBound + 2
+    fc, fr = obs.globalRobots[f0][1], obs.globalRobots[f0][2]
+    enemy = _make_robot(env, 1, fc, fr + 2, owner=1, energy=50, uid="enemy-scout")
+    env.step([{f0: "JUMP_NORTH"}, {}])
+    obs = env.state[0].observation
+    assert f0 in obs.globalRobots
+    assert obs.globalRobots[f0][1:3] == [fc, fr + 2]
+    assert enemy not in obs.globalRobots

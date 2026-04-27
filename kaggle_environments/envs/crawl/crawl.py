@@ -636,10 +636,11 @@ def interpreter(state, env):
         destroyed.add(uid)
 
     # 3b: BUILD_DIR / REMOVE_DIR (Worker toggles wall in direction)
-    # Worker survives. Costs `wallActionCost` regardless of effect (no-op if
-    # the wall already exists for BUILD or doesn't exist for REMOVE, or if
-    # the wall is fixed). Out-of-bounds neighbor (off the map) is also a
-    # no-op but still charges. Insufficient energy → IDLE, no charge.
+    # Worker survives. Costs `wallBuildCost` (BUILD_*) or `wallRemoveCost`
+    # (REMOVE_*) regardless of effect (no-op if the wall already exists for
+    # BUILD or doesn't exist for REMOVE, or if the wall is fixed). Out-of-bounds
+    # neighbor (off the map) is also a no-op but still charges. Insufficient
+    # energy → IDLE, no charge.
     for uid in list(robots.keys()):
         if uid in destroyed:
             continue
@@ -649,10 +650,11 @@ def interpreter(state, env):
         if not (is_build or is_remove):
             continue
         r = robots[uid]
-        if r["energy"] < config.wallActionCost:
+        cost = config.wallBuildCost if is_build else config.wallRemoveCost
+        if r["energy"] < cost:
             validated_actions[uid] = "IDLE"
             continue
-        r["energy"] -= config.wallActionCost
+        r["energy"] -= cost
         direction = action.split("_")[1]
         col, row = r["col"], r["row"]
         row_key = str(row)
@@ -773,6 +775,7 @@ def interpreter(state, env):
     # --- Phase 4: Movement + combat resolution ---
     movements = {}  # uid -> (target_col, target_row)
     stationary_uids = set()
+    off_board_destroyed = set()  # units that walked/jumped off the N/S edge
 
     for uid, r in robots.items():
         action = validated_actions.get(uid, "IDLE")
@@ -782,13 +785,22 @@ def interpreter(state, env):
                 stationary_uids.add(uid)
                 continue
             direction = action
-            if can_move_through(walls, width, r["col"], r["row"], direction):
-                dc, dr_off = DIR_OFFSETS[direction]
-                tc, tr = r["col"] + dc, r["row"] + dr_off
-                if south <= tr <= north:
-                    movements[uid] = (tc, tr)
-                else:
+            dc, dr_off = DIR_OFFSETS[direction]
+            tc, tr = r["col"] + dc, r["row"] + dr_off
+            if not (south <= tr <= north):
+                # Off-board N/S move: only the source cell's wall can block.
+                # (can_move_through also requires the neighbor row to exist,
+                # which is false off the edge.) E/W is impossible here because
+                # perimeter walls always block.
+                row_key = str(r["row"])
+                source_wall = walls.get(row_key, [0] * width)[r["col"]] if 0 <= r["col"] < width else 0
+                if source_wall & DIR_WALL_BIT[direction]:
                     stationary_uids.add(uid)
+                else:
+                    off_board_destroyed.add(uid)
+                continue
+            if can_move_through(walls, width, r["col"], r["row"], direction):
+                movements[uid] = (tc, tr)
             else:
                 stationary_uids.add(uid)
 
@@ -798,16 +810,21 @@ def interpreter(state, env):
                 continue
             direction = action.split("_")[1]
             dc, dr_off = DIR_OFFSETS[direction]
-            # Jump lands 2 cells away, ignoring intermediate walls
             tc, tr = r["col"] + dc * 2, r["row"] + dr_off * 2
-            # Check destination is in bounds
+            # Jump always happens (no wall check). Off-board landing kills the
+            # factory; cooldown is consumed either way.
+            r["jump_cooldown"] = config.factoryJumpCooldown
             if 0 <= tc < width and south <= tr <= north and str(tr) in walls:
                 movements[uid] = (tc, tr)
-                r["jump_cooldown"] = config.factoryJumpCooldown
             else:
-                stationary_uids.add(uid)
+                off_board_destroyed.add(uid)
         else:
             stationary_uids.add(uid)
+
+    # Remove off-board units before combat resolution.
+    for uid in off_board_destroyed:
+        if uid in robots:
+            del robots[uid]
 
     # Build position map for stationary robots
     position_map = defaultdict(list)  # (col, row) -> [uid, ...]
@@ -817,89 +834,67 @@ def interpreter(state, env):
             position_map[(r["col"], r["row"])].append(uid)
 
     # Group movements by target cell; also include cells with multiple
-    # stationary robots (e.g. from spawn collisions) so combat resolves
-    target_groups = defaultdict(list)  # (col, row) -> [uid, ...]
+    # stationary robots (e.g. from spawn collisions) so combat resolves.
+    target_groups = defaultdict(list)  # (col, row) -> [mover_uid, ...]
     for uid, (tc, tr) in movements.items():
         target_groups[(tc, tr)].append(uid)
     for pos, uids in position_map.items():
         if len(uids) > 1 and pos not in target_groups:
-            target_groups[pos] = []  # no movers, but occupants will be checked
+            target_groups[pos] = []  # no movers, but multiple occupants
 
     move_destroyed = set()
     moved = set()
+    combat_cells = set()  # cells where a multi-robot collision happened
 
     for target, mover_uids in target_groups.items():
-        # Combine movers with stationary occupants at target
         occupant_uids = position_map.get(target, [])
         all_uids = mover_uids + occupant_uids
 
         if len(all_uids) <= 1:
-            # No conflict
             if mover_uids:
                 moved.add(mover_uids[0])
             continue
 
-        # Check if all same owner
-        owners = {robots[uid]["owner"] for uid in all_uids}
+        # Multi-robot collision: apply crush rules. Friendly fire is real —
+        # ownership doesn't matter. Factories are indestructible vs anything
+        # except an enemy factory (mutual destruction).
+        combat_cells.add(target)
+        survivors = set()
+        destroyed_in_combat = set()
+        all_types = [(uid, robots[uid]["type"]) for uid in all_uids]
 
-        if len(owners) == 1:
-            # Same owner: first mover gets the cell, rest stay put
-            # Occupants stay, only one mover succeeds
-            if occupant_uids:
-                # Cell is occupied by friendly; movers stay put
-                pass
-            else:
-                # Multiple friendly movers to empty cell: first by UID
-                sorted_uids = sorted(mover_uids)
-                moved.add(sorted_uids[0])
-                # Rest stay put (not moved, not destroyed)
-        else:
-            # Enemy conflict - resolve combat
-            survivors = set()
-            destroyed_in_combat = set()
+        factory_uids = [uid for uid, rtype in all_types if rtype == FACTORY]
+        factory_owners = {robots[uid]["owner"] for uid in factory_uids}
+        factories_mutual = len(factory_owners) > 1
 
-            # Group by owner
-            by_owner = defaultdict(list)
-            for uid in all_uids:
-                by_owner[robots[uid]["owner"]].append(uid)
-
-            # For each pair of opposing robots, apply crush rules
-            all_types = [(uid, robots[uid]["type"], robots[uid]["owner"]) for uid in all_uids]
-
-            # Enemy factories on the same cell mutually destroy each other.
-            enemy_factory_owners = {owner for _, rtype, owner in all_types if rtype == FACTORY}
-            factories_mutual = len(enemy_factory_owners) > 1
-
-            # Find the strongest robot type per owner
-            for uid, rtype, owner in all_types:
-                if rtype == FACTORY:
-                    if factories_mutual:
-                        destroyed_in_combat.add(uid)
-                    else:
-                        # Factory is indestructible against non-factory units
-                        survivors.add(uid)
-                    continue
-                crushed = False
-                for other_uid, other_type, other_owner in all_types:
-                    if other_owner == owner:
-                        continue
-                    if (other_type, rtype) in CRUSHES:
-                        crushed = True
-                        break
-                    elif other_type == rtype:
-                        # Same type, both destroyed
-                        crushed = True
-                        destroyed_in_combat.add(other_uid)
-                        break
-                if crushed:
+        for uid, rtype in all_types:
+            if rtype == FACTORY:
+                if factories_mutual:
                     destroyed_in_combat.add(uid)
                 else:
                     survivors.add(uid)
+                continue
+            crushed = False
+            for other_uid, other_type in all_types:
+                if other_uid == uid:
+                    continue
+                if (other_type, rtype) in CRUSHES:
+                    crushed = True
+                    break
+                elif other_type == rtype:
+                    # Same type → both destroyed (mutual), regardless of owner.
+                    crushed = True
+                    destroyed_in_combat.add(other_uid)
+                    break
+            if crushed:
+                destroyed_in_combat.add(uid)
+            else:
+                survivors.add(uid)
 
-            move_destroyed.update(destroyed_in_combat)
-            for uid in mover_uids:
-                if uid in survivors:
-                    moved.add(uid)
+        move_destroyed.update(destroyed_in_combat)
+        for uid in mover_uids:
+            if uid in survivors:
+                moved.add(uid)
 
     # Apply movements
     for uid in moved:
@@ -916,6 +911,16 @@ def interpreter(state, env):
     for uid in move_destroyed:
         if uid in robots:
             del robots[uid]
+
+    # Consume crystals at combat cells where no robot survived.
+    # (If a robot did survive, Phase 5 will hand it the crystal energy.)
+    for (cc, cr_) in combat_cells:
+        ckey = f"{cc},{cr_}"
+        if ckey not in crystals:
+            continue
+        survivor_here = any(r["col"] == cc and r["row"] == cr_ for r in robots.values())
+        if not survivor_here:
+            del crystals[ckey]
 
     # --- Phase 5: Crystal collection ---
     crystals_to_remove = []

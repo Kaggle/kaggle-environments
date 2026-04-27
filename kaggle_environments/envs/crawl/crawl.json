@@ -70,8 +70,14 @@
       "default": 300,
       "minimum": 1
     },
-    "wallActionCost": {
-      "description": "Energy a worker spends per BUILD_DIR or REMOVE_DIR action. Charged regardless of whether the wall changes (no-op on fixed walls or where the wall already matches the requested state).",
+    "wallBuildCost": {
+      "description": "Energy a worker spends per BUILD_NORTH/SOUTH/EAST/WEST action. Charged regardless of whether the wall changes (no-op on fixed walls or where the wall already exists).",
+      "type": "integer",
+      "default": 100,
+      "minimum": 1
+    },
+    "wallRemoveCost": {
+      "description": "Energy a worker spends per REMOVE_NORTH/SOUTH/EAST/WEST action. Charged regardless of whether the wall changes (no-op on fixed walls or where the wall doesn't exist).",
       "type": "integer",
       "default": 100,
       "minimum": 1

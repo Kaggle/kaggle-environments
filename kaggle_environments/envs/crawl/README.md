@@ -24,11 +24,11 @@ All robots consume 1 energy per turn. Robots with 0 energy are forced idle.
 Each turn, you return a dictionary mapping robot UIDs to action strings.
 
 ### Movement
-- `NORTH`, `SOUTH`, `EAST`, `WEST` — Move one cell in that direction (blocked by walls)
+- `NORTH`, `SOUTH`, `EAST`, `WEST` — Move one cell in that direction (blocked by walls). **A unit that successfully moves off the north or south edge of the board (no wall blocking) is destroyed.** East/west are always blocked by perimeter walls.
 
 ### Factory Actions
 - `BUILD_SCOUT`, `BUILD_WORKER`, `BUILD_MINER` — Spawn a new robot in the cell **north** of the factory. Requires no wall between factory and spawn cell. 10-turn cooldown between builds.
-- `JUMP_NORTH`, `JUMP_SOUTH`, `JUMP_EAST`, `JUMP_WEST` — Leap 2 cells in a direction, ignoring the intermediate cell's walls. Landing cell must be in bounds. 20-turn cooldown.
+- `JUMP_NORTH`, `JUMP_SOUTH`, `JUMP_EAST`, `JUMP_WEST` — Leap 2 cells in a direction, ignoring all walls. The jump always happens and the cooldown is consumed. **If the landing cell is off the board, the factory is destroyed.** 20-turn cooldown.
 
 ### Worker Actions
 - `BUILD_NORTH`, `BUILD_SOUTH`, `BUILD_EAST`, `BUILD_WEST` — Add a wall between the worker's cell and the adjacent cell in that direction. Costs 100 energy. The worker survives.
@@ -45,13 +45,14 @@ Each turn, you return a dictionary mapping robot UIDs to action strings.
 
 ## Combat
 
-When robots from different players occupy the same cell, combat occurs:
+When two or more robots end the turn on the same cell, crush rules apply — **ownership doesn't matter; friendly fire is real.**
 
 - **Crush hierarchy:** Factory > Miner > Worker > Scout. The stronger type destroys the weaker.
-- **Same type:** Both robots are destroyed.
-- **Factory:** Indestructible against non-factory units, and crushes any enemy non-factory unit that enters its cell. Two enemy factories on the same cell mutually destroy each other (game ends, see Win Conditions).
+- **Same type:** Both (or all) robots of that type are destroyed. Two friendly scouts walking onto the same cell mutually annihilate.
+- **Factory:** Indestructible against any non-factory unit (friendly or enemy) and crushes them. Two enemy factories on the same cell mutually destroy each other (game ends, see Win Conditions).
+- **Crystal on combat cell:** The surviving robot (if any) collects the crystal energy. If no robot survives, the crystal is consumed.
 
-Spawning a robot onto an enemy-occupied cell triggers combat normally (including friendly fire if spawning onto your own unit).
+Spawning a robot onto an occupied cell triggers combat normally — including friendly fire if the spawn cell is held by your own unit.
 
 ## Map Features
 
@@ -181,7 +182,8 @@ env.render(mode="ipython", width=800, height=800)
 | `scoutCost` | 50 | Energy to build scout |
 | `workerCost` | 200 | Energy to build worker |
 | `minerCost` | 300 | Energy to build miner |
-| `wallActionCost` | 100 | Energy per worker BUILD_DIR / REMOVE_DIR (charged even on no-op) |
+| `wallBuildCost` | 100 | Energy per worker BUILD_DIR (charged even on no-op) |
+| `wallRemoveCost` | 100 | Energy per worker REMOVE_DIR (charged even on no-op) |
 | `transformCost` | 100 | Energy for miner transform |
 | `mineMaxEnergy` | 1000 | Max energy a mine stores |
 | `mineRate` | 50 | Mine energy generation per turn |
