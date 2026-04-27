@@ -470,6 +470,48 @@ class TestOrbitWars(unittest.TestCase):
         remaining = new_state[0].observation.fleets
         self.assertEqual(len(remaining), 1)
 
+    def test_fast_fleet_hits_planet_before_leaving_board(self):
+        # A fast fleet whose move ends out-of-bounds should still resolve
+        # combat at any planet its segment crosses on the way out.
+        # Planet at (98, 50) radius 2 sits beyond r=50 from center so it
+        # does not rotate (r + radius = 50, not < ROTATION_RADIUS_LIMIT).
+        # Fleet has 1000 ships -> max speed 6. It moves from x=95 to x=101
+        # (out of bounds) but its segment passes through the planet.
+        planets = [[0, 1, 98.0, 50.0, 2.0, 50, 1]]
+        fleets = [[0, 0, 95.0, 50.0, 0.0, 99, 1000]]
+        state = self._make_state(planets, fleets)
+        env = SimpleNamespace(
+            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500, cometSpeed=4),
+            done=False,
+        )
+
+        new_state = interpreter(state, env)
+        p = new_state[0].observation.planets[0]
+        # Combat should have resolved: attacker (1000) vs garrison (50+1 prod = 51)
+        self.assertEqual(p[1], 0)
+        self.assertEqual(p[5], 1000 - 51)
+        self.assertEqual(len(new_state[0].observation.fleets), 0)
+
+    def test_fast_fleet_hits_planet_before_sun(self):
+        # A fast fleet whose segment crosses both a planet and the sun
+        # should resolve combat at the planet rather than be silently
+        # consumed by the sun.
+        planets = [[0, 1, 62.0, 50.0, 2.0, 50, 1]]
+        fleets = [[0, 0, 65.0, 50.0, math.pi, 99, 1000]]
+        state = self._make_state(planets, fleets)
+        # Disable rotation to keep the planet fixed for this geometry test.
+        state[0].observation.angular_velocity = 0.0
+        env = SimpleNamespace(
+            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500, cometSpeed=4),
+            done=False,
+        )
+
+        new_state = interpreter(state, env)
+        p = new_state[0].observation.planets[0]
+        self.assertEqual(p[1], 0)
+        self.assertEqual(p[5], 1000 - 51)
+        self.assertEqual(len(new_state[0].observation.fleets), 0)
+
     def test_combat_simple_capture(self):
         # Fleet of 30 attacks neutral planet with 10 ships
         # Attacker wins with 30-10=20 ships remaining, captures planet
