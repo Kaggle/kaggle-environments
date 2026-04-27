@@ -1,0 +1,330 @@
+{
+  "name": "crawl",
+  "title": "Crawl",
+  "description": "A maze crawling strategy game with fog of war. Two players navigate an infinite northward-scrolling maze, building robots to explore, collect energy, and outlast the opponent.",
+  "version": "1.1.0",
+  "agents": [2],
+  "configuration": {
+    "episodeSteps": {
+      "description": "Maximum number of steps in the episode.",
+      "type": "integer",
+      "default": 501,
+      "minimum": 2
+    },
+    "width": {
+      "description": "Width of the maze in cells.",
+      "type": "integer",
+      "default": 20,
+      "minimum": 6
+    },
+    "height": {
+      "description": "Height of the visible window in cells.",
+      "type": "integer",
+      "default": 20,
+      "minimum": 10
+    },
+    "randomSeed": {
+      "description": "Seed for the random number generator.",
+      "type": "integer",
+      "default": null
+    },
+    "factoryEnergy": {
+      "description": "Starting energy for each factory.",
+      "type": "integer",
+      "default": 1000,
+      "minimum": 100
+    },
+    "scoutCost": {
+      "description": "Energy cost to build a scout.",
+      "type": "integer",
+      "default": 50,
+      "minimum": 1
+    },
+    "workerCost": {
+      "description": "Energy cost to build a worker.",
+      "type": "integer",
+      "default": 200,
+      "minimum": 1
+    },
+    "minerCost": {
+      "description": "Energy cost to build a miner.",
+      "type": "integer",
+      "default": 300,
+      "minimum": 1
+    },
+    "scoutMaxEnergy": {
+      "description": "Maximum energy a scout can carry.",
+      "type": "integer",
+      "default": 50,
+      "minimum": 1
+    },
+    "workerMaxEnergy": {
+      "description": "Maximum energy a worker can carry.",
+      "type": "integer",
+      "default": 200,
+      "minimum": 1
+    },
+    "minerMaxEnergy": {
+      "description": "Maximum energy a miner can carry.",
+      "type": "integer",
+      "default": 300,
+      "minimum": 1
+    },
+    "explodeCost": {
+      "description": "Energy required for a worker to explode and remove a wall.",
+      "type": "integer",
+      "default": 100,
+      "minimum": 1
+    },
+    "petrifyCost": {
+      "description": "Energy required for a worker to petrify into a terrain block.",
+      "type": "integer",
+      "default": 50,
+      "minimum": 1
+    },
+    "transformCost": {
+      "description": "Energy required for a miner to transform into a mine.",
+      "type": "integer",
+      "default": 100,
+      "minimum": 1
+    },
+    "mineMaxEnergy": {
+      "description": "Maximum energy a mine can store.",
+      "type": "integer",
+      "default": 1000,
+      "minimum": 1
+    },
+    "mineRate": {
+      "description": "Energy generated per mine per turn.",
+      "type": "integer",
+      "default": 50,
+      "minimum": 1
+    },
+    "energyPerTurn": {
+      "description": "Energy consumed per robot per turn.",
+      "type": "integer",
+      "default": 1,
+      "minimum": 0
+    },
+    "visionScout": {
+      "description": "Vision range (Manhattan distance) for scouts.",
+      "type": "integer",
+      "default": 5,
+      "minimum": 1
+    },
+    "visionWorker": {
+      "description": "Vision range (Manhattan distance) for workers.",
+      "type": "integer",
+      "default": 3,
+      "minimum": 1
+    },
+    "visionMiner": {
+      "description": "Vision range (Manhattan distance) for miners.",
+      "type": "integer",
+      "default": 3,
+      "minimum": 1
+    },
+    "visionFactory": {
+      "description": "Vision range (Manhattan distance) for factories.",
+      "type": "integer",
+      "default": 4,
+      "minimum": 1
+    },
+    "factoryMovePeriod": {
+      "description": "Factory can move every N turns.",
+      "type": "integer",
+      "default": 2,
+      "minimum": 1
+    },
+    "workerMovePeriod": {
+      "description": "Worker can move every N turns.",
+      "type": "integer",
+      "default": 2,
+      "minimum": 1
+    },
+    "minerMovePeriod": {
+      "description": "Miner can move every N turns.",
+      "type": "integer",
+      "default": 2,
+      "minimum": 1
+    },
+    "factoryBuildCooldown": {
+      "description": "Turns between factory builds.",
+      "type": "integer",
+      "default": 10,
+      "minimum": 1
+    },
+    "factoryJumpCooldown": {
+      "description": "Turns between factory jumps.",
+      "type": "integer",
+      "default": 20,
+      "minimum": 1
+    },
+    "scrollStartInterval": {
+      "description": "Turns between scroll advances at the start of the game.",
+      "type": "integer",
+      "default": 4,
+      "minimum": 1
+    },
+    "scrollEndInterval": {
+      "description": "Turns between scroll advances at max speed.",
+      "type": "integer",
+      "default": 1,
+      "minimum": 1
+    },
+    "scrollRampSteps": {
+      "description": "Step at which scroll speed reaches maximum.",
+      "type": "integer",
+      "default": 400,
+      "minimum": 1
+    },
+    "crystalDensity": {
+      "description": "Probability of a crystal per cell when generating new rows.",
+      "type": "number",
+      "default": 0.06,
+      "minimum": 0,
+      "maximum": 1
+    },
+    "crystalMinEnergy": {
+      "description": "Minimum energy in a crystal.",
+      "type": "integer",
+      "default": 10,
+      "minimum": 1
+    },
+    "crystalMaxEnergy": {
+      "description": "Maximum energy in a crystal.",
+      "type": "integer",
+      "default": 50,
+      "minimum": 1
+    },
+    "miningNodeDensity": {
+      "description": "Probability of a mining node per cell when generating new rows.",
+      "type": "number",
+      "default": 0.03,
+      "minimum": 0,
+      "maximum": 1
+    },
+    "doorProbability": {
+      "description": "Probability of a door between the two maze halves per row.",
+      "type": "number",
+      "default": 0.08,
+      "minimum": 0,
+      "maximum": 1
+    },
+    "actTimeout": 3,
+    "runTimeout": 9600
+  },
+  "reward": {
+    "description": "Total energy across all robots if alive, else step_eliminated - episodeSteps - 1.",
+    "type": "integer",
+    "default": 0
+  },
+  "observation": {
+    "player": {
+      "description": "The current agent's player index (0 or 1).",
+      "type": "integer",
+      "defaults": [0, 1]
+    },
+    "walls": {
+      "description": "Flat array of wall bitfields for discovered cells. Index = (row - southBound) * width + col. -1 = undiscovered. 16 = petrified.",
+      "type": "array",
+      "items": {
+        "type": "integer"
+      }
+    },
+    "crystals": {
+      "description": "Visible crystals: keys are 'col,row', values are energy amounts.",
+      "type": "object"
+    },
+    "robots": {
+      "description": "Visible robots: keys are uid strings, values are [type, col, row, energy, owner, move_cooldown, jump_cooldown, build_cooldown].",
+      "type": "object"
+    },
+    "mines": {
+      "description": "Discovered mines: keys are 'col,row', values are [energy, maxEnergy, owner].",
+      "type": "object"
+    },
+    "miningNodes": {
+      "description": "Visible mining nodes: keys are 'col,row', values are 1. Miners can only TRANSFORM on a mining node.",
+      "type": "object"
+    },
+    "southBound": {
+      "description": "Current southern boundary row of the active zone.",
+      "type": "integer",
+      "shared": true,
+      "default": 0
+    },
+    "northBound": {
+      "description": "Current northern boundary row of the active zone.",
+      "type": "integer",
+      "shared": true,
+      "default": 0
+    },
+    "globalWalls": {
+      "description": "Complete wall data for all rows. Keys are row numbers, values are wall bitfield arrays.",
+      "type": "object",
+      "shared": true,
+      "hidden": true
+    },
+    "globalCrystals": {
+      "description": "All crystals. Keys are 'col,row', values are energy amounts.",
+      "type": "object",
+      "shared": true,
+      "hidden": true
+    },
+    "globalRobots": {
+      "description": "All robots. Keys are uid strings, values are [type, col, row, energy, owner, move_cooldown, jump_cooldown, build_cooldown].",
+      "type": "object",
+      "shared": true,
+      "hidden": true
+    },
+    "globalMines": {
+      "description": "All mines. Keys are 'col,row', values are [energy, maxEnergy, owner, rate].",
+      "type": "object",
+      "shared": true,
+      "hidden": true
+    },
+    "globalMiningNodes": {
+      "description": "All mining nodes. Keys are 'col,row', values are 1. Miners can TRANSFORM only on these cells.",
+      "type": "object",
+      "shared": true,
+      "hidden": true
+    },
+    "ellerState": {
+      "description": "Internal maze generation state.",
+      "type": "object",
+      "shared": true,
+      "hidden": true
+    },
+    "scrollCounter": {
+      "description": "Turns until next scroll advance.",
+      "type": "integer",
+      "shared": true,
+      "hidden": true
+    },
+    "nextUid": {
+      "description": "Next unique ID counter.",
+      "type": "integer",
+      "shared": true,
+      "hidden": true
+    },
+    "discoveredCells": {
+      "description": "Per-player set of discovered cell keys. Hidden from agents.",
+      "type": "array",
+      "hidden": true
+    },
+    "discoveredMines": {
+      "description": "Per-player set of discovered mine keys. Hidden from agents.",
+      "type": "array",
+      "hidden": true
+    },
+    "remainingOverageTime": 60
+  },
+  "action": {
+    "description": "Actions keyed by robot UID. Values are action strings: NORTH, SOUTH, EAST, WEST, BUILD_SCOUT, BUILD_WORKER, BUILD_MINER (spawns north of factory), EXPLODE_NORTH, EXPLODE_EAST, EXPLODE_SOUTH, EXPLODE_WEST, PETRIFY, TRANSFORM (requires mining node), TRANSFER_NORTH, TRANSFER_EAST, TRANSFER_SOUTH, TRANSFER_WEST, JUMP_NORTH, JUMP_EAST, JUMP_SOUTH, JUMP_WEST, IDLE.",
+    "type": "object",
+    "additionalProperties": {
+      "type": "string"
+    }
+  }
+}
