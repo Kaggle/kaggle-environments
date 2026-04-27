@@ -1,0 +1,45 @@
+.playableArea {
+  --scalar: 1;
+
+  position: relative;
+  display: grid;
+  align-content: safe center;
+  overflow: auto;
+  min-height: 100%;
+  max-height: 100dvh;
+  overscroll-behavior: none;
+  background-image: url("./images/paper.webp");
+  background-size: cover;
+  background-position: center;
+  font-family: "Inter", sans-serif;
+  container-type: inline-size;
+  padding-inline: 1.25em;
+  color: #050001;
+  transition: opacity 400ms ease;
+}
+
+.playableArea:not([data-loaded]) {
+  opacity: 0;
+}
+
+:global([data-reduced-motion]) .playableArea {
+  transition: none;
+}
+
+/* Board layout. */
+.board {
+  display: grid;
+  grid-template-columns: 1fr min(512px, calc(100% - 60px)) 1fr;
+  align-items: center;
+  min-width: 0;
+  color: #050001;
+}
+
+.board button {
+  font: inherit;
+  color: inherit;
+}
+
+.board svg {
+  display: block;
+}

@@ -1,0 +1,61 @@
+.panel {
+  max-width: 560px;
+  margin-inline: auto;
+  width: 100%;
+  line-height: 1.1;
+  font-size: 14px;
+}
+
+.players {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3em;
+  margin-inline: 1em;
+  margin-bottom: -0.5em;
+}
+
+.tableWrapper {
+  display: flex;
+  justify-content: center;
+  background: #f1f1f1;
+  margin-inline: 6em;
+  padding: 0.5em;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.tableWrapper table {
+  border-collapse: collapse;
+}
+
+.tableWrapper td {
+  padding: 0;
+
+  &:nth-child(2) {
+    padding-inline: 2ch;
+  }
+}
+
+.pots {
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+  margin-top: -5em;
+  margin-inline: 3em;
+}
+
+@container (max-width: 600px) {
+  .panel {
+    font-size: 11px;
+  }
+}
+
+@container (max-width: 330px) {
+  .tableWrapper {
+    margin-inline: 4em;
+  }
+
+  .pots {
+    margin-inline: 0;
+  }
+}
