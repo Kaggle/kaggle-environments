@@ -24,7 +24,7 @@
       "minimum": 10
     },
     "randomSeed": {
-      "description": "Seed for the random number generator.",
+      "description": "Optional input seed for deterministic maze generation. The interpreter clears this from configuration after reading and stores the resolved seed on env.info['seed'] so it stays out of agent observations but is still recorded in the replay.",
       "type": "integer",
       "default": null
     },

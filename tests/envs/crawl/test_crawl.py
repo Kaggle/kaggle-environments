@@ -216,6 +216,44 @@ def test_boundary_walls():
         assert row_0[c] & 4, f"Row 0 col {c} missing SOUTH wall"
 
 
+def test_seed_hidden_from_agents_but_in_replay():
+    """Seed drives maze layout (hidden info). Agents must not see it; replay must record it."""
+    seen_seeds = []
+
+    def spy_agent(obs, config):
+        seen_seeds.append(config.get("randomSeed"))
+        return {}
+
+    chosen_seed = 1234567
+    env = make("crawl", configuration={"randomSeed": chosen_seed, "episodeSteps": 5}, debug=True)
+    env.run([spy_agent, spy_agent])
+
+    assert seen_seeds, "spy agent never received configuration"
+    for s in seen_seeds:
+        assert s is None, f"agent saw seed={s} in configuration"
+
+    assert env.info.get("seed") == chosen_seed
+    replay = env.toJSON()
+    assert replay["info"].get("seed") == chosen_seed
+    assert replay["configuration"].get("randomSeed") is None
+
+
+def test_seed_hidden_when_unset_by_user():
+    """When user doesn't supply a seed, the generated one is also hidden but recorded."""
+    seen_seeds = []
+
+    def spy_agent(obs, config):
+        seen_seeds.append(config.get("randomSeed"))
+        return {}
+
+    env = make("crawl", configuration={"episodeSteps": 5}, debug=True)
+    env.run([spy_agent, spy_agent])
+
+    for s in seen_seeds:
+        assert s is None, f"agent saw generated seed={s}"
+    assert env.info.get("seed") is not None
+
+
 def test_resolve_tiebreak_energy():
     """Energy is the primary tiebreaker."""
     robots = {

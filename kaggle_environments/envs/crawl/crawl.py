@@ -334,12 +334,28 @@ def initialize_game(state, env):
     width = config.width
     height = config.height
 
-    # Seed
-    if not hasattr(config, "randomSeed") or config.randomSeed is None:
+    # Resolve the episode seed and stash it on env.info so it persists into
+    # the replay (via toJSON) but stays out of `configuration`, which agents
+    # can read. The seed determines maze layout and scroll-time row
+    # generation — both hidden info that agents must not be able to predict.
+    if not hasattr(env, "info") or env.info is None:
+        env.info = {}
+    seed = env.info.get("seed")
+    if seed is None:
+        seed = getattr(config, "randomSeed", None)
+        if seed is None and isinstance(config, dict):
+            seed = config.get("randomSeed")
+    if seed is None:
         import time
 
-        config.randomSeed = int(time.time() * 1000) % (2**31)
-    rng = Random(config.randomSeed)
+        seed = int(time.time() * 1000) % (2**31)
+    # Scrub the seed from configuration so agents can't read it.
+    try:
+        config.randomSeed = None
+    except (AttributeError, TypeError):
+        config["randomSeed"] = None
+    env.info["seed"] = seed
+    rng = Random(seed)
 
     # Initialize hidden state
     obs.nextUid = 0
@@ -938,7 +954,11 @@ def interpreter(state, env):
         mine[0] = min(mine[0] + mine[3], mine[1])
 
     # --- Phase 8: Scroll advancement ---
-    rng = Random(config.randomSeed + obs.step)
+    # Pull the hidden seed from env.info (see initialize_game). Falling back
+    # to 0 keeps determinism if env.info is somehow missing.
+    env_info = getattr(env, "info", None) or {}
+    episode_seed = env_info.get("seed", 0) or 0
+    rng = Random(episode_seed + obs.step)
     obs.scrollCounter = obs.scrollCounter - 1
     if obs.scrollCounter <= 0:
         obs.southBound += 1
