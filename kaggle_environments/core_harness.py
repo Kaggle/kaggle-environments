@@ -55,6 +55,7 @@ def _model_proxy_send(module: str, **kwargs: Any) -> None:
     token = os.environ.get("MODEL_PROXY_KEY")
     url = os.environ.get("MODEL_PROXY_URL")
     if not token or not url or url == "dummy_url":
+        _log.info("[telemetry] %s %s", module, json.dumps(kwargs, default=str))
         return
     parsed = urllib.parse.urlparse(url)
     host = parsed.netloc or parsed.path.split("/", 1)[0]
