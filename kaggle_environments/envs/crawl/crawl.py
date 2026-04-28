@@ -1174,9 +1174,21 @@ with open(json_path) as json_file:
     specification = json.load(json_file)
 
 
-def html_renderer():
-    js_path = path.join(dir_path, "crawl.js")
-    if path.exists(js_path):
-        with open(js_path, encoding="utf-8") as f:
+def html_renderer(env, mode):
+    # In ipython/notebook mode, use the lightweight single-file JS renderer
+    if mode == "ipython":
+        js_path = path.abspath(path.join(dir_path, "crawl.js"))
+        if path.exists(js_path):
+            with open(js_path, encoding="utf-8") as js_file:
+                return js_file.read()
+    # Default: use the full Vite-built visualizer
+    jspath = path.join(dir_path, "visualizer", "default", "dist", "index.html")
+    if path.exists(jspath):
+        with open(jspath, encoding="utf-8") as f:
             return f.read()
+    # Fallback to single-file JS renderer
+    js_path = path.abspath(path.join(dir_path, "crawl.js"))
+    if path.exists(js_path):
+        with open(js_path, encoding="utf-8") as js_file:
+            return js_file.read()
     return ""

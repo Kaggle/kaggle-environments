@@ -40,8 +40,8 @@ async function renderer(context) {
   var WORKER = 2;
   var MINER = 3;
 
-  var PLAYER_COLORS = ['#42A5F5', '#EF5350'];
-  var PLAYER_COLORS_LIGHT = ['rgba(66,165,245,0.25)', 'rgba(239,83,80,0.25)'];
+  var PLAYER_COLORS = ['#2196F3', '#F44336'];
+  var PLAYER_COLORS_LIGHT = ['rgba(33,150,243,0.2)', 'rgba(244,67,54,0.2)'];
   var TYPE_LABELS = { 0: 'F', 1: 'S', 2: 'W', 3: 'M' };
 
   var currentStep = environment.steps[step];
