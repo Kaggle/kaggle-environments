@@ -13,9 +13,9 @@ The maze has **east/west symmetry**: the left half mirrors the right half, with 
 | Type | Cost | Max Energy | Move Period | Vision | Special Abilities |
 |------|------|------------|-------------|--------|-------------------|
 | **Factory** | — | unlimited | 2 turns | 4 | BUILD, JUMP (20-turn CD), indestructible |
-| **Scout** | 50 | 50 | 1 turn | 5 | Fast explorer |
-| **Worker** | 200 | 200 | 2 turns | 3 | BUILD_DIR / REMOVE_DIR walls (100 energy) |
-| **Miner** | 300 | 300 | 2 turns | 3 | TRANSFORM into energy mine (requires mining node) |
+| **Scout** | 50 | 100 | 1 turn | 5 | Fast explorer |
+| **Worker** | 200 | 300 | 2 turns | 3 | BUILD_DIR / REMOVE_DIR walls (100 energy) |
+| **Miner** | 300 | 500 | 2 turns | 3 | TRANSFORM into energy mine (requires mining node) |
 
 All robots consume 1 energy per turn. Robots with 0 energy are forced idle.
 
@@ -179,9 +179,12 @@ env.render(mode="ipython", width=800, height=800)
 | `width` | 20 | Maze width |
 | `height` | 20 | Visible window height |
 | `factoryEnergy` | 1000 | Starting factory energy |
-| `scoutCost` | 50 | Energy to build scout |
-| `workerCost` | 200 | Energy to build worker |
-| `minerCost` | 300 | Energy to build miner |
+| `scoutCost` | 50 | Energy to build scout (also the energy a freshly-built scout spawns with) |
+| `workerCost` | 200 | Energy to build worker (also the energy a freshly-built worker spawns with) |
+| `minerCost` | 300 | Energy to build miner (also the energy a freshly-built miner spawns with) |
+| `scoutMaxEnergy` | 100 | Max energy a scout can carry |
+| `workerMaxEnergy` | 300 | Max energy a worker can carry |
+| `minerMaxEnergy` | 500 | Max energy a miner can carry |
 | `wallBuildCost` | 100 | Energy per worker BUILD_DIR (charged even on no-op) |
 | `wallRemoveCost` | 100 | Energy per worker REMOVE_DIR (charged even on no-op) |
 | `transformCost` | 100 | Energy for miner transform |

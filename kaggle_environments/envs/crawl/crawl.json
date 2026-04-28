@@ -24,8 +24,8 @@
       "minimum": 10
     },
     "randomSeed": {
-      "description": "Optional input seed for deterministic maze generation. The interpreter clears this from configuration after reading and stores the resolved seed on env.info['seed'] so it stays out of agent observations but is still recorded in the replay.",
-      "type": "integer",
+      "description": "Optional input seed for deterministic maze generation. The interpreter clears this from configuration after reading and stores the resolved seed on env.info['seed'] so it stays out of agent observations but is still recorded in the replay. Type allows null because the interpreter scrubs the value to null after reading, and the agent server re-validates the (scrubbed) configuration on every act() call.",
+      "type": ["integer", "null"],
       "default": null
     },
     "factoryEnergy": {
@@ -55,19 +55,19 @@
     "scoutMaxEnergy": {
       "description": "Maximum energy a scout can carry.",
       "type": "integer",
-      "default": 50,
+      "default": 100,
       "minimum": 1
     },
     "workerMaxEnergy": {
       "description": "Maximum energy a worker can carry.",
       "type": "integer",
-      "default": 200,
+      "default": 300,
       "minimum": 1
     },
     "minerMaxEnergy": {
       "description": "Maximum energy a miner can carry.",
       "type": "integer",
-      "default": 300,
+      "default": 500,
       "minimum": 1
     },
     "wallBuildCost": {
