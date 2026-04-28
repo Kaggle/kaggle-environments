@@ -689,15 +689,15 @@ def interpreter(state, env):
         if action == "BUILD_SCOUT":
             cost = config.scoutCost
             new_type = SCOUT
-            new_energy = config.scoutMaxEnergy
+            new_energy = config.scoutCost
         elif action == "BUILD_WORKER":
             cost = config.workerCost
             new_type = WORKER
-            new_energy = config.workerMaxEnergy
+            new_energy = config.workerCost
         elif action == "BUILD_MINER":
             cost = config.minerCost
             new_type = MINER
-            new_energy = config.minerMaxEnergy
+            new_energy = config.minerCost
         else:
             continue
 
