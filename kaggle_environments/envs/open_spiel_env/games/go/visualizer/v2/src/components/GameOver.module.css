@@ -1,0 +1,154 @@
+.modal {
+  --font-size: 1.25rem;
+  --border-size: 2px;
+  --cell-padding: 0.75rem 1.5rem;
+  --reveal-delay: 1s;
+  position: fixed;
+  top: var(--area-top);
+  left: var(--area-left);
+  width: var(--area-width);
+  height: var(--area-height);
+  margin: 0;
+  border: none;
+  max-width: none;
+  max-height: none;
+  padding: 1rem;
+  display: grid;
+  place-content: safe center;
+  overflow: auto;
+  text-align: center;
+  gap: 1.5rem;
+  background-image: url("./images/paper.webp");
+  background-size: cover;
+  background-position: center;
+  color: #050001;
+  font-size: var(--font-size);
+  z-index: 20;
+}
+
+.heading {
+  font: inherit;
+  margin: 0;
+}
+
+.meta {
+  text-align: center;
+  line-height: 1.6;
+}
+
+.table {
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: center;
+  min-width: 32rem;
+}
+
+.table th,
+.table td {
+  padding: var(--cell-padding);
+  background: url("./images/squiggle-solid.png") repeat-x bottom / 5rem
+    var(--border-size);
+}
+
+.table :where(td, th):not(:last-of-type) {
+  background:
+    url("./images/squiggle-solid.png") repeat-x bottom / 5rem var(--border-size),
+    url("./images/squiggle-v.png") repeat-y right / var(--border-size) 5rem;
+}
+
+.table thead th {
+  font-weight: 400;
+  background:
+    url("./images/squiggle-solid.png") repeat-x top / 5rem var(--border-size),
+    url("./images/squiggle-solid.png") repeat-x bottom / 5rem var(--border-size);
+}
+
+.table thead th:not(:last-of-type) {
+  background:
+    url("./images/squiggle-solid.png") repeat-x top / 5rem var(--border-size),
+    url("./images/squiggle-solid.png") repeat-x bottom / 5rem var(--border-size),
+    url("./images/squiggle-v.png") repeat-y right / var(--border-size) 5rem;
+}
+
+.table tbody td:not(:first-child) {
+  font-family: "Mynerve", cursive;
+  font-size: 1.25em;
+  color: #444343;
+}
+
+.labelCell {
+  text-align: left;
+}
+
+/* Animate-in. */
+
+.modal {
+  transition:
+    opacity 300ms,
+    transform 500ms;
+  transition-delay: var(--reveal-delay);
+
+  @starting-style {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+:where(.meta, .table, .ribbon, .rulesNote) {
+  transition:
+    opacity 400ms,
+    transform 500ms;
+  transition-delay: calc(var(--reveal-delay) + 100ms);
+
+  @starting-style {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+.meta {
+  transition-delay: calc(var(--reveal-delay) + 400ms);
+}
+
+.table {
+  transition-delay: calc(var(--reveal-delay) + 900ms);
+}
+
+.rulesNote {
+  transition-delay: calc(var(--reveal-delay) + 1100ms);
+}
+
+.rulesNote a {
+  color: inherit;
+  font-weight: 400;
+  text-decoration: underline;
+
+  &:where(:hover, :focus-visible) {
+    opacity: 0.8;
+  }
+}
+
+@container (max-width: 800px) {
+  .modal {
+    --font-size: 13px;
+    --border-size: 1px;
+    --cell-padding: 0.4rem 0.5rem;
+    gap: 1rem;
+    line-height: 1.4;
+  }
+
+  :global(.ribbon) {
+    --ribbon-font-size: 0.875rem;
+  }
+}
+
+@container (max-width: 600px) {
+  .modal {
+    --font-size: 11px;
+  }
+
+  .table {
+    min-width: unset;
+    width: 100%;
+  }
+}

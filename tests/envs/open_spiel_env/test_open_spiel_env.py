@@ -81,6 +81,122 @@ class OpenSpielEnvTest(absltest.TestCase):
             ],
         )
 
+    def test_gin_rummy_agent_playthrough(self):
+        env = make(
+            "open_spiel_gin_rummy",
+            configuration={"includeLegalActions": True},
+            debug=True,
+        )
+        env.run(["random", "random"])
+        playthrough = env.toJSON()
+        self.assertEqual(playthrough["name"], "open_spiel_gin_rummy")
+        self.assertTrue(all(status == "DONE" for status in playthrough["statuses"]))
+
+    def test_gin_rummy_observation_is_json(self):
+        env = make(
+            "open_spiel_gin_rummy",
+            configuration={"includeLegalActions": True},
+            debug=True,
+        )
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
+        # After dealing, it is player 0's turn (FirstUpcard phase).
+        obs_p0 = json.loads(env.state[0]["observation"]["observationString"])
+        self.assertEqual(obs_p0["phase"], "FirstUpcard")
+        self.assertEqual(obs_p0["current_player"], 0)
+        self.assertFalse(obs_p0["is_terminal"])
+        self.assertEqual(obs_p0["knock_card"], 10)
+        self.assertEqual(obs_p0["stock_size"], 31)
+        self.assertIsNotNone(obs_p0["upcard"])
+        # Player 0 sees their own 10-card hand; opponent's hand is hidden.
+        self.assertEqual(len(obs_p0["hands"]["0"]), 10)
+        self.assertEqual(obs_p0["hands"]["1"], [])
+        self.assertIsNotNone(obs_p0["deadwood"]["0"])
+        self.assertIsNone(obs_p0["deadwood"]["1"])
+
+    def test_gin_rummy_observation_hides_opponent(self):
+        env = make("open_spiel_gin_rummy", debug=True)
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
+        # Each player should only see their own hand in their observation.
+        obs_p0 = json.loads(env.state[0]["observation"]["observationString"])
+        obs_p1 = json.loads(env.state[1]["observation"]["observationString"])
+        self.assertEqual(len(obs_p0["hands"]["0"]), 10)
+        self.assertEqual(obs_p0["hands"]["1"], [])
+        self.assertEqual(obs_p1["hands"]["0"], [])
+        self.assertEqual(len(obs_p1["hands"]["1"]), 10)
+
+    def test_gin_rummy_invalid_action(self):
+        env = make("open_spiel_gin_rummy", debug=True)
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
+        # In FirstUpcard phase only actions 52 (Draw upcard) and 54 (Pass)
+        # are legal, so 0 (the As card) is an invalid action.
+        env.step([{"submission": 0}, {"submission": -1}])
+        self.assertTrue(env.done)
+        playthrough = env.toJSON()
+        self.assertEqual(
+            playthrough["rewards"],
+            [
+                open_spiel_env.DEFAULT_INVALID_ACTION_REWARD,
+                -open_spiel_env.DEFAULT_INVALID_ACTION_REWARD,
+            ],
+        )
+
+    def test_y_agent_playthrough(self):
+        env = make(
+            "open_spiel_y",
+            configuration={"includeLegalActions": True},
+            debug=True,
+        )
+        env.run(["random", "random"])
+        playthrough = env.toJSON()
+        self.assertEqual(playthrough["name"], "open_spiel_y")
+        self.assertTrue(all(status == "DONE" for status in playthrough["statuses"]))
+        rewards = playthrough["rewards"]
+        self.assertEqual(sorted(rewards), [-1.0, 1.0])
+
+    def test_y_manual_playthrough(self):
+        env = make(
+            "open_spiel_y",
+            configuration={"openSpielGameParameters": {"board_size": 8}},
+            debug=True,
+        )
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
+        # P0 connects the left column (a1..a8), touching all three sides.
+        # Action encoding: row * 8 + col, with rows/cols 0-indexed.
+        moves = [0, 1, 8, 2, 16, 3, 24, 4, 32, 5, 40, 6, 48, 7, 56]
+        for i, action in enumerate(moves):
+            if i % 2 == 0:
+                env.step([{"submission": action}, {"submission": -1}])
+            else:
+                env.step([{"submission": -1}, {"submission": action}])
+        self.assertTrue(env.done)
+        self.assertEqual(env.toJSON()["rewards"], [1, -1])
+        final_obs = json.loads(env.state[0]["observation"]["observationString"])
+        self.assertTrue(final_obs["is_terminal"])
+        self.assertEqual(final_obs["winner"], "x")
+        self.assertEqual(final_obs["board_size"], 8)
+        self.assertEqual(final_obs["last_move"], "a8")
+        self.assertEqual(final_obs["board"][0][0], "x")
+        self.assertEqual(final_obs["board"][7][0], "x")
+
+    def test_y_invalid_action(self):
+        env = make("open_spiel_y", debug=True)
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
+        env.step([{"submission": 999}, {"submission": -1}])  # Invalid action.
+        self.assertTrue(env.done)
+        playthrough = env.toJSON()
+        self.assertEqual(
+            playthrough["rewards"],
+            [
+                open_spiel_env.DEFAULT_INVALID_ACTION_REWARD,
+                -open_spiel_env.DEFAULT_INVALID_ACTION_REWARD,
+            ],
+        )
+
     def test_tic_tac_toe_agent_playthrough(self):
         env = make("open_spiel_tic_tac_toe", debug=True)
         env.run(["random", "random"])

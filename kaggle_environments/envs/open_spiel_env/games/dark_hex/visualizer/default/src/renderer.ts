@@ -1,13 +1,7 @@
 import type { RendererOptions } from '@kaggle-environments/core';
+import type { DarkHexBoardState, DarkHexStep } from './transformers/darkHexTransformer';
 
-interface DarkHexObservation {
-  board: string[][];
-  current_player: string;
-  is_terminal: boolean;
-  winner: string | null;
-  num_rows: number;
-  num_cols: number;
-}
+type DarkHexObservation = DarkHexBoardState;
 
 const PLAYER_X_COLOR = '#1f77b4';
 const PLAYER_O_COLOR = '#d62728';
@@ -16,16 +10,6 @@ const SECONDARY_TEXT = '#444343';
 const SKETCH_STROKE = '#3c3b37';
 
 const SQRT3 = Math.sqrt(3);
-
-function parseObservation(step: any, playerIdx: number): DarkHexObservation | null {
-  const raw = step?.[playerIdx]?.observation?.observationString;
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
 
 function actionToCoords(action: number, numCols: number): { row: number; col: number } {
   return { row: Math.floor(action / numCols), col: action % numCols };
@@ -203,9 +187,9 @@ function buildBoardCard(label: string, color: string): HTMLDivElement {
   return card;
 }
 
-export function renderer(options: RendererOptions) {
+export function renderer(options: RendererOptions<DarkHexStep[]>) {
   const { parent, replay, step } = options;
-  const steps = (replay?.steps ?? []) as any[];
+  const steps = (replay?.steps ?? []) as DarkHexStep[];
   if (!steps.length) return;
 
   parent.innerHTML = `
@@ -221,8 +205,8 @@ export function renderer(options: RendererOptions) {
 
   const currentStep = steps[step];
 
-  const obsX = parseObservation(currentStep, 0);
-  const obsO = parseObservation(currentStep, 1);
+  const obsX = currentStep?.boardX ?? null;
+  const obsO = currentStep?.boardO ?? null;
   const observation = obsX ?? obsO;
   if (!observation) {
     statusContainer.textContent = 'Waiting for first observation...';
@@ -246,17 +230,8 @@ export function renderer(options: RendererOptions) {
     </span>
   `;
 
-  // Detect last move: at step k, the submission that produced the visible state is in step k itself.
-  let lastAction: number | null = null;
-  let lastActor: number | null = null;
-  for (let i = 0; i < currentStep.length; i++) {
-    const sub = currentStep[i]?.action?.submission;
-    if (typeof sub === 'number' && sub >= 0) {
-      lastAction = sub;
-      lastActor = i;
-      break;
-    }
-  }
+  const lastAction = currentStep?.lastAction ?? null;
+  const lastActor = currentStep?.lastActor ?? null;
   const lastCell = lastAction !== null ? actionToCoords(lastAction, numCols) : null;
 
   // Build two board cards.
