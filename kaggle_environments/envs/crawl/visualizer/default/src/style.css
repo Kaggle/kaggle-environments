@@ -8,6 +8,30 @@ html, body, #app {
   overflow: hidden;
 }
 
+html, body {
+  background-color: #f5f1e2 !important;
+}
+
+/* EpisodePlayer wrapper (.player) and its inline-controls strip use MUI's
+   dark `paper` color by default. Repaint them as parchment so the page
+   matches the renderer's sketched-paper feel. */
+.player,
+.player > div,
+.player > div > div:last-child,
+.player > div > div:last-child > div {
+  background-color: #f5f1e2 !important;
+}
+
+.player select {
+  background-color: #f1f1f1 !important;
+  color: #050001 !important;
+  border: 1px dashed #3c3b37 !important;
+}
+
+.player button {
+  color: #050001 !important;
+}
+
 .renderer-container {
   display: flex;
   flex-direction: column;
@@ -96,4 +120,27 @@ html, body, #app {
 .status-container .status-item strong {
   color: #050001;
   font-weight: 600;
+}
+
+.view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 12px;
+}
+
+.view-btn {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  background-color: #f1f1f1;
+  border: 1px dashed #3c3b37;
+  color: #050001;
+  cursor: pointer;
+}
+
+.view-btn.active {
+  background-color: #bdeeff;
+  box-shadow: -0.125rem 0.125rem 0 #000;
 }
