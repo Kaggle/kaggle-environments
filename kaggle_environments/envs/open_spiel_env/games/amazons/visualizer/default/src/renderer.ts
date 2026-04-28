@@ -242,10 +242,7 @@ export function renderer(options: RendererOptions<AmazonsStep[]>) {
     ${makePlayerCard(oName, 'o', oActive)}
   `;
 
-  // Size canvas to its container. We compute pixel CSS sizes and write them
-  // as inline styles so that the host's `.viewer canvas { position: absolute;
-  // width: 100%; height: 100%; }` (from web/core) cannot override us. Inline
-  // styles win over external CSS regardless of selector specificity.
+  // Size canvas to its container.
   canvas.style.width = '0';
   canvas.style.height = '0';
   const containerRect = (canvas.parentElement ?? canvas).getBoundingClientRect();
