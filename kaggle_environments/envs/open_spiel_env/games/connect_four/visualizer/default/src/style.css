@@ -17,8 +17,6 @@ html, body, #app {
 }
 
 .renderer-container canvas {
-  /* Override web/core's .viewer canvas absolute positioning */
-  position: relative;
   flex-grow: 1;
   width: 100%;
   min-height: 0; /* Critical for flex items to shrink properly */
