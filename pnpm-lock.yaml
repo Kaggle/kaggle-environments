@@ -402,22 +402,6 @@ importers:
       '@kaggle-environments/core':
         specifier: workspace:*
         version: link:../../../../../../../web/core
-    devDependencies:
-      cross-env:
-        specifier: ^10.1.0
-        version: 10.1.0
-      typescript:
-        specifier: ^5.0.0
-        version: 5.9.3
-      vite:
-        specifier: ^5.0.0
-        version: 5.4.21(@types/node@25.2.1)
-
-  kaggle_environments/envs/open_spiel_env/games/go/visualizer/v2:
-    dependencies:
-      '@kaggle-environments/core':
-        specifier: workspace:*
-        version: link:../../../../../../../web/core
       '@rive-app/react-webgl2':
         specifier: ^4.27.0
         version: 4.27.3(react@18.3.1)
@@ -464,6 +448,22 @@ importers:
       globals:
         specifier: ^17.3.0
         version: 17.4.0
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.21(@types/node@25.2.1)
+
+  kaggle_environments/envs/open_spiel_env/games/go/visualizer/fallback:
+    dependencies:
+      '@kaggle-environments/core':
+        specifier: workspace:*
+        version: link:../../../../../../../web/core
+    devDependencies:
+      cross-env:
+        specifier: ^10.1.0
+        version: 10.1.0
       typescript:
         specifier: ^5.0.0
         version: 5.9.3
@@ -1663,6 +1663,7 @@ packages:
   '@xmldom/xmldom@0.8.12':
     resolution: {integrity: sha512-9k/gHF6n/pAi/9tqr3m3aqkuiNosYTurLLUtc7xQ9sxB/wm7WPygCv8GYa6mS0fLJEHhqMC1ATYhz++U/lRHqg==}
     engines: {node: '>=10.0.0'}
+    deprecated: this version has critical issues, please update to the latest version
 
   acorn-jsx@5.3.2:
     resolution: {integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==}

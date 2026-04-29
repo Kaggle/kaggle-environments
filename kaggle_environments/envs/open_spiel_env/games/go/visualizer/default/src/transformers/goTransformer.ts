@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { GoPlayer, GoReplay, GoStep, GoBoardState, GoReplayStep } from './goReplayTypes';
 
 function parseThoughts(action?: { generate_returns?: string[]; thoughts?: string }): string {
@@ -31,7 +32,7 @@ function parseBoardState(observationString: string): GoBoardState {
     };
   } catch {
     return {
-      board_size: 9,
+      board_size: 13,
       komi: 7.5,
       current_player_to_move: '',
       move_number: 0,
@@ -41,52 +42,85 @@ function parseBoardState(observationString: string): GoBoardState {
   }
 }
 
-function deriveWinner(step: GoReplayStep[]): string {
-  if (step.length < 2) return '';
-
-  const reward0 = step[0].reward;
-  const reward1 = step[1].reward;
-
-  if (reward0 === reward1) {
-    return 'Draw';
-  }
-
-  return reward0 === 1 ? 'Black Wins!' : 'White Wins!';
+function deriveWinner(step: GoReplayStep[]): string | null {
+  if (step[0].observation.isTerminal === false) return null;
+  if (step[0].reward === step[1].reward) return null;
+  return step[0].reward === 1 ? 'black' : 'white';
 }
 
 export const goTransformer = (environment: any): GoStep[] => {
   const goReplay = environment as GoReplay;
-  const agents = environment.info.TeamNames;
-
   const goSteps: GoStep[] = [];
 
-  goReplay.steps.forEach((step, index) => {
-    const stepPlayers: GoPlayer[] = step.map((player, playerIndex): GoPlayer => {
-      const actionString = player.action?.actionString ?? '';
-      const [, move] = actionString.split(' ');
+  const firstStep = goReplay.steps[0];
+  const extraStepPlayers = [0, 1].map(
+    (index): GoPlayer => ({
+      id: index,
+      name: environment.info.TeamNames[index],
+      thumbnail: '',
+      isTurn: false,
+      actionDisplayText: '',
+      thoughts: '',
+      reward: null,
+      generateReturns: null,
+    })
+  );
 
-      return {
-        id: playerIndex,
-        name: agents[playerIndex],
+  goSteps.push({
+    step: goSteps.length,
+    players: extraStepPlayers,
+    boardState: parseBoardState(firstStep[0].observation.observationString),
+    isTerminal: false,
+    hasCaptures: false,
+    winner: null,
+  });
+
+  let previousBlackStonesCount = 0;
+  let previousWhiteStonesCount = 0;
+
+  for (const step of goReplay.steps) {
+    if (step.some((p) => p.action?.actionString) === false) continue;
+
+    const stepPlayers: GoPlayer[] = step.map(
+      (player, index): GoPlayer => ({
+        id: index,
+        name: environment.info.TeamNames[index],
         thumbnail: '',
         isTurn: player.action?.submission !== undefined && player.action.submission !== -1,
-        actionDisplayText: move ?? '',
+        actionDisplayText: player.action?.actionString?.split(' ').at(1) ?? '',
         thoughts: parseThoughts(player.action),
         reward: player.reward,
         generateReturns: player.action?.generate_returns ?? null,
-      };
+      })
+    );
+
+    const boardState = parseBoardState(step[0].observation.observationString);
+    const stones = boardState.board.flat();
+    const blackStonesCount = stones.filter((s) => s === 'B').length;
+    const whiteStonesCount = stones.filter((s) => s === 'W').length;
+
+    goSteps.push({
+      step: goSteps.length,
+      players: stepPlayers,
+      boardState: boardState,
+      isTerminal: false,
+      hasCaptures: blackStonesCount < previousBlackStonesCount || whiteStonesCount < previousWhiteStonesCount,
+      winner: null,
     });
 
-    if (stepPlayers.some((player) => player.isTurn)) {
-      const isTerminal = step[0].observation.isTerminal;
-      goSteps.push({
-        step: index,
-        players: stepPlayers,
-        boardState: parseBoardState(step[0].observation.observationString),
-        isTerminal,
-        winner: isTerminal ? deriveWinner(step) : null,
-      });
-    }
+    previousBlackStonesCount = blackStonesCount;
+    previousWhiteStonesCount = whiteStonesCount;
+  }
+
+  const lastReplayStep = goReplay.steps[goReplay.steps.length - 1];
+
+  goSteps.push({
+    step: goSteps.length,
+    players: extraStepPlayers,
+    boardState: goSteps[goSteps.length - 1].boardState,
+    isTerminal: true,
+    hasCaptures: false,
+    winner: deriveWinner(lastReplayStep),
   });
 
   return goSteps;
