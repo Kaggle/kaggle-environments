@@ -56,7 +56,8 @@ export function getChessStepLabel(step: ChessStep) {
 
 export function getChessStepDescription(step: ChessStep) {
   if (step.isTerminal) {
-    return step.winner ?? '';
+    const winner = step.winner ?? '';
+    return step.forfeitReason ? `${winner}\n${step.forfeitReason}` : winner;
   }
 
   return step.players.find((player) => player.isTurn)?.thoughts ?? '';
@@ -76,6 +77,27 @@ export function deriveWinnerFromRewards(players: ChessPlayer[]) {
   const color = winnerPlayerIndex === 0 ? 'Black' : 'White';
 
   return `🎉 ${color} (${players[winnerPlayerIndex].name}) Wins!`;
+}
+
+/**
+ * Statuses set by open_spiel_env when an agent fails to produce a valid action:
+ *   TIMEOUT — exceeded the per-move / overage time budget
+ *   ERROR   — agent crashed or response was unparsable / cut off
+ *   INVALID — submitted an illegal move
+ * In all three cases the opponent wins by default.
+ */
+const FORFEIT_STATUSES = new Set(['TIMEOUT', 'ERROR', 'INVALID']);
+
+function describeForfeit(status: string): string {
+  switch (status) {
+    case 'TIMEOUT':
+      return 'ran out of time';
+    case 'INVALID':
+      return 'submitted an illegal move';
+    case 'ERROR':
+    default:
+      return 'failed to produce valid input';
+  }
 }
 
 export const chessTransformer = (environment: any) => {
@@ -114,6 +136,21 @@ export const chessTransformer = (environment: any) => {
   const lastStep = chessSteps[chessSteps.length - 1];
   const winDescription = deriveWinnerFromRewards(lastStep.players);
 
+  // If the loser exceeded their time budget / errored / submitted an illegal
+  // move, open_spiel_env marks their final status as TIMEOUT/ERROR/INVALID
+  // and gives the opponent the win. Surface this so the UI doesn't imply a
+  // normal checkmate/draw outcome.
+  let forfeitReason: string | null = null;
+  const rawLastStep = chessReplay.steps[chessReplay.steps.length - 1] ?? [];
+  const loserIndex = rawLastStep.findIndex((player) => FORFEIT_STATUSES.has(player.status));
+  if (loserIndex !== -1 && rawLastStep.length >= 2) {
+    const winnerIndex = 1 - loserIndex;
+    const loserName = agents[loserIndex] || `Player ${loserIndex + 1}`;
+    const winnerName = agents[winnerIndex] || `Player ${winnerIndex + 1}`;
+    const reason = describeForfeit(rawLastStep[loserIndex].status);
+    forfeitReason = `${loserName} ${reason}. ${winnerName} wins by default.`;
+  }
+
   // Artificially insert a step at the end to emphasize the win state
   chessSteps.push({
     players: [
@@ -131,6 +168,7 @@ export const chessTransformer = (environment: any) => {
     fenState: lastStep.fenState,
     step: lastStep.step + 1,
     winner: winDescription,
+    forfeitReason,
   });
 
   return chessSteps;
