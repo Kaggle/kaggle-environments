@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { BaseGamePlayer, BaseGameStep } from '@kaggle-environments/core';
 
 export interface GoBoardState {
@@ -19,7 +18,6 @@ export interface GoStep extends Omit<BaseGameStep, 'players'> {
   players: GoPlayer[];
   boardState: GoBoardState;
   isTerminal: boolean;
-  hasCaptures: boolean;
   winner: string | null;
 }
 
