@@ -1,5 +1,6 @@
 import { createReplayVisualizer, ReplayAdapter } from '@kaggle-environments/core';
 import { renderer } from './renderer';
+import { getCrawlStepRenderTime } from './timing';
 import './style.css';
 
 const app = document.getElementById('app');
@@ -17,5 +18,6 @@ createReplayVisualizer(
     gameName: 'crawl',
     renderer: renderer as any,
     ui: 'inline',
+    getStepRenderTime: (step, replayMode, speedModifier) => getCrawlStepRenderTime(step, replayMode, speedModifier),
   })
 );
