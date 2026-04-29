@@ -9,7 +9,7 @@ Game-specific harnesses implement the ``GameHarness`` protocol by providing
 three methods:
 
 - ``get_legal_moves(observation)``
-- ``make_prompt(observation, move_history, previous_response?, previous_action?)``
+- ``generate_prompt(observation, move_history, previous_response?, previous_action?)``
 - ``parse_response(response, legal_action_strings)``
 
 Use ``create_agent_fn(game_harness)`` to produce a Kaggle-compatible
