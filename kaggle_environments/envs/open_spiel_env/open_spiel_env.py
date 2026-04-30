@@ -863,6 +863,7 @@ GAMES_LIST = [
     "checkers",
     "chess",
     "connect_four",
+    "crazyhouse",
     "dark_hex",
     "gin_rummy",
     "go(board_size=9)",

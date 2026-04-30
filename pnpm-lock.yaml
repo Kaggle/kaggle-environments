@@ -365,6 +365,22 @@ importers:
         specifier: ^5.0.0
         version: 5.4.21(@types/node@25.2.1)
 
+  kaggle_environments/envs/open_spiel_env/games/crazyhouse/visualizer/default:
+    dependencies:
+      '@kaggle-environments/core':
+        specifier: workspace:*
+        version: link:../../../../../../../web/core
+    devDependencies:
+      cross-env:
+        specifier: ^10.1.0
+        version: 10.1.0
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.21(@types/node@25.2.1)
+
   kaggle_environments/envs/open_spiel_env/games/dark_hex/visualizer/default:
     dependencies:
       '@kaggle-environments/core':

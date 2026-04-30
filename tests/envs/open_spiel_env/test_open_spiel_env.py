@@ -293,6 +293,60 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertEqual(json_data["rewards"][0], open_spiel_env.DEFAULT_INVALID_ACTION_REWARD)
         self.assertEqual(json_data["rewards"][1], -open_spiel_env.DEFAULT_INVALID_ACTION_REWARD)
 
+    def test_crazyhouse_agent_playthrough(self):
+        env = make(
+            "open_spiel_crazyhouse",
+            configuration={"includeLegalActions": True},
+            debug=True,
+        )
+        env.run(["random", "random"])
+        playthrough = env.toJSON()
+        self.assertEqual(playthrough["name"], "open_spiel_crazyhouse")
+        self.assertTrue(all(status == "DONE" for status in playthrough["statuses"]))
+
+    def test_crazyhouse_initial_observation(self):
+        # The proxy emits structured JSON parsed from the Crazyhouse FEN. The
+        # initial position has empty pockets and white (player 1 in OpenSpiel's
+        # crazyhouse encoding) to move.
+        env = make("open_spiel_crazyhouse", debug=True)
+        env.reset()
+        kaggle_state = env.step([{"submission": -1}, {"submission": -1}])
+        obs = json.loads(kaggle_state[1]["observation"]["observationString"])
+        self.assertEqual(obs["current_player"], "white")
+        self.assertEqual(obs["side_to_move"], "w")
+        self.assertEqual(obs["castling_rights"], "KQkq")
+        self.assertEqual(obs["fullmove_number"], 1)
+        self.assertEqual(obs["pockets"], {"white": {}, "black": {}})
+        self.assertFalse(obs["is_terminal"])
+        self.assertIsNone(obs["winner"])
+        # Board is 8 ranks x 8 files, rank 8 first; white pieces are uppercase.
+        self.assertEqual(len(obs["board"]), 8)
+        self.assertEqual(obs["board"][0], list("rnbqkbnr"))
+        self.assertEqual(obs["board"][7], list("RNBQKBNR"))
+
+    def test_crazyhouse_pocket_after_capture(self):
+        # After 1.e4 d5 2.exd5 white captures a pawn and gains a pawn in pocket.
+        # Use the proxy game directly to assert pocket parsing.
+        game = pyspiel.load_game("crazyhouse_proxy")
+        state = game.new_initial_state()
+        for san in ("e4", "d5", "exd5"):
+            action = next(a for a in state.legal_actions() if state.action_to_string(a) == san)
+            state.apply_action(action)
+        obs = json.loads(state.observation_string(0))
+        self.assertEqual(obs["pockets"]["white"], {"P": 1})
+        self.assertEqual(obs["pockets"]["black"], {})
+
+    def test_crazyhouse_invalid_action(self):
+        env = make("open_spiel_crazyhouse", debug=True)
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Setup step.
+        # In crazyhouse player 1 (White) moves first; player 0 must send -1.
+        env.step([{"submission": -1}, {"submission": 999999}])  # Invalid action.
+        self.assertTrue(env.done)
+        json_data = env.toJSON()
+        self.assertEqual(json_data["rewards"][1], open_spiel_env.DEFAULT_INVALID_ACTION_REWARD)
+        self.assertEqual(json_data["rewards"][0], -open_spiel_env.DEFAULT_INVALID_ACTION_REWARD)
+
     def test_serialized_game_and_state(self):
         env = make("open_spiel_tic_tac_toe", debug=True)
         env.reset()
