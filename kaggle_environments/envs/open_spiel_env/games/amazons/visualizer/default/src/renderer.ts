@@ -72,7 +72,7 @@ function drawBoard(
   diff: BoardDiff
 ) {
   c.clearRect(0, 0, width, height);
-  const size = obs.board_size;
+  const size = obs.board.length;
   const margin = Math.max(18, Math.min(width, height) * 0.06);
   const boardPx = Math.min(width, height) - margin * 2;
   const cellPx = boardPx / size;

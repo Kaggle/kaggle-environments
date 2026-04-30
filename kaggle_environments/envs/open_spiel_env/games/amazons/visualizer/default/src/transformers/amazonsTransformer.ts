@@ -42,7 +42,8 @@ export type AmazonsCell = 'X' | 'O' | '#' | '.';
 
 export interface AmazonsBoardState {
   board: AmazonsCell[][];
-  board_size: number;
+  num_rows?: number;
+  num_cols?: number;
   current_player: string;
   phase: 'from' | 'to' | 'shoot' | null;
   move_number: number;
