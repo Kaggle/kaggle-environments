@@ -147,6 +147,17 @@ CONFIGURATION_SPEC_TEMPLATE = {
         },
     },
     "metadata": {"description": "Arbitrary metadata.", "type": "object", "default": {}},
+    "strictMode": {
+        "description": (
+            "If true, agents must return only {'submission': int} (no extra fields"
+            " like 'thoughts'), and per-agent TIMEOUT/ERROR/INVALID counts as a"
+            " loss for the offending agent only — other agents win. If false"
+            " (default), any agent error halts and voids the entire episode,"
+            " matching the lenient research-mode behavior."
+        ),
+        "type": "boolean",
+        "default": False,
+    },
 }
 
 OBSERVATION_SPEC_TEMPLATE = {
@@ -439,11 +450,18 @@ def interpreter(
     simul_move_durations: list[float | None] = [None] * num_players
     simul_all_valid = False
 
+    strict_mode = bool(env.configuration.get("strictMode", False))
+
     if is_initial_step:
         pass
     elif 0 <= acting_agent < num_players:
         if kaggle_state[acting_agent]["status"] != "ACTIVE":
             pass
+        elif strict_mode and (
+            not isinstance(kaggle_state[acting_agent]["action"], dict)
+            or set(kaggle_state[acting_agent]["action"].keys()) != {"submission"}
+        ):
+            kaggle_state[acting_agent]["status"] = "INVALID"
         else:
             action_submitted = kaggle_state[acting_agent]["action"]["submission"]
             if action_submitted in os_state.legal_actions():
@@ -476,6 +494,13 @@ def interpreter(
                 # Player has no legal actions at this node — skip.
                 continue
             if kaggle_state[pid]["status"] != "ACTIVE":
+                simul_all_valid = False
+                break
+            if strict_mode and (
+                not isinstance(kaggle_state[pid]["action"], dict)
+                or set(kaggle_state[pid]["action"].keys()) != {"submission"}
+            ):
+                kaggle_state[pid]["status"] = "INVALID"
                 simul_all_valid = False
                 break
             sub = kaggle_state[pid]["action"]["submission"]
@@ -542,7 +567,17 @@ def interpreter(
     status: str | None = None
     for player_id, agent_state in enumerate(kaggle_state):
         reward = None
-        if agent_error:
+        if agent_error and strict_mode:
+            # Per-player scoping mirrors the INVALID path: offender DONE+loss,
+            # others DONE+win. Final status must be DONE (not ERROR/TIMEOUT) so
+            # that core.py preserves the reward and the C# scoring carveout for
+            # open_spiel does not skip the episode.
+            if agent_state["status"] in ("TIMEOUT", "ERROR"):
+                reward = DEFAULT_INVALID_ACTION_REWARD
+            else:
+                reward = -DEFAULT_INVALID_ACTION_REWARD
+            status = "DONE"
+        elif agent_error:
             # Set all agent statuses to ERROR in order not to score episode. Preserve
             # TIMEOUT which has the same effect.
             if agent_state["status"] == "TIMEOUT":
