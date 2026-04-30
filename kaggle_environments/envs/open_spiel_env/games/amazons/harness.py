@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import re
+import string
 from typing import Any, Mapping, Sequence
 
 import pyspiel
@@ -32,13 +33,13 @@ try:
 except Exception:
     pass
 
-_BOARD_SIZE = 10
-_COLS = "abcdefghij"
+_DEFAULT_BOARD_SIZE = 10  # only used when an observation lacks board dims
 
 _JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
 _BARE_JSON_RE = re.compile(r"\{[^{}]*\"move\"\s*:\s*\"([^\"]+)\"[^{}]*\}", re.DOTALL)
-# Matches algebraic cell names like "a1", "j10".
-_CELL_RE = re.compile(r"\b([a-jA-J])\s*([1-9]|10)\b")
+# Matches algebraic cell names like "a1", "z26". The legal-action set bounds
+# what counts as a real cell; this regex just needs to extract candidates.
+_CELL_RE = re.compile(r"\b([a-zA-Z])\s*([1-9][0-9]?)\b")
 
 
 # --- Coordinate helpers -----------------------------------------------------
@@ -46,7 +47,7 @@ _CELL_RE = re.compile(r"\b([a-jA-J])\s*([1-9]|10)\b")
 
 def _cell_to_algebraic(row: int, col: int) -> str:
     """Convert 0-indexed (row, col) to algebraic notation, e.g. (0, 0) -> 'a1'."""
-    return f"{_COLS[col]}{row + 1}"
+    return f"{string.ascii_lowercase[col]}{row + 1}"
 
 
 def _algebraic_to_cell(text: str) -> tuple[int, int] | None:
@@ -54,29 +55,30 @@ def _algebraic_to_cell(text: str) -> tuple[int, int] | None:
     match = _CELL_RE.search(text)
     if not match:
         return None
-    col = _COLS.index(match.group(1).lower())
+    col = string.ascii_lowercase.index(match.group(1).lower())
     row = int(match.group(2)) - 1
     return row, col
 
 
-def _action_to_algebraic(action: int) -> str:
+def _action_to_algebraic(action: int, num_cols: int) -> str:
     """Convert a pyspiel action id to algebraic notation.
 
-    Amazons encodes every sub-action (from / to / shoot) as ``row * 10 + col``
-    on the 10x10 board (0-indexed), so the same conversion works in all
-    three phases regardless of the action_to_string format pyspiel happens
-    to use.
+    Amazons encodes every sub-action (from / to / shoot) as
+    ``row * num_cols + col`` (0-indexed), so the same conversion works in
+    all three phases regardless of the action_to_string format pyspiel
+    happens to use. ``num_cols`` is read from the live observation rather
+    than hardcoded because OpenSpiel ships different default sizes by build.
     """
-    return _cell_to_algebraic(action // _BOARD_SIZE, action % _BOARD_SIZE)
+    return _cell_to_algebraic(action // num_cols, action % num_cols)
 
 
-def _algebraic_to_action(algebraic: str) -> int | None:
-    """Inverse of ``_action_to_algebraic`` ('a7' -> 60)."""
+def _algebraic_to_action(algebraic: str, num_cols: int) -> int | None:
+    """Inverse of ``_action_to_algebraic`` ('a7' -> 60 on a 10-wide board)."""
     cell = _algebraic_to_cell(algebraic)
     if cell is None:
         return None
     row, col = cell
-    return row * _BOARD_SIZE + col
+    return row * num_cols + col
 
 
 # --- Board rendering --------------------------------------------------------
@@ -84,12 +86,38 @@ def _algebraic_to_action(algebraic: str) -> int | None:
 
 def _render_board(board: Sequence[Sequence[str]]) -> str:
     """Render the board with column letters and row numbers around the edges."""
-    size = len(board)
-    header = "   " + " ".join(_COLS[:size])
+    rows_count = len(board)
+    cols_count = len(board[0]) if rows_count else 0
+    header = "   " + " ".join(string.ascii_lowercase[:cols_count])
     rows: list[str] = [header]
-    for r in range(size):
+    for r in range(rows_count):
         rows.append(f"{r + 1:>2} " + " ".join(board[r]))
     return "\n".join(rows)
+
+
+def _parse_state(observation: Mapping[str, Any]) -> dict[str, Any]:
+    """Parse the proxy's JSON observation, returning ``{}`` on any failure."""
+    raw = observation.get("observationString", "")
+    if not raw:
+        return {}
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+
+
+def _board_dims(state: Mapping[str, Any]) -> tuple[int, int]:
+    """Return ``(num_rows, num_cols)`` from a parsed state dict.
+
+    Prefers the actual board grid (always accurate), falls back to explicit
+    dimension fields, and finally to a 10x10 default when the obs is empty.
+    """
+    board = state.get("board") or []
+    if board:
+        return len(board), len(board[0])
+    nr = state.get("num_rows") or state.get("board_size") or _DEFAULT_BOARD_SIZE
+    nc = state.get("num_cols") or state.get("board_size") or _DEFAULT_BOARD_SIZE
+    return int(nr), int(nc)
 
 
 # --- Prompt -----------------------------------------------------------------
@@ -113,7 +141,7 @@ _PHASE_INSTRUCTION = {
 }
 
 
-AMAZONS_PROMPT_TEMPLATE = """Let's play the Game of the Amazons on a 10x10 board.
+AMAZONS_PROMPT_TEMPLATE = """Let's play the Game of the Amazons on a {num_rows}x{num_cols} board.
 
 Pieces: X = Black amazons, O = White amazons, # = burned (arrow) squares,
 . = empty. Each turn has three steps: move one of your amazons like a chess
@@ -177,9 +205,14 @@ def get_legal_moves(observation: Mapping[str, Any]) -> dict[int, str]:
 
     The strings are algebraic cell names like ``"a7"`` so the model can
     reason in board coordinates. The action int is computed directly from
-    the pyspiel encoding (``row * 10 + col``, 0-indexed) so this works
-    regardless of how the runtime's pyspiel formats action strings.
+    the pyspiel encoding (``row * num_cols + col``, 0-indexed) so this
+    works regardless of how the runtime's pyspiel formats action strings.
+    ``num_cols`` is read from the observation so the conversion stays
+    correct on OpenSpiel builds whose amazons defaults aren't 10x10.
     """
+    state = _parse_state(observation)
+    _, num_cols = _board_dims(state)
+
     legal_actions = observation.get("legalActions")
 
     if not legal_actions:
@@ -187,12 +220,12 @@ def get_legal_moves(observation: Mapping[str, Any]) -> dict[int, str]:
         if not serialized:
             return {}
         try:
-            _, state = pyspiel.deserialize_game_and_state(serialized)
+            _, sp_state = pyspiel.deserialize_game_and_state(serialized)
         except Exception:
             return {}
-        legal_actions = state.legal_actions()
+        legal_actions = sp_state.legal_actions()
 
-    return {a: _action_to_algebraic(a) for a in legal_actions}
+    return {a: _action_to_algebraic(a, num_cols) for a in legal_actions}
 
 
 def generate_prompt(
@@ -202,13 +235,9 @@ def generate_prompt(
     previous_action: str | None = None,
 ) -> str:
     """Build the LLM prompt for the current sub-action."""
-    raw_obs = observation.get("observationString", "")
-    try:
-        state = json.loads(raw_obs) if raw_obs else {}
-    except json.JSONDecodeError:
-        state = {}
-
-    board = state.get("board") or [["." for _ in range(_BOARD_SIZE)] for _ in range(_BOARD_SIZE)]
+    state = _parse_state(observation)
+    num_rows, num_cols = _board_dims(state)
+    board = state.get("board") or [["." for _ in range(num_cols)] for _ in range(num_rows)]
     phase = state.get("phase") or "from"
     current = state.get("current_player", "x")
     player_name = "Black" if current == "x" else "White"
@@ -218,6 +247,8 @@ def generate_prompt(
     legal_strings = list(legal_moves.values())
 
     prompt = AMAZONS_PROMPT_TEMPLATE.format(
+        num_rows=num_rows,
+        num_cols=num_cols,
         player_name=player_name,
         player_glyph=player_glyph,
         phase_upper=phase.upper(),
