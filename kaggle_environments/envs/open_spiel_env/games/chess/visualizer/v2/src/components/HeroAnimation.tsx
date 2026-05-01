@@ -36,7 +36,7 @@ export default function HeroAnimation() {
     const heroType = detectHeroType(game);
     if (heroType === null) return;
 
-    const color = game.turn() === 'w' ? 'black' : 'white';
+    let color = game.turn() === 'w' ? 'black' : 'white';
     const player = color === 'black' ? 'Black' : 'White';
     const opponent = color === 'black' ? 'White' : 'Black';
 
@@ -49,6 +49,8 @@ export default function HeroAnimation() {
       case HeroTypes.QUEEN_LOSS:
         src = queenLossRiv;
         text = `${opponent} Loses their queen`;
+        // Invert color when on queen loss.
+        color = color === 'white' ? 'black' : 'white';
         break;
       case HeroTypes.PROMOTION:
         src = promotionRiv;

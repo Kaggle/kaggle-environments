@@ -8,7 +8,6 @@ interface PieceTrackingState {
   y: number;
   lastSpawn: number;
   liveCount: number;
-  hasBurst: boolean;
 }
 
 interface LiveParticle {
@@ -133,7 +132,7 @@ export function createTrails(engine: Engine): TrailSystem {
 
     const state = tracking.get(sprite);
     if (!state) {
-      tracking.set(sprite, { x, y, lastSpawn: now, liveCount: 0, hasBurst: false });
+      tracking.set(sprite, { x, y, lastSpawn: now, liveCount: 0 });
       return;
     }
 
@@ -143,12 +142,10 @@ export function createTrails(engine: Engine): TrailSystem {
     state.y = y;
 
     if (dx * dx + dy * dy < MOVE_THRESHOLD * MOVE_THRESHOLD) return;
-    if (config.burst && state.hasBurst) return;
     if (config.rate > 0 && now - state.lastSpawn < config.rate) return;
     if (config.max != null && state.liveCount >= config.max) return;
 
     state.lastSpawn = now;
-    if (config.burst) state.hasBurst = true;
 
     for (let i = 0; i < config.count; i++) {
       spawn(sprite, config, x, y, now, state, dx, dy);
