@@ -473,6 +473,10 @@ def interpreter(
                 action_applied = action_submitted
                 env.info["actionHistory"].append(str(action_applied))
                 env.info["stateHistory"].append(str(os_state))
+                # Visualizers (e.g. goTransformer) read actionString off the
+                # action dict to render moves. The LLM harness populates this
+                # itself; for code-submission agents we populate it here.
+                kaggle_state[acting_agent]["action"]["actionString"] = action_submitted_to_string
             elif action_submitted == AGENT_ERROR_ACTION:
                 kaggle_state[acting_agent]["status"] = "ERROR"
             else:
@@ -524,6 +528,9 @@ def interpreter(
             os_state.apply_actions(actions_for_apply)
             for pid in range(num_players):
                 simul_actions_applied[pid] = simul_actions_submitted[pid]
+                # See note above: surface actionString for visualizers.
+                if simul_actions_submitted_to_string[pid] is not None:
+                    kaggle_state[pid]["action"]["actionString"] = simul_actions_submitted_to_string[pid]
             env.info["actionHistory"].append(str(actions_for_apply))
             env.info["stateHistory"].append(str(os_state))
 

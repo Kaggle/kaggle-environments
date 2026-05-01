@@ -123,6 +123,19 @@ class OpenSpielEnvTest(absltest.TestCase):
             ],
         )
 
+    def test_action_string_populated_for_visualizer(self):
+        # Visualizers (e.g. goTransformer) read actionString off each player's
+        # action dict to render moves. The env must surface it even when the
+        # agent only submits {"submission": int}.
+        env = make("open_spiel_dark_hex", debug=True)
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Initial setup.
+        env.step([{"submission": 0}, {"submission": -1}])
+        steps = env.toJSON()["steps"]
+        played_action = steps[2][0]["action"]
+        self.assertIn("actionString", played_action)
+        self.assertTrue(played_action["actionString"])
+
     def test_gin_rummy_agent_playthrough(self):
         env = make(
             "open_spiel_gin_rummy",
