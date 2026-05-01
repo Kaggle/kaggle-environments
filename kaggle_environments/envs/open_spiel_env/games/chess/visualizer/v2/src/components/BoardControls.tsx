@@ -27,8 +27,8 @@ export default function BoardControls() {
     <div className={styles.boardControls} ref={inertRef}>
       <WithPopover id="info" icon="info" label="Game info">
         <p>
-          Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean sed malesuada nulla, ut tempus magna.
-          Suspendisse non consectetur justo, vel fringilla ipsum.
+          Chess is a strategic board game for two players. The object of the game is simple: trap the opponent's king.
+          The game has been played for over a thousand years.
         </p>
       </WithPopover>
       <label className={`grid-pile ${styles.soundToggle}`}>

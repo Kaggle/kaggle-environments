@@ -15,7 +15,6 @@ export interface TrailConfig {
   max?: number; // max live particles per piece (for follow mode)
   spin?: boolean;
   align?: boolean; // rotate toward movement direction
-  burst?: boolean; // spawn once on movement start, then stop
 }
 
 export const TRAIL_CONFIGS: Record<PieceType, TrailConfig> = {
@@ -70,13 +69,12 @@ export const TRAIL_CONFIGS: Record<PieceType, TrailConfig> = {
   r: {
     textures: ['particles/rook1.png', 'particles/rook2.png', 'particles/rook3.png', 'particles/rook4.png'],
     size: [0.1, 0.35],
-    rate: 0,
-    count: 8,
-    lifetime: 2.1,
+    rate: 0.03,
+    count: 2,
+    lifetime: 1.8,
     alpha: 1,
-    scatter: 0.4,
-    burst: true,
-    follow: 0.0005,
+    scatter: 0.35,
+    drift: 0.06,
   },
 
   // Pawn: zippy directional marks
