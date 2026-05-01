@@ -409,6 +409,7 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
             onPlayChange={handlePlayChange}
             onStepChange={actions.setStep}
             onSpeedChange={actions.setSpeed}
+            seed={processedReplay.info?.seed as number | string | undefined}
           />
         </InlineControlsContainer>
       )}
