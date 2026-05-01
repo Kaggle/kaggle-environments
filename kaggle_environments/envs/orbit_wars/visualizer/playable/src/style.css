@@ -59,6 +59,9 @@ input, select {
   width: min(100vh, calc(100vw - 280px));
   height: min(100vh, calc(100vw - 280px));
   cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .hud {
   background: #14141e;
@@ -125,3 +128,79 @@ input, select {
   text-align: center;
 }
 .modal h2 { margin: 0 0 12px; }
+
+/* Floating step button (mobile only). */
+.fab-step {
+  display: none;
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #4a8fff;
+  color: white;
+  border: none;
+  font-size: 26px;
+  font-weight: bold;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+  padding: 0;
+}
+.fab-step:hover { background: #5a9fff; }
+.fab-step:disabled { opacity: 0.4; }
+
+/* Mobile / portrait layout. */
+@media (max-width: 700px) {
+  .game {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    height: 100dvh;
+  }
+  .game-canvas-wrap {
+    flex-direction: column;
+    justify-content: flex-start;
+  }
+  .game-canvas-wrap canvas {
+    width: min(100vw, calc(100dvh - 220px));
+    height: min(100vw, calc(100dvh - 220px));
+    flex-shrink: 0;
+    margin: 0 auto;
+  }
+  .hud {
+    border-left: none;
+    border-bottom: 1px solid #2a2a40;
+    padding: 6px 10px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    overflow: visible;
+  }
+  .hud h2 { margin: 0; font-size: 13px; }
+  .hud .scores { flex-direction: row; flex-wrap: wrap; gap: 4px; }
+  .hud .score-row { padding: 2px 6px; font-size: 12px; }
+  .hud .pending { font-size: 11px; }
+  .hud-mobile-hide { display: none !important; }
+  .fleet-menu {
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100%;
+    min-width: 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    padding: 8px 10px;
+    box-shadow: none;
+  }
+  .fleet-menu h3 { font-size: 12px; margin: 0 0 4px; }
+  .fleet-menu .row { margin: 4px 0; }
+  .fleet-menu .row label { width: auto; }
+  .fleet-menu .actions button { padding: 8px 14px; }
+  .fleet-menu .mobile-hint { display: none; }
+  .fab-step { display: flex; }
+}
