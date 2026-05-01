@@ -62,7 +62,7 @@ export function FleetMenu({ planet, anchor, aimAngle, ships, alreadyQueued, onSh
         <button onClick={send}>Send</button>
         <button onClick={onCancel}>Cancel</button>
       </div>
-      <div style={{ marginTop: 6, color: '#aaaab0', fontSize: 11 }}>
+      <div className="mobile-hint" style={{ marginTop: 6, color: '#aaaab0', fontSize: 11 }}>
         Aim with the mouse. Right-click or Esc to cancel.
       </div>
     </div>

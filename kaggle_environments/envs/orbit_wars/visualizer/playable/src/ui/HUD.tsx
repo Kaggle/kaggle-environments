@@ -33,15 +33,15 @@ export function HUD({ state, slots, pendingCount, busy, onStep, onReset, onExit 
 
       <div className="pending">Queued orders: {pendingCount}</div>
 
-      <button onClick={onStep} disabled={busy || state.done}>
+      <button className="hud-mobile-hide" onClick={onStep} disabled={busy || state.done}>
         {busy ? 'Working…' : 'Step (Space)'}
       </button>
       <button onClick={onReset} disabled={busy}>
-        Reset (same setup)
+        Reset
       </button>
       <button onClick={onExit}>New Game</button>
 
-      <div style={{ fontSize: 12, color: '#aaaab0', marginTop: 12 }}>
+      <div className="hud-mobile-hide" style={{ fontSize: 12, color: '#aaaab0', marginTop: 12 }}>
         <p>Click an owned planet to open its fleet menu.</p>
         <p>Drag from the planet to aim a fleet, set the count, then Send.</p>
         <p>Press Space (or click Step) to advance one turn.</p>

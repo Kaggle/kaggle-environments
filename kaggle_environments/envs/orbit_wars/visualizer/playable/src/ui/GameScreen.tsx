@@ -68,9 +68,10 @@ export function GameScreen({ setup, onExit }: Props) {
   if (error) return <div style={{ padding: 20, color: '#ff6666' }}>Worker error: {error}</div>;
   if (!state) return <div style={{ padding: 20 }}>Loading…</div>;
 
-  // Compute the screen-space anchor for the fleet menu.
+  // Compute the screen-space anchor for the fleet menu (desktop only).
   // While the user is still picking an aim direction (target not placed yet),
   // park the menu in the top-right corner so it can't sit under the cursor.
+  // On mobile the CSS overrides this anchor and pins the menu to the bottom.
   let menuAnchor: { left: number; top: number } | null = null;
   if (selected && wrapRef.current) {
     const rect = wrapRef.current.getBoundingClientRect();
@@ -104,17 +105,33 @@ export function GameScreen({ setup, onExit }: Props) {
           dragging={draggingTarget}
           pendingActions={pendingActions}
           humanPlayerId={HUMAN_PLAYER_ID}
-          onMouseDown={(planet, bx, by) => {
+          onPointerDown={(planet, bx, by, pointerType) => {
+            const isTouch = pointerType !== 'mouse';
             if (!selected) {
               if (planet && planet.owner === HUMAN_PLAYER_ID) {
                 const queued = pendingActions.filter(([pid]) => pid === planet.id).reduce((acc, [, , s]) => acc + s, 0);
                 const available = Math.max(0, Math.floor(planet.ships) - queued);
                 setSelectedId(planet.id);
                 setAimShips(available);
-                setAimTarget({ x: bx, y: by });
-                setAimAngle(Math.atan2(by - planet.y, bx - planet.x));
-                setAimPlaced(false);
-                setDraggingTarget(false);
+                if (isTouch) {
+                  // Auto-place a target a few units past the planet, pointed at the sun,
+                  // so the player can immediately see the trajectory and drag to refine.
+                  const dx = BOARD_SIZE / 2 - planet.x;
+                  const dy = BOARD_SIZE / 2 - planet.y;
+                  const dist = Math.hypot(dx, dy) || 1;
+                  const off = planet.radius + 5;
+                  const tx = planet.x + (dx / dist) * off;
+                  const ty = planet.y + (dy / dist) * off;
+                  setAimTarget({ x: tx, y: ty });
+                  setAimAngle(Math.atan2(ty - planet.y, tx - planet.x));
+                  setAimPlaced(true);
+                  setDraggingTarget(false);
+                } else {
+                  setAimTarget({ x: bx, y: by });
+                  setAimAngle(Math.atan2(by - planet.y, bx - planet.x));
+                  setAimPlaced(false);
+                  setDraggingTarget(false);
+                }
               }
               return;
             }
@@ -126,26 +143,28 @@ export function GameScreen({ setup, onExit }: Props) {
               setDraggingTarget(true); // allow press+drag to fine-tune in one motion
               return;
             }
-            // Target already placed: drag if click lands on it, else deselect.
+            // Target already placed: drag if press lands on it, else deselect.
+            // Touch gets a larger hit slop since fingers are imprecise.
             if (aimTarget) {
               const dx = bx - aimTarget.x;
               const dy = by - aimTarget.y;
-              if (dx * dx + dy * dy <= TARGET_HIT_RADIUS * TARGET_HIT_RADIUS) {
+              const slop = isTouch ? TARGET_HIT_RADIUS * 2 : TARGET_HIT_RADIUS;
+              if (dx * dx + dy * dy <= slop * slop) {
                 setDraggingTarget(true);
                 return;
               }
             }
             closeMenu();
           }}
-          onMouseMove={(bx, by) => {
+          onPointerMove={(bx, by) => {
             if (!selected) return;
-            // Follow mouse while previewing (target not yet placed) or while dragging it.
+            // Follow pointer while previewing (target not yet placed) or while dragging it.
             if (!aimPlaced || draggingTarget) {
               setAimTarget({ x: bx, y: by });
               setAimAngle(Math.atan2(by - selected.y, bx - selected.x));
             }
           }}
-          onMouseUp={() => {
+          onPointerUp={() => {
             setDraggingTarget(false);
           }}
           onContextMenu={closeMenu}
@@ -202,6 +221,17 @@ export function GameScreen({ setup, onExit }: Props) {
         }}
         onExit={onExit}
       />
+      {!state.done && (
+        <button
+          className="fab-step"
+          onClick={handleStep}
+          disabled={busy}
+          aria-label="Advance one turn"
+          title="Advance one turn"
+        >
+          »
+        </button>
+      )}
     </div>
   );
 }

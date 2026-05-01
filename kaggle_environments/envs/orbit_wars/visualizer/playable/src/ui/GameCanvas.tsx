@@ -18,9 +18,9 @@ interface Props {
   dragging: boolean;
   pendingActions: Action[];
   humanPlayerId: number;
-  onMouseDown(planet: Planet | null, boardX: number, boardY: number): void;
-  onMouseMove(boardX: number, boardY: number): void;
-  onMouseUp(boardX: number, boardY: number): void;
+  onPointerDown(planet: Planet | null, boardX: number, boardY: number, pointerType: string): void;
+  onPointerMove(boardX: number, boardY: number): void;
+  onPointerUp(boardX: number, boardY: number): void;
   onContextMenu(): void;
 }
 
@@ -34,9 +34,9 @@ export function GameCanvas({
   dragging,
   pendingActions,
   humanPlayerId,
-  onMouseDown,
-  onMouseMove,
-  onMouseUp,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
   onContextMenu,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -134,25 +134,31 @@ export function GameCanvas({
     <canvas
       ref={canvasRef}
       style={cursor ? { cursor } : undefined}
-      onMouseDown={(e) => {
+      onPointerDown={(e) => {
         const c = canvasRef.current;
         if (!c) return;
-        const { x, y } = screenToBoard(c, e);
-        onMouseDown(planetAt(state, x, y), x, y);
-      }}
-      onMouseMove={(e) => {
-        const c = canvasRef.current;
-        if (!c) return;
-        const { x, y } = screenToBoard(c, e);
+        c.setPointerCapture(e.pointerId);
+        const { x, y } = screenToBoard(c, e.nativeEvent);
         setMouseBoard({ x, y });
-        onMouseMove(x, y);
+        onPointerDown(planetAt(state, x, y), x, y, e.pointerType);
       }}
-      onMouseLeave={() => setMouseBoard(null)}
-      onMouseUp={(e) => {
+      onPointerMove={(e) => {
         const c = canvasRef.current;
         if (!c) return;
-        const { x, y } = screenToBoard(c, e);
-        onMouseUp(x, y);
+        const { x, y } = screenToBoard(c, e.nativeEvent);
+        setMouseBoard({ x, y });
+        onPointerMove(x, y);
+      }}
+      onPointerUp={(e) => {
+        const c = canvasRef.current;
+        if (!c) return;
+        const { x, y } = screenToBoard(c, e.nativeEvent);
+        onPointerUp(x, y);
+        // Touch has no hover; clear cursor-position highlight on release.
+        if (e.pointerType !== 'mouse') setMouseBoard(null);
+      }}
+      onPointerLeave={(e) => {
+        if (e.pointerType === 'mouse') setMouseBoard(null);
       }}
       onContextMenu={(e) => {
         e.preventDefault();
