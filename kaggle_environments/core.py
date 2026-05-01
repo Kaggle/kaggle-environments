@@ -609,7 +609,7 @@ class Environment:
             if agent.status not in self.__state_schema.properties.status.enum:
                 self.debug_print(f"Invalid Action: {agent.status}")
                 agent.status = "INVALID"
-            if agent.status in ["ERROR", "INVALID", "TIMEOUT"]:
+            if agent.status in ["ERROR", "TIMEOUT"]:
                 agent.reward = None
         return new_state
 
