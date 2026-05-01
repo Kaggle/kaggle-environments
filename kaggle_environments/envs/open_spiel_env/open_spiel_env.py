@@ -151,9 +151,12 @@ CONFIGURATION_SPEC_TEMPLATE = {
         "description": (
             "If true, agents must return only {'submission': int} (no extra fields"
             " like 'thoughts'), and per-agent TIMEOUT/ERROR/INVALID counts as a"
-            " loss for the offending agent only — other agents win. If false"
-            " (default), any agent error halts and voids the entire episode,"
-            " matching the lenient research-mode behavior."
+            " loss for the offending agent only — other agents are marked DONE"
+            " with a winning reward. The offender keeps its natural ERROR or"
+            " TIMEOUT status (matching how every other Kaggle competition"
+            " reports per-player failures). If false (default), any agent error"
+            " halts and voids the entire episode, matching the lenient"
+            " research-mode behavior."
         ),
         "type": "boolean",
         "default": False,
@@ -568,15 +571,16 @@ def interpreter(
     for player_id, agent_state in enumerate(kaggle_state):
         reward = None
         if agent_error and strict_mode:
-            # Per-player scoping mirrors the INVALID path: offender DONE+loss,
-            # others DONE+win. Final status must be DONE (not ERROR/TIMEOUT) so
-            # that core.py preserves the reward and the C# scoring carveout for
-            # open_spiel does not skip the episode.
+            # Per-player scoping like every other competition: offender keeps
+            # its natural ERROR / TIMEOUT status (core.py will null its reward),
+            # others get DONE + winning reward. The kaggleazure open_spiel
+            # carveout is gated on UseModelProxy / EnableInternet so non-DONE
+            # statuses no longer void the episode in strict-mode competitions.
             if agent_state["status"] in ("TIMEOUT", "ERROR"):
-                reward = DEFAULT_INVALID_ACTION_REWARD
+                status = agent_state["status"]
             else:
                 reward = -DEFAULT_INVALID_ACTION_REWARD
-            status = "DONE"
+                status = "DONE"
         elif agent_error:
             # Set all agent statuses to ERROR in order not to score episode. Preserve
             # TIMEOUT which has the same effect.

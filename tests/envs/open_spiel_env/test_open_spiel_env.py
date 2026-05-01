@@ -81,6 +81,48 @@ class OpenSpielEnvTest(absltest.TestCase):
             ],
         )
 
+    def test_strict_mode_agent_error_keeps_per_player_status(self):
+        env = make(
+            "open_spiel_dark_hex",
+            configuration={"strictMode": True},
+            debug=True,
+        )
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
+        # Player 0 signals an internal error; player 1 plays normally.
+        env.step([{"submission": open_spiel_env.AGENT_ERROR_ACTION}, {"submission": -1}])
+        self.assertTrue(env.done)
+        playthrough = env.toJSON()
+        # Offender keeps its natural ERROR status; the other agent gets DONE+win.
+        self.assertEqual(playthrough["statuses"], ["ERROR", "DONE"])
+        # Offender's reward is nulled by core.py because status is ERROR;
+        # the other agent receives the winning reward.
+        self.assertIsNone(playthrough["rewards"][0])
+        self.assertEqual(playthrough["rewards"][1], -open_spiel_env.DEFAULT_INVALID_ACTION_REWARD)
+
+    def test_strict_mode_extra_action_field_is_invalid(self):
+        env = make(
+            "open_spiel_dark_hex",
+            configuration={"strictMode": True},
+            debug=True,
+        )
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
+        # Extra "thoughts" key violates the strict-mode action schema.
+        env.step([{"submission": 0, "thoughts": "..."}, {"submission": -1}])
+        self.assertTrue(env.done)
+        playthrough = env.toJSON()
+        # INVALID still maps to DONE (matches lenient behavior; kaggleazure
+        # already accepts INVALID statuses through the open_spiel carveout).
+        self.assertEqual(playthrough["statuses"], ["DONE", "DONE"])
+        self.assertEqual(
+            playthrough["rewards"],
+            [
+                open_spiel_env.DEFAULT_INVALID_ACTION_REWARD,
+                -open_spiel_env.DEFAULT_INVALID_ACTION_REWARD,
+            ],
+        )
+
     def test_gin_rummy_agent_playthrough(self):
         env = make(
             "open_spiel_gin_rummy",
