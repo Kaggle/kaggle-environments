@@ -12,7 +12,7 @@ const TO_ALPHA = 0.7;
 const FADE_DURATION = 0.25; // seconds
 const TO_DELAY = 0.18; // seconds — "to" square fades in slightly after "from"
 
-export function syncHighlights(engine: Engine, chess: Chess, prefs: PreferencesState) {
+export function syncHighlights(engine: Engine, chess: Chess, prefs: PreferencesState, snap: boolean) {
   const { squareSize, boardOffset, resources } = engine;
 
   resources.highlights.removeChildren();
@@ -42,7 +42,7 @@ export function syncHighlights(engine: Engine, chess: Chess, prefs: PreferencesS
     sprite.height = size;
     resources.highlights.addChild(sprite);
 
-    if (prefs.reducedMotion) {
+    if (snap || prefs.reducedMotion) {
       sprite.alpha = alpha;
     } else {
       sprite.alpha = 0;
