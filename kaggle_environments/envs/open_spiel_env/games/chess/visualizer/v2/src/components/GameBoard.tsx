@@ -18,6 +18,7 @@ export default memo(function GameBoard() {
   const gameRef = useRef<Game | null>(null);
   const chess = useGameStore((state) => state.game);
   const step = useGameStore((state) => state.options.step);
+  const isTerminal = useGameStore((state) => state.options.replay.steps.at(state.options.step)?.isTerminal ?? false);
   const prefs = usePreferences(useShallow(selectPrefs));
 
   useEffect(() => {
@@ -36,7 +37,8 @@ export default memo(function GameBoard() {
         }
         gameRef.current = game;
         const state = useGameStore.getState();
-        game.update(state.game, state.options.step, selectPrefs(usePreferences.getState()));
+        const terminal = state.options.replay.steps.at(state.options.step)?.isTerminal ?? false;
+        game.update(state.game, state.options.step, selectPrefs(usePreferences.getState()), terminal);
       });
     });
 
@@ -49,8 +51,8 @@ export default memo(function GameBoard() {
   }, []);
 
   useEffect(() => {
-    gameRef.current?.update(chess, step, prefs);
-  }, [chess, step, prefs]);
+    gameRef.current?.update(chess, step, prefs, isTerminal);
+  }, [chess, step, prefs, isTerminal]);
 
   return (
     <div id="board" className={styles.board}>

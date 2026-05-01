@@ -64,9 +64,41 @@ export function getChessStepDescription(step: ChessStep) {
 }
 
 function deriveWinner(step: ChessReplayStep[]): string | null {
-  if (step[0].observation.isTerminal === false) return null;
+  const isForfeit = step.some((p) => FORFEIT_STATUSES.has(p.status));
+  if (!isForfeit && step[0].observation.isTerminal === false) return null;
   if (step[0].reward === step[1].reward) return null;
-  return step[0].reward === 1 ? 'white' : 'black';
+  // Player 0 = Black, player 1 = White (matches GameRenderer.setHeader convention).
+  return step[0].reward === 1 ? 'black' : 'white';
+}
+
+/**
+ * Statuses set by open_spiel_env when an agent fails to produce a valid action:
+ *   TIMEOUT — exceeded the per-move / overage time budget
+ *   ERROR   — agent crashed or response was unparsable / cut off
+ *   INVALID — submitted an illegal move
+ * In all three cases the opponent wins by default.
+ */
+const FORFEIT_STATUSES = new Set(['TIMEOUT', 'ERROR', 'INVALID']);
+
+function describeForfeit(status: string): string {
+  switch (status) {
+    case 'TIMEOUT':
+      return 'ran out of time';
+    case 'INVALID':
+      return 'submitted an illegal move';
+    case 'ERROR':
+    default:
+      return 'failed to produce valid input';
+  }
+}
+
+function deriveForfeitReason(step: ChessReplayStep[], agents: string[]): string | null {
+  const loserIndex = step.findIndex((p) => FORFEIT_STATUSES.has(p.status));
+  if (loserIndex === -1 || step.length < 2) return null;
+  const winnerIndex = 1 - loserIndex;
+  const loserName = agents[loserIndex] || `Player ${loserIndex + 1}`;
+  const winnerName = agents[winnerIndex] || `Player ${winnerIndex + 1}`;
+  return `${loserName} ${describeForfeit(step[loserIndex].status)}. ${winnerName} wins by default.`;
 }
 
 export const chessTransformer = (environment: any): ChessStep[] => {
@@ -130,6 +162,7 @@ export const chessTransformer = (environment: any): ChessStep[] => {
     fenState: chessSteps[chessSteps.length - 1].fenState,
     step: chessSteps.length,
     winner: deriveWinner(lastReplayStep),
+    forfeitReason: deriveForfeitReason(lastReplayStep, environment.info.TeamNames),
   });
 
   return chessSteps;

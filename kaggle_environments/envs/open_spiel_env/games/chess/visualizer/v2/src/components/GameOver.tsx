@@ -39,7 +39,7 @@ export default function GameOver() {
   if (!step) return null;
   if (!step.winner) return null;
 
-  const winnerColor = game.turn() === 'b' ? 'black' : 'white';
+  const winnerColor = step.winner;
   const blackName = game.getHeaders()['b'] ?? 'Black';
   const whiteName = game.getHeaders()['w'] ?? 'White';
   const winnerName = winnerColor === 'black' ? blackName : whiteName;
@@ -107,6 +107,7 @@ export default function GameOver() {
           <h2 className={styles.heading}>Winner is {winnerName}!</h2>
         </Ribbon>
       </div>
+      {step.forfeitReason && <p className={styles.forfeit}>{step.forfeitReason}</p>}
       <div className={styles.meta}>
         Game Duration: {formatDuration(gameDuration)}
         <br />
