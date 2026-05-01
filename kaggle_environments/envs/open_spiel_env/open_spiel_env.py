@@ -151,9 +151,12 @@ CONFIGURATION_SPEC_TEMPLATE = {
         "description": (
             "If true, agents must return only {'submission': int} (no extra fields"
             " like 'thoughts'), and per-agent TIMEOUT/ERROR/INVALID counts as a"
-            " loss for the offending agent only — other agents win. If false"
-            " (default), any agent error halts and voids the entire episode,"
-            " matching the lenient research-mode behavior."
+            " loss for the offending agent only — other agents are marked DONE"
+            " with a winning reward. The offender keeps its natural ERROR or"
+            " TIMEOUT status (matching how every other Kaggle competition"
+            " reports per-player failures). If false (default), any agent error"
+            " halts and voids the entire episode, matching the lenient"
+            " research-mode behavior."
         ),
         "type": "boolean",
         "default": False,
@@ -470,6 +473,10 @@ def interpreter(
                 action_applied = action_submitted
                 env.info["actionHistory"].append(str(action_applied))
                 env.info["stateHistory"].append(str(os_state))
+                # Visualizers (e.g. goTransformer) read actionString off the
+                # action dict to render moves. The LLM harness populates this
+                # itself; for code-submission agents we populate it here.
+                kaggle_state[acting_agent]["action"]["actionString"] = action_submitted_to_string
             elif action_submitted == AGENT_ERROR_ACTION:
                 kaggle_state[acting_agent]["status"] = "ERROR"
             else:
@@ -521,6 +528,9 @@ def interpreter(
             os_state.apply_actions(actions_for_apply)
             for pid in range(num_players):
                 simul_actions_applied[pid] = simul_actions_submitted[pid]
+                # See note above: surface actionString for visualizers.
+                if simul_actions_submitted_to_string[pid] is not None:
+                    kaggle_state[pid]["action"]["actionString"] = simul_actions_submitted_to_string[pid]
             env.info["actionHistory"].append(str(actions_for_apply))
             env.info["stateHistory"].append(str(os_state))
 
@@ -568,15 +578,16 @@ def interpreter(
     for player_id, agent_state in enumerate(kaggle_state):
         reward = None
         if agent_error and strict_mode:
-            # Per-player scoping mirrors the INVALID path: offender DONE+loss,
-            # others DONE+win. Final status must be DONE (not ERROR/TIMEOUT) so
-            # that core.py preserves the reward and the C# scoring carveout for
-            # open_spiel does not skip the episode.
+            # Per-player scoping like every other competition: offender keeps
+            # its natural ERROR / TIMEOUT status (core.py will null its reward),
+            # others get DONE + winning reward. The kaggleazure open_spiel
+            # carveout is gated on UseModelProxy / EnableInternet so non-DONE
+            # statuses no longer void the episode in strict-mode competitions.
             if agent_state["status"] in ("TIMEOUT", "ERROR"):
-                reward = DEFAULT_INVALID_ACTION_REWARD
+                status = agent_state["status"]
             else:
                 reward = -DEFAULT_INVALID_ACTION_REWARD
-            status = "DONE"
+                status = "DONE"
         elif agent_error:
             # Set all agent statuses to ERROR in order not to score episode. Preserve
             # TIMEOUT which has the same effect.
