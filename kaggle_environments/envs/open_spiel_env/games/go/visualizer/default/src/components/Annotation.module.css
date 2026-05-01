@@ -1,0 +1,63 @@
+.notation {
+  font-family: "Mynerve", cursive;
+  font-size: 1rem;
+  line-height: 1.1;
+  display: grid;
+  overflow: visible;
+  justify-content: start;
+  max-width: 20ch;
+  max-height: 10ch;
+  transform: rotate(-3deg);
+  text-wrap: pretty;
+
+  gap: 1.5ch 0.5ch;
+
+  & > * {
+    font-size: 1em;
+    margin: 0;
+  }
+}
+
+.notation h2 {
+  line-height: 1.35;
+}
+
+.notation h2 span {
+  background-image: url("./images/squiggle-solid.png");
+  background-repeat: repeat-x;
+  background-position: bottom;
+  background-size: 3.5rem 2px;
+}
+
+.checkLog {
+  background-color: #ffff70;
+  justify-self: start;
+  padding-inline: 0.35em;
+  text-decoration: underline;
+}
+
+@container (max-width: 680px) {
+  .notation {
+    align-items: end;
+    font-size: 0.8125rem;
+    gap: 0.5ch;
+    position: absolute;
+    translate: -1rem 0;
+  }
+}
+
+@container (max-width: 580px) {
+  .notation {
+    align-items: end;
+    font-size: 0.6875rem;
+    gap: 0.5ch;
+  }
+
+  .notation img {
+    transform: rotate(0deg);
+  }
+
+  .notationSlot {
+    display: none;
+  }
+}

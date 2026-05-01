@@ -22,6 +22,11 @@
       "description": "Speed of comets in units per turn along their orbital path.",
       "type": "number",
       "default": 4.0
+    },
+    "seed": {
+      "description": "Optional input seed for deterministic planet/comet generation. The interpreter clears this from configuration after reading and stores the resolved seed on env.info['seed'] so it stays out of agent observations but is still recorded in the replay. Type allows null because the interpreter scrubs the value to null after reading, and the agent server re-validates the (scrubbed) configuration on every act() call.",
+      "type": ["integer", "null"],
+      "default": null
     }
   },
   "reward": {
@@ -70,7 +75,7 @@
       "type": "array",
       "default": []
     },
-    "remainingOverageTime": 2
+    "remainingOverageTime": 60
   },
   "action": {
     "description": "List of moves to make. Each move is [from_planet_id, direction_angle, num_ships]",
@@ -80,9 +85,9 @@
       "minItems": 3,
       "maxItems": 3,
       "items": [
-        {"type": "integer", "description": "Source planet ID"},
-        {"type": "number", "description": "Angle in radians"},
-        {"type": "integer", "description": "Number of ships"}
+        { "type": "integer", "description": "Source planet ID" },
+        { "type": "number", "description": "Angle in radians" },
+        { "type": "integer", "description": "Number of ships" }
       ]
     },
     "default": []

@@ -69,6 +69,7 @@ const KNOWN_STANDALONE_GAME_DIRS = new Set([
   'cabt',
   'chess',
   'connectx',
+  'crawl',
   'halite',
   'hungry_geese',
   'kore_fleets',

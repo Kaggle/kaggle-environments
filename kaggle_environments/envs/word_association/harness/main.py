@@ -121,7 +121,8 @@ class LLMWordAssociationAgent:
         
         clue_number = obs.clue_number
         prompt = f"You are the {team.upper()} Guesser in Word Association.\n\n"
-        prompt += f"Your goal is to correctly guess your team's words based on the Cluemaster's clues while avoiding the opposite team's words and the trap word.\n"
+        prompt += "Your goal is to correctly guess your team's words based on the Cluemaster's clues while avoiding the opposite team's words and the trap word.\n"
+        prompt += "You must make at least one guess before you are allowed to pass, or else you forfeit the game.\n"
         
         # Inject memory context (past games and current turns)
         prompt = self._inject_memory_context(prompt, obs, config)
@@ -164,7 +165,7 @@ class LLMWordAssociationAgent:
                 
         prompt += "\nThink step-by-step about which unrevealed word matches the clue best. Provide your reasoning in a 'thinking' key.\n"
         prompt += "Then provide the integer index of the ONE word you want to guess right now in a 'guess' key.\n"
-        prompt += "If you want to end your turn without guessing, set 'guess' to -1.\n"
+        prompt += "If you want to pass, set 'guess' to -1. NOTE: You are NOT allowed to pass (-1) on your very first turn without making at least one guess for the current clue, or else you forfeit the game. If you do, your action will be marked INVALID and your team will lose.\n"
         prompt += "You MUST format your response as valid JSON like this:\n"
         prompt += '{"thinking": "The clue is ANIMAL. Cat is at index 4, so I will guess 4...", "guess": 4}\n'
         prompt += "Do not include any other text or markdown formatting outside of the JSON block."

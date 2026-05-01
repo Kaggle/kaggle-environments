@@ -1,0 +1,85 @@
+.boardControls {
+  display: grid;
+  align-items: center;
+  justify-items: end;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.boardControls :where(button, input) {
+  outline-offset: -2px;
+}
+
+.boardControls :where(button, input) {
+  outline-color: #0077ff;
+}
+
+.boardControls button {
+  isolation: isolate;
+}
+
+.boardControls p {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.soundToggle {
+  place-items: center;
+}
+
+.soundToggle svg {
+  pointer-events: none;
+  z-index: 1;
+}
+
+.soundToggle svg use:first-child {
+  display: none;
+}
+
+.soundToggle :checked + svg use:first-child {
+  display: inline;
+}
+
+.soundToggle :checked + svg use:last-child {
+  display: none;
+}
+
+.settingsCta {
+  position: absolute;
+  font-family: "Mynerve", cursive;
+  font-size: 1rem;
+  line-height: 1.1;
+  text-align: center;
+  bottom: 0;
+  transform: translateY(100%);
+  max-width: 10ch;
+}
+
+.settingsCta img {
+  width: 0.75rem;
+  display: block;
+  margin-left: auto;
+  margin-right: 1em;
+  margin-top: 1em;
+}
+
+.settingsCta p {
+  margin-top: 0.25rem;
+  transform: translateX(1em) rotate(-8deg);
+}
+
+@container (max-width: 600px) {
+  .soundToggle svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .settingsCta {
+    font-size: 10px;
+
+    & img {
+      width: 0.5rem;
+      margin-right: 1em;
+    }
+  }
+}

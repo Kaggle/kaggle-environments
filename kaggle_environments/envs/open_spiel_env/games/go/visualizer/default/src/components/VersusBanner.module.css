@@ -1,0 +1,25 @@
+.versusBanner {
+  position: fixed;
+  top: calc(var(--board-top) + var(--board-height) / 2);
+  left: var(--board-left);
+  width: var(--board-width);
+
+  /* <Ribbon> element. */
+  & > * {
+    --ribbon-font-size: 1rem;
+    --ribbon-padding-inline: 2em;
+    --ribbon-padding-block: 1.25em;
+  }
+
+  & span {
+    white-space: nowrap;
+  }
+}
+
+@container (max-width: 600px) {
+  .versusBanner > * {
+    --ribbon-font-size: 0.75rem;
+    --ribbon-padding-inline: 1.5em;
+    --ribbon-padding-block: 0.8125em;
+  }
+}

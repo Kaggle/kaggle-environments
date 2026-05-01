@@ -1,8 +1,8 @@
 """Debug script: drive a short Go match through the LLM harness.
 
-Calls `harness.agent_fn` on every step — including the initial Kaggle
-setup step — to mirror what `env.run()` does, and logs each prompt and
-response so illegal-move failures are easy to diagnose.
+Calls the Go agent on every step — including the initial Kaggle setup step —
+to mirror what `env.run()` does, and logs each prompt and response so
+illegal-move failures are easy to diagnose.
 
 Usage:
     GEMINI_API_KEY=... .venv/bin/python -m \\
@@ -14,14 +14,30 @@ import argparse
 import os
 import sys
 
+import litellm
+
 from kaggle_environments import make
+from kaggle_environments.core_harness import create_agent_fn
 from kaggle_environments.envs.open_spiel_env import open_spiel_env
 from kaggle_environments.envs.open_spiel_env.games.go import harness
 
 
+class _GoHarness:
+    """Adapter wrapping module-level functions into the GameHarness protocol."""
+
+    def get_legal_moves(self, observation):
+        return harness.get_legal_moves(observation)
+
+    def make_prompt(self, observation, move_history, previous_response=None, previous_action=None):
+        return harness.generate_prompt(observation, move_history, previous_response, previous_action)
+
+    def parse_response(self, response, legal_action_strings):
+        return harness.parse_response(response, legal_action_strings)
+
+
 def _wrap_litellm_with_logging() -> None:
-    """Replace harness.litellm.completion with a version that prints I/O."""
-    original = harness.litellm.completion
+    """Replace litellm.completion with a version that prints I/O."""
+    original = litellm.completion
     call_idx = 0
 
     def logged_completion(*args, **kwargs):
@@ -37,16 +53,7 @@ def _wrap_litellm_with_logging() -> None:
         print("-" * 40)
         return resp
 
-    harness.litellm.completion = logged_completion
-
-
-def _collect_submissions(env) -> list[dict]:
-    return [
-        harness.agent_fn(s["observation"], {})
-        if s["status"] == "ACTIVE"
-        else {"submission": -1}
-        for s in env.state
-    ]
+    litellm.completion = logged_completion
 
 
 def main() -> None:
@@ -80,18 +87,28 @@ def main() -> None:
     env.reset()
     _wrap_litellm_with_logging()
 
+    agent_fn = create_agent_fn(_GoHarness())
+
     moves_played = 0
+    last_action_string = None
     while moves_played < args.num_moves:
         is_setup_step = len(env.steps) == 1
-        submissions = _collect_submissions(env)
+        submissions = []
+        for s in env.state:
+            if s["status"] == "ACTIVE":
+                result = agent_fn(s["observation"], {})
+                if result.get("submission") is not None:
+                    last_action_string = result.get("actionString")
+                submissions.append(result)
+            else:
+                submissions.append({"submission": -1})
 
         if is_setup_step:
             print("\n========== Setup step ==========")
             print(f">>> Submissions: {submissions}")
         else:
             moves_played += 1
-            played = harness._MOVE_HISTORY[-1] if harness._MOVE_HISTORY else "?"
-            print(f"\n========== Move {moves_played}: {played} ==========")
+            print(f"\n========== Move {moves_played}: {last_action_string or '?'} ==========")
 
         env.step(submissions)
         if env.done:
