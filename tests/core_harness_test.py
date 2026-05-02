@@ -188,6 +188,31 @@ class CoreHarnessTest(absltest.TestCase):
         self.assertIn("calling_llm", kinds)
         self.assertIn("action_is_legal", kinds)
 
+    def test_save_prompt_includes_prompt_in_action(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("move_1"),
+        ):
+            result = agent({}, {"savePrompt": True})
+
+        self.assertEqual(result["submission"], 1)
+        self.assertEqual(result["prompt"], harness.prompts[-1])
+
+    def test_save_prompt_omitted_by_default(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("move_1"),
+        ):
+            result = agent({}, {})
+
+        self.assertNotIn("prompt", result)
+
     def test_move_history_accumulates_across_calls(self):
         harness = _SimpleHarness()
         agent = create_agent_fn(harness)
