@@ -14,7 +14,7 @@ dependencies = [
     # Fixed due to litellm supply chain attack, hopefully can remove later.
     "litellm <= 1.82.4",
     "numpy >= 2.0",
-    "open_spiel >= 1.6.8",
+    "open_spiel >= 1.6.13",
     "pettingzoo == 1.24.0",
     "pokerkit==0.6.3",
     "pydantic >= 2.11.4",
