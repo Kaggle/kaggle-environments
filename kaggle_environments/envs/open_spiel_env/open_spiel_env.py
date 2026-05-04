@@ -897,6 +897,7 @@ GAMES_LIST = [
     "backgammon",
     "checkers",
     "chess",
+    "clobber",
     "connect_four",
     "dark_hex",
     "gin_rummy",
