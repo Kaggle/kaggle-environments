@@ -92,7 +92,7 @@ class ParseResponseTest(absltest.TestCase):
         self.assertEqual(result.raw_action, "Nf3")
 
     def test_parse_fallback_scan(self):
-        """Falls back to scanning prose for any legal SAN token."""
+        """Falls back to scanning prose for any legal move token."""
         legal = ["e4", "d4", "Nc3"]
         result = parse_response("In this position I think Nc3 wins material.", legal)
         self.assertEqual(result.legal_action, "Nc3")

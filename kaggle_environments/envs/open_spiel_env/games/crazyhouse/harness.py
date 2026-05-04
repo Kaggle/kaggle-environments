@@ -32,11 +32,11 @@ except Exception:
 _JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
 _BARE_JSON_RE = re.compile(r"\{[^{}]*\"move\"\s*:\s*\"([^\"]+)\"[^{}]*\}", re.DOTALL)
 
-# A SAN-or-drop token. Conservative: piece letter (PNBRQK) or pawn file (a-h),
-# optional disambiguation, optional capture x, target square, optional
-# promotion (=Q etc.), optional check/mate marker. Castling and drops are
-# handled separately.
-_SAN_TOKEN_RE = re.compile(
+# Crazyhouse move token: standard SAN (pawn pushes, piece moves with optional
+# disambiguation, captures, promotions, check/mate markers, castling) plus the
+# crazyhouse-specific drop form ``P@e4``. Drops are not part of SAN proper but
+# OpenSpiel emits them as legal action strings in the same list.
+_MOVE_TOKEN_RE = re.compile(
     r"\b("
     r"O-O-O[+#]?|O-O[+#]?"                               # castling
     r"|[PNBRQK]@[a-h][1-8]"                              # drop
@@ -145,12 +145,13 @@ def _format_pocket(pocket: Mapping[str, int] | None) -> str:
     return ", ".join(f"{count}x{piece}" for piece, count in sorted(pocket.items()))
 
 
-def _normalize_san(token: str) -> str:
-    """Normalize an SAN token for tolerant matching.
+def _normalize_move(token: str) -> str:
+    """Normalize a crazyhouse move token (SAN or drop) for tolerant matching.
 
     Strips trailing ``+``/``#`` markers and lower-cases pawn-only moves so
     ``E4`` and ``e4`` are treated the same. Piece moves keep their leading
     uppercase letter so ``Nf3`` doesn't collide with a hypothetical ``nf3``.
+    Drops (``P@e4``) are normalised to uppercase piece, lowercase square.
     """
     t = token.strip().rstrip("+#")
     if not t:
@@ -168,10 +169,10 @@ def _normalize_san(token: str) -> str:
 
 
 def _build_legal_index(legal_moves: Sequence[str]) -> dict[str, str]:
-    """Map normalised SAN -> the exact legal string the engine expects."""
+    """Map normalised move -> the exact legal string the engine expects."""
     index: dict[str, str] = {}
     for legal in legal_moves:
-        index.setdefault(_normalize_san(legal), legal)
+        index.setdefault(_normalize_move(legal), legal)
     return index
 
 
@@ -182,13 +183,13 @@ def _match_move_to_legal(
     """Match a candidate move string to one of the legal action strings."""
     if not move:
         return None
-    candidate = _normalize_san(move)
+    candidate = _normalize_move(move)
     index = _build_legal_index(legal_moves)
     if candidate in index:
         return index[candidate]
     # Try with the check/mate suffix the model may have omitted: a unique
     # legal move whose stripped form matches counts as a hit.
-    stripped_hits = [legal for legal in legal_moves if _normalize_san(legal) == candidate]
+    stripped_hits = [legal for legal in legal_moves if _normalize_move(legal) == candidate]
     if len(stripped_hits) == 1:
         return stripped_hits[0]
     return None
@@ -277,7 +278,7 @@ def parse_response(
     """Extract a legal crazyhouse move from the LLM response.
 
     Tries a ```json``` block first, then a bare ``{"move": "..."}``, then
-    scans the response text for any token that matches a legal SAN move.
+    scans the response text for any token that matches a legal move.
     """
     raw = _extract_move_from_json(response)
     if raw is not None:
@@ -285,12 +286,12 @@ def parse_response(
         if matched is not None:
             return ParseResult(legal_action=matched, raw_action=raw)
 
-    # Fallback: scan response for any legal SAN/drop token. Iterate in the
+    # Fallback: scan response for any legal SAN-or-drop token. Iterate in the
     # order the model wrote them so the first plausible move wins.
     legal_index = _build_legal_index(legal_action_strings)
-    for match in _SAN_TOKEN_RE.finditer(response):
+    for match in _MOVE_TOKEN_RE.finditer(response):
         token = match.group(1)
-        canonical = _normalize_san(token)
+        canonical = _normalize_move(token)
         if canonical in legal_index:
             return ParseResult(
                 legal_action=legal_index[canonical],
