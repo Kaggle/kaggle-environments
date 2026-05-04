@@ -914,6 +914,7 @@ GAMES_LIST = [
     "goofspiel(num_cards=4,points_order=descending,returns_type=total_points)",
     "hearts",
     "hex",
+    "markov_soccer",
     "matching_pennies_3p",
     "othello",
     "repeated_game(stage_game=matrix_pd(),num_repetitions=100)",

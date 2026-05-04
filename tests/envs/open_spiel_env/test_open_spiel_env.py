@@ -2,6 +2,7 @@ import json
 import pathlib
 import random
 
+import numpy as np
 import pokerkit  # noqa: F401
 import pyspiel
 from absl.testing import absltest
@@ -71,6 +72,63 @@ class OpenSpielEnvTest(absltest.TestCase):
         env.reset()
         env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
         env.step([{"submission": 999}, {"submission": -1}])  # Invalid action.
+        self.assertTrue(env.done)
+        playthrough = env.toJSON()
+        self.assertEqual(
+            playthrough["rewards"],
+            [
+                open_spiel_env.DEFAULT_INVALID_ACTION_REWARD,
+                -open_spiel_env.DEFAULT_INVALID_ACTION_REWARD,
+            ],
+        )
+
+    def test_markov_soccer_agent_playthrough(self):
+        env = make(
+            "open_spiel_markov_soccer",
+            configuration={"includeLegalActions": True},
+            debug=True,
+        )
+        env.run(["random", "random"])
+        playthrough = env.toJSON()
+        self.assertEqual(playthrough["name"], "open_spiel_markov_soccer")
+        self.assertTrue(all(status == "DONE" for status in playthrough["statuses"]))
+        rewards = playthrough["rewards"]
+        # Game ends in a win (+1/-1) or draw (0/0) at horizon.
+        self.assertIn(sorted(rewards), ([-1.0, 1.0], [0.0, 0.0]))
+
+    def test_markov_soccer_manual_playthrough(self):
+        # Seed numpy so the auto-resolved chance node (ball spawn + initiative)
+        # is deterministic; with seed 42 the ball spawns at row 1, col 2.
+        np.random.seed(42)
+        env = make("open_spiel_markov_soccer", debug=True)
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Setup: ball spawns.
+        obs = json.loads(env.state[0]["observation"]["observationString"])
+        self.assertEqual(obs["ball_pos"], [1, 2])
+        self.assertEqual(obs["player_a_pos"], [2, 1])
+        self.assertEqual(obs["player_b_pos"], [1, 3])
+        self.assertIsNone(obs["ball_owner"])
+        # Both players move every step (simultaneous game).
+        # 0=up, 1=down, 2=left, 3=right, 4=stand.
+        env.step([{"submission": 0}, {"submission": 1}])  # A up, B down (clear path).
+        env.step([{"submission": 3}, {"submission": 4}])  # A right -> picks up ball.
+        obs = json.loads(env.state[0]["observation"]["observationString"])
+        self.assertEqual(obs["ball_owner"], "A")
+        env.step([{"submission": 3}, {"submission": 4}])  # A right.
+        env.step([{"submission": 3}, {"submission": 4}])  # A right.
+        env.step([{"submission": 3}, {"submission": 4}])  # A right -> goal.
+        self.assertTrue(env.done)
+        final = json.loads(env.state[0]["observation"]["observationString"])
+        self.assertTrue(final["is_terminal"])
+        self.assertEqual(final["winner"], "A")
+        self.assertEqual(env.toJSON()["rewards"], [1.0, -1.0])
+
+    def test_markov_soccer_invalid_action(self):
+        env = make("open_spiel_markov_soccer", debug=True)
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Setup step.
+        # Player 0 submits an out-of-range action; player 1 plays legally.
+        env.step([{"submission": 999}, {"submission": 4}])
         self.assertTrue(env.done)
         playthrough = env.toJSON()
         self.assertEqual(

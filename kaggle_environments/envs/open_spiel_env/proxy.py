@@ -30,6 +30,9 @@ class State(pyspiel.State):
     def _apply_action(self, action: int) -> None:
         return self.__wrapped__.apply_action(action)
 
+    def _apply_actions(self, actions: list[int]) -> None:
+        return self.__wrapped__.apply_actions(actions)
+
     def _action_to_string(self, player: int, action: int) -> str:
         return self.__wrapped__.action_to_string(player, action)
 
