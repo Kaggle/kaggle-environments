@@ -158,6 +158,16 @@ CONFIGURATION_SPEC_TEMPLATE = {
         "type": "boolean",
         "default": False,
     },
+    "savePrompt": {
+        "description": (
+            "If true, the LLM prompt produced by the harness is included as a"
+            " 'prompt' field on the action returned by core_harness, which causes"
+            " it to be persisted in the episode replay. Defaults to false to keep"
+            " replays small."
+        ),
+        "type": "boolean",
+        "default": False,
+    },
 }
 
 OBSERVATION_SPEC_TEMPLATE = {
@@ -898,6 +908,7 @@ GAMES_LIST = [
     "checkers",
     "chess",
     "clobber",
+    "coin_game",
     "connect_four",
     "dark_hex",
     "gin_rummy",
@@ -905,6 +916,7 @@ GAMES_LIST = [
     "goofspiel(num_cards=4,points_order=descending,returns_type=total_points)",
     "hearts",
     "hex",
+    "lines_of_action",
     "matching_pennies_3p",
     "othello",
     "repeated_game(stage_game=matrix_pd(),num_repetitions=100)",

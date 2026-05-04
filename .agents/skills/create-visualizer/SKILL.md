@@ -432,7 +432,62 @@ def html_renderer():
 
 For OpenSpiel games, this is handled by the shared framework -- no per-game Python change is needed.
 
-## Step 7: Build and verify
+## Step 7: Write E2E tests (required)
+
+Every visualizer **must** ship with a Playwright E2E test file at `visualizer/<variant>/e2e/<name>.test.ts`. Tests are auto-discovered by `playwright.config.ts` (which boots a dev server using `dev-with-replay` against your `replays/test-replay.json`).
+
+**Keep tests minimal and shape-based, not exhaustive.** Do not enumerate every cell, piece, score value, or transition. The point is a smoke test that the visualizer mounts, renders, advances through steps, and reaches a terminal state -- not to lock in pixel-perfect behavior. Excessive assertions create churn every time the renderer changes.
+
+### Three test shapes to copy
+
+Reproduce the shapes below from existing tests; pick the 1-3 that fit your game. Reference: `kaggle_environments/envs/connectx/visualizer/default/e2e/connectx.test.ts`, `kaggle_environments/envs/open_spiel_env/games/chess/visualizer/default/e2e/chess.test.ts`, `kaggle_environments/envs/open_spiel_env/games/repeated_poker/visualizer/default/e2e/repeated_poker.test.ts`, `kaggle_environments/envs/open_spiel_env/games/go/visualizer/fallback/e2e/go.test.ts`.
+
+**Shape 1 -- "renders the game":** assert that the top-level container, the board, and one or two distinguishing elements (player names, title, key UI region) are visible. A handful of `toBeVisible` calls -- not an inventory.
+
+```typescript
+test('renders the game', async ({ page }) => {
+  await expect(page.locator('.renderer-container')).toBeVisible();
+  await expect(page.locator('.renderer-container canvas')).toBeVisible();
+  // Optional: 1-2 game-specific anchors (title, player card, key region)
+});
+```
+
+**Shape 2 -- "mid-game state":** drive the slider to the middle step and assert that game-state UI is present (current player indicator, pieces still on the board, etc.). Do not assert a specific position.
+
+```typescript
+test('displays correct game state at mid-game', async ({ page }) => {
+  const slider = page.locator('input[type="range"]');
+  await slider.waitFor({ state: 'visible' });
+  const maxValue = await slider.getAttribute('max');
+  const midStep = Math.floor(parseInt(maxValue || '0') / 2);
+  await slider.fill(String(midStep));
+  await page.waitForTimeout(200);
+  // 1-2 assertions that mid-game UI is present
+});
+```
+
+**Shape 3 -- "terminal state":** drive the slider to `max` and assert the game-over UI (winner text, "Match Complete", final score, etc.) appears. Match loosely with a regex; do not bind to a specific winner.
+
+```typescript
+test('displays winner status at final step', async ({ page }) => {
+  const slider = page.locator('input[type="range"]');
+  await slider.waitFor({ state: 'visible' });
+  const maxValue = await slider.getAttribute('max');
+  await slider.fill(maxValue || '0');
+  await page.waitForTimeout(200);
+  await expect(page.locator('p').filter({ hasText: /Wins|Winner|Draw/ })).toBeVisible();
+});
+```
+
+### Guidelines
+
+- Use loose matchers (`/Winner|Wins|Draw/`, `getBy*` over deep CSS chains) so tests survive cosmetic changes.
+- A `beforeEach` that does `await page.goto('/')` is standard.
+- Don't add tests for animation timing, hover/click interactions, or visual styling -- the dev replay only has one game.
+
+Run locally with `pnpm test:e2e` (filter via `pnpm test:e2e --project <name>`).
+
+## Step 8: Build and verify
 
 ```bash
 # Install dependencies (from repo root)
@@ -469,6 +524,8 @@ pnpm format
 - [ ] Current actor, move taken, move implications, and score are all visible
 - [ ] `html_renderer()` in the Python env reads `dist/index.html` (regular envs only)
 - [ ] `test-replay.json` has a full game (not 2-3 steps from agent failure)
+- [ ] `e2e/<name>.test.ts` exists with 3 minimal shape-based tests (renders, mid-game, terminal state) -- not exhaustive
+- [ ] `pnpm test:e2e --project <name>` passes
 - [ ] `pnpm build` produces output in `dist/`
 - [ ] `pnpm format` passes
 - [ ] If transformer: registered in `web/core/src/transformers.ts` switch statements
