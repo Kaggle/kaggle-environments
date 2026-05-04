@@ -273,6 +273,8 @@ def create_agent_fn(
             )
             setup_done = True
 
+        save_prompt = bool(config.get("savePrompt", False)) if config else False
+
         observation = obs if isinstance(obs, dict) else vars(obs)
 
         # -- inactive-call guard --
@@ -354,12 +356,15 @@ def create_agent_fn(
                         "legal_action": result.legal_action,
                     },
                 )
-                return {
+                action: dict[str, Any] = {
                     "submission": legal_actions[idx],
                     "actionString": result.legal_action,
                     "thoughts": last_content,
                     "status": "OK",
                 }
+                if save_prompt:
+                    action["prompt"] = prompt
+                return action
 
             # -- parse failed → prepare rethink --
             _TELEMETRY(

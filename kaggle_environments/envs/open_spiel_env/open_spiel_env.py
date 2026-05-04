@@ -158,6 +158,16 @@ CONFIGURATION_SPEC_TEMPLATE = {
         "type": "boolean",
         "default": False,
     },
+    "savePrompt": {
+        "description": (
+            "If true, the LLM prompt produced by the harness is included as a"
+            " 'prompt' field on the action returned by core_harness, which causes"
+            " it to be persisted in the episode replay. Defaults to false to keep"
+            " replays small."
+        ),
+        "type": "boolean",
+        "default": False,
+    },
 }
 
 OBSERVATION_SPEC_TEMPLATE = {
