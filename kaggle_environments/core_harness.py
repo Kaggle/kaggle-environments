@@ -285,9 +285,14 @@ def create_agent_fn(
         if is_terminal:
             _TELEMETRY(inactive_call="terminal")
             return {"submission": None, "status": "INACTIVE"}
+        # Simultaneous-move games report ``currentPlayer == -2``
+        # (pyspiel.PlayerId.SIMULTANEOUS): every player_id is "current" until
+        # the round resolves, so skip the not-our-turn check in that case.
+        SIMULTANEOUS_PLAYER_ID = -2
         if (
             player_id is not None
             and current_player is not None
+            and current_player != SIMULTANEOUS_PLAYER_ID
             and player_id != current_player
         ):
             _TELEMETRY(inactive_call="not_our_turn")

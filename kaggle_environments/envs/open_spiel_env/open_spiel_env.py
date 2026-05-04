@@ -905,6 +905,7 @@ GAMES_LIST = [
     "hearts",
     "hex",
     "matching_pennies_3p",
+    "oshi_zumo",
     "othello",
     "repeated_game(stage_game=matrix_pd(),num_repetitions=100)",
     "tic_tac_toe",
