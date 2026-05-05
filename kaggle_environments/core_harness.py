@@ -12,6 +12,9 @@ three methods:
 - ``generate_prompt(observation, move_history, previous_response?, previous_action?)``
 - ``parse_response(response, legal_action_strings)``
 
+Note that the provided harness requires a ``generate_prompt`` while this uses
+``make_prompt`` internally. (The static submission maps between these two)
+
 Use ``create_agent_fn(game_harness)`` to produce a Kaggle-compatible
 ``agent_fn(obs, config) -> {"submission": int, ...}`` callable.
 """
