@@ -1,0 +1,227 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+
+html, body, #app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+.sketched-border {
+  border: 1px dashed #3c3b37;
+}
+
+.demo-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 16px;
+  box-sizing: border-box;
+  gap: 12px;
+  container-type: inline-size;
+  justify-content: center;
+  background-color: #aacf8a;
+  background-image: url('/sprites/grass_bg.svg');
+  background-repeat: repeat;
+  background-size: 80px 80px;
+  color: #050001;
+  font-family: 'Inter', sans-serif;
+}
+
+.demo-container,
+.demo-container * {
+  color: #050001;
+}
+
+.demo-main {
+  display: grid;
+  grid-template-columns: minmax(280px, 1.4fr) minmax(220px, 0.8fr) minmax(280px, 1.4fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@container (max-width: 900px) {
+  .demo-main {
+    grid-template-columns: 1fr;
+  }
+}
+
+.farm-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.farm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: #e8d2a6;
+  background-image: url('/sprites/wood_bg.svg');
+  background-repeat: repeat;
+  background-size: 120px 80px;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.player-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.player-name-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.player-balance {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.balance-icon {
+  width: 24px;
+  height: 24px;
+  display: inline-block;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+.farm-area {
+  background-color: #efe7ce;
+  padding: 6px;
+  border: 1px dashed #3c3b37;
+}
+
+.farm-grid {
+  position: relative;
+  display: grid;
+  gap: 1px;
+  aspect-ratio: 1;
+  width: 100%;
+}
+
+.cell {
+  position: relative;
+  aspect-ratio: 1;
+  background-color: #f7efd8;
+  outline: 1px solid rgba(60, 59, 55, 0.15);
+}
+
+.cell-base,
+.cell-object,
+.cell-agent {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cell-base   { z-index: 1; }
+.cell-object { z-index: 2; }
+.cell-agent  { z-index: 3; }
+
+.cell-sprite {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  image-rendering: pixelated;
+}
+
+.cell-agent-sprite {
+  inset: auto;
+  width: 80%;
+  height: 80%;
+  bottom: 5%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.seed-area {
+  background-color: #e8d2a6;
+  background-image: url('/sprites/wood_bg.svg');
+  background-repeat: repeat;
+  background-size: 120px 80px;
+  padding: 8px 10px;
+}
+
+.seed-header {
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 6px;
+}
+
+.seed-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.seed-slot {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background-color: #c9a978;
+  border: 1px dashed #8b6f44;
+  padding: 4px;
+}
+
+.seed-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.seed-count {
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.status-panel {
+  background-color: #e8d2a6;
+  background-image: url('/sprites/wood_bg.svg');
+  background-repeat: repeat;
+  background-size: 120px 80px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-title {
+  font-family: 'Mynerve', cursive;
+  font-size: 1.3rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.status-counters {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.day-counter,
+.turn-counter {
+  font-family: 'Mynerve', cursive;
+  font-size: 1.1rem;
+}
