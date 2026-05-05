@@ -224,6 +224,7 @@ def _setup_model() -> tuple[str, dict[str, Any]]:
         litellm_kwargs = {
             "api_base": f"{os.environ['MODEL_PROXY_URL']}/openapi",
             "api_key": os.environ["MODEL_PROXY_KEY"],
+            "reasoning_effort": "high",
         }
     elif "gemini" in model_name.lower() and not model_name.startswith("gemini/"):
         model_name = f"gemini/{model_name}"
