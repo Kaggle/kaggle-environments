@@ -1,0 +1,893 @@
+{
+  "id": "e0667078-48a3-11f1-a523-0ecc5f0528fe",
+  "name": "open_spiel_dots_and_boxes",
+  "title": "Open Spiel: dots_and_boxes",
+  "description": "Kaggle environment wrapper for OpenSpiel games.\nFor game implementation details see:\nhttps://github.com/google-deepmind/open_spiel/tree/master/open_spiel/games",
+  "version": "0.1.0",
+  "module_version": "1.29.0",
+  "configuration": {
+    "includeLegalActions": true,
+    "seed": 7,
+    "episodeSteps": 112,
+    "actTimeout": 3600,
+    "runTimeout": 172800,
+    "openSpielGameString": "dots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)",
+    "openSpielGameName": "dots_and_boxes",
+    "openSpielGameParameters": {
+      "num_cols": 2,
+      "num_rows": 2,
+      "utility_margin": false
+    },
+    "observationType": "observation",
+    "useOpenings": false,
+    "useImage": false,
+    "loadPresetHands": false,
+    "metadata": {},
+    "strictMode": false,
+    "savePrompt": false
+  },
+  "specification": {
+    "action": {
+      "description": "Action object MUST contain a field `submission`, and MAY contain arbitrary additional information.",
+      "type": "object",
+      "default": { "submission": -1 }
+    },
+    "agents": [2],
+    "configuration": {
+      "episodeSteps": {
+        "description": "Maximum number of steps in the episode.",
+        "type": "integer",
+        "minimum": 1,
+        "default": 112
+      },
+      "actTimeout": {
+        "description": "Maximum runtime (seconds) to obtain an action from an agent.",
+        "type": "number",
+        "minimum": 0,
+        "default": 3600
+      },
+      "runTimeout": {
+        "description": "Maximum runtime (seconds) of an episode (not necessarily DONE).",
+        "type": "number",
+        "minimum": 0,
+        "default": 172800
+      },
+      "openSpielGameString": {
+        "description": "The full game string including parameters.",
+        "type": "string",
+        "default": "dots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)"
+      },
+      "openSpielGameName": {
+        "description": "The short_name of the OpenSpiel game to load.",
+        "type": "string",
+        "default": "dots_and_boxes"
+      },
+      "openSpielGameParameters": {
+        "description": "Game parameters for Open Spiel game.",
+        "type": "object",
+        "default": { "num_cols": 2, "num_rows": 2, "utility_margin": false },
+        "properties": {}
+      },
+      "observationType": {
+        "description": "Type of observation string: 'observation' or 'information_state'.",
+        "type": "string",
+        "default": "observation"
+      },
+      "useOpenings": {
+        "description": "Whether to start from a position in an opening book.",
+        "type": "boolean",
+        "default": false
+      },
+      "useImage": {
+        "description": "If true, indicates the observation is intended to be rendered as an image. Note that currently the agent harness is responsible for the actual rendering; no image is passed in the observation.",
+        "type": "boolean",
+        "default": false
+      },
+      "includeLegalActions": {
+        "description": "If true, include legalActions and legalActionStrings in observations. Defaults to false since these can be derived from serializedGameAndState.",
+        "type": "boolean",
+        "default": false
+      },
+      "seed": {
+        "description": "Integer currently only used for selecting starting position.",
+        "type": "number"
+      },
+      "initialActions": {
+        "description": "Actions applied to initial state before play begins to set up starting position.",
+        "type": "array"
+      },
+      "loadPresetHands": {
+        "description": "Repeated poker only. Load preset hand chance actions from preset_hands.jsonl.",
+        "type": "boolean",
+        "default": false
+      },
+      "presetHands": {
+        "description": "Repeated poker only. List of per-hand chance action sequences to use instead of random chance.",
+        "type": "array"
+      },
+      "metadata": {
+        "description": "Arbitrary metadata.",
+        "type": "object",
+        "default": {},
+        "properties": {}
+      },
+      "strictMode": {
+        "description": "If true, agents must return only {'submission': int} (no extra fields like 'thoughts'), and per-agent TIMEOUT/ERROR/INVALID counts as a loss for the offending agent only \u2014 other agents win. If false (default), any agent error halts and voids the entire episode, matching the lenient research-mode behavior.",
+        "type": "boolean",
+        "default": false
+      },
+      "savePrompt": {
+        "description": "If true, the LLM prompt produced by the harness is included as a 'prompt' field on the action returned by core_harness, which causes it to be persisted in the episode replay. Defaults to false to keep replays small.",
+        "type": "boolean",
+        "default": false
+      }
+    },
+    "info": {},
+    "observation": {
+      "remainingOverageTime": {
+        "description": "Total remaining banked time (seconds) that can be used in excess of per-step actTimeouts -- agent is disqualified with TIMEOUT status when this drops below 0.",
+        "shared": false,
+        "type": "number",
+        "minimum": 0,
+        "default": 12
+      },
+      "step": {
+        "description": "Current step within the episode.",
+        "type": "integer",
+        "shared": true,
+        "minimum": 0,
+        "default": 0
+      },
+      "properties": {
+        "openSpielGameString": {
+          "description": "Full game string including parameters.",
+          "type": "string",
+          "default": "dots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)"
+        },
+        "openSpielGameName": {
+          "description": "Short name of the OpenSpiel game.",
+          "type": "string",
+          "default": "dots_and_boxes"
+        },
+        "observationString": {
+          "description": "String representation of state.",
+          "type": "string"
+        },
+        "legalActions": {
+          "description": "List of OpenSpiel legal action integers. Only included if includeLegalActions is true.",
+          "type": "array"
+        },
+        "legalActionStrings": {
+          "description": "List of OpenSpiel legal action strings. Only included if includeLegalActions is true.",
+          "type": "array"
+        },
+        "currentPlayer": {
+          "description": "ID of player whose turn it is.",
+          "type": "integer"
+        },
+        "playerId": {
+          "description": "ID of the agent receiving this observation.",
+          "type": "integer"
+        },
+        "isTerminal": {
+          "description": "Boolean indicating game end.",
+          "type": "boolean"
+        },
+        "serializedGameAndState": {
+          "description": "Enables reconstructing the Game and State objects.",
+          "type": "string"
+        },
+        "remainingOverageTime": 60,
+        "step": 0
+      },
+      "default": {}
+    },
+    "reward": { "type": ["number", "null"], "default": 0.0 }
+  },
+  "steps": [
+    [
+      {
+        "action": { "submission": -1 },
+        "reward": 0.0,
+        "info": {},
+        "observation": { "remainingOverageTime": 12, "step": 0 },
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "reward": 0.0,
+        "info": {},
+        "observation": { "remainingOverageTime": 12 },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "reward": null,
+        "info": {
+          "actionSubmitted": null,
+          "actionSubmittedToString": null,
+          "actionApplied": null,
+          "timeTaken": null,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 1,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[0, 0], [0, 0], [0, 0]], \"v_lines\": [[0, 0, 0], [0, 0, 0]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"1\", \"is_terminal\": false, \"winner\": null, \"last_action\": null}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=\nmove_number=0\n__dict__=gASV1QAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMnCMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoKCpRicy4=\n",
+          "legalActions": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+          "legalActionStrings": [
+            "P1(h,0,0)",
+            "P1(h,0,1)",
+            "P1(h,1,0)",
+            "P1(h,1,1)",
+            "P1(h,2,0)",
+            "P1(h,2,1)",
+            "P1(v,0,0)",
+            "P1(v,0,1)",
+            "P1(v,0,2)",
+            "P1(v,1,0)",
+            "P1(v,1,1)",
+            "P1(v,1,2)"
+          ]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[0, 0], [0, 0], [0, 0]], \"v_lines\": [[0, 0, 0], [0, 0, 0]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"1\", \"is_terminal\": false, \"winner\": null, \"last_action\": null}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=\nmove_number=0\n__dict__=gASV1QAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMnCMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoKCpRicy4=\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 10,
+          "thoughts": "phi ripple sigma ponder reflect consider upsilon phi"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 10,
+          "actionSubmittedToString": "P1(v,1,1)",
+          "actionApplied": 10,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 2,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[0, 0], [0, 0], [0, 0]], \"v_lines\": [[0, 0, 0], [0, 1, 0]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"2\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"v\", \"row\": 1, \"col\": 1, \"player\": \"1\"}}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=0:10\nmove_number=1\n__dict__=gASV1wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMniMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoxMAoKlGJzLg==\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[0, 0], [0, 0], [0, 0]], \"v_lines\": [[0, 0, 0], [0, 1, 0]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"2\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"v\", \"row\": 1, \"col\": 1, \"player\": \"1\"}}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=0:10\nmove_number=1\n__dict__=gASV1wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMniMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoxMAoKlGJzLg==\n",
+          "legalActions": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11],
+          "legalActionStrings": [
+            "P2(h,0,0)",
+            "P2(h,0,1)",
+            "P2(h,1,0)",
+            "P2(h,1,1)",
+            "P2(h,2,0)",
+            "P2(h,2,1)",
+            "P2(v,0,0)",
+            "P2(v,0,1)",
+            "P2(v,0,2)",
+            "P2(v,1,0)",
+            "P2(v,1,2)"
+          ]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 3,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[0, 2], [0, 0], [0, 0]], \"v_lines\": [[0, 0, 0], [0, 1, 0]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"1\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"h\", \"row\": 0, \"col\": 1, \"player\": \"2\"}}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=0:10,1:1\nmove_number=2\n__dict__=gASV2QAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMoCMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoxMAoxCgqUYnMu\n",
+          "legalActions": [0, 2, 3, 4, 5, 6, 7, 8, 9, 11],
+          "legalActionStrings": [
+            "P1(h,0,0)",
+            "P1(h,1,0)",
+            "P1(h,1,1)",
+            "P1(h,2,0)",
+            "P1(h,2,1)",
+            "P1(v,0,0)",
+            "P1(v,0,1)",
+            "P1(v,0,2)",
+            "P1(v,1,0)",
+            "P1(v,1,2)"
+          ]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 1,
+          "thoughts": "eta phi phi echo omega wonder phi theta"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 1,
+          "actionSubmittedToString": "P2(h,0,1)",
+          "actionApplied": 1,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[0, 2], [0, 0], [0, 0]], \"v_lines\": [[0, 0, 0], [0, 1, 0]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"1\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"h\", \"row\": 0, \"col\": 1, \"player\": \"2\"}}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=0:10,1:1\nmove_number=2\n__dict__=gASV2QAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMoCMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoxMAoxCgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 4,
+          "thoughts": "lantern psi sigma kappa lantern echo muse eta"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 4,
+          "actionSubmittedToString": "P1(h,2,0)",
+          "actionApplied": 4,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 4,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[0, 2], [0, 0], [1, 0]], \"v_lines\": [[0, 0, 0], [0, 1, 0]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"2\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"h\", \"row\": 2, \"col\": 0, \"player\": \"1\"}}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=0:10,1:1,0:4\nmove_number=3\n__dict__=gASV2wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMoiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoxMAoxCjQKCpRicy4=\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[0, 2], [0, 0], [1, 0]], \"v_lines\": [[0, 0, 0], [0, 1, 0]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"2\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"h\", \"row\": 2, \"col\": 0, \"player\": \"1\"}}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=0:10,1:1,0:4\nmove_number=3\n__dict__=gASV2wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMoiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoxMAoxCjQKCpRicy4=\n",
+          "legalActions": [0, 2, 3, 5, 6, 7, 8, 9, 11],
+          "legalActionStrings": [
+            "P2(h,0,0)",
+            "P2(h,1,0)",
+            "P2(h,1,1)",
+            "P2(h,2,1)",
+            "P2(v,0,0)",
+            "P2(v,0,1)",
+            "P2(v,0,2)",
+            "P2(v,1,0)",
+            "P2(v,1,2)"
+          ]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 5,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[0, 2], [0, 0], [1, 0]], \"v_lines\": [[0, 2, 0], [0, 1, 0]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"1\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"v\", \"row\": 0, \"col\": 1, \"player\": \"2\"}}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=0:10,1:1,0:4,1:7\nmove_number=4\n__dict__=gASV3QAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMpCMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoxMAoxCjQKNwoKlGJzLg==\n",
+          "legalActions": [0, 2, 3, 5, 6, 8, 9, 11],
+          "legalActionStrings": [
+            "P1(h,0,0)",
+            "P1(h,1,0)",
+            "P1(h,1,1)",
+            "P1(h,2,1)",
+            "P1(v,0,0)",
+            "P1(v,0,2)",
+            "P1(v,1,0)",
+            "P1(v,1,2)"
+          ]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 7,
+          "thoughts": "delta psi echo consider iota zeta explore beta"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 7,
+          "actionSubmittedToString": "P2(v,0,1)",
+          "actionApplied": 7,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[0, 2], [0, 0], [1, 0]], \"v_lines\": [[0, 2, 0], [0, 1, 0]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"1\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"v\", \"row\": 0, \"col\": 1, \"player\": \"2\"}}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=0:10,1:1,0:4,1:7\nmove_number=4\n__dict__=gASV3QAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMpCMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoxMAoxCjQKNwoKlGJzLg==\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 0,
+          "thoughts": "lambda consider psi wonder phi wonder muse zeta"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 0,
+          "actionSubmittedToString": "P1(h,0,0)",
+          "actionApplied": 0,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 6,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[1, 2], [0, 0], [1, 0]], \"v_lines\": [[0, 2, 0], [0, 1, 0]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"2\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"h\", \"row\": 0, \"col\": 0, \"player\": \"1\"}}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=0:10,1:1,0:4,1:7,0:0\nmove_number=5\n__dict__=gASV3wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMpiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoxMAoxCjQKNwowCgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[1, 2], [0, 0], [1, 0]], \"v_lines\": [[0, 2, 0], [0, 1, 0]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"2\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"h\", \"row\": 0, \"col\": 0, \"player\": \"1\"}}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=0:10,1:1,0:4,1:7,0:0\nmove_number=5\n__dict__=gASV3wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMpiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoxMAoxCjQKNwowCgqUYnMu\n",
+          "legalActions": [2, 3, 5, 6, 8, 9, 11],
+          "legalActionStrings": [
+            "P2(h,1,0)",
+            "P2(h,1,1)",
+            "P2(h,2,1)",
+            "P2(v,0,0)",
+            "P2(v,0,2)",
+            "P2(v,1,0)",
+            "P2(v,1,2)"
+          ]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 7,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[1, 2], [0, 0], [1, 0]], \"v_lines\": [[0, 2, 0], [0, 1, 2]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"1\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"v\", \"row\": 1, \"col\": 2, \"player\": \"2\"}}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=0:10,1:1,0:4,1:7,0:0,1:11\nmove_number=6\n__dict__=gASV4gAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMqSMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoxMAoxCjQKNwowCjExCgqUYnMu\n",
+          "legalActions": [2, 3, 5, 6, 8, 9],
+          "legalActionStrings": [
+            "P1(h,1,0)",
+            "P1(h,1,1)",
+            "P1(h,2,1)",
+            "P1(v,0,0)",
+            "P1(v,0,2)",
+            "P1(v,1,0)"
+          ]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 11,
+          "thoughts": "gamma omicron lambda explore kappa eta omicron ember"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 11,
+          "actionSubmittedToString": "P2(v,1,2)",
+          "actionApplied": 11,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[1, 2], [0, 0], [1, 0]], \"v_lines\": [[0, 2, 0], [0, 1, 2]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"1\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"v\", \"row\": 1, \"col\": 2, \"player\": \"2\"}}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=0:10,1:1,0:4,1:7,0:0,1:11\nmove_number=6\n__dict__=gASV4gAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMqSMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoxMAoxCjQKNwowCjExCgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 6,
+          "thoughts": "ember upsilon imagine nu kappa kappa spark nu"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 6,
+          "actionSubmittedToString": "P1(v,0,0)",
+          "actionApplied": 6,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 8,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[1, 2], [0, 0], [1, 0]], \"v_lines\": [[1, 2, 0], [0, 1, 2]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"2\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"v\", \"row\": 0, \"col\": 0, \"player\": \"1\"}}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=0:10,1:1,0:4,1:7,0:0,1:11,0:6\nmove_number=7\n__dict__=gASV5AAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMqyMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoxMAoxCjQKNwowCjExCjYKCpRicy4=\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[1, 2], [0, 0], [1, 0]], \"v_lines\": [[1, 2, 0], [0, 1, 2]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"2\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"v\", \"row\": 0, \"col\": 0, \"player\": \"1\"}}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=0:10,1:1,0:4,1:7,0:0,1:11,0:6\nmove_number=7\n__dict__=gASV5AAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMqyMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoxMAoxCjQKNwowCjExCjYKCpRicy4=\n",
+          "legalActions": [2, 3, 5, 8, 9],
+          "legalActionStrings": [
+            "P2(h,1,0)",
+            "P2(h,1,1)",
+            "P2(h,2,1)",
+            "P2(v,0,2)",
+            "P2(v,1,0)"
+          ]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 9,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[1, 2], [0, 2], [1, 0]], \"v_lines\": [[1, 2, 0], [0, 1, 2]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"1\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"h\", \"row\": 1, \"col\": 1, \"player\": \"2\"}}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=0:10,1:1,0:4,1:7,0:0,1:11,0:6,1:3\nmove_number=8\n__dict__=gASV5gAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMrSMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoxMAoxCjQKNwowCjExCjYKMwoKlGJzLg==\n",
+          "legalActions": [2, 5, 8, 9],
+          "legalActionStrings": [
+            "P1(h,1,0)",
+            "P1(h,2,1)",
+            "P1(v,0,2)",
+            "P1(v,1,0)"
+          ]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 3,
+          "thoughts": "shadow beta spark pi rho ripple eta nu"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 3,
+          "actionSubmittedToString": "P2(h,1,1)",
+          "actionApplied": 3,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[1, 2], [0, 2], [1, 0]], \"v_lines\": [[1, 2, 0], [0, 1, 2]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"1\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"h\", \"row\": 1, \"col\": 1, \"player\": \"2\"}}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=0:10,1:1,0:4,1:7,0:0,1:11,0:6,1:3\nmove_number=8\n__dict__=gASV5gAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMrSMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoxMAoxCjQKNwowCjExCjYKMwoKlGJzLg==\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 2,
+          "thoughts": "consider alpha ember consider spark wonder reflect cascade"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 2,
+          "actionSubmittedToString": "P1(h,1,0)",
+          "actionApplied": 2,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 10,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[1, 2], [1, 2], [1, 0]], \"v_lines\": [[1, 2, 0], [0, 1, 2]], \"boxes\": [[1, 0], [0, 0]], \"scores\": [1, 0], \"current_player\": \"1\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"h\", \"row\": 1, \"col\": 0, \"player\": \"1\"}}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=0:10,1:1,0:4,1:7,0:0,1:11,0:6,1:3,0:2\nmove_number=9\n__dict__=gASV6AAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMryMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoxMAoxCjQKNwowCjExCjYKMwoyCgqUYnMu\n",
+          "legalActions": [5, 8, 9],
+          "legalActionStrings": ["P1(h,2,1)", "P1(v,0,2)", "P1(v,1,0)"]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[1, 2], [1, 2], [1, 0]], \"v_lines\": [[1, 2, 0], [0, 1, 2]], \"boxes\": [[1, 0], [0, 0]], \"scores\": [1, 0], \"current_player\": \"1\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"h\", \"row\": 1, \"col\": 0, \"player\": \"1\"}}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=0:10,1:1,0:4,1:7,0:0,1:11,0:6,1:3,0:2\nmove_number=9\n__dict__=gASV6AAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMryMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoxMAoxCjQKNwowCjExCjYKMwoyCgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 5,
+          "thoughts": "consider explore eta omicron shadow ripple omega nu"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 5,
+          "actionSubmittedToString": "P1(h,2,1)",
+          "actionApplied": 5,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 11,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[1, 2], [1, 2], [1, 1]], \"v_lines\": [[1, 2, 0], [0, 1, 2]], \"boxes\": [[1, 0], [0, 1]], \"scores\": [2, 0], \"current_player\": \"1\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"h\", \"row\": 2, \"col\": 1, \"player\": \"1\"}}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=0:10,1:1,0:4,1:7,0:0,1:11,0:6,1:3,0:2,0:5\nmove_number=10\n__dict__=gASV6gAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMsSMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoxMAoxCjQKNwowCjExCjYKMwoyCjUKCpRicy4=\n",
+          "legalActions": [8, 9],
+          "legalActionStrings": ["P1(v,0,2)", "P1(v,1,0)"]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[1, 2], [1, 2], [1, 1]], \"v_lines\": [[1, 2, 0], [0, 1, 2]], \"boxes\": [[1, 0], [0, 1]], \"scores\": [2, 0], \"current_player\": \"1\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"h\", \"row\": 2, \"col\": 1, \"player\": \"1\"}}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=0:10,1:1,0:4,1:7,0:0,1:11,0:6,1:3,0:2,0:5\nmove_number=10\n__dict__=gASV6gAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMsSMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoxMAoxCjQKNwowCjExCjYKMwoyCjUKCpRicy4=\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 8,
+          "thoughts": "mu ripple psi ponder omega psi nu psi"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 8,
+          "actionSubmittedToString": "P1(v,0,2)",
+          "actionApplied": 8,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 12,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[1, 2], [1, 2], [1, 1]], \"v_lines\": [[1, 2, 1], [0, 1, 2]], \"boxes\": [[1, 1], [0, 1]], \"scores\": [3, 0], \"current_player\": \"1\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"v\", \"row\": 0, \"col\": 2, \"player\": \"1\"}}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=0:10,1:1,0:4,1:7,0:0,1:11,0:6,1:3,0:2,0:5,0:8\nmove_number=11\n__dict__=gASV7AAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMsyMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoxMAoxCjQKNwowCjExCjYKMwoyCjUKOAoKlGJzLg==\n",
+          "legalActions": [9],
+          "legalActionStrings": ["P1(v,1,0)"]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[1, 2], [1, 2], [1, 1]], \"v_lines\": [[1, 2, 1], [0, 1, 2]], \"boxes\": [[1, 1], [0, 1]], \"scores\": [3, 0], \"current_player\": \"1\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"v\", \"row\": 0, \"col\": 2, \"player\": \"1\"}}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=0:10,1:1,0:4,1:7,0:0,1:11,0:6,1:3,0:2,0:5,0:8\nmove_number=11\n__dict__=gASV7AAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMsyMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoxMAoxCjQKNwowCjExCjYKMwoyCjUKOAoKlGJzLg==\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 9,
+          "thoughts": "wonder imagine zeta wonder sigma xi wonder explore"
+        },
+        "reward": 1.0,
+        "info": {
+          "actionSubmitted": 9,
+          "actionSubmittedToString": "P1(v,1,0)",
+          "actionApplied": 9,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 13,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[1, 2], [1, 2], [1, 1]], \"v_lines\": [[1, 2, 1], [1, 1, 2]], \"boxes\": [[1, 1], [1, 1]], \"scores\": [4, 0], \"current_player\": \"\", \"is_terminal\": true, \"winner\": \"1\", \"last_action\": {\"orientation\": \"v\", \"row\": 1, \"col\": 0, \"player\": \"1\"}}",
+          "currentPlayer": -4,
+          "playerId": 0,
+          "isTerminal": true,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=0:10,1:1,0:4,1:7,0:0,1:11,0:6,1:3,0:2,0:5,0:8,0:9\nmove_number=12\n__dict__=gASV7gAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMtSMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoxMAoxCjQKNwowCjExCjYKMwoyCjUKOAo5CgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "DONE"
+      },
+      {
+        "action": { "submission": -1 },
+        "reward": -1.0,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[1, 2], [1, 2], [1, 1]], \"v_lines\": [[1, 2, 1], [1, 1, 2]], \"boxes\": [[1, 1], [1, 1]], \"scores\": [4, 0], \"current_player\": \"\", \"is_terminal\": true, \"winner\": \"1\", \"last_action\": {\"orientation\": \"v\", \"row\": 1, \"col\": 0, \"player\": \"1\"}}",
+          "currentPlayer": -4,
+          "playerId": 1,
+          "isTerminal": true,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ndots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)\n[State]\nhistory=0:10,1:1,0:4,1:7,0:0,1:11,0:6,1:3,0:2,0:5,0:8,0:9\nmove_number=12\n__dict__=gASV7gAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwRRG90c0FuZEJveGVzU3RhdGWUk5QpgZSMtSMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmRvdHNfYW5kX2JveGVzKG51bV9jb2xzPTIsbnVtX3Jvd3M9Mix1dGlsaXR5X21hcmdpbj1GYWxzZSkKW1N0YXRlXQoxMAoxCjQKNwowCjExCjYKMwoyCjUKOAo5CgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "DONE"
+      }
+    ]
+  ],
+  "rewards": [1.0, -1.0],
+  "statuses": ["DONE", "DONE"],
+  "schema_version": 1,
+  "info": {
+    "openSpielGameStringResolved": "dots_and_boxes_proxy(num_cols=2,num_rows=2,utility_margin=False)",
+    "stateHistory": [
+      "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[0, 0], [0, 0], [0, 0]], \"v_lines\": [[0, 0, 0], [0, 0, 0]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"1\", \"is_terminal\": false, \"winner\": null, \"last_action\": null}",
+      "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[0, 0], [0, 0], [0, 0]], \"v_lines\": [[0, 0, 0], [0, 1, 0]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"2\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"v\", \"row\": 1, \"col\": 1, \"player\": \"1\"}}",
+      "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[0, 2], [0, 0], [0, 0]], \"v_lines\": [[0, 0, 0], [0, 1, 0]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"1\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"h\", \"row\": 0, \"col\": 1, \"player\": \"2\"}}",
+      "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[0, 2], [0, 0], [1, 0]], \"v_lines\": [[0, 0, 0], [0, 1, 0]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"2\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"h\", \"row\": 2, \"col\": 0, \"player\": \"1\"}}",
+      "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[0, 2], [0, 0], [1, 0]], \"v_lines\": [[0, 2, 0], [0, 1, 0]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"1\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"v\", \"row\": 0, \"col\": 1, \"player\": \"2\"}}",
+      "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[1, 2], [0, 0], [1, 0]], \"v_lines\": [[0, 2, 0], [0, 1, 0]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"2\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"h\", \"row\": 0, \"col\": 0, \"player\": \"1\"}}",
+      "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[1, 2], [0, 0], [1, 0]], \"v_lines\": [[0, 2, 0], [0, 1, 2]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"1\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"v\", \"row\": 1, \"col\": 2, \"player\": \"2\"}}",
+      "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[1, 2], [0, 0], [1, 0]], \"v_lines\": [[1, 2, 0], [0, 1, 2]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"2\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"v\", \"row\": 0, \"col\": 0, \"player\": \"1\"}}",
+      "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[1, 2], [0, 2], [1, 0]], \"v_lines\": [[1, 2, 0], [0, 1, 2]], \"boxes\": [[0, 0], [0, 0]], \"scores\": [0, 0], \"current_player\": \"1\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"h\", \"row\": 1, \"col\": 1, \"player\": \"2\"}}",
+      "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[1, 2], [1, 2], [1, 0]], \"v_lines\": [[1, 2, 0], [0, 1, 2]], \"boxes\": [[1, 0], [0, 0]], \"scores\": [1, 0], \"current_player\": \"1\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"h\", \"row\": 1, \"col\": 0, \"player\": \"1\"}}",
+      "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[1, 2], [1, 2], [1, 1]], \"v_lines\": [[1, 2, 0], [0, 1, 2]], \"boxes\": [[1, 0], [0, 1]], \"scores\": [2, 0], \"current_player\": \"1\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"h\", \"row\": 2, \"col\": 1, \"player\": \"1\"}}",
+      "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[1, 2], [1, 2], [1, 1]], \"v_lines\": [[1, 2, 1], [0, 1, 2]], \"boxes\": [[1, 1], [0, 1]], \"scores\": [3, 0], \"current_player\": \"1\", \"is_terminal\": false, \"winner\": null, \"last_action\": {\"orientation\": \"v\", \"row\": 0, \"col\": 2, \"player\": \"1\"}}",
+      "{\"num_rows\": 2, \"num_cols\": 2, \"h_lines\": [[1, 2], [1, 2], [1, 1]], \"v_lines\": [[1, 2, 1], [1, 1, 2]], \"boxes\": [[1, 1], [1, 1]], \"scores\": [4, 0], \"current_player\": \"\", \"is_terminal\": true, \"winner\": \"1\", \"last_action\": {\"orientation\": \"v\", \"row\": 1, \"col\": 0, \"player\": \"1\"}}"
+    ],
+    "actionHistory": [
+      "10",
+      "1",
+      "4",
+      "7",
+      "0",
+      "11",
+      "6",
+      "3",
+      "2",
+      "5",
+      "8",
+      "9"
+    ],
+    "moveDurations": [
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+    ]
+  }
+}
