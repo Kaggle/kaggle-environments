@@ -909,6 +909,7 @@ GAMES_LIST = [
     "chess",
     "connect_four",
     "dark_hex",
+    "dots_and_boxes",
     "gin_rummy",
     "go(board_size=9)",
     "goofspiel(num_cards=4,points_order=descending,returns_type=total_points)",
