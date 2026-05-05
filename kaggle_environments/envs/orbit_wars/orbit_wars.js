@@ -72,8 +72,8 @@ async function renderer(context) {
   const current_step = environment.steps[step];
   const obs = current_step[0].observation;
 
-  // Wong palette — colorblind-safe (blue, orange, teal, yellow, neutral grey)
-  const colors = ['#0072B2', '#E69F00', '#009E73', '#F0E442', '#888888'];
+  // Wong palette — colorblind-safe (blue, vermillion, teal, yellow, neutral grey)
+  const colors = ['#0072B2', '#D55E00', '#009E73', '#F0E442', '#888888'];
 
   // Draw Comet tails (before planets so tails render behind)
   const cometPidSet = new Set(obs.comet_planet_ids || []);
