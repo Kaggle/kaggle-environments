@@ -311,13 +311,14 @@ def create_agent_fn(
             return {"submission": None, "status": "INACTIVE"}
 
         # -- legal moves --
+        allow_free_form = bool(config.get("freeForm", False)) if config else False
         legal_moves = game_harness.get_legal_moves(observation)
-        free_form = legal_moves is None
+        free_form = legal_moves is None and allow_free_form
 
-        if free_form:
-            legal_action_strings = None
-        else:
-            if not legal_moves:
+        if not legal_moves:
+            if free_form:
+                legal_action_strings = None
+            else:
                 # Distinguish "obs not yet populated" (None signals) from
                 # a real bug (it IS our turn but the game offers nothing).
                 if player_id is None and current_player is None:
@@ -330,6 +331,7 @@ def create_agent_fn(
                     return {"submission": None, "status": "INACTIVE"}
                 _TELEMETRY(no_legal_actions=True)
                 raise ValueError("No legal actions available.")
+        else:
             legal_action_strings = list(legal_moves.values())
             legal_actions = list(legal_moves.keys())
 

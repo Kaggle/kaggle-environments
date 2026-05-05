@@ -310,7 +310,7 @@ class FreeFormHarnessTest(absltest.TestCase):
             "completion",
             return_value=_fake_completion('{"clue": "ANIMAL", "number": 2}'),
         ):
-            result = agent({}, {})
+            result = agent({}, {"freeForm": True})
 
         self.assertEqual(result["submission"], {"clue": "ANIMAL", "number": 2})
         self.assertEqual(result["status"], "OK")
@@ -325,7 +325,7 @@ class FreeFormHarnessTest(absltest.TestCase):
         with patch.dict("os.environ", _ENV, clear=False), patch.object(
             core_harness.litellm, "completion", side_effect=responses,
         ) as mock_call:
-            result = agent({}, {})
+            result = agent({}, {"freeForm": True})
 
         self.assertEqual(result["submission"], {"clue": "OCEAN", "number": 3})
         self.assertEqual(mock_call.call_count, 2)
@@ -340,7 +340,7 @@ class FreeFormHarnessTest(absltest.TestCase):
             return_value=_fake_completion("garbage"),
         ):
             with self.assertRaisesRegex(ValueError, "Failed to parse"):
-                agent({}, {})
+                agent({}, {"freeForm": True})
 
     def test_free_form_move_history_accumulates(self):
         harness = _FreeFormHarness()
@@ -352,8 +352,8 @@ class FreeFormHarnessTest(absltest.TestCase):
         with patch.dict("os.environ", _ENV, clear=False), patch.object(
             core_harness.litellm, "completion", side_effect=responses,
         ):
-            agent({}, {})
-            agent({}, {})
+            agent({}, {"freeForm": True})
+            agent({}, {"freeForm": True})
 
         self.assertIn("ANIMAL", harness.prompts[1])
 
@@ -368,8 +368,8 @@ class FreeFormHarnessTest(absltest.TestCase):
         with patch.dict("os.environ", _ENV, clear=False), patch.object(
             core_harness.litellm, "completion", side_effect=responses,
         ):
-            r1 = agent({}, {})
-            r2 = agent({}, {})
+            r1 = agent({}, {"freeForm": True})
+            r2 = agent({}, {"freeForm": True})
 
         # First call: free-form → submission is the dict
         self.assertEqual(r1["submission"], {"clue": "ANIMAL", "number": 2})
@@ -385,10 +385,31 @@ class FreeFormHarnessTest(absltest.TestCase):
             "completion",
             return_value=_fake_completion('{"clue": "FIRE", "number": 1}'),
         ):
-            result = agent({}, {"savePrompt": True})
+            result = agent({}, {"freeForm": True, "savePrompt": True})
 
         self.assertIn("prompt", result)
         self.assertEqual(result["prompt"], harness.prompts[-1])
+
+    def test_none_legal_moves_without_free_form_config_returns_inactive(self):
+        """get_legal_moves() returns None but freeForm not in config → empty-obs path."""
+        harness = _FreeFormHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion",
+        ) as mock_call:
+            # No playerId/currentPlayer → treated as empty obs
+            result = agent({"remainingOverageTime": 60, "step": 0}, {})
+        self.assertEqual(result, {"submission": None, "status": "INACTIVE"})
+        mock_call.assert_not_called()
+
+    def test_none_legal_moves_without_free_form_config_raises(self):
+        """get_legal_moves() returns None but freeForm not in config → error when active."""
+        harness = _FreeFormHarness()
+        agent = create_agent_fn(harness)
+        active_obs = {"playerId": 0, "currentPlayer": 0, "isTerminal": False}
+        with patch.dict("os.environ", _ENV, clear=False):
+            with self.assertRaisesRegex(ValueError, "No legal actions"):
+                agent(active_obs, {})
 
 
 class ParseResultTest(absltest.TestCase):
