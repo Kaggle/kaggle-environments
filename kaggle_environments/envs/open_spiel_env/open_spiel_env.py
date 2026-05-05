@@ -168,6 +168,15 @@ CONFIGURATION_SPEC_TEMPLATE = {
         "type": "boolean",
         "default": False,
     },
+    "freeForm": {
+        "description": (
+            "If true, the core harness allows free-form actions"
+            " (get_legal_moves may return None) on turns where the action"
+            " space is not enumerable. Defaults to false for OpenSpiel games."
+        ),
+        "type": "boolean",
+        "default": False,
+    },
 }
 
 OBSERVATION_SPEC_TEMPLATE = {

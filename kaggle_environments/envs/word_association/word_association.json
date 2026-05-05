@@ -39,6 +39,16 @@
       "type": ["integer", "null"],
       "default": null,
       "description": "Seed for random board generation. Set to null for random play."
+    },
+    "freeForm": {
+      "description": "If true, the core harness allows free-form actions (get_legal_moves may return None) on turns where the action space is not enumerable, such as Cluemaster clue-giving.",
+      "type": "boolean",
+      "default": true
+    },
+    "savePrompt": {
+      "description": "If true, the LLM prompt produced by the harness is included as a 'prompt' field on the action returned by core_harness, which causes it to be persisted in the episode replay. Defaults to false to keep replays small.",
+      "type": "boolean",
+      "default": false
     }
   },
   "observation": {
