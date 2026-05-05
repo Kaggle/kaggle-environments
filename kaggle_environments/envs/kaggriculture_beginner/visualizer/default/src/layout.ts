@@ -30,7 +30,6 @@ const PNG_SPRITES: Record<string, string> = {
   farmer_p2: 'farmer_p2',
   soil_dry: 'soil_dry',
   soil_watered: 'soil_watered',
-  seed_packet: 'seed_packet',
   sprout: 'sprout',
   midgrowth: 'midgrowth',
   carrot_ready: 'carrot_ready',
