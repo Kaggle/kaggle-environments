@@ -43,6 +43,27 @@ def point_to_segment_distance(p, v, w):
     return distance(p, projection)
 
 
+def swept_pair_hit(A, B, P0, P1, r):
+    """True iff a fleet moving A->B and a planet moving P0->P1 come within r
+    of each other for some t in [0, 1]. Treats both segments as linear over
+    the tick (planet rotation is linearised to its chord)."""
+    d0x, d0y = A[0] - P0[0], A[1] - P0[1]
+    dvx = (B[0] - A[0]) - (P1[0] - P0[0])
+    dvy = (B[1] - A[1]) - (P1[1] - P0[1])
+    a = dvx * dvx + dvy * dvy
+    b = 2.0 * (d0x * dvx + d0y * dvy)
+    c = d0x * d0x + d0y * d0y - r * r
+    if a < 1e-12:
+        return c <= 0.0
+    disc = b * b - 4.0 * a * c
+    if disc < 0.0:
+        return False
+    sq = math.sqrt(disc)
+    t1 = (-b - sq) / (2.0 * a)
+    t2 = (-b + sq) / (2.0 * a)
+    return t2 >= 0.0 and t1 <= 1.0
+
+
 def generate_planets(rng=None):
     if rng is None:
         rng = random
@@ -492,7 +513,59 @@ def interpreter(state, env):
         if planet[1] != -1:
             planet[5] += planet[6]
 
-    # 2. Fleet Movement (with continuous collision detection)
+    # 2. Compute each planet's end-of-tick position up front, so fleet
+    # movement can use a swept-pair (continuous) check that accounts for
+    # both objects moving in the same tick.
+    angular_velocity = obs0.angular_velocity
+    step = get(obs0, "step", 1)
+    comet_pid_set = set(obs0.comet_planet_ids)
+    initial_by_id = {p[0]: p for p in obs0.initial_planets}
+
+    # planet_paths: pid -> (old_pos, new_pos, check_collision)
+    # check_collision=False means the planet appears mid-tick (first comet
+    # placement) and shouldn't be tested against fleets this tick.
+    planet_paths = {}
+    expired_comet_pids = []
+
+    for planet in obs0.planets:
+        if planet[0] in comet_pid_set:
+            continue
+        old_pos = (planet[2], planet[3])
+        new_pos = old_pos
+        initial_p = initial_by_id.get(planet[0])
+        if initial_p is not None:
+            dx = initial_p[2] - CENTER
+            dy = initial_p[3] - CENTER
+            r = math.sqrt(dx ** 2 + dy ** 2)
+            if r + planet[4] < ROTATION_RADIUS_LIMIT:
+                initial_angle = math.atan2(dy, dx)
+                current_angle = initial_angle + angular_velocity * step
+                new_pos = (
+                    CENTER + r * math.cos(current_angle),
+                    CENTER + r * math.sin(current_angle),
+                )
+        planet_paths[planet[0]] = (old_pos, new_pos, True)
+
+    for group in obs0.comets:
+        group["path_index"] += 1
+        idx = group["path_index"]
+        for i, pid in enumerate(group["planet_ids"]):
+            planet = next((p for p in obs0.planets if p[0] == pid), None)
+            if planet is None:
+                continue
+            p_path = group["paths"][i]
+            old_pos = (planet[2], planet[3])
+            if idx >= len(p_path):
+                expired_comet_pids.append(pid)
+                # Comet stays put this tick; remove after combat.
+                planet_paths[pid] = (old_pos, old_pos, True)
+            else:
+                new_pos = (p_path[idx][0], p_path[idx][1])
+                # First placement uses an off-board placeholder for old_pos.
+                check = old_pos[0] >= 0
+                planet_paths[pid] = (old_pos, new_pos, check)
+
+    # 3. Fleet Movement (with continuous swept-pair collision detection)
     # Speed scales with fleet size: 1 ship = 1/turn, max = shipSpeed (default 6)
     max_speed = configuration.shipSpeed
     fleets_to_remove = []
@@ -513,8 +586,11 @@ def interpreter(state, env):
         # or sun still get credit for hitting a planet along the way.
         hit_planet = False
         for planet in obs0.planets:
-            planet_pos = (planet[2], planet[3])
-            if point_to_segment_distance(planet_pos, old_pos, new_pos) < planet[4]:
+            path = planet_paths.get(planet[0])
+            if path is None or not path[2]:
+                continue
+            p_old, p_new, _ = path
+            if swept_pair_hit(old_pos, new_pos, p_old, p_new, planet[4]):
                 combat_lists[planet[0]].append(fleet)
                 fleets_to_remove.append(fleet)
                 hit_planet = True
@@ -532,64 +608,11 @@ def interpreter(state, env):
             fleets_to_remove.append(fleet)
             continue
 
-    # 3. Planet Movement & Sweep
-    angular_velocity = obs0.angular_velocity
-    step = get(obs0, "step", 1)
-    comet_pid_set = set(obs0.comet_planet_ids)
-    initial_by_id = {p[0]: p for p in obs0.initial_planets}
-
-    def sweep_fleets(planet, old_pos, new_pos):
-        """Check if any fleet is caught by a planet moving from old to new."""
-        if old_pos == new_pos:
-            return
-        for fleet in obs0.fleets:
-            if fleet not in fleets_to_remove:
-                if (
-                    point_to_segment_distance((fleet[2], fleet[3]), old_pos, new_pos)
-                    < planet[4]
-                ):
-                    combat_lists[planet[0]].append(fleet)
-                    fleets_to_remove.append(fleet)
-
-    # Regular planet rotation
+    # 4. Apply planet movement (collisions were already resolved above).
     for planet in obs0.planets:
-        if planet[0] in comet_pid_set:
-            continue
-        initial_p = initial_by_id.get(planet[0])
-        if not initial_p:
-            continue
-        dx = initial_p[2] - CENTER
-        dy = initial_p[3] - CENTER
-        r = math.sqrt(dx**2 + dy**2)
-        old_pos = (planet[2], planet[3])
-
-        if r + planet[4] < ROTATION_RADIUS_LIMIT:
-            initial_angle = math.atan2(dy, dx)
-            current_angle = initial_angle + angular_velocity * step
-            planet[2] = CENTER + r * math.cos(current_angle)
-            planet[3] = CENTER + r * math.sin(current_angle)
-
-        sweep_fleets(planet, old_pos, (planet[2], planet[3]))
-
-    # Comet movement along pre-computed paths
-    expired_comet_pids = []
-    for group in obs0.comets:
-        group["path_index"] += 1
-        idx = group["path_index"]
-        for i, pid in enumerate(group["planet_ids"]):
-            planet = next((p for p in obs0.planets if p[0] == pid), None)
-            if planet is None:
-                continue
-            p_path = group["paths"][i]
-            if idx >= len(p_path):
-                expired_comet_pids.append(pid)
-            else:
-                old_pos = (planet[2], planet[3])
-                planet[2] = p_path[idx][0]
-                planet[3] = p_path[idx][1]
-                # Skip sweep on first placement (old_pos is off-board placeholder)
-                if old_pos[0] >= 0:
-                    sweep_fleets(planet, old_pos, (planet[2], planet[3]))
+        path = planet_paths.get(planet[0])
+        if path is not None:
+            planet[2], planet[3] = path[1]
 
     # Remove expired comets immediately
     if expired_comet_pids:
@@ -609,7 +632,7 @@ def interpreter(state, env):
 
     obs0.fleets = [f for f in obs0.fleets if f not in fleets_to_remove]
 
-    # 4. Combat Resolution
+    # 5. Combat Resolution
     for pid, planet_fleets in combat_lists.items():
         planet = next((p for p in obs0.planets if p[0] == pid), None)
         if not planet or not planet_fleets:
