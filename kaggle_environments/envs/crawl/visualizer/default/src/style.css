@@ -32,6 +32,21 @@ html, body {
   color: #050001 !important;
 }
 
+/* The core player wraps the renderer in `.viewer` (no min-height: 0) and
+   injects `box-sizing: content-box` for everything under
+   `.game-renderer-isolation`. Without these overrides the padding on
+   `.renderer-container` overflows its parent and pushes the inline controls
+   off the bottom of the viewport. */
+.player .viewer {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.game-renderer-isolation .renderer-container,
+.game-renderer-isolation .renderer-container * {
+  box-sizing: border-box;
+}
+
 .renderer-container {
   display: flex;
   flex-direction: column;
@@ -42,7 +57,6 @@ html, body {
   background-color: #f5f1e2;
   overflow: hidden;
   font-family: 'Inter', sans-serif;
-  box-sizing: border-box;
   padding: 12px;
   color: #050001;
   container-type: inline-size;
