@@ -98,12 +98,10 @@ def _format_discard_pile(pile: Sequence[str]) -> str:
     return " ".join(cards[:-1]) + f"  [top: {top}]"
 
 
-def _format_history(move_history: list[str], limit: int = 16) -> str:
+def _format_history(move_history: list[str]) -> str:
     if not move_history:
         return "(no moves yet)"
-    if len(move_history) <= limit:
-        return ", ".join(move_history)
-    return "... " + ", ".join(move_history[-limit:])
+    return ", ".join(move_history)
 
 
 def _player_glyph(player_id: int) -> str:
@@ -170,13 +168,17 @@ def _instruction_for_phase(phase: str | None, legal_strings: Sequence[str]) -> s
 # --- Prompt -----------------------------------------------------------------
 
 
-GIN_RUMMY_PROMPT_TEMPLATE = """Let's play Gin Rummy (OpenSpiel rules, knock card = {knock_card}).
+GIN_RUMMY_PROMPT_TEMPLATE = """Let's play Gin Rummy (OpenSpiel, Oklahoma variant; this hand's knock card = {knock_card}).
 
 Card notation: rank in {{A,2-9,T,J,Q,K}} followed by suit in {{s,c,d,h}}.
 Goal: arrange your 10-card hand into melds (runs of 3+ in a suit, sets of 3-4
 of the same rank). Cards not in any meld are 'deadwood' (face value, faces=10,
 Ace=1). When your deadwood is at or below the knock card you may knock to end
 the hand. Going gin (zero deadwood) and undercutting the knocker pay bonuses.
+
+Oklahoma variant: the knock card is not fixed at 10 -- it is set each hand to
+the rank value of the first card flipped from the stock (A=1, 2-9=pip,
+T/J/Q/K=10). A low knock card means you need a much tidier hand to knock.
 
 You are {player_glyph}.
 Phase: {phase}
@@ -187,7 +189,7 @@ Discard pile (oldest -> newest): {discard_pile}
 Your hand ({hand_count} cards): {hand}
 Your current deadwood: {deadwood}
 
-Move history (last 16 actions, oldest -> newest):
+Move history (oldest -> newest):
 {move_history}
 
 {phase_instruction}

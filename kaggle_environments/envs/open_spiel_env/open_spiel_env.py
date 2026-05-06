@@ -123,7 +123,10 @@ CONFIGURATION_SPEC_TEMPLATE = {
         "default": False,
     },
     "seed": {
-        "description": "Integer currently only used for selecting starting position.",
+        "description": (
+            "Integer used to select a starting position (when useOpenings is true)"
+            " and to seed chance-node sampling so episodes are reproducible."
+        ),
         "type": "number",
     },
     "initialActions": {
@@ -384,6 +387,9 @@ def interpreter(
         env.info["openSpielGameStringResolved"] = str(env.os_game)
     if not hasattr(env, "os_state"):
         env.os_state = env.os_game.new_initial_state()
+    if not hasattr(env, "chance_rng"):
+        seed = env.configuration.get("seed", None)
+        env.chance_rng = np.random.default_rng(seed) if seed is not None else np.random
     if "stateHistory" not in env.info:
         env.info["stateHistory"] = [str(env.os_state)]
     if "actionHistory" not in env.info:
@@ -525,7 +531,7 @@ def interpreter(
         if preset_action is not None:
             chance_action = preset_action
         else:
-            chance_action = np.random.choice(outcomes, p=probs)
+            chance_action = env.chance_rng.choice(outcomes, p=probs)
         os_state.apply_action(chance_action)
         env.info["actionHistory"].append(str(chance_action))
         env.info["stateHistory"].append(str(os_state))
