@@ -108,13 +108,16 @@ class ParseResult:
 
     Attributes:
         legal_action: The legal action string that was matched, or ``None``
-            if no legal move could be matched.
+            if no legal move could be matched.  Used for enumerable actions.
         raw_action: The raw move the model attempted to play (even if
             illegal).  Used to build rethink prompts.
+        submission: The validated action for free-form action spaces, or
+            ``None`` if parsing failed.  Ignored for enumerable actions.
     """
 
     legal_action: str | None = None
     raw_action: str | None = None
+    submission: Any = None
 
 
 # ---------------------------------------------------------------------------
@@ -128,8 +131,12 @@ class GameHarness(Protocol):
     def get_legal_moves(
         self,
         observation: Mapping[str, Any],
-    ) -> dict[int, str]:
-        """Return a mapping from legal action id to its string form."""
+    ) -> dict[int, str] | None:
+        """Return a mapping from legal action id to its string form.
+
+        Return ``None`` to indicate a free-form action space where the
+        LLM response is not constrained to an enumerable set of moves.
+        """
         ...
 
     def make_prompt(
@@ -150,12 +157,15 @@ class GameHarness(Protocol):
     def parse_response(
         self,
         response: str,
-        legal_action_strings: Sequence[str],
+        legal_action_strings: Sequence[str] | None,
     ) -> ParseResult:
         """Extract a move from the LLM response.
 
-        Returns a ``ParseResult``.  If ``legal_action`` is not ``None`` it
-        must be one of the strings in ``legal_action_strings``.
+        Returns a ``ParseResult``.  For enumerable actions, if
+        ``legal_action`` is not ``None`` it must be one of the strings in
+        ``legal_action_strings``.  For free-form actions
+        (``legal_action_strings is None``), set ``submission`` on the
+        result instead.
         """
         ...
 
@@ -241,7 +251,7 @@ def create_agent_fn(
     game_harness: GameHarness,
     *,
     max_retries: int = 2,
-) -> Callable[[Any, dict[str, Any]], dict[str, int]]:
+) -> Callable[[Any, dict[str, Any]], dict[str, Any]]:
     """Create a Kaggle-compatible agent function from a ``GameHarness``.
 
     Args:
@@ -251,7 +261,7 @@ def create_agent_fn(
             attempt).
 
     Returns:
-        ``agent_fn(obs, config) -> {"submission": int, ...}``
+        ``agent_fn(obs, config) -> {"submission": <action>, ...}``
     """
     # --- closure state (per agent, not per module) ---
     setup_done = False
@@ -302,22 +312,29 @@ def create_agent_fn(
             return {"submission": None, "status": "INACTIVE"}
 
         # -- legal moves --
+        allow_free_form = bool(config.get("freeForm", False)) if config else False
         legal_moves = game_harness.get_legal_moves(observation)
+        free_form = legal_moves is None and allow_free_form
+
         if not legal_moves:
-            # Distinguish "obs not yet populated" (None signals) from a real
-            # bug (it IS our turn but the game offers nothing).
-            if player_id is None and current_player is None:
-                _log.warning(
-                    "core_harness: agent invoked with empty observation "
-                    "(keys=%s); returning no-op.",
-                    sorted(observation.keys()),
-                )
-                _TELEMETRY(inactive_call="empty_obs")
-                return {"submission": None, "status": "INACTIVE"}
-            _TELEMETRY(no_legal_actions=True)
-            raise ValueError("No legal actions available.")
-        legal_action_strings = list(legal_moves.values())
-        legal_actions = list(legal_moves.keys())
+            if free_form:
+                legal_action_strings = None
+            else:
+                # Distinguish "obs not yet populated" (None signals) from
+                # a real bug (it IS our turn but the game offers nothing).
+                if player_id is None and current_player is None:
+                    _log.warning(
+                        "core_harness: agent invoked with empty observation "
+                        "(keys=%s); returning no-op.",
+                        sorted(observation.keys()),
+                    )
+                    _TELEMETRY(inactive_call="empty_obs")
+                    return {"submission": None, "status": "INACTIVE"}
+                _TELEMETRY(no_legal_actions=True)
+                raise ValueError("No legal actions available.")
+        else:
+            legal_action_strings = list(legal_moves.values())
+            legal_actions = list(legal_moves.keys())
 
         # -- prompt / parse / retry loop --
         previous_response: str | None = None
@@ -352,19 +369,30 @@ def create_agent_fn(
 
             result = game_harness.parse_response(content, legal_action_strings)
 
-            if result.legal_action is not None:
+            # -- check for a valid action --
+            matched_submission: Any = None
+            action_str: str | None = None
+
+            if free_form and result.submission is not None:
+                matched_submission = result.submission
+                action_str = str(result.submission)
+            elif not free_form and result.legal_action is not None:
                 idx = legal_action_strings.index(result.legal_action)
-                move_history.append(result.legal_action)
+                matched_submission = legal_actions[idx]
+                action_str = result.legal_action
+
+            if action_str is not None:
+                move_history.append(action_str)
                 _TELEMETRY(
                     action_is_legal=True,
                     legal_action={
                         "raw_action": result.raw_action,
-                        "legal_action": result.legal_action,
+                        "legal_action": action_str,
                     },
                 )
                 action: dict[str, Any] = {
-                    "submission": legal_actions[idx],
-                    "actionString": result.legal_action,
+                    "submission": matched_submission,
+                    "actionString": action_str,
                     "thoughts": last_content,
                     "status": "OK",
                 }

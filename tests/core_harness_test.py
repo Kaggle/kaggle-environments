@@ -227,17 +227,207 @@ class CoreHarnessTest(absltest.TestCase):
         self.assertIn("move_0", harness.prompts[1])
 
 
+class _FreeFormHarness:
+    """Harness that returns None from get_legal_moves (free-form actions)."""
+
+    def __init__(self):
+        self.prompts: list[str] = []
+
+    def get_legal_moves(self, observation):
+        return None
+
+    def make_prompt(self, observation, move_history, previous_response=None, previous_action=None):
+        prompt = f"history={move_history} prev={previous_action}"
+        self.prompts.append(prompt)
+        return prompt
+
+    def parse_response(self, response, legal_action_strings):
+        assert legal_action_strings is None
+        try:
+            import json
+            parsed = json.loads(response)
+            if "clue" in parsed:
+                return ParseResult(
+                    submission={"clue": parsed["clue"], "number": parsed["number"]},
+                    raw_action=response,
+                )
+        except Exception:
+            pass
+        return ParseResult(raw_action=response)
+
+
+class _MixedHarness:
+    """Harness that alternates between free-form and enumerable each call."""
+
+    def __init__(self):
+        self.call_count = 0
+        self.prompts: list[str] = []
+
+    def get_legal_moves(self, observation):
+        self.call_count += 1
+        if self.call_count % 2 == 1:
+            return None  # odd calls: free-form
+        return {0: "PASS", 1: "word_A", 2: "word_B"}  # even calls: enumerable
+
+    def make_prompt(self, observation, move_history, previous_response=None, previous_action=None):
+        prompt = f"history={move_history} prev={previous_action}"
+        self.prompts.append(prompt)
+        return prompt
+
+    def parse_response(self, response, legal_action_strings):
+        if legal_action_strings is None:
+            try:
+                import json
+                parsed = json.loads(response)
+                return ParseResult(submission=parsed, raw_action=response)
+            except Exception:
+                return ParseResult(raw_action=response)
+        else:
+            response = response.strip()
+            if response in legal_action_strings:
+                return ParseResult(legal_action=response, raw_action=response)
+            return ParseResult(raw_action=response)
+
+
+class FreeFormHarnessTest(absltest.TestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.events: list[dict] = []
+        set_telemetry_exporter(
+            lambda module, **kw: self.events.append({"module": module, **kw})
+        )
+
+    def tearDown(self):
+        set_telemetry_exporter(lambda module, **kwargs: None)
+        super().tearDown()
+
+    def test_free_form_succeeds(self):
+        harness = _FreeFormHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion('{"clue": "ANIMAL", "number": 2}'),
+        ):
+            result = agent({}, {"freeForm": True})
+
+        self.assertEqual(result["submission"], {"clue": "ANIMAL", "number": 2})
+        self.assertEqual(result["status"], "OK")
+
+    def test_free_form_retry_then_succeeds(self):
+        harness = _FreeFormHarness()
+        agent = create_agent_fn(harness, max_retries=3)
+        responses = [
+            _fake_completion("not json"),
+            _fake_completion('{"clue": "OCEAN", "number": 3}'),
+        ]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=responses,
+        ) as mock_call:
+            result = agent({}, {"freeForm": True})
+
+        self.assertEqual(result["submission"], {"clue": "OCEAN", "number": 3})
+        self.assertEqual(mock_call.call_count, 2)
+        self.assertIn("prev=not json", harness.prompts[1])
+
+    def test_free_form_all_attempts_fail_raises(self):
+        harness = _FreeFormHarness()
+        agent = create_agent_fn(harness, max_retries=2)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("garbage"),
+        ):
+            with self.assertRaisesRegex(ValueError, "Failed to parse"):
+                agent({}, {"freeForm": True})
+
+    def test_free_form_move_history_accumulates(self):
+        harness = _FreeFormHarness()
+        agent = create_agent_fn(harness)
+        responses = [
+            _fake_completion('{"clue": "ANIMAL", "number": 2}'),
+            _fake_completion('{"clue": "OCEAN", "number": 1}'),
+        ]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=responses,
+        ):
+            agent({}, {"freeForm": True})
+            agent({}, {"freeForm": True})
+
+        self.assertIn("ANIMAL", harness.prompts[1])
+
+    def test_mixed_harness_alternates_modes(self):
+        """Free-form on first call, enumerable on second."""
+        harness = _MixedHarness()
+        agent = create_agent_fn(harness)
+        responses = [
+            _fake_completion('{"clue": "ANIMAL", "number": 2}'),
+            _fake_completion("word_A"),
+        ]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=responses,
+        ):
+            r1 = agent({}, {"freeForm": True})
+            r2 = agent({}, {"freeForm": True})
+
+        # First call: free-form → submission is the dict
+        self.assertEqual(r1["submission"], {"clue": "ANIMAL", "number": 2})
+        # Second call: enumerable → submission is the action id (int)
+        self.assertEqual(r2["submission"], 1)
+        self.assertEqual(r2["actionString"], "word_A")
+
+    def test_free_form_save_prompt(self):
+        harness = _FreeFormHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion('{"clue": "FIRE", "number": 1}'),
+        ):
+            result = agent({}, {"freeForm": True, "savePrompt": True})
+
+        self.assertIn("prompt", result)
+        self.assertEqual(result["prompt"], harness.prompts[-1])
+
+    def test_none_legal_moves_without_free_form_config_returns_inactive(self):
+        """get_legal_moves() returns None but freeForm not in config → empty-obs path."""
+        harness = _FreeFormHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion",
+        ) as mock_call:
+            # No playerId/currentPlayer → treated as empty obs
+            result = agent({"remainingOverageTime": 60, "step": 0}, {})
+        self.assertEqual(result, {"submission": None, "status": "INACTIVE"})
+        mock_call.assert_not_called()
+
+    def test_none_legal_moves_without_free_form_config_raises(self):
+        """get_legal_moves() returns None but freeForm not in config → error when active."""
+        harness = _FreeFormHarness()
+        agent = create_agent_fn(harness)
+        active_obs = {"playerId": 0, "currentPlayer": 0, "isTerminal": False}
+        with patch.dict("os.environ", _ENV, clear=False):
+            with self.assertRaisesRegex(ValueError, "No legal actions"):
+                agent(active_obs, {})
+
+
 class ParseResultTest(absltest.TestCase):
 
     def test_defaults(self):
         r = ParseResult()
         self.assertIsNone(r.legal_action)
         self.assertIsNone(r.raw_action)
+        self.assertIsNone(r.submission)
 
     def test_frozen(self):
         r = ParseResult(legal_action="a", raw_action="a")
         with self.assertRaises(dataclasses.FrozenInstanceError):
             r.legal_action = "b"  # type: ignore[misc]
+
+    def test_submission_field(self):
+        r = ParseResult(submission={"clue": "test", "number": 1})
+        self.assertEqual(r.submission, {"clue": "test", "number": 1})
 
 
 if __name__ == "__main__":
