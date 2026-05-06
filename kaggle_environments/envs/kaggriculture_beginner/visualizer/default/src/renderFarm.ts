@@ -54,13 +54,19 @@ function seedRow(): string {
   </div>`;
 }
 
-function farmPanel(player: 1 | 2, rows: number, cols: number): string {
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (ch) =>
+    ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : ch === '"' ? '&quot;' : '&#39;'
+  );
+}
+
+function farmPanel(player: 1 | 2, rows: number, cols: number, name: string): string {
   return `
     <section class="farm-panel" data-player="${player}">
       <header class="farm-header sketched-border" style="${woodBg}">
         <span class="player-name">
           <img class="player-name-icon" src="${spriteSrc(`farmer_p${player}`)}" alt="farmer p${player}" />
-          Player ${player}
+          <span class="player-name-text">${escapeHtml(name)}</span>
         </span>
         <span class="player-balance">
           <img class="balance-icon" src="${spriteSrc('coin')}" alt="coins" />
@@ -90,13 +96,13 @@ function statusPanel(): string {
   `;
 }
 
-export function buildSkeleton(root: HTMLElement, board: BoardSize): void {
+export function buildSkeleton(root: HTMLElement, board: BoardSize, playerNames: [string, string]): void {
   root.innerHTML = `
     <div class="demo-container" style="${grassBg}">
       <main class="demo-main">
-        ${farmPanel(1, board.rows, board.cols)}
+        ${farmPanel(1, board.rows, board.cols, playerNames[0])}
         ${statusPanel()}
-        ${farmPanel(2, board.rows, board.cols)}
+        ${farmPanel(2, board.rows, board.cols, playerNames[1])}
       </main>
     </div>
   `;
