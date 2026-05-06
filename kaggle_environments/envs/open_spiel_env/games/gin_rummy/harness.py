@@ -1,4 +1,4 @@
-"""LLM harness for OpenSpiel Gin Rummy.
+"""LLM harness for OpenSpiel Gin Rummy (Oklahoma variant).
 
 Drop the body of this file into the notebook attached to the competition via
 HarnessKernelId. The auto-generated ``main.py`` calls these three module-level
