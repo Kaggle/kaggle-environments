@@ -11,6 +11,9 @@ export interface PlaybackControlsProps {
   onStepChange: (step: number) => void;
   onSpeedChange?: (speed: number) => void;
 
+  // Optional episode seed; when provided, shows a click-to-copy badge.
+  seed?: number | string;
+
   // Styling
   className?: string;
   style?: React.CSSProperties;
@@ -56,6 +59,20 @@ const speedSelectStyles: React.CSSProperties = {
   cursor: 'pointer',
 };
 
+const seedBadgeStyles: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+  background: '#2a2a2a',
+  color: '#fff',
+  border: '1px solid #444',
+  borderRadius: '4px',
+  padding: '4px 8px',
+  fontSize: '13px',
+  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+  cursor: 'pointer',
+};
+
 export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   playing,
   currentStep,
@@ -64,10 +81,35 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   onPlayChange,
   onStepChange,
   onSpeedChange,
+  seed,
   className,
   style,
 }) => {
   const maxStep = totalSteps > 0 ? totalSteps - 1 : 0;
+  const [copied, setCopied] = React.useState(false);
+
+  const handleCopySeed = async () => {
+    if (seed === undefined || seed === null) return;
+    const text = String(seed);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1200);
+    } catch {
+      // ignore
+    }
+  };
 
   const handlePlayPauseClick = () => {
     onPlayChange(!playing);
@@ -97,6 +139,31 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
 
   return (
     <div className={className} style={{ ...controlsStyles, ...style }}>
+      {seed !== undefined && seed !== null && (
+        <button
+          type="button"
+          style={seedBadgeStyles}
+          onClick={handleCopySeed}
+          title={copied ? 'Copied!' : 'Click to copy seed'}
+          aria-label={`Episode seed ${seed}. Click to copy.`}
+        >
+          <span>Seed: {String(seed)}</span>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            {copied ? (
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
+            ) : (
+              <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+            )}
+          </svg>
+        </button>
+      )}
       <button style={buttonStyles} onClick={handleRestartClick} title="Restart" aria-label="Restart">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" />

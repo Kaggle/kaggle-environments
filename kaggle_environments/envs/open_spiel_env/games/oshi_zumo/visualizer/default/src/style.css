@@ -1,0 +1,135 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+
+html, body, #app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.renderer-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background-color: #f5f1e2;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+  box-sizing: border-box;
+  padding: 12px;
+  color: #050001;
+  container-type: inline-size;
+}
+
+.renderer-container canvas {
+  position: relative;
+  display: block;
+  flex: 1 1 0;
+  width: 100%;
+  max-width: 640px;
+  min-height: 0;
+}
+
+.sketched-border {
+  border: 1px dashed #3c3b37;
+}
+
+.oshi-header {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  width: 100%;
+  padding: 8px 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  flex-shrink: 0;
+  gap: 14px;
+}
+
+.oshi-player-card {
+  padding: 6px 14px;
+  background-color: white;
+  font-weight: 700;
+  transition: scale 300ms, background-color 300ms;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 110px;
+}
+
+.oshi-player-card.active {
+  background-color: #bdeeff;
+  scale: 1.05;
+}
+
+.oshi-player-card .oshi-player-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.oshi-player-card .oshi-glyph {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.oshi-player-card.p0 .oshi-glyph { background-color: #1f4f8b; }
+.oshi-player-card.p1 .oshi-glyph { background-color: #9a3324; }
+
+.oshi-coins {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #444343;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.oshi-coin-delta {
+  font-family: 'Mynerve', cursive;
+  font-size: 0.9rem;
+  color: #9a3324;
+}
+
+.oshi-vs {
+  font-family: 'Mynerve', cursive;
+  font-size: 1.2rem;
+  color: #444343;
+  align-self: center;
+}
+
+.oshi-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 16px;
+  background-color: white;
+  font-size: 0.9rem;
+  font-weight: 600;
+  min-height: 18px;
+  min-width: 240px;
+  margin-top: 8px;
+  flex-shrink: 0;
+  text-align: center;
+  gap: 2px;
+}
+
+.oshi-status .oshi-annotation {
+  font-family: 'Mynerve', cursive;
+  font-weight: 400;
+  color: #444343;
+  font-size: 0.95rem;
+}
+
+@container (max-width: 680px) {
+  .oshi-header { font-size: 0.95rem; gap: 8px; }
+  .oshi-player-card { min-width: 88px; padding: 5px 10px; }
+  .oshi-status { font-size: 0.8rem; min-width: 180px; }
+}

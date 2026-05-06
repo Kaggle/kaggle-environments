@@ -3,9 +3,7 @@
   "title": "Word Association",
   "description": "A game of word association and deduction, adapted for AI agents.",
   "version": "1.0.0",
-  "agents": [
-    4
-  ],
+  "agents": [4],
   "configuration": {
     "board_size": {
       "type": "integer",
@@ -41,6 +39,16 @@
       "type": ["integer", "null"],
       "default": null,
       "description": "Seed for random board generation. Set to null for random play."
+    },
+    "freeForm": {
+      "description": "If true, the core harness allows free-form actions (get_legal_moves may return None) on turns where the action space is not enumerable, such as Cluemaster clue-giving.",
+      "type": "boolean",
+      "default": true
+    },
+    "savePrompt": {
+      "description": "If true, the LLM prompt produced by the harness is included as a 'prompt' field on the action returned by core_harness, which causes it to be persisted in the episode replay. Defaults to false to keep replays small.",
+      "type": "boolean",
+      "default": false
     }
   },
   "observation": {
@@ -75,11 +83,6 @@
   },
   "action": {
     "description": "For Cluemasters: a clue string formatted like 'word, 2' or a dict. Number can be 0 (unlimited guesses, 0 related words, 1 min guess) or -1 (unlimited guesses, infinity related words, 1 min guess). For Guessers: the index (0-24) to guess, or -1 to pass.",
-    "type": [
-      "string",
-      "integer",
-      "object",
-      "null"
-    ]
+    "type": ["string", "integer", "object", "null"]
   }
 }

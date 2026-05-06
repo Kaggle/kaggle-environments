@@ -162,18 +162,23 @@ function drawBoard(
   }
 }
 
-function describeStatus(obs: AmazonsBoardState, diff: BoardDiff): { primary: string; annotation: string } {
+function describeStatus(
+  obs: AmazonsBoardState,
+  diff: BoardDiff,
+  xName: string,
+  oName: string
+): { primary: string; annotation: string } {
   if (obs.is_terminal) {
     if (obs.winner === 'draw') {
       return { primary: 'Draw', annotation: 'no legal moves remain' };
     }
     if (obs.winner === 'x' || obs.winner === 'o') {
-      const name = obs.winner === 'x' ? 'Black (X)' : 'White (O)';
+      const name = obs.winner === 'x' ? xName : oName;
       return { primary: `${name} wins`, annotation: 'opponent has no legal move' };
     }
     return { primary: 'Game over', annotation: '' };
   }
-  const next = obs.current_player === 'x' ? 'Black (X)' : obs.current_player === 'o' ? 'White (O)' : obs.current_player;
+  const next = obs.current_player === 'x' ? xName : obs.current_player === 'o' ? oName : obs.current_player;
   const phaseLabel: Record<string, string> = {
     from: 'pick an amazon',
     to: 'move it',
@@ -215,8 +220,15 @@ export function renderer(options: RendererOptions<AmazonsStep[]>) {
 
   const obs = asObservation(steps[step]);
 
+  // Team names come from the transformer (which pulls replay.info.TeamNames).
+  // Fall back to "Black (X)" / "White (O)" when transformer hasn't run or no
+  // step data is available yet.
+  const currentStep = steps[step];
+  const xName = currentStep?.players?.[0]?.name ?? 'Black (X)';
+  const oName = currentStep?.players?.[1]?.name ?? 'White (O)';
+
   if (!obs) {
-    header.innerHTML = `${makePlayerCard('Black (X)', 'x', false)}<span style="color:${SOFT_INK}">vs</span>${makePlayerCard('White (O)', 'o', false)}`;
+    header.innerHTML = `${makePlayerCard(xName, 'x', false)}<span style="color:${SOFT_INK}">vs</span>${makePlayerCard(oName, 'o', false)}`;
     primary.textContent = 'Waiting for game data…';
     annotation.textContent = '';
     return;
@@ -225,16 +237,33 @@ export function renderer(options: RendererOptions<AmazonsStep[]>) {
   const xActive = !obs.is_terminal && obs.current_player === 'x';
   const oActive = !obs.is_terminal && obs.current_player === 'o';
   header.innerHTML = `
-    ${makePlayerCard('Black (X)', 'x', xActive)}
+    ${makePlayerCard(xName, 'x', xActive)}
     <span style="color:${SOFT_INK}">vs</span>
-    ${makePlayerCard('White (O)', 'o', oActive)}
+    ${makePlayerCard(oName, 'o', oActive)}
   `;
 
-  // Size canvas to its CSS box.
-  const rect = canvas.getBoundingClientRect();
+  // Size canvas to its container. We compute pixel CSS sizes and write them
+  // as inline styles so that the host's `.viewer canvas { position: absolute;
+  // width: 100%; height: 100%; }` (from web/core) cannot override us. Inline
+  // styles win over external CSS regardless of selector specificity.
+  canvas.style.width = '0';
+  canvas.style.height = '0';
+  const containerRect = (canvas.parentElement ?? canvas).getBoundingClientRect();
+  // Reserve room for the header and status panel siblings in the column flex.
+  const headerH = header ? header.getBoundingClientRect().height : 0;
+  const statusEl = parent.querySelector('.amazons-status') as HTMLElement | null;
+  const statusH = statusEl ? statusEl.getBoundingClientRect().height : 0;
+  const verticalPad = 24; // .renderer-container padding (12px top+bottom) + a little slack
+  const availW = containerRect.width;
+  const availH = Math.max(0, containerRect.height - headerH - statusH - verticalPad);
+  const cssSize = Math.max(80, Math.floor(Math.min(availW, availH, 512)));
+  canvas.style.width = `${cssSize}px`;
+  canvas.style.height = `${cssSize}px`;
+  canvas.style.position = 'relative';
+  canvas.style.display = 'block';
   const dpr = window.devicePixelRatio || 1;
-  canvas.width = Math.max(1, Math.floor(rect.width * dpr));
-  canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+  canvas.width = Math.max(1, Math.floor(cssSize * dpr));
+  canvas.height = Math.max(1, Math.floor(cssSize * dpr));
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -242,9 +271,9 @@ export function renderer(options: RendererOptions<AmazonsStep[]>) {
   const prevObs = findPrevObservation(steps, step);
   const diff = diffBoards(prevObs?.board ?? null, obs.board);
 
-  drawBoard(ctx, rect.width, rect.height, obs, diff);
+  drawBoard(ctx, cssSize, cssSize, obs, diff);
 
-  const { primary: primaryText, annotation: annotationText } = describeStatus(obs, diff);
+  const { primary: primaryText, annotation: annotationText } = describeStatus(obs, diff, xName, oName);
   primary.textContent = primaryText;
   annotation.textContent = annotationText;
 }

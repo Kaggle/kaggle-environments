@@ -150,6 +150,39 @@ CONFIGURATION_SPEC_TEMPLATE = {
         },
     },
     "metadata": {"description": "Arbitrary metadata.", "type": "object", "default": {}},
+    "strictMode": {
+        "description": (
+            "If true, agents must return only {'submission': int} (no extra fields"
+            " like 'thoughts'), and per-agent TIMEOUT/ERROR/INVALID counts as a"
+            " loss for the offending agent only — other agents are marked DONE"
+            " with a winning reward. The offender keeps its natural ERROR or"
+            " TIMEOUT status (matching how every other Kaggle competition"
+            " reports per-player failures). If false (default), any agent error"
+            " halts and voids the entire episode, matching the lenient"
+            " research-mode behavior."
+        ),
+        "type": "boolean",
+        "default": False,
+    },
+    "savePrompt": {
+        "description": (
+            "If true, the LLM prompt produced by the harness is included as a"
+            " 'prompt' field on the action returned by core_harness, which causes"
+            " it to be persisted in the episode replay. Defaults to false to keep"
+            " replays small."
+        ),
+        "type": "boolean",
+        "default": False,
+    },
+    "freeForm": {
+        "description": (
+            "If true, the core harness allows free-form actions"
+            " (get_legal_moves may return None) on turns where the action"
+            " space is not enumerable. Defaults to false for OpenSpiel games."
+        ),
+        "type": "boolean",
+        "default": False,
+    },
 }
 
 OBSERVATION_SPEC_TEMPLATE = {
@@ -445,11 +478,18 @@ def interpreter(
     simul_move_durations: list[float | None] = [None] * num_players
     simul_all_valid = False
 
+    strict_mode = bool(env.configuration.get("strictMode", False))
+
     if is_initial_step:
         pass
     elif 0 <= acting_agent < num_players:
         if kaggle_state[acting_agent]["status"] != "ACTIVE":
             pass
+        elif strict_mode and (
+            not isinstance(kaggle_state[acting_agent]["action"], dict)
+            or set(kaggle_state[acting_agent]["action"].keys()) != {"submission"}
+        ):
+            kaggle_state[acting_agent]["status"] = "INVALID"
         else:
             action_submitted = kaggle_state[acting_agent]["action"]["submission"]
             if action_submitted in os_state.legal_actions():
@@ -458,6 +498,10 @@ def interpreter(
                 action_applied = action_submitted
                 env.info["actionHistory"].append(str(action_applied))
                 env.info["stateHistory"].append(str(os_state))
+                # Visualizers (e.g. goTransformer) read actionString off the
+                # action dict to render moves. The LLM harness populates this
+                # itself; for code-submission agents we populate it here.
+                kaggle_state[acting_agent]["action"]["actionString"] = action_submitted_to_string
             elif action_submitted == AGENT_ERROR_ACTION:
                 kaggle_state[acting_agent]["status"] = "ERROR"
             else:
@@ -484,6 +528,13 @@ def interpreter(
             if kaggle_state[pid]["status"] != "ACTIVE":
                 simul_all_valid = False
                 break
+            if strict_mode and (
+                not isinstance(kaggle_state[pid]["action"], dict)
+                or set(kaggle_state[pid]["action"].keys()) != {"submission"}
+            ):
+                kaggle_state[pid]["status"] = "INVALID"
+                simul_all_valid = False
+                break
             sub = kaggle_state[pid]["action"]["submission"]
             simul_actions_submitted[pid] = sub
             if sub == AGENT_ERROR_ACTION:
@@ -502,6 +553,9 @@ def interpreter(
             os_state.apply_actions(actions_for_apply)
             for pid in range(num_players):
                 simul_actions_applied[pid] = simul_actions_submitted[pid]
+                # See note above: surface actionString for visualizers.
+                if simul_actions_submitted_to_string[pid] is not None:
+                    kaggle_state[pid]["action"]["actionString"] = simul_actions_submitted_to_string[pid]
             env.info["actionHistory"].append(str(actions_for_apply))
             env.info["stateHistory"].append(str(os_state))
 
@@ -548,7 +602,18 @@ def interpreter(
     status: str | None = None
     for player_id, agent_state in enumerate(kaggle_state):
         reward = None
-        if agent_error:
+        if agent_error and strict_mode:
+            # Per-player scoping like every other competition: offender keeps
+            # its natural ERROR / TIMEOUT status (core.py will null its reward),
+            # others get DONE + winning reward. The kaggleazure open_spiel
+            # carveout is gated on UseModelProxy / EnableInternet so non-DONE
+            # statuses no longer void the episode in strict-mode competitions.
+            if agent_state["status"] in ("TIMEOUT", "ERROR"):
+                status = agent_state["status"]
+            else:
+                reward = -DEFAULT_INVALID_ACTION_REWARD
+                status = "DONE"
+        elif agent_error:
             # Set all agent statuses to ERROR in order not to score episode. Preserve
             # TIMEOUT which has the same effect.
             if agent_state["status"] == "TIMEOUT":
@@ -868,6 +933,8 @@ GAMES_LIST = [
     "backgammon",
     "checkers",
     "chess",
+    "clobber",
+    "coin_game",
     "connect_four",
     "dark_hex",
     "gin_rummy",
@@ -875,7 +942,9 @@ GAMES_LIST = [
     "goofspiel(num_cards=4,points_order=descending,returns_type=total_points)",
     "hearts",
     "hex",
+    "lines_of_action",
     "matching_pennies_3p",
+    "oshi_zumo",
     "othello",
     "repeated_game(stage_game=matrix_pd(),num_repetitions=100)",
     "tic_tac_toe",

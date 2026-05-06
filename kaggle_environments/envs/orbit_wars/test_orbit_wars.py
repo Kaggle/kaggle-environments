@@ -200,25 +200,13 @@ class TestOrbitWars(unittest.TestCase):
             self.assertEqual(obs0.comet_planet_ids, other_obs.comet_planet_ids)
             self.assertEqual(obs0.initial_planets, other_obs.initial_planets)
 
-    def test_generate_planets_has_diagonal_orbiting_group(self):
-        # The y=x diagonal orbiting group should always be generated
+    def test_4p_home_planets_rotationally_symmetric(self):
+        # In 4p, the 4 home planets must be a 4-fold rotationally symmetric
+        # set about the board center: rotating any home position by 90° CCW
+        # must land on another home position. This guarantees every player's
+        # view is identical (just rotated), so all are equidistant from
+        # the planet rotationally ahead and behind.
         for _ in range(50):
-            planets = generate_planets()
-            num_groups = len(planets) // 4
-            found_diagonal = False
-            for g in range(num_groups):
-                p = planets[g * 4]  # Q1 planet
-                orb_r = distance((p[2], p[3]), (CENTER, CENTER))
-                is_orbiting = orb_r + p[4] < ROTATION_RADIUS_LIMIT
-                on_diagonal = abs((p[2] - CENTER) - (p[3] - CENTER)) < 0.01
-                if is_orbiting and on_diagonal:
-                    found_diagonal = True
-                    break
-            self.assertTrue(found_diagonal, "No y=x diagonal orbiting group found")
-
-    def test_4p_start_always_static_or_diagonal(self):
-        # In 4p, starting planets must be static or on the y=x diagonal
-        for _ in range(100):
             state = [
                 SimpleNamespace(
                     observation=SimpleNamespace(step=0),
@@ -240,18 +228,21 @@ class TestOrbitWars(unittest.TestCase):
                 done=False,
             )
             new_state = interpreter(state, env)
-            obs = new_state[0].observation
-            owned = [p for p in obs.planets if p[1] != -1]
+            owned = [p for p in new_state[0].observation.planets if p[1] != -1]
             self.assertEqual(len(owned), 4)
-
-            q1 = owned[0]  # Player 0's planet (Q1)
-            orb_r = distance((q1[2], q1[3]), (CENTER, CENTER))
-            is_orbiting = orb_r + q1[4] < ROTATION_RADIUS_LIMIT
-            if is_orbiting:
-                # Must be on the y=x diagonal
-                self.assertAlmostEqual(
-                    q1[2] - CENTER, q1[3] - CENTER, places=2,
-                    msg="4p orbiting start not on y=x diagonal"
+            positions = [(p[2], p[3]) for p in owned]
+            # Rotate each position 90° CCW about CENTER and verify it lands on
+            # another home position.
+            for x, y in positions:
+                rx = CENTER - (y - CENTER)
+                ry = CENTER + (x - CENTER)
+                self.assertTrue(
+                    any(
+                        math.isclose(rx, px, abs_tol=1e-5)
+                        and math.isclose(ry, py, abs_tol=1e-5)
+                        for px, py in positions
+                    ),
+                    msg=f"home set not 4-fold rotational: {positions}",
                 )
 
     def _make_state(self, planets, fleets, step=1):
@@ -307,6 +298,47 @@ class TestOrbitWars(unittest.TestCase):
             )
             for i in range(1, 4)
         ]
+
+    def test_fleet_does_not_tunnel_through_rotating_planet(self):
+        # Both fleet and planet move during the tick. The fleet's path and the
+        # planet's path each pass through (50, 50) with the closest approach
+        # to the *other* object's start/end snapshot exactly equal to the
+        # planet radius. Treating either body as static for the full tick
+        # (the original two-phase check) misses a collision that the swept
+        # pair check catches at t=0.5.
+        #
+        # Setup:
+        #   shipSpeed=2, ships=1000  -> fleet speed = 2.0 exactly
+        #   Fleet path: (49, 50) -> (51, 50)
+        #   angular_velocity=pi, step=1  -> planet rotates pi rad
+        #   Planet path: (50, 52) -> (50, 48)  (orbital r=2, initial angle pi/2)
+        #   Planet radius = 1.0
+        # Phase-1 check: dist((50,52), segment (49,50)-(51,50)) = 2.0 > 1.0 (miss)
+        # Phase-2 check: dist((51,50), segment (50,52)-(50,48)) = 1.0, not < 1.0 (miss)
+        # Swept-pair: |D(t)|^2 = 20t^2 - 20t + 5; |D(0.5)| = 0 (overlap)
+        planets = [[0, -1, 50.0, 52.0, 1.0, 10, 0]]
+        fleets = [[0, 0, 49.0, 50.0, 0.0, 1, 1000]]
+        state = self._make_state(planets, fleets, step=1)
+        state[0].observation.angular_velocity = math.pi
+
+        env = SimpleNamespace(
+            configuration=SimpleNamespace(
+                shipSpeed=2, episodeSteps=500, cometSpeed=4
+            ),
+            done=False,
+        )
+
+        new_state = interpreter(state, env)
+        obs = new_state[0].observation
+
+        # Fleet should have collided with the planet, not tunneled past it.
+        self.assertEqual(
+            len(obs.fleets), 0, "fleet tunneled through rotating planet"
+        )
+        # Planet was neutral with 10 ships; 1000 attackers capture it,
+        # leaving 990 ships under player 0.
+        self.assertEqual(obs.planets[0][1], 0)
+        self.assertEqual(obs.planets[0][5], 990)
 
     def test_rewards_set_at_max_steps(self):
         # When the game reaches episodeSteps without elimination,
@@ -479,6 +511,48 @@ class TestOrbitWars(unittest.TestCase):
         remaining = new_state[0].observation.fleets
         self.assertEqual(len(remaining), 1)
 
+    def test_fast_fleet_hits_planet_before_leaving_board(self):
+        # A fast fleet whose move ends out-of-bounds should still resolve
+        # combat at any planet its segment crosses on the way out.
+        # Planet at (98, 50) radius 2 sits beyond r=50 from center so it
+        # does not rotate (r + radius = 50, not < ROTATION_RADIUS_LIMIT).
+        # Fleet has 1000 ships -> max speed 6. It moves from x=95 to x=101
+        # (out of bounds) but its segment passes through the planet.
+        planets = [[0, 1, 98.0, 50.0, 2.0, 50, 1]]
+        fleets = [[0, 0, 95.0, 50.0, 0.0, 99, 1000]]
+        state = self._make_state(planets, fleets)
+        env = SimpleNamespace(
+            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500, cometSpeed=4),
+            done=False,
+        )
+
+        new_state = interpreter(state, env)
+        p = new_state[0].observation.planets[0]
+        # Combat should have resolved: attacker (1000) vs garrison (50+1 prod = 51)
+        self.assertEqual(p[1], 0)
+        self.assertEqual(p[5], 1000 - 51)
+        self.assertEqual(len(new_state[0].observation.fleets), 0)
+
+    def test_fast_fleet_hits_planet_before_sun(self):
+        # A fast fleet whose segment crosses both a planet and the sun
+        # should resolve combat at the planet rather than be silently
+        # consumed by the sun.
+        planets = [[0, 1, 62.0, 50.0, 2.0, 50, 1]]
+        fleets = [[0, 0, 65.0, 50.0, math.pi, 99, 1000]]
+        state = self._make_state(planets, fleets)
+        # Disable rotation to keep the planet fixed for this geometry test.
+        state[0].observation.angular_velocity = 0.0
+        env = SimpleNamespace(
+            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500, cometSpeed=4),
+            done=False,
+        )
+
+        new_state = interpreter(state, env)
+        p = new_state[0].observation.planets[0]
+        self.assertEqual(p[1], 0)
+        self.assertEqual(p[5], 1000 - 51)
+        self.assertEqual(len(new_state[0].observation.fleets), 0)
+
     def test_combat_simple_capture(self):
         # Fleet of 30 attacks neutral planet with 10 ships
         # Attacker wins with 30-10=20 ships remaining, captures planet
@@ -629,6 +703,77 @@ class TestOrbitWars(unittest.TestCase):
         p = new_state[0].observation.planets[0]
         self.assertEqual(p[1], 0)  # P0 captures
         self.assertEqual(p[5], 25)  # 35 - 10 = 25
+
+
+    def test_seed_hidden_from_agents_but_in_replay(self):
+        # The seed drives planet placement and the comet schedule (which is
+        # supposed to be hidden info). Agents must NOT see the seed via the
+        # configuration they're handed, but the replay/env must still record
+        # it for reproducibility.
+        from kaggle_environments import make
+
+        seen_seeds = []
+        seen_configs = []
+
+        def spy_agent(observation, configuration):
+            seen_seeds.append(configuration.get("seed"))
+            seen_configs.append(dict(configuration))
+            return []
+
+        chosen_seed = 1234567
+        env = make(
+            "orbit_wars",
+            configuration={"seed": chosen_seed, "episodeSteps": 60},
+            debug=True,
+        )
+        env.run([spy_agent, spy_agent])
+
+        self.assertTrue(seen_seeds, "spy agent never received configuration")
+        for s, cfg in zip(seen_seeds, seen_configs):
+            self.assertIsNone(
+                s, msg=f"agent saw seed={s} in configuration: {cfg}"
+            )
+
+        # Seed must still be persisted on the env / replay for reproducibility.
+        self.assertEqual(env.info.get("seed"), chosen_seed)
+        replay = env.toJSON()
+        self.assertEqual(replay["info"].get("seed"), chosen_seed)
+        self.assertIsNone(replay["configuration"].get("seed"))
+
+    def test_seed_hidden_when_unset_by_user(self):
+        # When the user doesn't supply a seed, the interpreter generates one.
+        # That generated seed must also stay out of the agent's configuration
+        # view but be recorded in env.info.
+        from kaggle_environments import make
+
+        seen_seeds = []
+
+        def spy_agent(observation, configuration):
+            seen_seeds.append(configuration.get("seed"))
+            return []
+
+        env = make("orbit_wars", configuration={"episodeSteps": 60}, debug=True)
+        env.run([spy_agent, spy_agent])
+
+        for s in seen_seeds:
+            self.assertIsNone(s, msg=f"agent saw generated seed={s}")
+        self.assertIsNotNone(env.info.get("seed"))
+
+    def test_scrubbed_config_passes_remote_agent_make(self):
+        # On the agent server, action_act re-invokes make() with the config
+        # the local env sent over. After scrub that config has seed=null, so
+        # the schema must allow null — otherwise make() raises InvalidArgument
+        # and the agent server returns an error response with no "action" key,
+        # surfacing as KeyError: 'action' in the local UrlAgent wrapper.
+        from kaggle_environments import make
+
+        # Simulate a config that has already been scrubbed by the interpreter.
+        env = make(
+            "orbit_wars",
+            configuration={"seed": None, "episodeSteps": 60},
+            debug=True,
+        )
+        self.assertIsNone(env.configuration.get("seed"))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,108 @@
+import { useEffect, useRef, useState } from 'react';
+import { AnimatePresence } from 'motion/react';
+import passRiv from '../assets/rives/pass.riv?url';
+import doublePassRiv from '../assets/rives/double-pass.riv?url';
+import firstCaptureRiv from '../assets/rives/first-capture.riv?url';
+import criticalHitRiv from '../assets/rives/critical-hit.riv?url';
+import dragonLossRiv from '../assets/rives/dragon-loss.riv?url';
+import { HeroTypes, detectHeroType } from '../utils/heroTypes';
+import { RivePopover } from './RivePopover';
+import useGameStore from '../stores/useGameStore';
+import usePreferences from '../stores/usePreferences';
+import { trackEvent } from '../utils/analytics';
+
+interface Hero {
+  src: string;
+  text: string;
+  color: string;
+  step: number;
+}
+
+export default function HeroAnimation() {
+  const game = useGameStore((state) => state.game);
+  const showHeroAnimations = usePreferences((state) => state.showHeroAnimations);
+  const prevStepRef = useRef<number | null>(null);
+  const [hero, setHero] = useState<Hero | null>(null);
+
+  useEffect(() => {
+    const step = game.step ?? null;
+    const prevStep = prevStepRef.current;
+    prevStepRef.current = step;
+
+    // Only trigger on single-step navigation
+    if (!prevStep || !step || Math.abs(step - prevStep) > 1) return;
+    if (!showHeroAnimations) return;
+
+    const heroType = detectHeroType(game);
+    if (heroType === null) return;
+
+    const state = game.currentState();
+    const color = state.color;
+    const player = color === 'black' ? 'Black' : 'White';
+    const opponent = color === 'black' ? 'White' : 'Black';
+    const captures = state.capturedPositions?.length;
+
+    let src, text, event;
+    switch (heroType) {
+      case HeroTypes.PASS:
+        src = passRiv;
+        text = `${player} passes the turn.`;
+        event = 'pass';
+        break;
+      case HeroTypes.DOUBLE_PASS:
+        src = doublePassRiv;
+        text = 'Double Pass: game over.';
+        event = 'double-pass';
+        break;
+      case HeroTypes.FIRST_CAPTURE:
+        src = firstCaptureRiv;
+        text = `${player} captures first.`;
+        event = 'first-capture';
+        break;
+      case HeroTypes.CRITICAL_HIT:
+        src = criticalHitRiv;
+        text = `${player} captures ${captures} stones.`;
+        event = 'critical-hit';
+        break;
+      case HeroTypes.DRAGON_LOSS:
+        src = dragonLossRiv;
+        text = `${opponent} loses a dragon.`;
+        event = 'dragon-loss';
+        break;
+      default:
+        return;
+    }
+
+    // Let the board play out before showing the Rive animation.
+    const timeout = setTimeout(() => {
+      setHero({ src, text, color, step });
+      if (!game.gameOver) trackEvent(`pop-up-animation-${event}`);
+    }, 600);
+
+    return () => {
+      clearTimeout(timeout);
+      setHero(null);
+    };
+  }, [game, showHeroAnimations]);
+
+  const isVisible = !!hero && !game.gameOver;
+
+  return (
+    <>
+      <span aria-live="assertive" className="visually-hidden">
+        {isVisible ? hero?.text : ''}
+      </span>
+      <AnimatePresence>
+        {isVisible && (
+          <RivePopover
+            key={hero.step}
+            src={hero.src}
+            text={hero.text}
+            color={hero.color}
+            onClose={() => setHero(null)}
+          />
+        )}
+      </AnimatePresence>
+    </>
+  );
+}

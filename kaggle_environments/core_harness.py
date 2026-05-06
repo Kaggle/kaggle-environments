@@ -9,18 +9,24 @@ Game-specific harnesses implement the ``GameHarness`` protocol by providing
 three methods:
 
 - ``get_legal_moves(observation)``
-- ``make_prompt(observation, move_history, previous_response?, previous_action?)``
+- ``generate_prompt(observation, move_history, previous_response?, previous_action?)``
 - ``parse_response(response, legal_action_strings)``
+
+Note that the provided harness requires a ``generate_prompt`` while this uses
+``make_prompt`` internally. (The static submission maps between these two)
 
 Use ``create_agent_fn(game_harness)`` to produce a Kaggle-compatible
 ``agent_fn(obs, config) -> {"submission": int, ...}`` callable.
 """
 
 import dataclasses
+import json
 import logging
 import os
 import sys
 import time
+import urllib.parse
+import urllib.request
 from typing import Any, Callable, Mapping, Protocol, Sequence
 
 import litellm
@@ -47,7 +53,33 @@ class TelemetrySendFn(Protocol):
     def __call__(self, module: str, **kwargs: Any) -> None: ...
 
 
-_SEND: TelemetrySendFn = lambda module, **kwargs: None  # noqa: E731
+def _model_proxy_send(module: str, **kwargs: Any) -> None:
+    """Default exporter that POSTs to the Kaggle Model Proxy /telemetry/logs."""
+    token = os.environ.get("MODEL_PROXY_KEY")
+    url = os.environ.get("MODEL_PROXY_URL")
+    if not token or not url or url == "dummy_url":
+        _log.info("[telemetry] %s %s", module, json.dumps(kwargs, default=str))
+        return
+    parsed = urllib.parse.urlparse(url)
+    host = parsed.netloc or parsed.path.split("/", 1)[0]
+    endpoint = f"https://{host}/telemetry/logs"
+    payload = json.dumps({module: kwargs}).encode("utf-8")
+    req = urllib.request.Request(
+        endpoint,
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        urllib.request.urlopen(req, timeout=5).close()
+    except Exception as exc:  # noqa: BLE001 - never let telemetry break play
+        _log.warning("Failed to post telemetry to Kaggle Model Proxy: %s", exc)
+
+
+_SEND: TelemetrySendFn = _model_proxy_send
 
 
 def get_telemetry_logger(module: str) -> Callable[..., None]:
@@ -79,13 +111,16 @@ class ParseResult:
 
     Attributes:
         legal_action: The legal action string that was matched, or ``None``
-            if no legal move could be matched.
+            if no legal move could be matched.  Used for enumerable actions.
         raw_action: The raw move the model attempted to play (even if
             illegal).  Used to build rethink prompts.
+        submission: The validated action for free-form action spaces, or
+            ``None`` if parsing failed.  Ignored for enumerable actions.
     """
 
     legal_action: str | None = None
     raw_action: str | None = None
+    submission: Any = None
 
 
 # ---------------------------------------------------------------------------
@@ -99,8 +134,12 @@ class GameHarness(Protocol):
     def get_legal_moves(
         self,
         observation: Mapping[str, Any],
-    ) -> dict[int, str]:
-        """Return a mapping from legal action id to its string form."""
+    ) -> dict[int, str] | None:
+        """Return a mapping from legal action id to its string form.
+
+        Return ``None`` to indicate a free-form action space where the
+        LLM response is not constrained to an enumerable set of moves.
+        """
         ...
 
     def make_prompt(
@@ -121,12 +160,15 @@ class GameHarness(Protocol):
     def parse_response(
         self,
         response: str,
-        legal_action_strings: Sequence[str],
+        legal_action_strings: Sequence[str] | None,
     ) -> ParseResult:
         """Extract a move from the LLM response.
 
-        Returns a ``ParseResult``.  If ``legal_action`` is not ``None`` it
-        must be one of the strings in ``legal_action_strings``.
+        Returns a ``ParseResult``.  For enumerable actions, if
+        ``legal_action`` is not ``None`` it must be one of the strings in
+        ``legal_action_strings``.  For free-form actions
+        (``legal_action_strings is None``), set ``submission`` on the
+        result instead.
         """
         ...
 
@@ -195,6 +237,7 @@ def _setup_model() -> tuple[str, dict[str, Any]]:
         litellm_kwargs = {
             "api_base": f"{os.environ['MODEL_PROXY_URL']}/openapi",
             "api_key": os.environ["MODEL_PROXY_KEY"],
+            "reasoning_effort": "high",
         }
     elif "gemini" in model_name.lower() and not model_name.startswith("gemini/"):
         model_name = f"gemini/{model_name}"
@@ -211,7 +254,7 @@ def create_agent_fn(
     game_harness: GameHarness,
     *,
     max_retries: int = 2,
-) -> Callable[[Any, dict[str, Any]], dict[str, int]]:
+) -> Callable[[Any, dict[str, Any]], dict[str, Any]]:
     """Create a Kaggle-compatible agent function from a ``GameHarness``.
 
     Args:
@@ -221,7 +264,7 @@ def create_agent_fn(
             attempt).
 
     Returns:
-        ``agent_fn(obs, config) -> {"submission": int, ...}``
+        ``agent_fn(obs, config) -> {"submission": <action>, ...}``
     """
     # --- closure state (per agent, not per module) ---
     setup_done = False
@@ -244,6 +287,8 @@ def create_agent_fn(
             )
             setup_done = True
 
+        save_prompt = bool(config.get("savePrompt", False)) if config else False
+
         observation = obs if isinstance(obs, dict) else vars(obs)
 
         # -- inactive-call guard --
@@ -256,31 +301,43 @@ def create_agent_fn(
         if is_terminal:
             _TELEMETRY(inactive_call="terminal")
             return {"submission": None, "status": "INACTIVE"}
+        # Simultaneous-move games report ``currentPlayer == -2``
+        # (pyspiel.PlayerId.SIMULTANEOUS): every player_id is "current" until
+        # the round resolves, so skip the not-our-turn check in that case.
+        SIMULTANEOUS_PLAYER_ID = -2
         if (
             player_id is not None
             and current_player is not None
+            and current_player != SIMULTANEOUS_PLAYER_ID
             and player_id != current_player
         ):
             _TELEMETRY(inactive_call="not_our_turn")
             return {"submission": None, "status": "INACTIVE"}
 
         # -- legal moves --
+        allow_free_form = bool(config.get("freeForm", False)) if config else False
         legal_moves = game_harness.get_legal_moves(observation)
+        free_form = legal_moves is None and allow_free_form
+
         if not legal_moves:
-            # Distinguish "obs not yet populated" (None signals) from a real
-            # bug (it IS our turn but the game offers nothing).
-            if player_id is None and current_player is None:
-                _log.warning(
-                    "core_harness: agent invoked with empty observation "
-                    "(keys=%s); returning no-op.",
-                    sorted(observation.keys()),
-                )
-                _TELEMETRY(inactive_call="empty_obs")
-                return {"submission": None, "status": "INACTIVE"}
-            _TELEMETRY(no_legal_actions=True)
-            raise ValueError("No legal actions available.")
-        legal_action_strings = list(legal_moves.values())
-        legal_actions = list(legal_moves.keys())
+            if free_form:
+                legal_action_strings = None
+            else:
+                # Distinguish "obs not yet populated" (None signals) from
+                # a real bug (it IS our turn but the game offers nothing).
+                if player_id is None and current_player is None:
+                    _log.warning(
+                        "core_harness: agent invoked with empty observation "
+                        "(keys=%s); returning no-op.",
+                        sorted(observation.keys()),
+                    )
+                    _TELEMETRY(inactive_call="empty_obs")
+                    return {"submission": None, "status": "INACTIVE"}
+                _TELEMETRY(no_legal_actions=True)
+                raise ValueError("No legal actions available.")
+        else:
+            legal_action_strings = list(legal_moves.values())
+            legal_actions = list(legal_moves.keys())
 
         # -- prompt / parse / retry loop --
         previous_response: str | None = None
@@ -315,22 +372,36 @@ def create_agent_fn(
 
             result = game_harness.parse_response(content, legal_action_strings)
 
-            if result.legal_action is not None:
+            # -- check for a valid action --
+            matched_submission: Any = None
+            action_str: str | None = None
+
+            if free_form and result.submission is not None:
+                matched_submission = result.submission
+                action_str = str(result.submission)
+            elif not free_form and result.legal_action is not None:
                 idx = legal_action_strings.index(result.legal_action)
-                move_history.append(result.legal_action)
+                matched_submission = legal_actions[idx]
+                action_str = result.legal_action
+
+            if action_str is not None:
+                move_history.append(action_str)
                 _TELEMETRY(
                     action_is_legal=True,
                     legal_action={
                         "raw_action": result.raw_action,
-                        "legal_action": result.legal_action,
+                        "legal_action": action_str,
                     },
                 )
-                return {
-                    "submission": legal_actions[idx],
-                    "actionString": result.legal_action,
+                action: dict[str, Any] = {
+                    "submission": matched_submission,
+                    "actionString": action_str,
                     "thoughts": last_content,
                     "status": "OK",
                 }
+                if save_prompt:
+                    action["prompt"] = prompt
+                return action
 
             # -- parse failed → prepare rethink --
             _TELEMETRY(

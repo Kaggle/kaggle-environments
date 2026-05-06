@@ -25,8 +25,12 @@ html, body, #app {
 }
 
 .renderer-container canvas {
+  /* Override .viewer canvas { position: absolute; ... } from web/core which
+     would otherwise pull the canvas out of the column flex layout and stretch
+     it to fill the entire .viewer (hiding header/status). */
   position: relative;
-  flex-grow: 1;
+  display: block;
+  flex: 1 1 0;
   width: 100%;
   max-width: 512px;
   aspect-ratio: 1 / 1;
