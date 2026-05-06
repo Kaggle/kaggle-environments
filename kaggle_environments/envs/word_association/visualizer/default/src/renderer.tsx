@@ -303,10 +303,15 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
     const pastStepData = replay.steps[i] as any;
     const pastStep = Array.isArray(pastStepData) ? pastStepData : pastStepData.rawAgents;
 
-    const agent0Act = pastStep[0].action;
-    const agent1ActRaw = pastStep[1].action;
-    const agent2Act = pastStep[2].action;
-    const agent3ActRaw = pastStep[3].action;
+    // core_harness wraps actions as {submission, thoughts, status}.
+    // Unwrap to get the actual game action, falling back to raw for old replays.
+    const unwrap = (action: any) =>
+      typeof action === 'object' && action !== null && 'submission' in action ? action.submission : action;
+
+    const agent0Act = unwrap(pastStep[0].action);
+    const agent1ActRaw = unwrap(pastStep[1].action);
+    const agent2Act = unwrap(pastStep[2].action);
+    const agent3ActRaw = unwrap(pastStep[3].action);
 
     const agent1Act =
       typeof agent1ActRaw === 'object' && agent1ActRaw !== null && 'guess' in agent1ActRaw
