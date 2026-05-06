@@ -1,57 +1,18 @@
-const CROPS = ['WHEAT', 'CARROT', 'TOMATO', 'STRAWBERRY', 'MELON'] as const;
-type Crop = (typeof CROPS)[number];
+import {
+  CROP_SPRITE,
+  CROPS,
+  type BoardSize,
+  type CellRefs,
+  type Crop,
+  type Farm,
+  type LayoutRefs,
+  type Observation,
+  type PlayerRefs,
+  type SeedSlotRefs,
+} from './types';
+import { makeHiddenImg, plantSprite, spriteSrc } from './utils';
 
-const CROP_FIRST_YIELD_DAY: Record<Crop, number> = {
-  WHEAT: 2,
-  CARROT: 2,
-  TOMATO: 8,
-  STRAWBERRY: 10,
-  MELON: 10,
-};
-
-const CROP_SPRITE: Record<Crop, string> = {
-  WHEAT: 'wheat',
-  CARROT: 'carrot',
-  TOMATO: 'tomato',
-  STRAWBERRY: 'strawberry',
-  MELON: 'melon',
-};
-
-const READY_SPRITE_TYPES = new Set<Crop>(['CARROT', 'TOMATO', 'STRAWBERRY', 'MELON']);
-
-const PNG_SPRITES: Record<string, string> = {
-  wheat: 'wheat_full',
-  carrot: 'carrot_full',
-  tomato: 'tomato_full',
-  strawberry: 'strawberry_full',
-  melon: 'melon_full',
-  coin: 'coin',
-  farmer_p1: 'farmer_p1',
-  farmer_p2: 'farmer_p2',
-  soil_dry: 'soil_dry',
-  soil_watered: 'soil_watered',
-  sprout: 'sprout',
-  midgrowth: 'midgrowth',
-  carrot_ready: 'carrot_ready',
-  tomato_ready: 'tomato_ready',
-  strawberry_ready: 'strawberry_ready',
-  melon_ready: 'melon_ready',
-};
-
-function spriteSrc(name: string): string {
-  const png = PNG_SPRITES[name];
-  if (png) return `/sprites/${png}.png`;
-  return `/sprites/legacy/${name}.svg`;
-}
-
-function plantSprite(crop: Crop, ageDays: number): string {
-  const firstYield = CROP_FIRST_YIELD_DAY[crop];
-  if (ageDays <= 0) return 'sprout';
-  if (ageDays < firstYield) return 'midgrowth';
-  const base = CROP_SPRITE[crop];
-  if (READY_SPRITE_TYPES.has(crop)) return `${base}_ready`;
-  return base;
-}
+export type { BoardSize, LayoutRefs } from './types';
 
 function farmCell(row: number, col: number): string {
   return `
@@ -126,12 +87,7 @@ function statusPanel(): string {
   `;
 }
 
-export interface BoardSize {
-  rows: number;
-  cols: number;
-}
-
-export function buildShell(root: HTMLElement, board: BoardSize): void {
+export function buildSkeleton(root: HTMLElement, board: BoardSize): void {
   root.innerHTML = `
     <div class="demo-container">
       <main class="demo-main">
@@ -141,75 +97,6 @@ export function buildShell(root: HTMLElement, board: BoardSize): void {
       </main>
     </div>
   `;
-}
-
-// --- Observation rendering ----------------------------------------------------
-
-interface Tile {
-  crop: Crop;
-  planted_day: number;
-  watered_today: boolean;
-  yield_units: number;
-  total_produced: number;
-  last_production_day: number;
-  consecutive_unwatered: number;
-  max_lifespan_step: number;
-}
-
-interface Farm {
-  money: number;
-  seeds: Record<Crop, number>;
-  farmer: [number, number];
-  tiles: Array<Array<Tile | null>>;
-}
-
-interface Observation {
-  step?: number;
-  day?: number;
-  hour?: number;
-  farms?: Farm[];
-}
-
-interface CellRefs {
-  el: HTMLElement;
-  baseImg: HTMLImageElement;
-  baseSprite: string;
-  objectSlot: HTMLElement;
-  objectImg: HTMLImageElement;
-  objectSprite: string;
-  agentSlot: HTMLElement;
-  agentImg: HTMLImageElement;
-  agentSprite: string;
-}
-
-interface SeedSlotRefs {
-  count: HTMLElement;
-  lastCount: number;
-}
-
-interface PlayerRefs {
-  panel: HTMLElement;
-  balance: HTMLElement;
-  lastBalance: number;
-  cells: CellRefs[][];
-  seeds: Record<Crop, SeedSlotRefs>;
-  farmerCell: CellRefs | null;
-}
-
-export interface LayoutRefs {
-  dayValue: HTMLElement;
-  lastDay: number;
-  turnValue: HTMLElement;
-  lastTurn: number;
-  players: PlayerRefs[];
-}
-
-function makeHiddenImg(extraClass = ''): HTMLImageElement {
-  const img = document.createElement('img');
-  img.className = `cell-sprite ${extraClass}`.trim();
-  img.alt = '';
-  img.style.display = 'none';
-  return img;
 }
 
 function collectPlayerRefs(panel: HTMLElement, board: BoardSize): PlayerRefs {

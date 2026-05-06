@@ -1,15 +1,15 @@
 import type { RendererOptions } from '@kaggle-environments/core';
 import { getStepData } from '@kaggle-environments/core';
-import { buildShell, collectRefs, renderObservation, type BoardSize, type LayoutRefs } from './layout';
+import { buildSkeleton, collectRefs, renderObservation, type BoardSize, type LayoutRefs } from './renderFarm';
 
 const DEFAULT_BOARD: BoardSize = { rows: 5, cols: 5 };
 
-interface CachedShell {
+interface CachedSkeleton {
   key: string;
   refs: LayoutRefs;
 }
 
-const shellCache = new WeakMap<HTMLElement, CachedShell>();
+const skeletonCache = new WeakMap<HTMLElement, CachedSkeleton>();
 
 function inferBoardSize(replay: any): BoardSize {
   const cfg = replay?.configuration ?? {};
@@ -30,11 +30,11 @@ export function renderer(options: RendererOptions): void {
 
   const board = inferBoardSize(replay);
   const expectedKey = `${board.rows}x${board.cols}`;
-  let cached = shellCache.get(parent);
+  let cached = skeletonCache.get(parent);
   if (!cached || cached.key !== expectedKey) {
-    buildShell(parent, board);
+    buildSkeleton(parent, board);
     cached = { key: expectedKey, refs: collectRefs(parent, board) };
-    shellCache.set(parent, cached);
+    skeletonCache.set(parent, cached);
   }
 
   const obs = getObservation(replay, step);
