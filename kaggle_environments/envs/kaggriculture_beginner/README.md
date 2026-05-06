@@ -164,6 +164,5 @@ Three built-in agents are available by name: `"pass"`, `"random"`, and `"starter
 | `startingMoney` | 150 | Coins each player starts with |
 | `turnsPerDay` | 24 | Number of turns that make up one in-game day |
 | `actTimeout` | 1 | Per-turn agent action timeout (seconds) |
-| `seed` | `null` | Optional integer seed for deterministic episodes. The interpreter scrubs this from the configuration and stashes the resolved seed on `env.info["seed"]` so it stays out of agent observations. |
 
 Per-crop seed costs and sale prices are not configurable in the beginner version — they are fixed in the `CROPS` table inside the interpreter (see the Object Types table above for the values).

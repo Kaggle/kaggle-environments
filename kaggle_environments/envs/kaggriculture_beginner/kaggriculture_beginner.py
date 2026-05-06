@@ -109,20 +109,6 @@ def _initialize(state, env):
     num_agents = len(state)
     obs0 = state[0].observation
 
-    if not hasattr(env, "info") or env.info is None:
-        env.info = {}
-
-    seed = env.info.get("seed")
-    if seed is None:
-        seed = get(configuration, "seed", None)
-    if seed is None:
-        seed = random.randrange(2**31)
-    try:
-        configuration.seed = None
-    except (AttributeError, TypeError):
-        configuration["seed"] = None
-    env.info["seed"] = seed
-
     board_size = int(get(configuration, "boardSize", 5))
     starting_money = int(get(configuration, "startingMoney", 150))
 
