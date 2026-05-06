@@ -190,6 +190,7 @@ def _call_llm(
         response = litellm.completion(
             model=model_name,
             messages=[{"role": "user", "content": prompt}],
+            timeout=3600,
             **litellm_kwargs,
         )
         content = response.choices[0].message.content.strip()
