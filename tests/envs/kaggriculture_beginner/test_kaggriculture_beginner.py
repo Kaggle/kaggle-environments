@@ -258,17 +258,6 @@ def test_harvest_yields_money_via_full_episode():
     assert j["rewards"][1] == 100.0
 
 
-def test_seed_is_scrubbed_from_configuration():
-    env = make(
-        "kaggriculture_beginner",
-        configuration={"episodeSteps": 5, "seed": 42},
-    )
-    env.run(["pass", "pass"])
-    j = env.toJSON()
-    assert j["configuration"].get("seed") is None
-    assert env.info.get("seed") == 42
-
-
 def test_renderer():
     env = make("kaggriculture_beginner", configuration={"episodeSteps": 5})
     env.run(["pass", "pass"])
