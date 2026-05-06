@@ -84,22 +84,15 @@ def _new_plant(crop, day, turns_per_day):
         "crop": crop,
         "planted_day": day,
         "watered_today": False,
-        "consecutive_unwatered": 0,
-        # NOTE: yield_units is the harvestable units currently sitting on the
-        # plant. One-time crops start at 1 (the spec's base yield) and grow
-        # via watering inside the bonus window. Ongoing crops start at 0 and
-        # accumulate via per-interval production in _daily_refresh.
+        # Start at 1 so a freshly planted seed dies if it isn't watered on its
+        # planting day -- the planting day counts as the first "unwatered" day.
+        "consecutive_unwatered": 1,
+        # One-time crops start at 1; ongoing crops
+        # start at 0 and accumulate via _daily_refresh.
         "yield_units": 0 if ongoing else 1,
-        "total_produced": 0,
-        "last_production_day": -1,
-        # NOTE: max_lifespan_step is the first step at which decay applies.
-        # For one-time crops it's set to the start of the day AFTER the crop's
-        # max_yield_day -- i.e. day max_yield_day is the "peak" day, decay
-        # begins the next day. Could alternatively start decay on max_yield_day
-        # itself; spec is ambiguous here.
-        # For ongoing crops it stays at -1 until total_produced hits max_yield,
-        # then is set lazily in _daily_refresh to the start of the day after
-        # the final production day.
+        # First step at which decay applies. For one-time crops, decay begins
+        # the day AFTER max_yield_day (the peak day). For ongoing crops, set lazily
+        # in _daily_refresh once production hits max_yield.
         "max_lifespan_step": (-1 if ongoing else (day + crop_data["max_yield_day"] + 1) * turns_per_day),
     }
 
@@ -129,8 +122,7 @@ def _apply_farmer_action(farm, action, board_size, day, turns_per_day=24):
     None otherwise.
 
     NOTE: invalid or illegal actions are silently no-ops (not status=INVALID).
-    This matches the spec's "if you try to plant too many in a specific turn,
-    none are planted" precedent -- a malformed action shouldn't end the game.
+    A malformed action will not end the game.
     """
     if not isinstance(action, list) or not action:
         return None
@@ -187,13 +179,13 @@ def _try_harvest(farm, fx, fy, day):
         return None
 
     if crop["ongoing"]:
-        # Ongoing plant: take one ready unit (if any). The plant is left
-        # standing -- it may still produce more, or decay may eventually
-        # remove it.
-        if tile["yield_units"] <= 0:
+        # Ongoing plant: take all ready units. The plant is left standing --
+        # it may still produce more, or decay may eventually remove it.
+        units = tile["yield_units"]
+        if units <= 0:
             return None
-        tile["yield_units"] -= 1
-        return (tile["crop"], 1)
+        tile["yield_units"] = 0
+        return (tile["crop"], units)
 
     # One-time crop: yield_units accumulated via watering during the bonus
     # window and decayed over time after max lifespan. Tile removed on harvest.
@@ -207,8 +199,8 @@ def _try_harvest(farm, fx, fy, day):
 
 def _process_market(state):
     """Round-robin process market queues across players. With BUY_SEED at fixed
-    prices the order doesn't matter, but we still interleave to match the spec
-    (and to keep the structure ready for the advanced version)."""
+    prices the order doesn't matter, but we still keep it consistent with the 
+    behavior for the advanced version of kaggriculture."""
     obs0 = state[0].observation
     queues = []
     for s in state:
@@ -286,20 +278,22 @@ def _daily_refresh(farm, current_day=0, turns_per_day=24):
                 continue
 
             crop_data = CROPS[tile["crop"]]
+            # One-time crops gain yield only via watering during the bonus
+            # window (handled in _apply_farmer_action); they have no scheduled
+            # daily production, so skip the rest of this loop body.
             if not crop_data["ongoing"]:
                 continue
-            if tile["total_produced"] >= crop_data["max_yield"]:
+            days_since_first = next_day - tile["planted_day"] - crop_data["first_yield_day"]
+            if days_since_first < 0:
                 continue
-            age_days_next = next_day - tile["planted_day"]
-            if age_days_next < crop_data["first_yield_day"]:
+            interval = crop_data["interval"]
+            if days_since_first % interval != 0:
                 continue
-            interval = max(1, crop_data["interval"])
-            if tile["last_production_day"] >= 0 and (next_day - tile["last_production_day"]) < interval:
+            production_count = days_since_first // interval + 1
+            if production_count > crop_data["max_yield"]:
                 continue
             tile["yield_units"] += 1
-            tile["total_produced"] += 1
-            tile["last_production_day"] = next_day
-            if tile["total_produced"] >= crop_data["max_yield"]:
+            if production_count == crop_data["max_yield"]:
                 tile["max_lifespan_step"] = (next_day + 1) * turns_per_day
 
 

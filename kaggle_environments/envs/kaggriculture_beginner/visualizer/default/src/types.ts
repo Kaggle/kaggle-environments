@@ -48,8 +48,6 @@ export interface Tile {
   planted_day: number;
   watered_today: boolean;
   yield_units: number;
-  total_produced: number;
-  last_production_day: number;
   consecutive_unwatered: number;
   max_lifespan_step: number;
 }

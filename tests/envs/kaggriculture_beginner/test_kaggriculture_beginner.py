@@ -74,10 +74,25 @@ def test_plant_requires_seed():
     assert farm["tiles"][4][4] is None
 
 
-def test_plant_dies_after_two_unwatered_days():
+def test_plant_dies_if_planting_day_unwatered():
+    """A freshly planted seed starts with consecutive_unwatered=1 (the planting
+    day counts), so a single end-of-day refresh without watering kills it."""
     farm = _new_farm(5, 100)
     farm["seeds"]["WHEAT"] = 1
     _apply_farmer_action(farm, ["PLANT", "WHEAT"], 5, 0)
+    _daily_refresh(farm)
+    assert farm["tiles"][4][4] is None
+
+
+def test_plant_survives_when_watered_on_planting_day():
+    farm = _new_farm(5, 100)
+    farm["seeds"]["WHEAT"] = 1
+    _apply_farmer_action(farm, ["PLANT", "WHEAT"], 5, 0)
+    _apply_farmer_action(farm, ["WATER"], 5, 0)
+    _daily_refresh(farm)
+    assert farm["tiles"][4][4] is not None
+    # One more day with no water still kills it -- after planting-day watering
+    # the plant tolerates exactly one missed day.
     _daily_refresh(farm)
     assert farm["tiles"][4][4] is not None
     _daily_refresh(farm)
@@ -176,7 +191,6 @@ def test_ongoing_plant_produces_each_interval_until_cap():
     assert tile is not None
     # First production at end of day 7 (next_day=8), then daily thereafter
     # until cap of 4 is hit at end of day 10 (next_day=11).
-    assert tile["total_produced"] == 4
     assert tile["yield_units"] == 4
     assert tile["max_lifespan_step"] == (11 + 1) * 24
 
@@ -194,7 +208,6 @@ def test_ongoing_plant_decays_after_cap_reached():
         _daily_refresh(farm, d, 24)
     tile = farm["tiles"][4][4]
     assert tile is not None
-    assert tile["total_produced"] == 4
     assert tile["yield_units"] == 4
     # max_lifespan_step = (16 + 1) * 24 = 408 -- start of day 17.
     assert tile["max_lifespan_step"] == 408
@@ -206,16 +219,15 @@ def test_ongoing_plant_decays_after_cap_reached():
     assert farm["tiles"][4][4] is None
 
 
-def test_ongoing_harvest_yields_one_unit_and_keeps_plant():
+def test_ongoing_harvest_takes_all_ready_units_and_keeps_plant():
     farm = _new_farm(5, 100)
     farm["seeds"]["TOMATO"] = 1
     _apply_farmer_action(farm, ["PLANT", "TOMATO"], 5, 0, turns_per_day=24)
     farm["tiles"][4][4]["yield_units"] = 3
-    farm["tiles"][4][4]["total_produced"] = 3
     result = _try_harvest(farm, 4, 4, 8)
-    assert result == ("TOMATO", 1)
+    assert result == ("TOMATO", 3)
     assert farm["tiles"][4][4] is not None
-    assert farm["tiles"][4][4]["yield_units"] == 2
+    assert farm["tiles"][4][4]["yield_units"] == 0
 
 
 def test_movement_stays_in_bounds():

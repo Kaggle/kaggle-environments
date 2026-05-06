@@ -16,7 +16,7 @@ Each player starts with an empty farm and a small amount of income (seed money, 
 | **Strawberry** | Ongoing | 100 | 120 | 10 days | NA | every other day | 4 | 2 |
 | **Melon** | One-time | 80 | 250 | 10 days | 12 days | none | 6 | .5 |
 
-Plants must be watered at least every other day. They will die if they go two successive days without water.
+Plants must be watered every day, starting on the day they are planted. The planting day counts as the first watering day — a freshly planted seed that goes unwatered for its planting day plus the following day will die.
 
 ## **Actions**
 
@@ -52,7 +52,7 @@ Harvested produce is auto-sold to the market the moment it is harvested; there i
 
 ## **Watering**
 
-Plants must be watered a minimum of every other day. In the case of plants not watered for two consecutive days, at the end of the day they die.
+Plants must be watered every day, including the day they are planted. A new seed begins life with one unwatered day already on the clock (the planting day itself), so it will die at the end of the very next day if it has not been watered. After the first watering, the plant tolerates one missed day before dying — i.e. two consecutive unwatered days at the end-of-day refresh kill the plant.
 
 Note that watering one-time yield plants during their yield window results in a higher yield. This is NOT true for ongoing yield plants. See below.
 
@@ -125,10 +125,8 @@ Each tile is either `None` (empty) or:
   "crop":                  "WHEAT" | "CARROT" | "TOMATO" | "STRAWBERRY" | "MELON",
   "planted_day":           int,    # day the seed was planted
   "watered_today":         bool,   # reset to False at the end of each day
-  "consecutive_unwatered": int,    # days in a row without water; 2+ → plant dies
+  "consecutive_unwatered": int,    # days in a row without water; 2+ → plant dies. Starts at 1 on the planting day, so a brand-new seed dies if its planting day ends unwatered AND it isn't watered the next day either.
   "yield_units":           int,    # units currently harvestable
-  "total_produced":        int,    # lifetime units produced (ongoing crops)
-  "last_production_day":   int,    # last day this plant produced (-1 if none)
   "max_lifespan_step":     int     # step at which decay begins (-1 if not yet set)
 }
 ```
