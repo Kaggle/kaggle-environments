@@ -66,6 +66,11 @@ def process_action(state, config):
     current_turn = state[0].observation.current_turn
     active_agent = state[current_turn]
     action = active_agent.action
+
+    # core_harness wraps the real action inside {"submission": ...}.
+    # Extract it so the rest of the interpreter sees the unwrapped value.
+    if isinstance(action, dict) and "submission" in action:
+        action = action["submission"]
     
     # helper to end game
     def end_game(winner=None):
