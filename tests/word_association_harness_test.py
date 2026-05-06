@@ -256,11 +256,11 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("FRUIT", prompt)
         self.assertIn("BLUE Guesser", prompt)
 
-    def test_guesser_prompt_contains_legal_moves(self):
+    def test_guesser_prompt_contains_board(self):
         obs = _guesser_obs()
         prompt = generate_prompt(obs, [])
-        self.assertIn("Legal moves:", prompt)
         self.assertIn("0: APPLE", prompt)
+        self.assertIn("24: ZEBRA", prompt)
 
     def test_rethink_appended(self):
         obs = _cluemaster_obs()

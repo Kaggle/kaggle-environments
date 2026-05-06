@@ -44,7 +44,7 @@ def _inject_memory_context(observation: Mapping[str, Any]) -> str:
 
     history = observation.get("history")
     if history:
-        parts.append("Here is the history of past games in this session:\n")
+        parts.append("\nHere is the history of past games in this session:\n")
         parts.append(json.dumps(history, indent=2))
         parts.append("\n\n")
 
@@ -135,8 +135,8 @@ def _build_clue_context(observation: Mapping[str, Any]) -> str:
     elif clue_number == 0:
         parts.append(
             "A clue number of 0 means NONE of your remaining words relate to "
-            "this clue. You get unlimited guesses, but you MUST still make at "
-            "least one guess.\n\n",
+            "this clue (often used to point out the trap). You get unlimited "
+            "guesses, but you MUST still make at least one guess.\n\n",
         )
     elif clue_number == -1:
         parts.append(
@@ -287,9 +287,6 @@ def generate_prompt(
             "of the JSON block."
         )
     else:
-        legal_moves = get_legal_moves(observation) or {}
-        legal_strings = list(legal_moves.values())
-
         prompt = f"You are the {team} Guesser in Word Association.\n\n"
         prompt += (
             "Your goal is to correctly guess your team's words based on the "
@@ -304,11 +301,6 @@ def generate_prompt(
         prompt += _build_clue_context(observation)
         prompt += "Here is the board state:\n"
         prompt += _build_guesser_board(observation) + "\n"
-        prompt += (
-            "\nLegal moves: "
-            + (", ".join(legal_strings) if legal_strings else "(none)")
-            + "\n"
-        )
         prompt += (
             "\nThink step-by-step about which unrevealed word matches the "
             "clue best. Provide your reasoning in a 'thinking' key.\n"
