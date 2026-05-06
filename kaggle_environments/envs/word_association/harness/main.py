@@ -39,7 +39,11 @@ def _is_cluemaster(turn: int) -> bool:
 
 
 def _inject_memory_context(observation: Mapping[str, Any]) -> str:
-    """Build memory-context string from observation history fields."""
+    """Build memory-context string from observation history fields.
+
+    Note: history is already trimmed to ``memory_window_size`` at save time
+    by ``memory.save_game_to_history``, so no additional slicing is needed here.
+    """
     parts: list[str] = []
 
     history = observation.get("history")
@@ -237,7 +241,7 @@ def get_legal_moves(observation: Mapping[str, Any]) -> dict[int, str] | None:
 
 def generate_prompt(
     observation: Mapping[str, Any],
-    move_history: list[str],
+    move_history: list[str],  # unused — protocol requires it but this game is stateless across turns
     previous_response: str | None = None,
     previous_action: str | None = None,
 ) -> str:
@@ -356,9 +360,13 @@ def parse_response(
         clue = parsed.get("clue")
         number = parsed.get("number")
         if clue is not None and number is not None:
+            try:
+                num = int(number)
+            except (ValueError, TypeError):
+                return ParseResult(raw_action=response[:200])
             return ParseResult(
-                submission={"clue": str(clue), "number": int(number)},
-                raw_action=json.dumps({"clue": str(clue), "number": int(number)}),
+                submission={"clue": str(clue), "number": num},
+                raw_action=json.dumps({"clue": str(clue), "number": num}),
             )
         return ParseResult(raw_action=response[:200])
 

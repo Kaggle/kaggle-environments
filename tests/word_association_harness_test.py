@@ -182,6 +182,18 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response(response, None)
         self.assertEqual(result.submission, {"clue": "ANIMAL", "number": 2})
 
+    def test_cluemaster_number_non_numeric_returns_none(self):
+        response = '{"clue": "ANIMAL", "number": "two"}'
+        result = parse_response(response, None)
+        self.assertIsNone(result.submission)
+        self.assertIsNotNone(result.raw_action)
+
+    def test_cluemaster_number_null_returns_none(self):
+        response = '{"clue": "ANIMAL", "number": null}'
+        result = parse_response(response, None)
+        # number is None → missing key path, submission is None
+        self.assertIsNone(result.submission)
+
     # --- Guesser (enumerable) ---
 
     def test_guesser_json_block(self):
