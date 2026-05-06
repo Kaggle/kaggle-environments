@@ -1,9 +1,51 @@
 import { CROP_FIRST_YIELD_DAY, CROP_SPRITE, PNG_SPRITES, READY_SPRITE_TYPES, type Crop } from './types';
 
+import carrot_full from './assets/sprites/carrot_full.png';
+import carrot_ready from './assets/sprites/carrot_ready.png';
+import coin from './assets/sprites/coin.png';
+import farmer_p1 from './assets/sprites/farmer_p1.png';
+import farmer_p2 from './assets/sprites/farmer_p2.png';
+import grass_bg from './assets/sprites/grass_bg.svg';
+import melon_full from './assets/sprites/melon_full.png';
+import melon_ready from './assets/sprites/melon_ready.png';
+import midgrowth from './assets/sprites/midgrowth.png';
+import soil_dry from './assets/sprites/soil_dry.png';
+import soil_watered from './assets/sprites/soil_watered.png';
+import sprout from './assets/sprites/sprout.png';
+import strawberry_full from './assets/sprites/strawberry_full.png';
+import strawberry_ready from './assets/sprites/strawberry_ready.png';
+import tomato_full from './assets/sprites/tomato_full.png';
+import tomato_ready from './assets/sprites/tomato_ready.png';
+import wheat_full from './assets/sprites/wheat_full.png';
+import wood_bg from './assets/sprites/wood_bg.svg';
+
+const SPRITE_URLS: Record<string, string> = {
+  carrot_full,
+  carrot_ready,
+  coin,
+  farmer_p1,
+  farmer_p2,
+  melon_full,
+  melon_ready,
+  midgrowth,
+  soil_dry,
+  soil_watered,
+  sprout,
+  strawberry_full,
+  strawberry_ready,
+  tomato_full,
+  tomato_ready,
+  wheat_full,
+};
+
+export const BG_URLS = {
+  grass: grass_bg,
+  wood: wood_bg,
+};
+
 export function spriteSrc(name: string): string {
   const png = PNG_SPRITES[name];
-  if (png) return `/sprites/${png}.png`;
-  return `/sprites/legacy/${name}.svg`;
+  return SPRITE_URLS[png ?? name] ?? '';
 }
 
 export function plantSprite(crop: Crop, ageDays: number): string {

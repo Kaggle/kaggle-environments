@@ -25,7 +25,6 @@ body {
   container-type: inline-size;
   justify-content: center;
   background-color: #aacf8a;
-  background-image: url('/sprites/grass_bg.svg');
   background-repeat: repeat;
   background-size: 80px 80px;
   color: #050001;
@@ -63,7 +62,6 @@ body {
   align-items: center;
   padding: 8px 12px;
   background-color: #e8d2a6;
-  background-image: url('/sprites/wood_bg.svg');
   background-repeat: repeat;
   background-size: 120px 80px;
   font-weight: 700;
@@ -152,7 +150,6 @@ body {
 
 .seed-area {
   background-color: #e8d2a6;
-  background-image: url('/sprites/wood_bg.svg');
   background-repeat: repeat;
   background-size: 120px 80px;
   padding: 8px 10px;
@@ -196,7 +193,6 @@ body {
 
 .status-panel {
   background-color: #e8d2a6;
-  background-image: url('/sprites/wood_bg.svg');
   background-repeat: repeat;
   background-size: 120px 80px;
   padding: 12px;
