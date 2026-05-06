@@ -10,7 +10,10 @@ import {
   type PlayerRefs,
   type SeedSlotRefs,
 } from './types';
-import { makeHiddenImg, plantSprite, spriteSrc } from './utils';
+import { BG_URLS, makeHiddenImg, plantSprite, spriteSrc } from './utils';
+
+const grassBg = `background-image:url(${BG_URLS.grass})`;
+const woodBg = `background-image:url(${BG_URLS.wood})`;
 
 export type { BoardSize, LayoutRefs } from './types';
 
@@ -54,7 +57,7 @@ function seedRow(): string {
 function farmPanel(player: 1 | 2, rows: number, cols: number): string {
   return `
     <section class="farm-panel" data-player="${player}">
-      <header class="farm-header sketched-border">
+      <header class="farm-header sketched-border" style="${woodBg}">
         <span class="player-name">
           <img class="player-name-icon" src="${spriteSrc(`farmer_p${player}`)}" alt="farmer p${player}" />
           Player ${player}
@@ -67,7 +70,7 @@ function farmPanel(player: 1 | 2, rows: number, cols: number): string {
       <div class="farm-area">
         ${farmGrid(rows, cols)}
       </div>
-      <div class="seed-area sketched-border">
+      <div class="seed-area sketched-border" style="${woodBg}">
         <div class="seed-header">Seeds</div>
         ${seedRow()}
       </div>
@@ -77,7 +80,7 @@ function farmPanel(player: 1 | 2, rows: number, cols: number): string {
 
 function statusPanel(): string {
   return `
-    <section class="status-panel sketched-border">
+    <section class="status-panel sketched-border" style="${woodBg}">
       <div class="status-title">Kaggriculture (Beginner)</div>
       <div class="status-counters">
         <span class="day-counter">Day <span class="day-value">0</span></span>
@@ -89,7 +92,7 @@ function statusPanel(): string {
 
 export function buildSkeleton(root: HTMLElement, board: BoardSize): void {
   root.innerHTML = `
-    <div class="demo-container">
+    <div class="demo-container" style="${grassBg}">
       <main class="demo-main">
         ${farmPanel(1, board.rows, board.cols)}
         ${statusPanel()}
