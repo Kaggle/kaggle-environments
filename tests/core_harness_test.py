@@ -233,7 +233,7 @@ class CoreHarnessTest(absltest.TestCase):
         self.assertEqual(cd["generation_tokens"], 1)
         self.assertEqual(cd["prompt_tokens"], 1)
         self.assertEqual(cd["total_tokens"], 2)
-        self.assertIsNone(cd["reasoning_tokens"])
+        self.assertNotIn("reasoning_tokens", cd)
         self.assertEqual(cd["finish_reason"], "stop")
         self.assertEqual(cd["response"], "move_1")
         self.assertEqual(cd["model"], "test-model")

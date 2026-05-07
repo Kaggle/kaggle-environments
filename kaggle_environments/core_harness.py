@@ -226,13 +226,14 @@ def _call_llm(
             "generation_tokens": getattr(
                 usage_obj, "completion_tokens", None,
             ),
-            "reasoning_tokens": reasoning_tokens,
             "total_tokens": getattr(usage_obj, "total_tokens", None),
             "finish_reason": getattr(
                 response.choices[0], "finish_reason", None,
             ),
             "duration_secs": round(duration, 3),
         }
+        if reasoning_tokens is not None:
+            details["reasoning_tokens"] = reasoning_tokens
         _TELEMETRY(
             llm_call_success=True,
             duration_secs=details["duration_secs"],
@@ -259,11 +260,12 @@ def _build_call_detail(
         "response": record["content"],
         "prompt_tokens": record["prompt_tokens"],
         "generation_tokens": record["generation_tokens"],
-        "reasoning_tokens": record["reasoning_tokens"],
         "total_tokens": record["total_tokens"],
         "finish_reason": record["finish_reason"],
         "duration_secs": record["duration_secs"],
     }
+    if "reasoning_tokens" in record:
+        detail["reasoning_tokens"] = record["reasoning_tokens"]
     if save_prompt:
         detail["prompt"] = record["prompt"]
     return detail
