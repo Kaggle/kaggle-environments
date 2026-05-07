@@ -31,6 +31,15 @@
   margin: 0;
 }
 
+.forfeit {
+  margin: 0.75rem 0 0;
+  font-style: italic;
+  font-size: 0.875em;
+  line-height: 1.4;
+  max-width: 32rem;
+  margin-inline: auto;
+}
+
 .meta {
   text-align: center;
   line-height: 1.6;
