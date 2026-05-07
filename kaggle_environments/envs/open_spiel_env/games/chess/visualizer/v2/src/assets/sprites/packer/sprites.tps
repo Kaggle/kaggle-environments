@@ -26,7 +26,7 @@
             </struct>
         </array>
         <key>allowRotation</key>
-        <true/>
+        <false/>
         <key>shapeDebug</key>
         <false/>
         <key>dpi</key>
@@ -200,7 +200,6 @@
                 <false/>
             </struct>
             <key type="filename">../originals/dark-tile.png</key>
-            <key type="filename">../originals/particles/debug.png</key>
             <struct type="IndividualSpriteSettings">
                 <key>pivotPoint</key>
                 <point_f>0,0</point_f>
