@@ -187,7 +187,12 @@ class GetLegalMovesTest(absltest.TestCase):
 def _make_mock_response(content):
     """Create a mock LiteLLM response."""
     resp = MagicMock()
-    resp.usage = MagicMock(prompt_tokens=10, completion_tokens=20)
+    resp.usage = MagicMock(
+        prompt_tokens=10,
+        completion_tokens=20,
+        total_tokens=30,
+        completion_tokens_details=None,
+    )
     resp.choices = [
         MagicMock(
             message=MagicMock(content=content),
@@ -312,6 +317,41 @@ class AgentIntegrationTest(absltest.TestCase):
             agent(observation, {})
 
         self.assertEqual(mock_litellm.completion.call_count, 2)
+
+
+    @patch.dict(
+        "os.environ",
+        {
+            "MODEL_NAME": "test-model",
+            "MODEL_PROXY_KEY": "test-key",
+            "MODEL_PROXY_URL": "dummy_url",
+        },
+    )
+    @patch("kaggle_environments.core_harness.litellm")
+    def test_call_details_present(self, mock_litellm):
+        """Action includes call_details with usage information."""
+        mock_litellm.drop_params = True
+        mock_litellm.completion.return_value = _make_mock_response(
+            '```json\n{"move": "e5"}\n```',
+        )
+
+        agent = create_agent_fn(_GoHarness())
+
+        game = go_proxy.GoGame({"board_size": 9, "komi": 7.5})
+        state = game.new_initial_state()
+        observation = _make_observation(state, game)
+
+        result = agent(observation, {})
+
+        self.assertIn("call_details", result)
+        self.assertLen(result["call_details"], 1)
+        cd = result["call_details"][0]
+        self.assertEqual(cd["generation_tokens"], 20)
+        self.assertEqual(cd["prompt_tokens"], 10)
+        self.assertEqual(cd["total_tokens"], 30)
+        self.assertEqual(cd["finish_reason"], "stop")
+        self.assertIn("move", cd["response"])
+        self.assertNotIn("prompt", cd)  # savePrompt is False
 
 
 if __name__ == "__main__":
