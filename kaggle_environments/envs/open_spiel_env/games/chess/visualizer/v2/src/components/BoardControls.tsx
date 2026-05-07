@@ -56,7 +56,7 @@ export default function BoardControls() {
       </WithPopover>
 
       <AnimatePresence>
-        {game.isGameOver() && (
+        {game.moveNumber() === 1 && game.turn() === 'w' && (
           <motion.div
             className={styles.settingsCta}
             initial={{ opacity: 0 }}
