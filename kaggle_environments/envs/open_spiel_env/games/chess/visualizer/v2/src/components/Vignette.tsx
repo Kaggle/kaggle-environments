@@ -5,7 +5,7 @@ import styles from './Vignette.module.css';
 
 export function Vignette() {
   const game = useGameStore((state) => state.game);
-  const isCheck = game.isCheck();
+  const isCheck = game.isCheck() && !game.isCheckmate();
   const transition = useTransition({ type: 'spring', stiffness: 120, damping: 20 });
 
   return (
