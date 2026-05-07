@@ -116,11 +116,14 @@ class ParseResult:
             illegal).  Used to build rethink prompts.
         submission: The validated action for free-form action spaces, or
             ``None`` if parsing failed.  Ignored for enumerable actions.
+        thoughts: Optional extracted reasoning/thinking text.  When set,
+            the core harness records this instead of the full LLM response.
     """
 
     legal_action: str | None = None
     raw_action: str | None = None
     submission: Any = None
+    thoughts: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -397,7 +400,7 @@ def create_agent_fn(
                 action: dict[str, Any] = {
                     "submission": matched_submission,
                     "actionString": action_str,
-                    "thoughts": last_content,
+                    "thoughts": result.thoughts if result.thoughts is not None else last_content,
                     "status": "OK",
                 }
                 if save_prompt:
