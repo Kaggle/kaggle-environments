@@ -1,5 +1,6 @@
 import usePreferences from '../stores/usePreferences';
 import styles from './FeatureToggles.module.css';
+import { trackEvent } from '../utils/analytics';
 
 export function FeatureToggles() {
   const { toggle, showHeroAnimations, showAnnotations, showHighlights, reducedMotion } = usePreferences();
@@ -14,7 +15,10 @@ export function FeatureToggles() {
               type="checkbox"
               className={styles.switch}
               checked={showHeroAnimations}
-              onChange={() => toggle('showHeroAnimations')}
+              onChange={() => {
+                toggle('showHeroAnimations');
+                trackEvent(`settings-pop-up-animations-${showHeroAnimations ? 'off' : 'on'}`);
+              }}
             />
           </label>
         </li>
@@ -25,7 +29,10 @@ export function FeatureToggles() {
               type="checkbox"
               className={styles.switch}
               checked={reducedMotion}
-              onChange={() => toggle('reducedMotion')}
+              onChange={() => {
+                toggle('reducedMotion');
+                trackEvent(`settings-reduce-motion-${reducedMotion ? 'off' : 'on'}`);
+              }}
             />
           </label>
         </li>
@@ -36,7 +43,10 @@ export function FeatureToggles() {
               type="checkbox"
               className={styles.switch}
               checked={showHighlights}
-              onChange={() => toggle('showHighlights')}
+              onChange={() => {
+                toggle('showHighlights');
+                trackEvent(`settings-highlights-${showHighlights ? 'off' : 'on'}`);
+              }}
             />
           </label>
         </li>
@@ -47,7 +57,10 @@ export function FeatureToggles() {
               type="checkbox"
               className={styles.switch}
               checked={showAnnotations}
-              onChange={() => toggle('showAnnotations')}
+              onChange={() => {
+                toggle('showAnnotations');
+                trackEvent(`settings-board-annotations-${showAnnotations ? 'off' : 'on'}`);
+              }}
             />
           </label>
         </li>

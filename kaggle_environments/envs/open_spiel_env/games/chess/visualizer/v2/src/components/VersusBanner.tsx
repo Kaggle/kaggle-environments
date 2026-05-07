@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Ribbon } from './Ribbon';
 import useGameStore from '../stores/useGameStore';
 import { useTransition } from '../hooks/useReducedMotion';
+import { trackEvent } from '../utils/analytics';
 import styles from './VersusBanner.module.css';
 
 export default function VersusBanner() {
@@ -10,6 +11,9 @@ export default function VersusBanner() {
   const exitTransition = useTransition({ duration: 0.3 });
   const whiteName = game.getHeaders()['w'];
   const blackName = game.getHeaders()['b'];
+
+  // TODO: This double tracks when the page first loads.
+  if (game.moveNumber() === 1 && game.turn() === 'w') trackEvent('versus-banner');
 
   return (
     <AnimatePresence>

@@ -9,6 +9,7 @@ import { HeroTypes, detectHeroType } from '../utils/heroTypes';
 import { RivePopover } from './RivePopover';
 import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences';
+import { trackEvent } from '../utils/analytics';
 
 interface Hero {
   src: string;
@@ -40,29 +41,35 @@ export default function HeroAnimation() {
     const player = color === 'black' ? 'Black' : 'White';
     const opponent = color === 'black' ? 'White' : 'Black';
 
-    let src, text;
+    let src, text, event;
     switch (heroType) {
       case HeroTypes.CHECKMATE:
         src = checkmateRiv;
         text = 'Checkmate';
+        event = 'checkmate';
         break;
       case HeroTypes.QUEEN_LOSS:
         src = queenLossRiv;
         text = `${opponent} Loses their queen`;
+        event = 'queen-loss';
         // Invert color when on queen loss.
+        // TODO: This should be switched in the Rive file instead.
         color = color === 'white' ? 'black' : 'white';
         break;
       case HeroTypes.PROMOTION:
         src = promotionRiv;
         text = `${player} Queens`;
+        event = 'promotion';
         break;
       case HeroTypes.CASTLING:
         src = castlingRiv;
         text = `${player} Castles`;
+        event = 'castling';
         break;
       case HeroTypes.FIRST_CAPTURE:
         src = firstCaptureRiv;
         text = `${player} Captures First`;
+        event = 'first-capture';
         break;
       default:
         return;
@@ -71,13 +78,14 @@ export default function HeroAnimation() {
     // Let the board play out before showing the Rive animation.
     const timeout = setTimeout(() => {
       setHero({ src, text, color, step });
+      if (!options.replay.steps.at(options.step)?.winner) trackEvent(`pop-up-animation-${event}`);
     }, 600);
 
     return () => {
       clearTimeout(timeout);
       setHero(null);
     };
-  }, [game, showHeroAnimations]);
+  }, [game, showHeroAnimations, options]);
 
   const isVisible = !!hero && !options.replay.steps.at(options.step)?.winner;
 

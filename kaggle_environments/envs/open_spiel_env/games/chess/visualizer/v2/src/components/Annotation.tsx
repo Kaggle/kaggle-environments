@@ -4,6 +4,7 @@ import { useTransition } from '../hooks/useReducedMotion';
 import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences';
 import styles from './Annotation.module.css';
+import { trackEvent } from '../utils/analytics';
 
 type Notation = { term: string; title: string; text: string };
 
@@ -102,6 +103,11 @@ export default function Annotation() {
   const player = step?.players.find((player) => player?.isTurn);
   const moveNumber = game.moveNumber();
   const notation = showAnnotations && player ? resolveAnnotation(player, moveNumber) : null;
+
+  if (notation) {
+    const trackingTerm = notation.term.replace(/[^a-z\s]/g, '').replace(/\s/g, '-');
+    trackEvent(`annotation-${trackingTerm}`);
+  }
 
   return (
     <div className={styles.notationSlot} aria-live="polite" ref={inertRef}>
