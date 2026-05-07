@@ -1,14 +1,12 @@
-# **Kaggriculture (working name)**
+# Kaggriculture
 
-A Stardew Valley-like game where two players compete to maximize their income from farming by selling to a shared market.
+A farming sim where two players compete to maximize their income from farming by selling to a dynamic market.
 
-\[TODO extremely cute UI demo here\]
-
-## **Overview**
+## Overview
 
 Each player starts with an empty farm and a small amount of income (seed money, if you will). Each turn, they can perform actions such as moving around the board, purchasing seeds or livestock, planting seeds, watering plants, harvesting produce or animal products, and selling that produce at the market. The game runs for a fixed amount of time representing one season, and the winner is determined by who has the most money in the bank at the end.
 
-## **Object Types**
+## Object Types
 
 | Type | Yield Type | Seed Cost | Base Market Price | Time to First Yield | Time to Max Yield | Subsequent Yields | Max Yield | Action Cost | Max yield / tile / DAY |
 | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- |
@@ -24,11 +22,11 @@ Each player starts with an empty farm and a small amount of income (seed money, 
 
 All plants must be watered every day. They will turn into weeds if they are not watered for two successive days. All animals must be fed every day using wheat. They will escape and be unrecoverable if they are not fed for two successive days. Wheat is also available to buy at the market and can be purchased at the current market price.
 
-## **Actions**
+## Actions
 
 Each turn, the player may take one action. There are 24 turns per day, and 30 days in the season \- 720 total turns.
 
-### **Farmer / Farm Hand Action**
+### Farmer / Farm Hand Action
 
 Each Farmer / Farm Hand can be given an action every turn. Farmer/Farm Hand CAN occupy the same space.
 
@@ -36,11 +34,11 @@ Each Farmer / Farm Hand can be given an action every turn. Farmer/Farm Hand CAN 
 
 - NORTH, SOUTH, EAST, WEST — Move one cell in that direction
 
-#### Shed\*
+#### Shed
 
 Picks up an item from the shed (must be orthogonally adjacent) into the inventory
 
-- PICKUP\*   
+- PICKUP   
   - ANIMAL  
   - FERTILIZER  
   - WHEAT
@@ -52,60 +50,58 @@ Picks up an item from the shed (must be orthogonally adjacent) into the inventor
   - If you try to plant too many in a specific turn, none are planted  
     - ie if you have 1 melon seed, but two units do the PLANT MELON command  
 - WATER — Water a plant. This only needs to be done once per day, and subsequent waterings on the same day are a no-op.  
-- HARVEST — Gather produce from a plant. If the plant does not have subsequent yields, it will be removed from the map. Each harvest action will yield at least one unit of the crop, with the potential of a double yield if the plant has been watered consistently (see harvest yields below).  
-  - Beginner comp \=\> harvest auto sells to the market immediately  
-  - Advanced comp \=\> harvest adds to inventory  
-- FERTILIZE\* — Fertilize a plant to increase its potential yield (see harvest yields below).  
+- HARVEST — Gather produce from a plant. If the plant does not have subsequent yields, it will be removed from the map. Each harvest action will yield at least one unit of the crop, with the potential of a double yield if the plant has been watered consistently (see harvest yields below). Harvested items are added to the inventory. 
+- FERTILIZE — Fertilize a plant to increase its potential yield (see harvest yields below).  
   - Doubles the per-day yield bonus for the next 3 days. The bonus only applies on days the plant is also watered (basic needs first).
 
-#### Animals\*
+#### Animals
 
-- PLACE\* — Place an animal in inventory on a specific tile  
+- PLACE — Place an animal in inventory on a specific tile  
   - GOOSE must be placed on a coop (no effect otherwise)  
   - SHEEP/COW must be placed on a pasture (no effect otherwise)  
-- FEED\* — Feed an animal using wheat (only needs to be done once per day)  
-- HARVEST\* — Collect the eggs/milk/wool produced by the animal.   
-- COLLECT\_FERTILIZER\* — Collect fertilizer from the animal.   
-- CARE\* — Care for an animal. Increases yield similar to plants.
+- FEED — Feed an animal using wheat (only needs to be done once per day)  
+- HARVEST — Collect the eggs/milk/wool produced by the animal.   
+- COLLECT\_FERTILIZER — Collect fertilizer from the animal.   
+- CARE — Care for an animal. Increases yield similar to plants.
 
-#### Terrain\*
+#### Terrain
 
-- BUILD\_COOP\* \- adds a coop to an unoccupied tile  
-- BUILD\_PASTURE\* \- add pasture to an unoccupied tile  
-- DIG\* — Remove a plant from a square to free up space OR remove a weed from a square (does not yield any produce) OR remove a goose coop / pasture.
+- BUILD\_COOP \- adds a coop to an unoccupied tile  
+- BUILD\_PASTURE \- add pasture to an unoccupied tile  
+- DIG — Remove a plant from a square to free up space OR remove a weed from a square (does not yield any produce) OR remove a goose coop / pasture.
 
 #### Other
 
 - PASS — Default if there is nothing to do (optional)
 
-\* Action only available in advanced game
+ Action only available in advanced game
 
-### **Market Action**
+### Market Action
 
 Each turn you can execute as many market actions are desired. This is an ordered list and market orders will be processed in order simultaneously (one from each player) while both players have orders.
 
 - BUY\_SEED — Purchase N units of a single item from the market.  
   - BUY\_SEED WHEAT 1  
-- BUY\_ANIMAL\* \-   
+- BUY\_ANIMAL \-   
   - BUY\_ANIMAL GOOSE 1  
-- BUY\_PRODUCT\*  
+- BUY\_PRODUCT  
   - BUY\_PRODUCT WHEAT 1  
   - BUY\_PRODUCT FERTILIZER 1  
 - SELL — Sell N units of a single item to the market.  
   - SELL WHEAT 1  
-- HIRE\* — Hire a farm hand for the day. Cost increases for each extra hand hired on the same day.  
-- BUY\_LAND\* \- unlock a new 5x5 segment of land to plant on. Increasing in cost.   
+- HIRE — Hire a farm hand for the day. Cost increases for each extra hand hired on the same day.  
+- BUY\_LAND \- unlock a new 5x5 segment of land to plant on. Increasing in cost.   
   - Costs are: $1k, $2k, $4k
 
-\* Action only available in advanced game
+ Action only available in advanced game
 
-## **Watering / Animal Feed**
+## Watering / Animal Feed
 
 Plants (and animals) must be watered/fed a minimum of every other day. Watering only needs to be done once per day, and subsequent watering actions are a no-op. In the case of plants not watered for two consecutive days, at the end of the day they turn into a WEED. In the case of animals they escape (unrecoverable).
 
 Note that watering one-time yield plants during their yield window results in a higher yield. This is NOT true for ongoing yield plants/animals. See below.
 
-## **Harvest Yields**
+## Harvest Yields
 
 Plants will potentially have higher yields based on how well they have been cared for. 
 
@@ -114,11 +110,11 @@ Plants will potentially have higher yields based on how well they have been care
 * **Ongoing crops** (tomato, strawberry): Scheduled production happens at fixed intervals. The base yield is 1 per scheduled production. If the plant is fertilized AND watered that day, yield is doubled to 2.  
 * Once a plant has hit its maximum lifespan, the total yield available on the plant will reduce by 1 every other turn until it hits 0, at which point the plant becomes a weed.
 
-## **Map Features**
+## Map Features
 
 Each player has their own farm with a set number of squares. Players are unable to see the state of the other’s shed, but can see the state of their opponent’s farm.
 
-### **Farm Space**
+### Farm Space
 
 - The land near your farm consists of a fixed number of squares (defined by `totalSquares`). At first, your farm will cover 25% of those squares. For an increasingly large fee, you can buy the neighboring plots of land and eventually cover 100% of the squares.  
   - Starter version has 100% of total squares to start with  
@@ -127,30 +123,29 @@ Each player has their own farm with a set number of squares. Players are unable 
 - Weeds have a chance of spawning on any empty cells on the farm, and must be cleared before the land can be used for other purposes.  
 - Squares on the farm can be either a plant, a coop/pasture, a weed, or empty.
 
-### **Shed (Inventory)**
+### Shed (Inventory)
 
 - Functions as an inventory for items that are harvested but not yet sold, or for seeds that have not yet been planted  
 - Farmer and hired farm hands will spawn at the shed at the start of each day  
 - Farmer and hired farm hands drop their inventory at the end of the day in the shed (if there is room)  
-- Shed Inventory is not interactable in beginner comp  
 - Limited to 100 items, excluding seeds
 
-### **Farmer/Farm Hand**
+### Farmer/Farm Hand
 
-#### Hiring\*
+#### Hiring
 
 - Hiring is an action only available to the farmer. It costs more every time you want to hire an additional hand each day. At the end of the day all, hands drop inventory at the farm and disappear (need to be re-hired each day)  
 - Cost  
   - 100, 100, 200, 300, 500, 800, 1300, etc…  
 - A hired hand appears orthogonally adjacent to the shed in a free space following NWSE. If there are not open spaces, it looks for the one with the least occupants, breaking ties by NWSE preference
 
-#### Inventory\*
+#### Inventory
 
 - When harvesting or picking items up, they are added to inventory.  
 - Can drop items in the shed  
 - At the end of the day, all items in all inventory will be added to shed inventory (if there is room)
 
-### **Town Buildings**
+### Town Buildings
 
 As the season progresses, new shops unlock at regular intervals (every `townShopUnlockInterval` days, default 3). Each unlock is randomly selected from the shops that have not yet been added; once unlocked, a shop stays active for the rest of the game. Total demand grows monotonically as more shops unlock.
 
@@ -169,13 +164,13 @@ In addition, the town center consumes one of every product every `townCenterSell
 | Smoothie Shop | strawberries, milk, melon |
 | Farmers Market | all plants |
 
-## **Market Mechanics**
+## Market Mechanics
 
 The market has an unlimited number of each type of seeds and animals to purchase, and the costs for those products is fixed. However, the price to sell each item varies dynamically and persists across days.
 
 To start with, we start with an initial inventory of each product (including fertilizer) in the market. The price adjusts with the total amount of inventory in the market. As more products are added to the market (as players sell) the total inventory increases, driving down the price. As product is removed (by the town center / buildings / players buying) the price will increase.
 
-### **Selling inventory to the market**
+### Selling inventory to the market
 
 The price function should be log decreasing once we have more inventory than the starting amount, so that inventory prices decrease slowly. Once the price reaches $1 we do not allow any more product to be added to the market (anything sold at $1 will not be added to the total supply) which ensures that the price will remain sensitive to changes.
 
@@ -185,13 +180,13 @@ To process orders concurrently, we take the current carrot price, give both play
 
 Then we repeat the process until all orders are completed.
 
-### **Buying inventory from the market**
+### Buying inventory from the market
 
 The price function should instead be linearly increasing when we have less inventory than the starting amount. The market “inventory” can go negative and price will continue to increase linearly forever.
 
 There are two types of “buying” inventory. In one, the town buildings (town center and shops) buy from the market (which doesn’t cost any $, but just depletes the items from the inventory, potentially increasing price). The other is a BUY\_PRODUCT order in the market queue sent by the player. It uses the exact reverse of the procedure explained above. For each order, process the buy one item at a time, update the inventory and change the price. If a player at any point does not have enough to buy the next item, stop the buy order.
 
-### **The Price Function**
+### The Price Function
 
 The price function is of the form
 
@@ -204,7 +199,7 @@ The price function is of the form
 * Thus both sides of the function need to meet at the original inventory/price level.   
 * Prices are always rounded to the nearest $
 
-| Product | BasePrice | I0 | a\_ln | b\_ln | a\_lg | b\_lg | P(inv=0) | P(join lin) | P(join log) | P(K\*I0) |
+| Product | BasePrice | I0 | a\_ln | b\_ln | a\_lg | b\_lg | P(inv=0) | P(join lin) | P(join log) | P(KI0) |
 | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- |
 | **Wheat** | 25 | 200 | 0.2500 | 75.0000 | \-10.4231 | 80.2247 | 75.0000 | 25.0000 | 25.0000 | 1.0000 |
 | **Carrot** | 35 | 150 | 0.4667 | 105.0000 | \-14.7660 | 108.9871 | 105.0000 | 35.0000 | 35.0000 | 1.0000 |
@@ -216,42 +211,27 @@ The price function is of the form
 | **Wool** | 200 | 60 | 6.6667 | 600.0000 | \-86.4246 | 553.8521 | 600.0000 | 200.0000 | 200.0000 | 1.0000 |
 | **Fertilizer** | 100 | 80 | 2.5000 | 300.0000 | \-42.9952 | 288.4059 | 300.0000 | 100.0000 | 100.0000 | 1.0000 |
 
-## **Turn Processing Order**
+## Turn Processing Order
 
 1. **Action validation** — verify action legality  
 2. **Player actions** — record the actions taken by each player (happening simultaneously)  
-3. **Market actions**\* \- process market queue in order by player (described above)  
-4. **Town buy actions\*** \- town center and shops reduce inventory  
+3. **Market actions** \- process market queue in order by player (described above)  
+4. **Town buy actions** \- town center and shops reduce inventory  
 5. **Update observations**  
    - **Day refresh** — if applicable, update the condition of plants and animals for a new day, and reset their fed/watered to condition to false  
    - **Market refresh** — modify the price of items on the market based on sells from previous turn  
    - **Income update** — update the player’s bank based on any buys or sells  
    - **Farm update** — clear plants that have been harvested, items from the inventory that have been used or sold, add new plants/animals to the farm, etc
 
-## **Win Conditions**
+## Win Conditions
 
 The win condition is simple- whoever has the greatest number of coins at the end of the season is the winner. It is also possible that the two players will tie.
 
-## **Reward**
+## Reward
 
 The player who has the most money in the bank at the end of the game wins.
 
-## **Beginner Competition** 
-
-Contains a subset of the features and constraints described above. In particular:
-
-- Smaller board (perhaps 5x5)  
-- Does not include farm hands  
-- Does not include town buildings  
-- Does not include animals  
-- Does not include inventory  
-- Does not include market fluctuations
-
-## **Advanced Competition**
-
-Contains all features and constraints described above. 
-
-## **Observation Format**
+## Observation Format
 
 ```py
 {
@@ -264,7 +244,7 @@ Contains all features and constraints described above.
 }
 ```
 
-## **Quick Start**
+## Quick Start
 
 ```py
 from kaggle_environments import make
@@ -277,25 +257,25 @@ def my_agent(obs):
     return {"farmer": ["PASS"], "market": []}
 
 
-env = make("kaggriculture_beginner", configuration={"episodeSteps": 200})
+env = make("kaggriculture", configuration={"episodeSteps": 200})
 env.run([my_agent, "random"])
 env.render(mode="ipython", width=800, height=800)
 ```
 
-## **Configuration Defaults**
+## Configuration Defaults
 
 Per-crop seed costs and per-product base prices are not configurable; they are documented in the Object Types and Price Function tables above. The configurable knobs are:
 
-| Parameter | Default (Beginner) | Default (Advanced) | Description |
-| :---- | :---- | :---- | :---- |
-| episodeSteps | 720 | 720 | Total turns in the season (24 turns × 30 days) |
-| boardSize | 5 | 10 | Width and height (in tiles) of each player's square farm. Advanced uses 10 = four 5x5 quadrants |
-| startingMoney | 150 | 150 | Coins each player starts with |
-| turnsPerDay | 24 | 24 | Number of turns that make up one in-game day |
-| shedCapacity | — | 100 | Max non-seed items the shed can hold; overflow at end-of-day drop is discarded |
-| weedSpawnChance | — | 0.005 | Per-tile probability of a weed spawning on an empty unlocked tile during end-of-day refresh |
-| townShopUnlockInterval | — | 3 | Days between successive town shop unlocks |
-| townShopSellInterval | — | 1 | Turns between consumption ticks by every unlocked town shop |
-| townCenterSellInterval | — | 2 | Turns between consumption ticks by the town center |
-| seed | — | null | Optional input seed for deterministic episode generation; cleared from config after read so it stays out of agent observations |
+| Parameter | Default | Description |
+| :---- | :---- | :---- |
+| episodeSteps | 720 | Total turns in the season (24 turns × 30 days) |
+| boardSize | 10 | Width and height (in tiles) of each player's square farm. Advanced uses 10 = four 5x5 quadrants |
+| startingMoney | 150 | Coins each player starts with |
+| turnsPerDay | 24 | Number of turns that make up one in-game day |
+| shedCapacity | 100 | Max non-seed items the shed can hold; overflow at end-of-day drop is discarded |
+| weedSpawnChance | 0.005 | Per-tile probability of a weed spawning on an empty unlocked tile during end-of-day refresh |
+| townShopUnlockInterval | 3 | Days between successive town shop unlocks |
+| townShopSellInterval | 1 | Turns between consumption ticks by every unlocked town shop |
+| townCenterSellInterval | 2 | Turns between consumption ticks by the town center |
+| seed | null | Optional input seed for deterministic episode generation; cleared from config after read so it stays out of agent observations |
 
