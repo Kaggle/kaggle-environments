@@ -3,6 +3,7 @@ import { Ribbon } from './Ribbon';
 import useGameStore from '../stores/useGameStore';
 import { trackEvent } from '../utils/analytics';
 import styles from './GameOver.module.css';
+import { downloadSgf } from '../utils/downloadSgf';
 
 function formatDuration(totalSeconds: number): string {
   const h = Math.floor(totalSeconds / 3600);
@@ -109,6 +110,8 @@ export default function GameOver() {
   ];
 
   trackEvent('game-over');
+
+  downloadSgf(options.replay);
 
   return (
     <dialog ref={dialogRef} className={styles.modal} aria-label="Game over" tabIndex={-1}>
