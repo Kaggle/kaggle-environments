@@ -1,0 +1,450 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+
+html, body, #app {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+.sketched-border {
+  border: 1px dashed #3c3b37;
+}
+
+.demo-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  box-sizing: border-box;
+  gap: 12px;
+  container-type: inline-size;
+  justify-content: safe center;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background-color: #aacf8a;
+  background-repeat: repeat;
+  background-size: 80px 80px;
+  color: #050001;
+  font-family: 'Inter', sans-serif;
+}
+
+/* Force black text everywhere inside the visualizer, overriding any
+   inherited color from the MUI theme that wraps us. */
+.demo-container,
+.demo-container * {
+  color: #050001;
+}
+
+/* ---- Main 3-column layout ---- */
+.demo-main {
+  display: grid;
+  grid-template-columns: minmax(280px, 1.4fr) minmax(260px, 1fr) minmax(280px, 1.4fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@container (max-width: 900px) {
+  .demo-main {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Mobile layout (phone breakpoint from design system).
+   Promote farm-panel/town-panel children into the .demo-main flex column so
+   we can interleave them: P1 field/inventory, market, P2 inventory/field,
+   then town center and shops at the bottom. */
+@container (max-width: 480px) {
+  .demo-main {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .farm-panel,
+  .town-panel {
+    display: contents;
+  }
+
+  .farm-area,
+  .shed-area,
+  .market-panel,
+  .farm-header,
+  .town-header,
+  .town-grid {
+    width: 100%;
+    box-sizing: border-box;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .farm-panel[data-player="1"] .farm-header { order: 1; }
+  .farm-panel[data-player="1"] .farm-area   { order: 2; }
+  .farm-panel[data-player="1"] .shed-area   { order: 3; }
+
+  .town-panel .market-panel { order: 4; }
+
+  .farm-panel[data-player="2"] .shed-area   { order: 5; }
+  .farm-panel[data-player="2"] .farm-header { order: 6; }
+  .farm-panel[data-player="2"] .farm-area   { order: 7; }
+
+  .town-panel .town-header { order: 8; }
+  .town-panel .town-grid   { order: 9; }
+}
+
+/* ---- Farm panel ---- */
+.farm-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.farm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: #e8d2a6;
+  background-repeat: repeat;
+  background-size: 120px 80px;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.player-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.player-name-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.player-balance {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.balance-icon {
+  width: 24px;
+  height: 24px;
+  display: inline-block;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+/* ---- Farm grid ---- */
+.farm-area {
+  background-color: #efe7ce;
+  padding: 6px;
+  border: 1px dashed #3c3b37;
+}
+
+.farm-grid {
+  position: relative;
+  display: grid;
+  gap: 1px;
+  aspect-ratio: 1;
+  width: 100%;
+}
+
+.shed-overlay {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 12%;
+  height: 12%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.shed-sprite {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.cell {
+  position: relative;
+  aspect-ratio: 1;
+  background-color: #f7efd8;
+  outline: 1px solid rgba(60, 59, 55, 0.15);
+}
+
+/* Land segment dividers (5x5 chunks) */
+.cell[data-col="5"] { border-left: 1px dashed #3c3b37; }
+.cell[data-row="5"] { border-top: 1px dashed #3c3b37; }
+
+.cell-base,
+.cell-overlay,
+.cell-object,
+.cell-agent {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cell-base    { z-index: 1; }
+.cell-overlay { z-index: 2; }
+.cell-object  { z-index: 3; }
+.cell-agent   { z-index: 4; }
+
+.cell-sprite {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  image-rendering: pixelated;
+}
+
+.cell-animal {
+  inset: auto;
+  width: 65%;
+  height: 65%;
+  bottom: 5%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.cell-agent-sprite {
+  inset: auto;
+  width: 80%;
+  height: 80%;
+  bottom: 5%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* ---- Shed / inventory ---- */
+.shed-area {
+  background-color: #e8d2a6;
+  background-repeat: repeat;
+  background-size: 120px 80px;
+  padding: 8px 10px;
+}
+
+.shed-header {
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 6px;
+}
+
+.inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 4px;
+}
+
+.inventory-slot {
+  position: relative;
+  aspect-ratio: 1;
+  background-color: #c9a978;
+  border: 1px dashed #8b6f44;
+}
+
+.item-icon {
+  position: absolute;
+  inset: 2px;
+}
+
+.item-icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.item-count {
+  position: absolute;
+  right: 1px;
+  bottom: 0;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #050001;
+}
+
+/* ---- Town panel ---- */
+.town-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.town-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  background-color: #e8d2a6;
+  background-repeat: repeat;
+  background-size: 120px 80px;
+  font-weight: 700;
+}
+
+.town-title {
+  text-align: center;
+}
+
+.town-subheader {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}
+
+.day-counter,
+.turn-counter {
+  font-family: 'Mynerve', cursive;
+  font-size: 1rem;
+}
+
+.town-grid {
+  display: grid;
+  gap: 0;
+  width: 80%;
+  margin-top: auto;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.town-slot {
+  position: relative;
+  aspect-ratio: 1;
+}
+
+.town-slot--shop,
+.town-slot--center {
+  background-size: 100% 100%;
+  image-rendering: pixelated;
+}
+
+.town-slot--center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.town-sprite {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  image-rendering: pixelated;
+}
+
+.city-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+@container (max-width: 900px) {
+  .city-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.building-slot {
+  position: relative;
+  aspect-ratio: 1;
+  background-color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 4px;
+}
+
+.building-sign {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  aspect-ratio: 1;
+}
+
+.building-icon {
+  width: 100%;
+  height: 100%;
+}
+
+.building-base {
+  width: 100%;
+  height: 60%;
+}
+
+/* ---- Market ---- */
+.market-panel {
+  background-color: #e8d2a6;
+  background-repeat: repeat;
+  background-size: 120px 80px;
+  padding: 8px 10px;
+}
+
+.market-header {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.market-list {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  font-size: 0.95rem;
+  color: #050001;
+}
+
+.market-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.market-item-icon {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
+.market-price-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.market-price {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.market-coin {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+/* ---- Footer ---- */
+.demo-footer {
+  background-color: white;
+  padding: 6px 12px;
+  text-align: center;
+  font-size: 0.85rem;
+}
