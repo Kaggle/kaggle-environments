@@ -4,7 +4,7 @@
         <key>fileFormatVersion</key>
         <int>6</int>
         <key>texturePackerVersion</key>
-        <string>7.12.0</string>
+        <string>8.0.0</string>
         <key>autoSDSettings</key>
         <array>
             <struct type="AutoSDSettings">
