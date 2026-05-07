@@ -7,6 +7,7 @@ import { loadPieceTextureAtlas, syncPieces } from './pieces';
 import { createTrails } from './trails';
 import { SCRUB_THRESHOLD_MS } from '../constants';
 import type { PreferencesState } from '../stores/usePreferences';
+import usePreloader from '../stores/usePreloader';
 
 export interface Game {
   update: (chess: Chess, step: number, prefs: PreferencesState, isTerminal: boolean) => void;
@@ -16,11 +17,12 @@ export interface Game {
 function detectSnap(eng: Engine, step: number, reducedMotion: boolean, isTerminal: boolean, now: number): boolean {
   const isFirstUpdate = eng.lastUpdateTime === 0;
   const timeSinceLastUpdate = now - eng.lastUpdateTime;
-  const goingBackwards = step < eng.lastStep;
+  // Re-runs at the same step (e.g. preference toggles) shouldn't replay the move animation.
+  const isAdvancing = step > eng.lastStep;
   const scrubbingForward = !isFirstUpdate && timeSinceLastUpdate < SCRUB_THRESHOLD_MS;
   // The terminal step doesn't add a new move — board state matches the prior step.
   // Snapping avoids replaying the last move's animation when the game-over modal opens.
-  return reducedMotion || goingBackwards || scrubbingForward || isTerminal;
+  return reducedMotion || !isAdvancing || scrubbingForward || isTerminal;
 }
 
 export async function createGame(canvas: HTMLCanvasElement): Promise<Game> {
@@ -35,6 +37,8 @@ export async function createGame(canvas: HTMLCanvasElement): Promise<Game> {
   eng.resources.background.addChild(board);
 
   const trails = createTrails(eng);
+
+  usePreloader.getState().setPixiReady();
 
   return {
     update(chess: Chess, step: number, prefs: PreferencesState, isTerminal: boolean) {

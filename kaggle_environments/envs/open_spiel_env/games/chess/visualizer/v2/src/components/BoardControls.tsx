@@ -12,6 +12,7 @@ import styles from './BoardControls.module.css';
 
 export default function BoardControls() {
   const game = useGameStore((state) => state.game);
+  const isTerminal = useGameStore((state) => state.options.replay.steps.at(state.options.step)?.isTerminal ?? false);
   const { toggle, soundEnabled } = usePreferences();
   const transition = useTransition({ duration: 0.3 });
 
@@ -20,7 +21,7 @@ export default function BoardControls() {
   // regular `inert` prop once the project upgrades to React 19+.
   const inertRef = (el: HTMLElement | null) => {
     if (!el) return;
-    if (game.isGameOver()) el.setAttribute('inert', '');
+    if (isTerminal) el.setAttribute('inert', '');
     else el.removeAttribute('inert');
   };
 
@@ -74,7 +75,7 @@ export default function BoardControls() {
       </WithPopover>
 
       <AnimatePresence>
-        {game.isGameOver() && (
+        {game.moveNumber() === 1 && game.turn() === 'w' && (
           <motion.div
             className={styles.settingsCta}
             initial={{ opacity: 0 }}

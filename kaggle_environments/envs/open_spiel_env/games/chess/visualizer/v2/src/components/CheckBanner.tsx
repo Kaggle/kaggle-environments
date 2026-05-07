@@ -6,7 +6,7 @@ import styles from './VersusBanner.module.css';
 
 export default function CheckBanner() {
   const game = useGameStore((state) => state.game);
-  const isCheck = game.isCheck();
+  const isCheck = game.isCheck() && !game.isCheckmate();
   const moveNumber = game.moveNumber();
   const turn = game.turn();
   const enterTransition = useTransition({ duration: 1.3, ease: [0.22, 1.15, 0.36, 1] });
