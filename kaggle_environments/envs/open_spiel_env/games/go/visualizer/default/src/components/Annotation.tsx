@@ -10,46 +10,46 @@ type Notation = { term: string; title: string; text: string };
 
 const LONG_THINKING_MINUTES = 5;
 
-const THOUGHT_ANNOTATIONS: { term: string; label: string | null; description: string }[] = [
-  { term: 'rethink', label: null, description: 'rethinks their decision.' },
-  { term: 'monkey jump', label: 'Monkey Jump', description: `Reducing opposition territory at the boards edge.` },
-  { term: 'ladder', label: 'Ladder', description: 'Capturing stones in a zigzag pattern.' },
-  { term: "tiger's mouth", label: "Tiger's Mouth", description: 'A three-stone shape that creates a "trap".' },
-  { term: "horse's head", label: "Horse's Head", description: 'An L shaped flexible attacking position.' },
-  { term: 'wedge', label: 'Wedge', description: 'Playing between two opponent stones.' },
-  { term: "crane's nest", label: "Crane's Nest", description: 'A group trap that resembles a "nest".' },
-  { term: 'three crows', label: "Three Crow's", description: 'Guarding a corner with three stones.' },
-  { term: 'false eye', label: 'False Eye', description: "A space that looks safe, but isn't." },
-  { term: 'clamp', label: 'Clamp', description: "Playing both sides of an opponent's stone." },
-  { term: 'iron pillar', label: 'Iron Pillar', description: 'A defensive, vertical two-stone tower.' },
-  { term: 'snapback', label: 'Snapback', description: 'Sacrificing a stone to recapture several.' },
-  { term: 'tortoise shell', label: 'Tortoise Shell', description: 'A powerful wall formed by two captures.' },
-  {
-    term: 'bamboo joint',
-    label: 'Bamboo Joint',
-    description: 'Two parallel pairs of stones in an unbreakable connection',
-  },
-  { term: 'flower', label: 'Flower', description: 'Diamond shape left after capturing one stone.' },
-  { term: 'golden chicken', label: 'Golden Chicken', description: 'Neither player can move.' },
-  { term: 'peep', label: 'Peep', description: 'A move that threatens to cut through enemy stones.' },
-  { term: 'hane', label: 'Hane', description: '"Bending" a stone around an enemy stone.' },
-  { term: 'nobi', label: 'Nobi', description: 'An extension move from your own stone.' },
-  { term: 'kiri', label: 'Kiri', description: 'A move separating two enemy stones.' },
-  { term: 'osae', label: 'Osae', description: 'Blocking the opponent from extending further.' },
-  { term: 'seki', label: 'Seki', description: 'A non-capture stalemate.' },
-  { term: 'shimari', label: 'Shimari', description: 'Two stones securing a corner area.' },
-  { term: 'moyo', label: 'Moyo', description: 'A large, potential, unsecured territory.' },
-  { term: 'dango', label: 'Dango', description: 'An inefficient group lacking the potential for safety.' },
-  { term: 'akisankaku', label: 'Akisankaku', description: 'Three stones connected in an inefficient L-shape.' },
-];
+// const THOUGHT_ANNOTATIONS: { term: string; label: string | null; description: string }[] = [
+//   { term: 'rethink', label: null, description: 'rethinks their decision.' },
+//   { term: 'monkey jump', label: 'Monkey Jump', description: `Reducing opposition territory at the boards edge.` },
+//   { term: 'ladder', label: 'Ladder', description: 'Capturing stones in a zigzag pattern.' },
+//   { term: "tiger's mouth", label: "Tiger's Mouth", description: 'A three-stone shape that creates a "trap".' },
+//   { term: "horse's head", label: "Horse's Head", description: 'An L shaped flexible attacking position.' },
+//   { term: 'wedge', label: 'Wedge', description: 'Playing between two opponent stones.' },
+//   { term: "crane's nest", label: "Crane's Nest", description: 'A group trap that resembles a "nest".' },
+//   { term: 'three crows', label: "Three Crow's", description: 'Guarding a corner with three stones.' },
+//   { term: 'false eye', label: 'False Eye', description: "A space that looks safe, but isn't." },
+//   { term: 'clamp', label: 'Clamp', description: "Playing both sides of an opponent's stone." },
+//   { term: 'iron pillar', label: 'Iron Pillar', description: 'A defensive, vertical two-stone tower.' },
+//   { term: 'snapback', label: 'Snapback', description: 'Sacrificing a stone to recapture several.' },
+//   { term: 'tortoise shell', label: 'Tortoise Shell', description: 'A powerful wall formed by two captures.' },
+//   {
+//     term: 'bamboo joint',
+//     label: 'Bamboo Joint',
+//     description: 'Two parallel pairs of stones in an unbreakable connection',
+//   },
+//   { term: 'flower', label: 'Flower', description: 'Diamond shape left after capturing one stone.' },
+//   { term: 'golden chicken', label: 'Golden Chicken', description: 'Neither player can move.' },
+//   { term: 'peep', label: 'Peep', description: 'A move that threatens to cut through enemy stones.' },
+//   { term: 'hane', label: 'Hane', description: '"Bending" a stone around an enemy stone.' },
+//   { term: 'nobi', label: 'Nobi', description: 'An extension move from your own stone.' },
+//   { term: 'kiri', label: 'Kiri', description: 'A move separating two enemy stones.' },
+//   { term: 'osae', label: 'Osae', description: 'Blocking the opponent from extending further.' },
+//   { term: 'seki', label: 'Seki', description: 'A non-capture stalemate.' },
+//   { term: 'shimari', label: 'Shimari', description: 'Two stones securing a corner area.' },
+//   { term: 'moyo', label: 'Moyo', description: 'A large, potential, unsecured territory.' },
+//   { term: 'dango', label: 'Dango', description: 'An inefficient group lacking the potential for safety.' },
+//   { term: 'akisankaku', label: 'Akisankaku', description: 'Three stones connected in an inefficient L-shape.' },
+// ];
 
-function formatThoughtMatch(entry: (typeof THOUGHT_ANNOTATIONS)[number], agent: string): Notation {
-  return {
-    term: entry.term,
-    title: entry.label ? `${agent} mentions ${entry.label}:` : '',
-    text: entry.label ? entry.description : `${agent} ${entry.description}`,
-  };
-}
+// function formatThoughtMatch(entry: (typeof THOUGHT_ANNOTATIONS)[number], agent: string): Notation {
+//   return {
+//     term: entry.term,
+//     title: entry.label ? `${agent} mentions ${entry.label}:` : '',
+//     text: entry.label ? entry.description : `${agent} ${entry.description}`,
+//   };
+// }
 
 function getThinkingDurationMinutes(generateReturns: string[] | null | undefined): number | null {
   const json = generateReturns?.[0];
@@ -79,10 +79,41 @@ function resolveAnnotation(
     return { term: 'white komi', title: `${agent} gets Komi:`, text: `A ${komi} point bonus for playing second.` };
   }
 
-  const thoughts = player.thoughts?.toLowerCase();
-  if (thoughts) {
-    const match = THOUGHT_ANNOTATIONS.find((a) => thoughts.includes(a.term));
-    if (match) return formatThoughtMatch(match, agent);
+  // const thoughts = player.thoughts?.toLowerCase();
+  // if (thoughts) {
+  //   const match = THOUGHT_ANNOTATIONS.find((a) => thoughts.includes(a.term));
+  //   if (match) return formatThoughtMatch(match, agent);
+  // }
+
+  const thoughts = player.thoughts || '';
+
+  const paragraphs = thoughts.split(/\n\s*\n/).filter(
+    (p) =>
+      !p.includes('{') &&
+      !p.includes('}') &&
+      // !p.toLowerCase().includes('legal') &&
+      !p.toLowerCase().includes('final') &&
+      p.length > 50
+  );
+
+  const lastParagraph = paragraphs.pop();
+
+  const sentences = lastParagraph?.replaceAll('**', '')?.split(/\n|(?<!etc)[.!?:]\s/);
+
+  const lastSentence = sentences
+    ?.filter((s) => s.trim())
+    ?.pop()
+    ?.replace(/^-\s/, '')
+    ?.replace(/\b([a-n])(\d+)\b/gi, (m) => m.toUpperCase())
+    ?.replaceAll('`', '')
+    ?.concat('.')
+    ?.replaceAll('..', '.');
+
+  // console.log(thoughts);
+  // console.log(lastSentence);
+
+  if (lastSentence) {
+    return { term: '', title: `${agent}:`, text: `"${lastSentence}"` };
   }
 
   const duration = getThinkingDurationMinutes(player.generateReturns);
