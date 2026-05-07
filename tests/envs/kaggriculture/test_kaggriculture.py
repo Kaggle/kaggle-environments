@@ -397,21 +397,21 @@ def test_animal_escapes_after_two_unfed_days():
     assert farm["tiles"][fy][fx] == {"kind": "COOP"}
 
 
-def test_manure_action_yields_one_per_day():
+def test_collect_fertilizer_action_yields_one_per_day():
     farm = _new_farm(10, 1000)
     private = _new_private()
     fx, fy = farm["farmer"]
     farm["tiles"][fy][fx] = _new_animal("GOOSE", 0)
-    farm["tiles"][fy][fx]["manure_available"] = True
-    _apply_unit_action(farm, private, 0, ["MANURE"], 10, 0, 24)
+    farm["tiles"][fy][fx]["fertilizer_available"] = True
+    _apply_unit_action(farm, private, 0, ["COLLECT_FERTILIZER"], 10, 0, 24)
     assert private["inventories"][0]["FERTILIZER"] == 1
-    # Second MANURE same day is a no-op.
-    _apply_unit_action(farm, private, 0, ["MANURE"], 10, 0, 24)
+    # Second COLLECT_FERTILIZER same day is a no-op.
+    _apply_unit_action(farm, private, 0, ["COLLECT_FERTILIZER"], 10, 0, 24)
     assert private["inventories"][0]["FERTILIZER"] == 1
-    # After a daily refresh manure regenerates (animal must be alive — feed it).
+    # After a daily refresh fertilizer regenerates (animal must be alive — feed it).
     farm["tiles"][fy][fx]["fed_today"] = True
     _daily_refresh_animals(farm, 0)
-    assert farm["tiles"][fy][fx]["manure_available"] is True
+    assert farm["tiles"][fy][fx]["fertilizer_available"] is True
 
 
 def test_care_bonus_adds_to_next_production():
