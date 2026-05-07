@@ -7,6 +7,7 @@ import { loadPieceTextureAtlas, syncPieces } from './pieces';
 import { createTrails } from './trails';
 import { SCRUB_THRESHOLD_MS } from '../constants';
 import type { PreferencesState } from '../stores/usePreferences';
+import usePreloader from '../stores/usePreloader';
 
 export interface Game {
   update: (chess: Chess, step: number, prefs: PreferencesState, isTerminal: boolean) => void;
@@ -36,6 +37,8 @@ export async function createGame(canvas: HTMLCanvasElement): Promise<Game> {
   eng.resources.background.addChild(board);
 
   const trails = createTrails(eng);
+
+  usePreloader.getState().setPixiReady();
 
   return {
     update(chess: Chess, step: number, prefs: PreferencesState, isTerminal: boolean) {
