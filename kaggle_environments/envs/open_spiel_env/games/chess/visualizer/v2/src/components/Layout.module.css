@@ -16,7 +16,7 @@
   padding-inline: 1.25em;
   color: #050001;
   transition: opacity 400ms ease;
-  color: #050001;
+  padding-block: 1.5rem;
 }
 
 .playableArea:not([data-loaded]) {
