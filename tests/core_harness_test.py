@@ -278,6 +278,37 @@ class CoreHarnessTest(absltest.TestCase):
         self.assertEqual(result["call_details"][0]["response"], "garbage")
         self.assertEqual(result["call_details"][1]["response"], "move_2")
 
+    def test_include_generate_returns(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("move_0"),
+        ):
+            result = agent({}, {"includeGenerateReturns": True})
+
+        import json
+        self.assertIn("generate_returns", result)
+        self.assertLen(result["generate_returns"], 1)
+        gr = json.loads(result["generate_returns"][0])
+        self.assertEqual(gr["request_for_logging"]["model"], "test-model")
+        self.assertEqual(gr["generation_tokens"], 1)
+        self.assertEqual(gr["prompt_tokens"], 1)
+        self.assertEqual(gr["total_tokens"], 2)
+
+    def test_generate_returns_omitted_by_default(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("move_0"),
+        ):
+            result = agent({}, {})
+
+        self.assertNotIn("generate_returns", result)
+
     def test_move_history_accumulates_across_calls(self):
         harness = _SimpleHarness()
         agent = create_agent_fn(harness)

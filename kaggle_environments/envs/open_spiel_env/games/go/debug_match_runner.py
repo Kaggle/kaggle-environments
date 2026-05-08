@@ -34,9 +34,6 @@ class _GoHarness:
     def parse_response(self, response, legal_action_strings):
         return harness.parse_response(response, legal_action_strings)
 
-    def augment_action(self, action, call_records):
-        return harness.augment_action(action, call_records)
-
 
 def _wrap_litellm_with_logging() -> None:
     """Replace litellm.completion with a version that prints I/O."""
