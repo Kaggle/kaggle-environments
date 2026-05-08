@@ -111,7 +111,7 @@
     "remainingOverageTime": 60
   },
   "action": {
-    "description": "Per-turn action of the form {\"farmer\": [op, ...args], \"hands\": [[op, ...args], ...], \"market\": [[op, ...args], ...]}. Farmer/hand ops: NORTH, SOUTH, EAST, WEST, PASS, PICKUP <item> [n], PLANT <crop>, WATER, HARVEST, FERTILIZE, BUILD_COOP, BUILD_PASTURE, DIG, PLACE <animal>, FEED, COLLECT_FERTILIZER, CARE. Market ops: BUY_SEED <crop> <n>, BUY_PRODUCT <item> <n>, BUY_ANIMAL <animal> <n>, SELL <item> <n>, HIRE, BUY_LAND.",
+    "description": "Per-turn action of the form {\"farmer\": [op, ...args], \"hands\": [[op, ...args], ...], \"market\": [[op, ...args], ...]}. Farmer/hand ops: NORTH, SOUTH, EAST, WEST, PASS, PICKUP <item> [n], PLANT <crop>, WATER, HARVEST, FERTILIZE, BUILD_COOP, BUILD_PASTURE, DIG, PLACE <item> [n], FEED, COLLECT_FERTILIZER, CARE. Market ops: BUY_SEED <crop> <n>, BUY_PRODUCT <item> <n>, BUY_ANIMAL <animal> <n>, SELL <item> <n>, HIRE, BUY_LAND.",
     "type": "object",
     "default": { "farmer": ["PASS"], "hands": [], "market": [] }
   },

@@ -53,9 +53,9 @@ Picks up an item from the shed (must be orthogonally adjacent) into the inventor
 
 #### Animals
 
-- PLACE — Place an animal in inventory on a specific tile  
-  - GOOSE must be placed on a coop (no effect otherwise)  
-  - SHEEP/COW must be placed on a pasture (no effect otherwise)  
+- PLACE `<item>` `[n]` — Drop items from the active farmer/hand inventory into either a tile or the shed:  
+  - **Animal placement**: standing on a matching unoccupied structure (`GOOSE` on a coop, `SHEEP`/`COW` on a pasture) places one animal from inventory onto the tile. The `n` argument is ignored.  
+  - **Shed drop**: standing orthogonally adjacent to the shed moves up to `n` (default 1) of `<item>` from inventory into the shed. Capped by `shedCapacity`; excess stays in inventory.
 - FEED — Feed an animal using wheat (only needs to be done once per day)  
 - HARVEST — Collect the eggs/milk/wool produced by the animal.   
 - COLLECT\_FERTILIZER — Collect 1 fertilizer from the animal. Each surviving animal makes 1 fertilizer available at the end of every day; collecting consumes that day's stock and the next becomes available after the next end-of-day refresh.

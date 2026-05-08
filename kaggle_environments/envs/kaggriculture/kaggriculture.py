@@ -256,7 +256,7 @@ def _inv_take(inv, item, n=1):
     return True
 
 
-def _apply_unit_action(farm, private, idx, action, board_size, day, turns_per_day):
+def _apply_unit_action(farm, private, idx, action, board_size, day, turns_per_day, shed_capacity):
     """Process one farmer/hand's action. Invalid / illegal actions are silent no-ops."""
     if not isinstance(action, list) or not action:
         return
@@ -389,18 +389,34 @@ def _apply_unit_action(farm, private, idx, action, board_size, day, turns_per_da
     if op == "PLACE":
         if len(action) < 2:
             return
-        animal = action[1]
-        if animal not in ANIMALS:
+        item = action[1]
+        # Animal placement: standing on a matching unoccupied structure.
+        if (
+            item in ANIMALS
+            and isinstance(tile, dict)
+            and tile.get("kind") == ANIMALS[item]["structure"]
+            and "animal" not in tile
+        ):
+            if _inv_take(inv, item, 1):
+                farm["tiles"][fy][fx] = _new_animal(item, day)
             return
-        if not isinstance(tile, dict):
-            return
-        if tile.get("kind") != ANIMALS[animal]["structure"]:
-            return
-        if "animal" in tile:
-            return
-        if not _inv_take(inv, animal, 1):
-            return
-        farm["tiles"][fy][fx] = _new_animal(animal, day)
+        # Shed drop: orthogonally adjacent to the shed; obeys shedCapacity.
+        if _is_shed_adjacent((fx, fy), board_size):
+            n = int(action[2]) if len(action) >= 3 else 1
+            if n <= 0:
+                return
+            n = min(n, inv.get(item, 0))
+            if n <= 0:
+                return
+            current = sum(private["shed"].values())
+            room = max(0, shed_capacity - current)
+            n = min(n, room)
+            if n <= 0:
+                return
+            inv[item] -= n
+            if inv[item] == 0:
+                del inv[item]
+            private["shed"][item] = private["shed"].get(item, 0) + n
         return
 
     if op == "FEED":
@@ -785,6 +801,7 @@ def interpreter(state, env):
     cfg = env.configuration
     turns_per_day = max(1, int(get(cfg, "turnsPerDay", 24)))
     board_size = int(get(cfg, "boardSize", 10))
+    shed_capacity = int(get(cfg, "shedCapacity", 100))
 
     step = get(obs0, "step", 0)
     day = step // turns_per_day
@@ -812,10 +829,10 @@ def interpreter(state, env):
             return a
 
         _apply_unit_action(obs0.farms[i], s.observation.private, 0, _allowed(farmer_action),
-                           board_size, day, turns_per_day)
+                           board_size, day, turns_per_day, shed_capacity)
         for h_idx, hand_action in enumerate(hands_actions):
             _apply_unit_action(obs0.farms[i], s.observation.private, h_idx + 1,
-                               _allowed(hand_action), board_size, day, turns_per_day)
+                               _allowed(hand_action), board_size, day, turns_per_day, shed_capacity)
 
     _process_market(state, env)
     _town_consume(env, state, step)
