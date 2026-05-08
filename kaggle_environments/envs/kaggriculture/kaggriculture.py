@@ -256,7 +256,7 @@ def _inv_take(inv, item, n=1):
     return True
 
 
-def _apply_unit_action(farm, private, idx, action, board_size, day, turns_per_day, shed_capacity):
+def _apply_unit_action(farm, private, idx, action, board_size, day, turns_per_day, shed_capacity=100):
     """Process one farmer/hand's action. Invalid / illegal actions are silent no-ops."""
     if not isinstance(action, list) or not action:
         return
