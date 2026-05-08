@@ -9,7 +9,6 @@ from absl.testing import absltest
 from kaggle_environments.core_harness import ParseResult, create_agent_fn
 from kaggle_environments.envs.open_spiel_env.games.go import go_proxy
 from kaggle_environments.envs.open_spiel_env.games.go.harness import (
-    augment_action,
     get_legal_moves,
     generate_prompt,
     parse_response,
@@ -216,9 +215,6 @@ class _GoHarness:
     def parse_response(self, response, legal_action_strings):
         return parse_response(response, legal_action_strings)
 
-    def augment_action(self, action, call_records):
-        return augment_action(action, call_records)
-
 
 class AgentIntegrationTest(absltest.TestCase):
     """Test the Go harness through ``create_agent_fn`` from ``core_harness``."""
@@ -381,7 +377,7 @@ class AgentIntegrationTest(absltest.TestCase):
         state = game.new_initial_state()
         observation = _make_observation(state, game)
 
-        result = agent(observation, {})
+        result = agent(observation, {"includeGenerateReturns": True})
 
         self.assertIn("generate_returns", result)
         self.assertLen(result["generate_returns"], 1)
@@ -395,6 +391,31 @@ class AgentIntegrationTest(absltest.TestCase):
         self.assertNotIn("main_response", gr)
         self.assertNotIn("messages", gr["request_for_logging"])
         self.assertNotIn("content", gr["response_for_logging"])
+
+    @patch.dict(
+        "os.environ",
+        {
+            "MODEL_NAME": "test-model",
+            "MODEL_PROXY_KEY": "test-key",
+            "MODEL_PROXY_URL": "dummy_url",
+        },
+    )
+    @patch("kaggle_environments.core_harness.litellm")
+    def test_generate_returns_omitted_by_default(self, mock_litellm):
+        mock_litellm.drop_params = True
+        mock_litellm.completion.return_value = _make_mock_response(
+            '```json\n{"move": "e5"}\n```',
+        )
+
+        agent = create_agent_fn(_GoHarness())
+
+        game = go_proxy.GoGame({"board_size": 9, "komi": 7.5})
+        state = game.new_initial_state()
+        observation = _make_observation(state, game)
+
+        result = agent(observation, {})
+
+        self.assertNotIn("generate_returns", result)
 
 
 if __name__ == "__main__":
