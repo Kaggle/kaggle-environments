@@ -197,6 +197,14 @@ body {
   pointer-events: none;
 }
 
+/* Re-enable hover only on the sprite <img>s themselves, not the layer divs
+   (which cover the whole cell and would otherwise swallow hover events for
+   sprites in lower layers). */
+.cell-object .cell-sprite,
+.cell-agent .cell-sprite {
+  pointer-events: auto;
+}
+
 .cell-base    { z-index: 1; }
 .cell-overlay { z-index: 2; }
 .cell-object  { z-index: 3; }
@@ -308,12 +316,6 @@ body {
   gap: 16px;
 }
 
-.day-counter,
-.turn-counter {
-  font-family: 'Mynerve', cursive;
-  font-size: 1rem;
-}
-
 .town-grid {
   display: grid;
   gap: 0;
@@ -346,48 +348,6 @@ body {
   object-fit: contain;
   display: block;
   image-rendering: pixelated;
-}
-
-.city-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-}
-
-@container (max-width: 900px) {
-  .city-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-
-.building-slot {
-  position: relative;
-  aspect-ratio: 1;
-  background-color: white;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 4px;
-}
-
-.building-sign {
-  position: absolute;
-  top: 4px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 60%;
-  aspect-ratio: 1;
-}
-
-.building-icon {
-  width: 100%;
-  height: 100%;
-}
-
-.building-base {
-  width: 100%;
-  height: 60%;
 }
 
 /* ---- Market ---- */
@@ -441,10 +401,3 @@ body {
   object-fit: contain;
 }
 
-/* ---- Footer ---- */
-.demo-footer {
-  background-color: white;
-  padding: 6px 12px;
-  text-align: center;
-  font-size: 0.85rem;
-}

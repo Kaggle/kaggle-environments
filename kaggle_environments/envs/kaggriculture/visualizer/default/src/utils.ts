@@ -128,7 +128,17 @@ export function clearChildren(el: Element): void {
   while (el.firstChild) el.removeChild(el.firstChild);
 }
 
-export function setCellSprite(slot: Element, src: string, alt: string, extraClass = ''): void {
+export function setCellSprite(slot: Element, src: string, alt: string, extraClass = '', title?: string): void {
   const cls = `cell-sprite ${extraClass}`.trim();
-  slot.innerHTML = `<img class="${cls}" src="${src}" alt="${alt}" />`;
+  const titleAttr = title ? ` title="${title}"` : '';
+  slot.innerHTML = `<img class="${cls}" src="${src}" alt="${alt}"${titleAttr} />`;
+}
+
+export function titleCase(s: string): string {
+  return s
+    .toLowerCase()
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
 }

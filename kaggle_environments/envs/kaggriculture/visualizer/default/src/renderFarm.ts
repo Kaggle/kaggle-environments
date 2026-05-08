@@ -1,21 +1,25 @@
 import {
+  CROP_FIRST_YIELD_DAY,
   INVENTORY_SLOTS,
   MARKET_ITEMS,
+  QUADRANT_BY_SEGMENT,
   SEGMENT,
   SURROUNDING_BUILDINGS,
   TOWN_CENTER_INDEX,
   TOWN_GRID_COLS,
   TOWN_GRID_ROWS,
   type BoardSize,
-  type Cell,
   type CellRefs,
+  type FarmPublic,
   type LayoutRefs,
-  type MarketEntry,
-  type Observation,
+  type MarketPublic,
   type PlayerRefs,
-  type PlayerState,
+  type PrivateState,
+  type RawTile,
+  type TownPublic,
+  type ViewModel,
 } from './types';
-import { BG_URLS, clearChildren, plantSprite, setCellSprite, spriteSrc } from './utils';
+import { BG_URLS, clearChildren, plantSprite, spriteSrc, titleCase } from './utils';
 
 export type { BoardSize, LayoutRefs } from './types';
 
@@ -96,7 +100,7 @@ function farmPanel(player: 1 | 2, rows: number, cols: number, name: string): str
       <header class="farm-header sketched-border" style="${BG_WOOD}">
         <span class="player-name">
           <img class="player-name-icon" src="${spriteSrc(`farmer_p${player}`)}" alt="farmer p${player}" />
-          <span class="player-name-text">${escapeHtml(name)}</span>
+          <span>${escapeHtml(name)}</span>
         </span>
         <span class="player-balance">
           <img class="balance-icon" src="${spriteSrc('coin')}" alt="coins" />
@@ -118,10 +122,10 @@ function townPanel(): string {
   return `
     <section class="town-panel">
       <header class="town-header sketched-border" style="${BG_WOOD}">
-        <div class="town-title">Welcome to Kernel Cove</div>
+        <div class="town-title">Kaggriculture</div>
         <div class="town-subheader">
-          <span class="day-counter">Day <span class="day-value">1</span> / 30</span>
-          <span class="turn-counter">Turn <span class="turn-value">1</span> / 24</span>
+          <span>Day <span class="day-value">1</span> / <span class="day-total">30</span></span>
+          <span>Turn <span class="turn-value">1</span> / <span class="turn-total">24</span></span>
         </div>
       </header>
       <div class="market-panel sketched-border" style="${BG_WOOD}">
@@ -132,14 +136,14 @@ function townPanel(): string {
         ${Array.from({ length: TOWN_GRID_COLS * TOWN_GRID_ROWS }, (_, i) => {
           if (i === TOWN_CENTER_INDEX) {
             return `<div class="town-slot town-slot--center" data-slot="${i}" style="${BG_COBBLE}">
-                      <img class="town-sprite" src="${spriteSrc('town_center')}" alt="Town Center" />
+                      <img class="town-sprite" src="${spriteSrc('town_center')}" alt="Town Center" title="Town Center" />
                     </div>`;
           }
           const building = SURROUNDING_BUILDINGS[i];
           if (building) {
-            return `<div class="town-slot town-slot--shop" data-slot="${i}" data-building="${building}" style="${BG_COBBLE}">
-                      <img class="town-sprite" src="${spriteSrc(building)}" alt="${building} shop" />
-                    </div>`;
+            // Empty until renderTown injects the sprite (and the cobble
+            // background) when the shop unlocks.
+            return `<div class="town-slot town-slot--shop" data-slot="${i}" data-building="${building.shop}"></div>`;
           }
           return `<div class="town-slot" data-slot="${i}"></div>`;
         }).join('')}
@@ -161,11 +165,6 @@ export function buildShell(root: HTMLElement, board: BoardSize, playerNames: str
 }
 
 // --- Cached refs --------------------------------------------------------------
-// The shell DOM (background, panels, shed/inventory boxes, market layout, town
-// grid scaffolding) is built once per board size and never re-rendered. We
-// walk it once to grab handles to every element that *does* update per step,
-// so the per-step render is a series of direct property writes — no
-// querySelector calls in the hot path.
 
 function collectPlayerRefs(panel: HTMLElement, board: BoardSize): PlayerRefs {
   const cells: CellRefs[][] = Array.from({ length: board.rows }, () => new Array<CellRefs>(board.cols));
@@ -212,118 +211,242 @@ export function collectRefs(root: HTMLElement, board: BoardSize): LayoutRefs {
   };
 }
 
-function renderFarm(refs: PlayerRefs, playerNum: number, player: PlayerState): void {
-  const unlocked = new Set(player.farm.unlockedSegments ?? [0]);
-  const cellMap = new Map<string, Cell>();
-  for (const c of player.farm.cells ?? []) {
-    cellMap.set(`${c.row},${c.col}`, c);
+// --- Per-step render ---------------------------------------------------------
+
+function plantStage(crop: string, plantedDay: number, day: number, yieldUnits: number): string {
+  // Non-ongoing crops are seeded with yield_units=1 immediately, so yield_units
+  // alone doesn't mean "harvestable" -- the interpreter also gates harvest on
+  // age_days >= first_yield_day. Mirror that here so we don't show the ready
+  // sprite until the plant has actually matured.
+  const firstYield = CROP_FIRST_YIELD_DAY[crop] ?? 4;
+  const age = day - plantedDay;
+  if (age >= firstYield && yieldUnits >= 1) return 'ready';
+  return age * 2 >= firstYield ? 'midgrowth' : 'sprout';
+}
+
+// Compute keys describing the desired DOM for each cell layer. Two cells with
+// equal keys must produce identical DOM, so the per-step render can skip the
+// write when nothing has changed -- otherwise the browser tears down and
+// re-decodes each <img> every step, which shows up as visible flashing.
+
+function objectPlan(tile: RawTile, day: number): { key: string; html: string } {
+  if (!tile || typeof tile !== 'object') return { key: '', html: '' };
+  if (tile.kind === 'PLANT') {
+    const cropLower = String(tile.crop).toLowerCase();
+    const stage = plantStage(tile.crop, tile.planted_day, day, tile.yield_units);
+    const sprite = plantSprite(cropLower, stage);
+    const fertilized = (tile.fertilized_until_day ?? -1) >= day;
+    const label = `${titleCase(tile.crop)} (${stage}${fertilized ? ', fertilized' : ''})`;
+    return {
+      key: `plant:${cropLower}:${stage}:${fertilized ? 1 : 0}`,
+      html: `<img class="cell-sprite" src="${spriteSrc(sprite)}" alt="${sprite}" title="${label}" />`,
+    };
   }
+  if (tile.kind === 'WEED') {
+    return {
+      key: 'weed',
+      html: `<img class="cell-sprite" src="${spriteSrc('weed')}" alt="weed" title="Weed" />`,
+    };
+  }
+  if (tile.kind === 'COOP' || tile.kind === 'PASTURE') {
+    const structure = tile.kind === 'COOP' ? 'coop' : 'pasture';
+    const structureLabel = tile.kind === 'COOP' ? 'Coop' : 'Pasture';
+    const animal = tile.animal ? tile.animal.toLowerCase() : '';
+    const parts = [
+      `<img class="cell-sprite" src="${spriteSrc(structure)}" alt="${structure}" title="${structureLabel}" />`,
+    ];
+    if (tile.animal) {
+      parts.push(
+        `<img class="cell-sprite cell-animal" src="${spriteSrc(animal)}" alt="${animal}" title="${titleCase(tile.animal)}" />`
+      );
+    }
+    return { key: `${structure}:${animal}`, html: parts.join('') };
+  }
+  return { key: '', html: '' };
+}
+
+function applyAgentSlot(cellRef: CellRefs, key: string, html: string): void {
+  if (cellRef.lastAgentKey === key) return;
+  cellRef.lastAgentKey = key;
+  if (html) cellRef.agentSlot.innerHTML = html;
+  else clearChildren(cellRef.agentSlot);
+}
+
+function renderFarm(refs: PlayerRefs, playerNum: number, farm: FarmPublic, day: number): void {
+  const unlocked = new Set(farm.unlocked_quadrants ?? ['NW']);
+  const tiles = farm.tiles ?? [];
+
+  // Pre-compute the desired agent for each cell so we can diff against the
+  // cached state instead of wiping every agent slot first.
+  const desiredAgents = new Map<CellRefs, { key: string; html: string }>();
+  if (farm.farmer) {
+    const [fx, fy] = farm.farmer;
+    const cellRef = refs.cells[fy]?.[fx];
+    if (cellRef) {
+      const sprite = `farmer_p${playerNum}`;
+      desiredAgents.set(cellRef, {
+        key: `farmer:${playerNum}`,
+        html: `<img class="cell-sprite cell-agent-sprite" src="${spriteSrc(sprite)}" alt="${sprite}" title="Farmer ${playerNum}" />`,
+      });
+    }
+  }
+  (farm.hands ?? []).forEach((pos, i) => {
+    const [hx, hy] = pos;
+    const cellRef = refs.cells[hy]?.[hx];
+    if (!cellRef) return;
+    const variant = (i % 3) + 1;
+    const sprite = `farmhand_${variant}`;
+    desiredAgents.set(cellRef, {
+      key: `hand:${i}:${variant}`,
+      html: `<img class="cell-sprite cell-agent-sprite" src="${spriteSrc(sprite)}" alt="${sprite}" title="Farmhand ${i + 1}" />`,
+    });
+  });
 
   for (let row = 0; row < refs.cells.length; row++) {
     const rowRefs = refs.cells[row];
     for (let col = 0; col < rowRefs.length; col++) {
       const cellRef = rowRefs[col];
       if (!cellRef) continue;
-      const isUnlocked = unlocked.has(cellRef.segment);
+      const quadrant = QUADRANT_BY_SEGMENT[cellRef.segment];
+      const isUnlocked = unlocked.has(quadrant);
+      const tile: RawTile = isUnlocked ? (tiles[row]?.[col] ?? null) : 'LOCKED';
 
-      clearChildren(cellRef.objectSlot);
-      clearChildren(cellRef.agentSlot);
-
-      const cell = isUnlocked ? cellMap.get(`${row},${col}`) : undefined;
-
-      if (!isUnlocked) {
-        cellRef.baseImg.src = spriteSrc('locked_cell');
-        cellRef.baseImg.alt = 'locked_cell';
+      let baseKey: string;
+      let baseSprite: string;
+      let obj: { key: string; html: string };
+      if (!isUnlocked || tile === 'LOCKED') {
+        baseKey = 'locked';
+        baseSprite = 'locked_cell';
+        obj = { key: '', html: '' };
       } else {
-        const watered = cell && cell.type === 'plant' && cell.wateredToday;
-        const sprite = watered ? 'soil_watered' : 'soil_dry';
-        cellRef.baseImg.src = spriteSrc(sprite);
-        cellRef.baseImg.alt = sprite;
+        const isPlant = tile && typeof tile === 'object' && tile.kind === 'PLANT';
+        const watered = isPlant && (tile as any).watered_today;
+        baseSprite = watered ? 'soil_watered' : 'soil_dry';
+        baseKey = baseSprite;
+        obj = objectPlan(tile, day);
       }
 
-      if (!cell) continue;
-
-      if (cell.type === 'plant') {
-        const sprite = plantSprite(cell.plant, cell.stage);
-        const fertilized = (cell.fertilizedDaysLeft ?? 0) > 0;
-        setCellSprite(cellRef.objectSlot, spriteSrc(sprite), sprite, fertilized ? 'cell-fertilized' : '');
-      } else if (cell.type === 'weed') {
-        setCellSprite(cellRef.objectSlot, spriteSrc('weed'), 'weed');
-      } else if (cell.type === 'coop' || cell.type === 'pasture') {
-        const structure = cell.type === 'coop' ? 'coop' : 'pasture';
-        const parts: string[] = [
-          `<img class="cell-sprite cell-structure" src="${spriteSrc(structure)}" alt="${structure}" />`,
-        ];
-        if (cell.animal) {
-          parts.push(
-            `<img class="cell-sprite cell-animal" src="${spriteSrc(cell.animal.kind)}" alt="${cell.animal.kind}" />`
-          );
-        }
-        cellRef.objectSlot.innerHTML = parts.join('');
+      if (cellRef.lastBaseKey !== baseKey) {
+        cellRef.lastBaseKey = baseKey;
+        cellRef.baseImg.src = spriteSrc(baseSprite);
+        cellRef.baseImg.alt = baseSprite;
       }
+      if (cellRef.lastObjectKey !== obj.key) {
+        cellRef.lastObjectKey = obj.key;
+        if (obj.html) cellRef.objectSlot.innerHTML = obj.html;
+        else clearChildren(cellRef.objectSlot);
+      }
+
+      const desired = desiredAgents.get(cellRef);
+      applyAgentSlot(cellRef, desired?.key ?? '', desired?.html ?? '');
     }
-  }
-
-  for (const agent of player.agents ?? []) {
-    const cellRef = refs.cells[agent.row]?.[agent.col];
-    if (!cellRef) continue;
-    const sprite = agent.role === 'farmer' ? `farmer_p${playerNum}` : `farmhand_${agent.variant ?? 1}`;
-    cellRef.agentSlot.innerHTML = `<img class="cell-sprite cell-agent-sprite" src="${spriteSrc(sprite)}" alt="${sprite}" />`;
   }
 }
 
-function renderShed(refs: PlayerRefs, shed: Record<string, number> | undefined): void {
-  const entries = Object.entries(shed ?? {});
+function renderShed(refs: PlayerRefs, priv: PrivateState | undefined): void {
+  const shed = priv?.shed ?? {};
+  const seeds = priv?.seeds ?? {};
+  const entries: [string, number, boolean][] = [];
+  for (const [k, v] of Object.entries(shed)) {
+    if (v > 0) entries.push([k, v, false]);
+  }
+  for (const [k, v] of Object.entries(seeds)) {
+    if (v > 0) entries.push([k, v, true]);
+  }
+
   refs.inventory.forEach((slot, i) => {
     const entry = entries[i];
     if (!entry) {
-      clearChildren(slot.icon);
-      slot.count.textContent = '';
+      if (slot.lastIconKey !== '') {
+        slot.lastIconKey = '';
+        clearChildren(slot.icon);
+      }
+      if (slot.lastCount !== '') {
+        slot.lastCount = '';
+        slot.count.textContent = '';
+      }
       return;
     }
-    const [item, qty] = entry;
-    slot.icon.innerHTML = `<img class="item-icon-img" src="${spriteSrc(item)}" alt="${item}" />`;
-    slot.count.textContent = String(qty);
+    const [item, qty, isSeed] = entry;
+    const sprite = isSeed ? 'seed_packet' : item.toLowerCase();
+    const alt = isSeed ? `${item} seed` : item.toLowerCase();
+    const label = isSeed ? `${titleCase(item)} seed` : titleCase(item);
+    const iconKey = isSeed ? `seed:${item}` : `item:${item}`;
+    if (slot.lastIconKey !== iconKey) {
+      slot.lastIconKey = iconKey;
+      slot.icon.innerHTML = `<img class="item-icon-img" src="${spriteSrc(sprite)}" alt="${alt}" title="${label}" />`;
+    }
+    const qtyStr = String(qty);
+    if (slot.lastCount !== qtyStr) {
+      slot.lastCount = qtyStr;
+      slot.count.textContent = qtyStr;
+    }
   });
 }
 
-function renderPlayer(refs: PlayerRefs, idx: number, player: PlayerState): void {
-  refs.balance.textContent = String(player.coins ?? 0);
-  renderFarm(refs, idx + 1, player);
-  renderShed(refs, player.shed);
+function renderPlayer(
+  refs: PlayerRefs,
+  idx: number,
+  farm: FarmPublic,
+  priv: PrivateState | undefined,
+  day: number
+): void {
+  refs.balance.textContent = String(Math.floor(farm.money ?? 0));
+  renderFarm(refs, idx + 1, farm, day);
+  renderShed(refs, priv);
 }
 
-function renderMarket(refs: LayoutRefs, market: Record<string, MarketEntry> | undefined): void {
-  if (!market) return;
+function renderMarket(refs: LayoutRefs, market: MarketPublic): void {
+  const prices = market?.prices ?? {};
   for (const { key } of MARKET_ITEMS) {
-    const entry = market[key];
     const slot = refs.marketItems[key];
-    if (!entry || !slot) continue;
-    slot.price.textContent = String(entry.current);
-    slot.item.classList.toggle('market-item--down', entry.current < entry.base);
+    if (!slot) continue;
+    const price = prices[key];
+    slot.price.textContent = price == null ? '--' : String(Math.round(price));
   }
 }
 
-function renderTown(refs: LayoutRefs, town: { active: string[] } | undefined): void {
-  const active = new Set(town?.active ?? []);
+function renderTown(refs: LayoutRefs, town: TownPublic): void {
+  const active = new Set(town?.unlocked_shops ?? []);
+  // Look up by interpreter shop key.
+  const buildingByShop = new Map<string, { sprite: string; label: string }>();
+  for (const b of Object.values(SURROUNDING_BUILDINGS)) buildingByShop.set(b.shop, b);
+
   for (const slot of refs.shopSlots) {
-    const building = slot.dataset.building ?? '';
-    slot.classList.toggle('town-slot--inactive', active.size > 0 && !active.has(building));
+    const shop = slot.dataset.building ?? '';
+    const isActive = active.has(shop);
+    const meta = buildingByShop.get(shop);
+    if (isActive && meta) {
+      // Only inject DOM if the slot is currently empty -- avoid thrashing on every step.
+      if (!slot.firstElementChild) {
+        slot.setAttribute('style', BG_COBBLE);
+        slot.innerHTML = `<img class="town-sprite" src="${spriteSrc(meta.sprite)}" alt="${meta.label}" title="${meta.label}" />`;
+      }
+    } else if (slot.firstElementChild) {
+      slot.removeAttribute('style');
+      clearChildren(slot);
+    }
   }
 }
 
-function renderHeader(refs: LayoutRefs, obs: Observation): void {
-  refs.dayValue.textContent = String(obs.day ?? 1);
-  refs.turnValue.textContent = String(obs.turnOfDay ?? 1);
+function renderHeader(refs: LayoutRefs, view: ViewModel, cfg: any): void {
+  const turnsPerDay = Number(cfg?.turnsPerDay) || 24;
+  const totalDays = Math.max(1, Math.floor((Number(cfg?.episodeSteps) || 30 * turnsPerDay) / turnsPerDay));
+  refs.dayValue.textContent = String((view.day ?? 0) + 1);
+  refs.turnValue.textContent = String((view.hour ?? 0) + 1);
+  const dayTotal = refs.dayValue.parentElement?.querySelector<HTMLElement>('.day-total');
+  const turnTotal = refs.turnValue.parentElement?.querySelector<HTMLElement>('.turn-total');
+  if (dayTotal) dayTotal.textContent = String(totalDays);
+  if (turnTotal) turnTotal.textContent = String(turnsPerDay);
 }
 
-export function renderObservation(refs: LayoutRefs, obs: Observation): void {
-  renderHeader(refs, obs);
-  renderMarket(refs, obs.market);
-  renderTown(refs, obs.townBuildings);
-  const players = obs.players ?? [];
-  players.forEach((p, i) => {
+export function renderObservation(refs: LayoutRefs, view: ViewModel, cfg: any): void {
+  renderHeader(refs, view, cfg);
+  renderMarket(refs, view.market);
+  renderTown(refs, view.town);
+  const farms = view.farms ?? [];
+  farms.forEach((farm, i) => {
     const playerRefs = refs.players[i];
-    if (playerRefs) renderPlayer(playerRefs, i, p);
+    if (playerRefs) renderPlayer(playerRefs, i, farm, view.privates[i], view.day);
   });
 }

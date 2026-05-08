@@ -1,92 +1,112 @@
 export const SEGMENT = 5;
 export const INVENTORY_SLOTS = 20;
 
-export const TOWN_GRID_COLS = 5;
-export const TOWN_GRID_ROWS = 5;
+// 3x3 grid: town center pinned dead-center; the 8 surrounding cells are
+// exactly the 8 shops in SHOPS (one unlocked per 3 in-game days).
+export const TOWN_GRID_COLS = 3;
+export const TOWN_GRID_ROWS = 3;
 export const TOWN_CENTER_INDEX = Math.floor((TOWN_GRID_COLS * TOWN_GRID_ROWS) / 2);
 
-export const SURROUNDING_BUILDINGS: Record<number, string> = {
-  6: 'bakery',
-  7: 'pizza',
-  8: 'brunch',
-  11: 'yarn',
-  13: 'icecream',
-  16: 'petcafe',
-  17: 'smoothie',
-  18: 'farmersmarket',
+// segId = segR*2 + segC, where segR/segC come from row/col / SEGMENT.
+// (0,0)=NW, (0,1)=NE, (1,0)=SW, (1,1)=SE.
+export const QUADRANT_BY_SEGMENT: Record<number, string> = {
+  0: 'NW',
+  1: 'NE',
+  2: 'SW',
+  3: 'SE',
 };
 
+// Shop slot index (0..8 in the 3x3 grid, skipping the center=4) ->
+// { interpreter shop key, sprite name, display label for tooltips }.
+export const SURROUNDING_BUILDINGS: Record<number, { shop: string; sprite: string; label: string }> = {
+  0: { shop: 'BAKERY', sprite: 'bakery', label: 'Bakery' },
+  1: { shop: 'PIZZA_SHOP', sprite: 'pizza', label: 'Pizza Shop' },
+  2: { shop: 'BRUNCH_SPOT', sprite: 'brunch', label: 'Brunch Spot' },
+  3: { shop: 'YARN_STORE', sprite: 'yarn', label: 'Yarn Store' },
+  5: { shop: 'ICE_CREAM_SHOP', sprite: 'icecream', label: 'Ice Cream Shop' },
+  6: { shop: 'PET_CAFE', sprite: 'petcafe', label: 'Pet Cafe' },
+  7: { shop: 'SMOOTHIE_SHOP', sprite: 'smoothie', label: 'Smoothie Shop' },
+  8: { shop: 'FARMERS_MARKET', sprite: 'farmersmarket', label: "Farmers' Market" },
+};
+
+// Visible market items. `key` is the interpreter's PRODUCTS key; `sprite` is the asset name.
 export const MARKET_ITEMS: { sprite: string; key: string }[] = [
-  { sprite: 'wheat', key: 'wheat' },
-  { sprite: 'carrot', key: 'carrot' },
-  { sprite: 'tomato', key: 'tomato' },
-  { sprite: 'strawberry', key: 'strawberry' },
-  { sprite: 'melon', key: 'melon' },
-  { sprite: 'egg', key: 'egg' },
-  { sprite: 'milk', key: 'milk' },
-  { sprite: 'wool', key: 'wool' },
+  { sprite: 'wheat', key: 'WHEAT' },
+  { sprite: 'carrot', key: 'CARROT' },
+  { sprite: 'tomato', key: 'TOMATO' },
+  { sprite: 'strawberry', key: 'STRAWBERRY' },
+  { sprite: 'melon', key: 'MELON' },
+  { sprite: 'egg', key: 'EGG' },
+  { sprite: 'milk', key: 'MILK' },
+  { sprite: 'wool', key: 'WOOL' },
 ];
 
 // Plant types where the "ready" sprite should swap to a dedicated `_ready` PNG.
 export const READY_SPRITE_TYPES = new Set(['carrot', 'tomato', 'strawberry', 'melon']);
+
+// first_yield_day per crop, mirrored from CROPS in kaggriculture.py. Used to
+// pick sprout / midgrowth / ready sprites since the replay only carries
+// planted_day + yield_units.
+export const CROP_FIRST_YIELD_DAY: Record<string, number> = {
+  WHEAT: 2,
+  CARROT: 2,
+  TOMATO: 8,
+  STRAWBERRY: 10,
+  MELON: 10,
+};
 
 export interface BoardSize {
   rows: number;
   cols: number;
 }
 
-export interface PlantCell {
-  row: number;
-  col: number;
-  type: 'plant';
-  plant: string;
-  stage: string;
-  wateredToday?: boolean;
-  fertilizedDaysLeft?: number;
+// Raw tile shapes as they appear in farm.tiles[y][x].
+export type RawTile =
+  | null
+  | 'LOCKED'
+  | {
+      kind: 'PLANT';
+      crop: string;
+      planted_day: number;
+      watered_today: boolean;
+      yield_units: number;
+      fertilized_until_day: number;
+    }
+  | { kind: 'WEED' }
+  | { kind: 'COOP' | 'PASTURE'; animal?: string; fed_today?: boolean; cared_today?: boolean; yield_units?: number };
+
+export interface FarmPublic {
+  money: number;
+  tiles: RawTile[][];
+  farmer: [number, number]; // [x, y]
+  hands: [number, number][]; // list of [x, y]
+  unlocked_quadrants: string[]; // e.g. ['NW', 'NE']
+  hires_today: number;
 }
 
-export interface StructureCell {
-  row: number;
-  col: number;
-  type: 'coop' | 'pasture';
-  animal: { kind: string; fedToday?: boolean } | null;
+export interface MarketPublic {
+  prices: Record<string, number>;
+  inventory: Record<string, number>;
 }
 
-export interface WeedCell {
-  row: number;
-  col: number;
-  type: 'weed';
+export interface TownPublic {
+  unlocked_shops: string[];
 }
 
-export type Cell = PlantCell | StructureCell | WeedCell;
-
-export interface AgentEntity {
-  role: 'farmer' | 'farmhand';
-  variant?: number;
-  row: number;
-  col: number;
-  inventory?: Record<string, number>;
+export interface PrivateState {
+  shed: Record<string, number>;
+  seeds: Record<string, number>;
+  inventories: Record<string, number>[];
 }
 
-export interface PlayerState {
-  coins: number;
-  shed?: Record<string, number>;
-  farm: { size: [number, number]; unlockedSegments: number[]; cells: Cell[] };
-  agents: AgentEntity[];
-}
-
-export interface MarketEntry {
-  current: number;
-  base: number;
-}
-
-export interface Observation {
-  step?: number;
-  day?: number;
-  turnOfDay?: number;
-  market?: Record<string, MarketEntry>;
-  townBuildings?: { active: string[] };
-  players?: PlayerState[];
+// Combined view assembled by the renderer from both agents' step entries.
+export interface ViewModel {
+  day: number;
+  hour: number;
+  farms: FarmPublic[];
+  market: MarketPublic;
+  town: TownPublic;
+  privates: (PrivateState | undefined)[];
 }
 
 export interface CellRefs {
@@ -95,11 +115,19 @@ export interface CellRefs {
   baseImg: HTMLImageElement;
   objectSlot: HTMLElement;
   agentSlot: HTMLElement;
+  // Cached "what we last wrote" keys; if unchanged we skip the DOM write so
+  // the browser doesn't tear down + re-decode the <img> every step (causing
+  // a visible flash).
+  lastBaseKey?: string;
+  lastObjectKey?: string;
+  lastAgentKey?: string;
 }
 
 export interface InventorySlotRefs {
   icon: HTMLElement;
   count: HTMLElement;
+  lastIconKey?: string;
+  lastCount?: string;
 }
 
 export interface PlayerRefs {

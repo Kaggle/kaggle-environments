@@ -609,8 +609,8 @@ def _town_consume(env, state, step):
     market = obs0.market
     town = obs0.town
     cfg = env.configuration
-    shop_interval = max(1, int(get(cfg, "townShopSellInterval", 1)))
-    center_interval = max(1, int(get(cfg, "townCenterSellInterval", 2)))
+    shop_interval = max(1, int(get(cfg, "townShopSellInterval", 2)))
+    center_interval = max(1, int(get(cfg, "townCenterSellInterval", 6)))
     turns_per_day = max(1, int(get(cfg, "turnsPerDay", 24)))
     day = step // turns_per_day
 

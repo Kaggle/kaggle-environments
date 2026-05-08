@@ -46,13 +46,13 @@
     "townShopSellInterval": {
       "description": "Number of turns between successive consumption ticks by every unlocked town shop. Each shop pulls one of each of its products per tick (single-product shops pull 2x). Total demand grows monotonically as more shops are unlocked.",
       "type": "integer",
-      "default": 1,
+      "default": 2,
       "minimum": 1
     },
     "townCenterSellInterval": {
       "description": "Number of turns between successive consumption ticks by the town center (one of every product per tick).",
       "type": "integer",
-      "default": 2,
+      "default": 6,
       "minimum": 1
     },
     "seed": {

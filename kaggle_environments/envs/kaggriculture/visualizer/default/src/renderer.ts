@@ -1,6 +1,7 @@
 import type { RendererOptions } from '@kaggle-environments/core';
 import { getStepData } from '@kaggle-environments/core';
 import { buildShell, collectRefs, renderObservation, type BoardSize, type LayoutRefs } from './renderFarm';
+import type { ViewModel, PrivateState } from './types';
 
 const DEFAULT_BOARD: BoardSize = { rows: 10, cols: 10 };
 
@@ -13,16 +14,35 @@ const shellCache = new WeakMap<HTMLElement, CachedShell>();
 
 function inferBoardSize(replay: any): BoardSize {
   const cfg = replay?.configuration ?? {};
-  const rows = Number(cfg.height) || DEFAULT_BOARD.rows;
-  const cols = Number(cfg.width) || DEFAULT_BOARD.cols;
-  return { rows, cols };
+  const size = Number(cfg.boardSize);
+  if (Number.isFinite(size) && size > 0) {
+    return { rows: size, cols: size };
+  }
+  return DEFAULT_BOARD;
 }
 
-function getObservation(replay: any, step: number): any | null {
+function buildView(replay: any, step: number): ViewModel | null {
   const stepData = getStepData(replay, step) as any;
   if (!stepData) return null;
-  const agentStep = Array.isArray(stepData) ? stepData[0] : stepData;
-  return agentStep?.observation ?? null;
+  const entries = Array.isArray(stepData) ? stepData : [stepData];
+  const obs0 = entries[0]?.observation;
+  if (!obs0) return null;
+
+  const privates: (PrivateState | undefined)[] = [];
+  for (const entry of entries) {
+    const obs = entry?.observation;
+    const idx = typeof obs?.player === 'number' ? obs.player : privates.length;
+    privates[idx] = obs?.private;
+  }
+
+  return {
+    day: Number(obs0.day ?? 0),
+    hour: Number(obs0.hour ?? 0),
+    farms: obs0.farms ?? [],
+    market: obs0.market ?? { prices: {}, inventory: {} },
+    town: obs0.town ?? { unlocked_shops: [] },
+    privates,
+  };
 }
 
 export function renderer(options: RendererOptions): void {
@@ -39,7 +59,7 @@ export function renderer(options: RendererOptions): void {
     shellCache.set(parent, cached);
   }
 
-  const obs = getObservation(replay, step);
-  if (!obs) return;
-  renderObservation(cached.refs, obs);
+  const view = buildView(replay, step);
+  if (!view) return;
+  renderObservation(cached.refs, view, replay?.configuration ?? {});
 }
