@@ -1,5 +1,6 @@
 import { createReplayVisualizer, ReplayAdapter } from '@kaggle-environments/core';
 import { renderer } from './renderer';
+import { getKaggricultureStepRenderTime } from './timing';
 import './style.css';
 
 const app = document.getElementById('app');
@@ -17,5 +18,7 @@ createReplayVisualizer(
     gameName: 'kaggriculture',
     renderer: renderer as any,
     ui: 'inline',
+    getStepRenderTime: (step, replayMode, speedModifier) =>
+      getKaggricultureStepRenderTime(step, replayMode, speedModifier),
   })
 );
