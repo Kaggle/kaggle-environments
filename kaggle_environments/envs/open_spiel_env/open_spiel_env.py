@@ -166,13 +166,10 @@ CONFIGURATION_SPEC_TEMPLATE = {
     },
     "savePrompt": {
         "description": (
-            "If true, the LLM prompt produced by the harness is included as a"
-            " 'prompt' field on the action returned by core_harness, which causes"
-            " it to be persisted in the episode replay. Defaults to false to keep"
-            " replays small."
+            "If disabled, skip logging LLM prompts in the replay file."
         ),
         "type": "boolean",
-        "default": False,
+        "default": True,
     },
     "freeForm": {
         "description": (
