@@ -51,10 +51,13 @@ def _fake_completion(content: str):
     class _Choice:
         def __init__(self, c):
             self.message = _Msg(c)
+            self.finish_reason = "stop"
 
     class _Usage:
         prompt_tokens = 1
         completion_tokens = 1
+        total_tokens = 2
+        completion_tokens_details = None
 
     class _Resp:
         def __init__(self, c):
@@ -188,7 +191,7 @@ class CoreHarnessTest(absltest.TestCase):
         self.assertIn("calling_llm", kinds)
         self.assertIn("action_is_legal", kinds)
 
-    def test_save_prompt_includes_prompt_in_action(self):
+    def test_save_prompt_in_call_details(self):
         harness = _SimpleHarness()
         agent = create_agent_fn(harness)
         with patch.dict("os.environ", _ENV, clear=False), patch.object(
@@ -199,9 +202,10 @@ class CoreHarnessTest(absltest.TestCase):
             result = agent({}, {"savePrompt": True})
 
         self.assertEqual(result["submission"], 1)
-        self.assertEqual(result["prompt"], harness.prompts[-1])
+        self.assertIn("prompt", result["call_details"][0])
+        self.assertEqual(result["call_details"][0]["prompt"], harness.prompts[-1])
 
-    def test_save_prompt_omitted_by_default(self):
+    def test_prompt_included_in_call_details_by_default(self):
         harness = _SimpleHarness()
         agent = create_agent_fn(harness)
         with patch.dict("os.environ", _ENV, clear=False), patch.object(
@@ -211,7 +215,68 @@ class CoreHarnessTest(absltest.TestCase):
         ):
             result = agent({}, {})
 
-        self.assertNotIn("prompt", result)
+        self.assertIn("prompt", result["call_details"][0])
+
+    def test_prompt_omitted_when_save_prompt_false(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("move_1"),
+        ):
+            result = agent({}, {"savePrompt": False})
+
+        self.assertNotIn("prompt", result["call_details"][0])
+
+    def test_call_details_present_on_success(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("move_1"),
+        ):
+            result = agent({}, {})
+
+        self.assertIn("call_details", result)
+        self.assertLen(result["call_details"], 1)
+        cd = result["call_details"][0]
+        self.assertEqual(cd["generation_tokens"], 1)
+        self.assertEqual(cd["prompt_tokens"], 1)
+        self.assertEqual(cd["total_tokens"], 2)
+        self.assertNotIn("reasoning_tokens", cd)
+        self.assertEqual(cd["finish_reason"], "stop")
+        self.assertEqual(cd["response"], "move_1")
+        self.assertEqual(cd["model"], "test-model")
+        self.assertIn("prompt", cd)
+
+    def test_call_details_includes_prompt_when_save_prompt(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("move_1"),
+        ):
+            result = agent({}, {"savePrompt": True})
+
+        cd = result["call_details"][0]
+        self.assertIn("prompt", cd)
+        self.assertEqual(cd["prompt"], harness.prompts[-1])
+
+    def test_call_details_per_retry(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=3)
+        responses = [_fake_completion("garbage"), _fake_completion("move_2")]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=responses,
+        ):
+            result = agent({}, {})
+
+        self.assertLen(result["call_details"], 2)
+        self.assertEqual(result["call_details"][0]["response"], "garbage")
+        self.assertEqual(result["call_details"][1]["response"], "move_2")
 
     def test_move_history_accumulates_across_calls(self):
         harness = _SimpleHarness()
@@ -387,8 +452,8 @@ class FreeFormHarnessTest(absltest.TestCase):
         ):
             result = agent({}, {"freeForm": True, "savePrompt": True})
 
-        self.assertIn("prompt", result)
-        self.assertEqual(result["prompt"], harness.prompts[-1])
+        self.assertIn("prompt", result["call_details"][0])
+        self.assertEqual(result["call_details"][0]["prompt"], harness.prompts[-1])
 
     def test_none_legal_moves_without_free_form_config_returns_inactive(self):
         """get_legal_moves() returns None but freeForm not in config → empty-obs path."""

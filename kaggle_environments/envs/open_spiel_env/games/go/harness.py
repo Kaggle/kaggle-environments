@@ -158,6 +158,37 @@ def generate_prompt(
     return prompt
 
 
+def augment_action(
+    action: dict[str, Any],
+    call_records: list[dict[str, Any]],
+) -> None:
+    """Add backwards-compatible ``generate_returns`` to the action dict.
+
+    Each element mirrors the ``GenerateReturn`` shape consumed by the Go
+    visualizer and cost-tracking pipelines, but omits raw prompts and
+    responses (already available via ``call_details`` and ``thoughts``).
+    """
+    generate_returns: list[dict[str, Any]] = []
+    for record in call_records:
+        gr: dict[str, Any] = {
+            "request_for_logging": {
+                "model": record["model"],
+            },
+            "response_for_logging": {
+                "finish_reason": record.get("finish_reason"),
+            },
+            "generation_tokens": record.get("generation_tokens"),
+            "prompt_tokens": record.get("prompt_tokens"),
+            "total_tokens": record.get("total_tokens"),
+            "duration_success_only_secs": record.get("duration_secs"),
+        }
+        reasoning = record.get("reasoning_tokens")
+        if reasoning is not None:
+            gr["reasoning_tokens"] = reasoning
+        generate_returns.append(gr)
+    action["generate_returns"] = [json.dumps(g) for g in generate_returns]
+
+
 def parse_response(
     response: str, legal_action_strings: Sequence[str],
 ) -> ParseResult:
