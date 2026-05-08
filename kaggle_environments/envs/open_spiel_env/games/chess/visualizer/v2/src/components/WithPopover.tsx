@@ -10,16 +10,23 @@ interface Props {
   icon: string;
   id: string;
   label: string;
+  onChange?: (open: boolean) => void;
 }
 
-export function WithPopover({ children, icon, id, label }: Props) {
+export function WithPopover({ children, icon, id, label, onChange }: Props) {
   const [open, setOpen] = useState(false);
+  const onChangeRef = useRef(open);
   const transition = useTransition({ duration: 0.2, ease: 'easeOut' });
   const iconPath = `${svgSymbolPath}#${icon}`;
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (onChange && onChangeRef.current !== open) {
+      onChangeRef.current = open;
+      onChange(open);
+    }
+
     if (!open) return;
 
     // Wait a frame, then focus the popover.
@@ -47,7 +54,7 @@ export function WithPopover({ children, icon, id, label }: Props) {
       document.removeEventListener('mousedown', handleMouseDown);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [open]);
+  }, [open, onChange]);
 
   return (
     <div className={styles.wrapper}>
