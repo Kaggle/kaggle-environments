@@ -5,7 +5,7 @@ export function getStepLabel(step: BaseGameStep) {
   const player = step.players.find((p) => p.isTurn);
 
   if (player) {
-    const move = player.actionDisplayText?.toUpperCase() ?? '';
+    const move = player.actionDisplayText ?? '';
     return `Plays ${move}`;
   }
 
