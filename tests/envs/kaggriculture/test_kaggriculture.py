@@ -335,6 +335,9 @@ def test_place_requires_correct_structure():
     farm = _new_farm(10, 1000)
     private = _new_private()
     private["inventories"][0]["COW"] = 1
+    # Move off the default shed-adjacent spawn so PLACE doesn't fall through to
+    # the shed-drop branch.
+    farm["farmer"] = [0, 0]
     fx, fy = farm["farmer"]
     farm["tiles"][fy][fx] = {"kind": "COOP"}  # wrong structure for cow
     _apply_unit_action(farm, private, 0, ["PLACE", "COW"], 10, 0, 24)
