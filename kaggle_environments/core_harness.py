@@ -468,6 +468,8 @@ def create_agent_fn(
                         for r in call_records
                     ],
                 }
+                if hasattr(game_harness, "augment_action"):
+                    game_harness.augment_action(action, call_records)
                 return action
 
             # -- parse failed → prepare rethink --
