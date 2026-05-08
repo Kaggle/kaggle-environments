@@ -485,7 +485,7 @@ def _process_market(state, env):
                     continue
                 op = ostate["type"]
                 item = ostate["item"]
-                if op == "SELL" and item in PRODUCTS:
+                if op == "SELL" and item in PRODUCTS and item != "FERTILIZER":
                     quoted[player_id] = ("SELL", item, market_price(item, market["inventory"][item]), ostate)
                 elif op == "BUY_PRODUCT" and item in PRODUCTS:
                     quoted[player_id] = ("BUY_PRODUCT", item, market_price(item, market["inventory"][item]), ostate)

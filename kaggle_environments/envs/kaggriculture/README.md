@@ -38,10 +38,7 @@ Each Farmer / Farm Hand can be given an action every turn. Farmer/Farm Hand CAN 
 
 Picks up an item from the shed (must be orthogonally adjacent) into the inventory
 
-- PICKUP   
-  - ANIMAL  
-  - FERTILIZER  
-  - WHEAT
+- PICKUP `<item>` `[n]` — move up to `n` of `<item>` (default 1) from the shed into the active farmer/hand's inventory. Any item present in the shed is valid (animals, fertilizer, harvested produce, etc.). Seeds live in a separate slot and are never picked up — `PLANT` consumes them directly.
 
 #### Plants
 
@@ -61,8 +58,17 @@ Picks up an item from the shed (must be orthogonally adjacent) into the inventor
   - SHEEP/COW must be placed on a pasture (no effect otherwise)  
 - FEED — Feed an animal using wheat (only needs to be done once per day)  
 - HARVEST — Collect the eggs/milk/wool produced by the animal.   
-- COLLECT\_FERTILIZER — Collect fertilizer from the animal.   
-- CARE — Care for an animal. Increases yield similar to plants.
+- COLLECT\_FERTILIZER — Collect 1 fertilizer from the animal. Each surviving animal makes 1 fertilizer available at the end of every day; collecting consumes that day's stock and the next becomes available after the next end-of-day refresh.
+- CARE — Care for an animal (once per day, no-op if already cared for). See animal care below.
+
+#### Animal Care
+
+CARE banks a yield bonus that is paid out on the animal's next scheduled production:
+
+* At end of day, if the animal was both fed AND cared for that day, `pending_care_bonus` increments by 1. Days where the animal was unfed do not bank a bonus (basic needs first).
+* On a scheduled production day, if the animal is fed, the entire banked bonus is added to that production's yield (in addition to the base 1) and the bank resets to 0.
+* If the animal is unfed on the production day, no yield is produced that day and the bank is also reset.
+* `pending_care_bonus` is capped indirectly by the per-animal `max_held` cap on `yield_units`.
 
 #### Terrain
 
@@ -73,8 +79,6 @@ Picks up an item from the shed (must be orthogonally adjacent) into the inventor
 #### Other
 
 - PASS — Default if there is nothing to do (optional)
-
- Action only available in advanced game
 
 ### Market Action
 
@@ -92,8 +96,6 @@ Each turn you can execute as many market actions are desired. This is an ordered
 - HIRE — Hire a farm hand for the day. Cost increases for each extra hand hired on the same day.  
 - BUY\_LAND \- unlock a new 5x5 segment of land to plant on. Increasing in cost.   
   - Costs are: $1k, $2k, $4k
-
- Action only available in advanced game
 
 ## Watering / Animal Feed
 
@@ -116,8 +118,7 @@ Each player has their own farm with a set number of squares. Players are unable 
 
 ### Farm Space
 
-- The land near your farm consists of a fixed number of squares (defined by `totalSquares`). At first, your farm will cover 25% of those squares. For an increasingly large fee, you can buy the neighboring plots of land and eventually cover 100% of the squares.  
-  - Starter version has 100% of total squares to start with  
+- The land near your farm is a `boardSize` × `boardSize` grid (default 10×10), divided into four 5×5 quadrants. At first, your farm covers one quadrant (25% of the squares). For an increasingly large fee, you can buy the neighboring quadrants and eventually cover 100% of the squares.  
 - Each plant or animal occupies one square on the farm.  
 - Players can allocate these squares however they choose between crops and livestock. There are no specific limits per type.  
 - Weeds have a chance of spawning on any empty cells on the farm, and must be cleared before the land can be used for other purposes.  
@@ -149,9 +150,9 @@ Each player has their own farm with a set number of squares. Players are unable 
 
 As the season progresses, new shops unlock at regular intervals (every `townShopUnlockInterval` days, default 3). Each unlock is randomly selected from the shops that have not yet been added; once unlocked, a shop stays active for the rest of the game. Total demand grows monotonically as more shops unlock.
 
-Each unlocked shop consumes one of every product it demands every `townShopSellInterval` turns (default 1, i.e. each turn). So with the default interval, a shop demanding wheat removes 24 wheat from the market per day. Single-product shops consume 2x.
+Each unlocked shop consumes one of every product it demands every `townShopSellInterval` turns (default 2). So with the default interval, a shop demanding wheat removes 12 wheat from the market per day. Single-product shops consume 2x.
 
-In addition, the town center consumes one of every product every `townCenterSellInterval` turns (default 2). After day 10 this is increased to 2 of each, and after day 20 it is increased to 4 of each.
+In addition, the town center consumes one of every product every `townCenterSellInterval` turns (default 6). After day 10 this is increased to 2 of each, and after day 20 it is increased to 4 of each.
 
 | Shop Type | Increases Demand For |
 | :---- | :---- |
@@ -229,20 +230,78 @@ The win condition is simple- whoever has the greatest number of coins at the end
 
 ## Reward
 
-The player who has the most money in the bank at the end of the game wins.
+The player who has the most money in the bank at the end of the game wins. Unsold items in the inventory do not count towards that total.
 
 ## Observation Format
 
+The top-level observation passed to each agent:
+
 ```py
 {
-  "crop":                  "WHEAT" | "CARROT" | "TOMATO" | "STRAWBERRY" | "MELON",
-  "planted_day":           int,    # day the seed was planted
-  "watered_today":         bool,   # reset to False at the end of each day
-  "consecutive_unwatered": int,    # days in a row without water; 2+ → plant dies
-  "yield_units":           int,    # units currently harvestable
-  "max_lifespan_step":     int     # step at which decay begins (-1 if not yet set)
+  "player": int,           # 0 or 1
+  "day":    int,           # 0-indexed in-game day
+  "hour":   int,           # 0-indexed turn within the day
+  "farms":  [farm, farm],  # public per-player state, indexed by player id (shared)
+  "market": {              # shared
+    "inventory": { "WHEAT": int, "CARROT": int, ... },
+    "prices":    { "WHEAT": int, "CARROT": int, ... },
+  },
+  "town": {                # shared
+    "unlocked_shops": ["BAKERY", ...],
+  },
+  "private": {             # this player only; opponent's private state is not visible
+    "shed":        { "WHEAT": int, "GOOSE": int, "FERTILIZER": int, ... },
+    "seeds":       { "WHEAT": int, "CARROT": int, ... },
+    "inventories": [farmer_inv, hand_inv, ...],  # [0] is the main farmer
+  },
 }
 ```
+
+Each `farm` dict (public, visible to both players):
+
+```py
+{
+  "money":              float,
+  "tiles":              [[tile, ...], ...],   # tiles[y][x]
+  "farmer":             [x, y],
+  "hands":              [[x, y], ...],         # hired hands for the current day
+  "unlocked_quadrants": ["NW", ...],          # subset of {"NW","NE","SW","SE"}
+  "hires_today":        int,                  # used to price the next HIRE
+}
+```
+
+A `tile` is one of:
+
+- `None` — empty unlocked tile
+- `"LOCKED"` — tile in a quadrant the player has not yet bought
+- a plant dict:
+  ```py
+  {
+    "kind":                 "PLANT",
+    "crop":                 "WHEAT" | "CARROT" | "TOMATO" | "STRAWBERRY" | "MELON",
+    "planted_day":          int,
+    "watered_today":        bool,   # reset to False each end-of-day
+    "consecutive_unwatered": int,   # 2+ → tile turns to a weed
+    "yield_units":          int,    # units currently harvestable
+    "max_lifespan_step":    int,    # step at which decay begins; -1 for ongoing crops
+    "fertilized_until_day": int,    # last day fertilizer bonus applies; -1 if none
+  }
+  ```
+- a weed dict: `{"kind": "WEED"}`
+- an animal structure dict (coop/pasture, optionally occupied):
+  ```py
+  {
+    "kind":                 "COOP" | "PASTURE",
+    "animal":               "GOOSE" | "COW" | "SHEEP" | None,  # None until PLACEd
+    "placed_day":           int,
+    "yield_units":          int,
+    "fed_today":            bool,
+    "consecutive_unfed":    int,    # 2+ → animal escapes
+    "cared_today":          bool,
+    "fertilizer_available": bool,   # set after CARE; cleared by COLLECT_FERTILIZER
+    "pending_care_bonus":   int,    # banked CARE bonus, applied on the next yield tick
+  }
+  ```
 
 ## Quick Start
 
@@ -275,7 +334,7 @@ Per-crop seed costs and per-product base prices are not configurable; they are d
 | shedCapacity | 100 | Max non-seed items the shed can hold; overflow at end-of-day drop is discarded |
 | weedSpawnChance | 0.005 | Per-tile probability of a weed spawning on an empty unlocked tile during end-of-day refresh |
 | townShopUnlockInterval | 3 | Days between successive town shop unlocks |
-| townShopSellInterval | 1 | Turns between consumption ticks by every unlocked town shop |
-| townCenterSellInterval | 2 | Turns between consumption ticks by the town center |
+| townShopSellInterval | 2 | Turns between consumption ticks by every unlocked town shop |
+| townCenterSellInterval | 6 | Turns between consumption ticks by the town center |
 | seed | null | Optional input seed for deterministic episode generation; cleared from config after read so it stays out of agent observations |
 
