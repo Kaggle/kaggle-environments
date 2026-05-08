@@ -343,7 +343,7 @@ def create_agent_fn(
             )
             setup_done = True
 
-        save_prompt = bool(config.get("savePrompt", False)) if config else False
+        save_prompt = bool(config.get("savePrompt", True)) if config else True
 
         observation = obs if isinstance(obs, dict) else vars(obs)
 

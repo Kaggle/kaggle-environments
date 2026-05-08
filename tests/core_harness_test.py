@@ -205,7 +205,7 @@ class CoreHarnessTest(absltest.TestCase):
         self.assertIn("prompt", result["call_details"][0])
         self.assertEqual(result["call_details"][0]["prompt"], harness.prompts[-1])
 
-    def test_prompt_omitted_from_call_details_by_default(self):
+    def test_prompt_included_in_call_details_by_default(self):
         harness = _SimpleHarness()
         agent = create_agent_fn(harness)
         with patch.dict("os.environ", _ENV, clear=False), patch.object(
@@ -214,6 +214,18 @@ class CoreHarnessTest(absltest.TestCase):
             return_value=_fake_completion("move_1"),
         ):
             result = agent({}, {})
+
+        self.assertIn("prompt", result["call_details"][0])
+
+    def test_prompt_omitted_when_save_prompt_false(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("move_1"),
+        ):
+            result = agent({}, {"savePrompt": False})
 
         self.assertNotIn("prompt", result["call_details"][0])
 
@@ -237,7 +249,7 @@ class CoreHarnessTest(absltest.TestCase):
         self.assertEqual(cd["finish_reason"], "stop")
         self.assertEqual(cd["response"], "move_1")
         self.assertEqual(cd["model"], "test-model")
-        self.assertNotIn("prompt", cd)
+        self.assertIn("prompt", cd)
 
     def test_call_details_includes_prompt_when_save_prompt(self):
         harness = _SimpleHarness()

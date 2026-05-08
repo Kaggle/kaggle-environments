@@ -356,7 +356,7 @@ class AgentIntegrationTest(absltest.TestCase):
         self.assertEqual(cd["total_tokens"], 30)
         self.assertEqual(cd["finish_reason"], "stop")
         self.assertIn("move", cd["response"])
-        self.assertNotIn("prompt", cd)  # savePrompt is False
+        self.assertIn("prompt", cd)  # savePrompt defaults to True
 
 
     @patch.dict(
