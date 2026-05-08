@@ -1,0 +1,121 @@
+{
+  "name": "kaggriculture",
+  "title": "Kaggriculture",
+  "description": "Advanced farming simulation: two players each tend a 10x10 farm of four 5x5 quadrants, growing crops, raising animals, hiring help, and trading with a dynamic market over one season.",
+  "version": "0.1.0",
+  "agents": [2],
+  "configuration": {
+    "episodeSteps": 720,
+    "actTimeout": 1,
+    "boardSize": {
+      "description": "Width and height (in tiles) of each player's square farm. Advanced game expects 10 (four 5x5 quadrants).",
+      "type": "integer",
+      "default": 10,
+      "minimum": 4
+    },
+    "startingMoney": {
+      "description": "Money each player starts with.",
+      "type": "integer",
+      "default": 150,
+      "minimum": 0
+    },
+    "turnsPerDay": {
+      "description": "Number of turns that make up one in-game day.",
+      "type": "integer",
+      "default": 24,
+      "minimum": 1
+    },
+    "shedCapacity": {
+      "description": "Maximum number of non-seed items the shed can hold (overflow at end-of-day drop is discarded).",
+      "type": "integer",
+      "default": 100,
+      "minimum": 1
+    },
+    "weedSpawnChance": {
+      "description": "Per-tile probability of a weed spawning on an empty unlocked tile during the end-of-day refresh.",
+      "type": "number",
+      "default": 0.005,
+      "minimum": 0
+    },
+    "townShopUnlockInterval": {
+      "description": "Days between successive town shop unlocks. First shop unlocks on day equal to this value.",
+      "type": "integer",
+      "default": 3,
+      "minimum": 1
+    },
+    "townShopSellInterval": {
+      "description": "Number of turns between successive consumption ticks by every unlocked town shop. Each shop pulls one of each of its products per tick (single-product shops pull 2x). Total demand grows monotonically as more shops are unlocked.",
+      "type": "integer",
+      "default": 2,
+      "minimum": 1
+    },
+    "townCenterSellInterval": {
+      "description": "Number of turns between successive consumption ticks by the town center (one of every product per tick).",
+      "type": "integer",
+      "default": 6,
+      "minimum": 1
+    },
+    "seed": {
+      "description": "Optional input seed for deterministic episode generation. The interpreter clears this from configuration after reading and stores the resolved seed on env.info['seed'] so it stays out of agent observations but is still recorded in the replay.",
+      "type": ["integer", "null"],
+      "default": null
+    }
+  },
+  "reward": {
+    "description": "Player money at end of game (final score).",
+    "type": "number",
+    "default": 0
+  },
+  "observation": {
+    "player": {
+      "description": "Player ID (0 or 1).",
+      "type": "integer",
+      "default": 0
+    },
+    "farms": {
+      "description": "Per-player public farm state visible to all agents (tiles, money, farmer/hand positions, unlocked quadrants, hire count). Indexed by player id. Opponent shed and per-farmer inventories are NOT included here.",
+      "type": "array",
+      "shared": true,
+      "default": []
+    },
+    "private": {
+      "description": "Per-agent private state for THIS player only: shed inventory, per-farmer inventories, seed counts. Not shared.",
+      "type": "object",
+      "shared": false,
+      "default": {}
+    },
+    "market": {
+      "description": "Shared market state: current per-product inventory and price.",
+      "type": "object",
+      "shared": true,
+      "default": {}
+    },
+    "town": {
+      "description": "Shared town state: list of unlocked shop names. Each unlocked shop generates per-tick demand for its products.",
+      "type": "object",
+      "shared": true,
+      "default": {}
+    },
+    "day": {
+      "description": "Current in-game day (0-indexed).",
+      "type": "integer",
+      "shared": true,
+      "default": 0
+    },
+    "hour": {
+      "description": "Current turn within the day (0-indexed).",
+      "type": "integer",
+      "shared": true,
+      "default": 0
+    },
+    "remainingOverageTime": 60
+  },
+  "action": {
+    "description": "Per-turn action of the form {\"farmer\": [op, ...args], \"hands\": [[op, ...args], ...], \"market\": [[op, ...args], ...]}. Farmer/hand ops: NORTH, SOUTH, EAST, WEST, PASS, PICKUP <item> [n], PLANT <crop>, WATER, HARVEST, FERTILIZE, BUILD_COOP, BUILD_PASTURE, DIG, PLACE <item> [n], FEED, COLLECT_FERTILIZER, CARE. Market ops: BUY_SEED <crop> <n>, BUY_PRODUCT <item> <n>, BUY_ANIMAL <animal> <n>, SELL <item> <n>, HIRE, BUY_LAND.",
+    "type": "object",
+    "default": { "farmer": ["PASS"], "hands": [], "market": [] }
+  },
+  "status": {
+    "defaults": ["ACTIVE", "ACTIVE"]
+  }
+}
