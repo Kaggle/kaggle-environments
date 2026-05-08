@@ -141,11 +141,11 @@ function townPanel(): string {
           }
           const building = SURROUNDING_BUILDINGS[i];
           if (building) {
-            // Empty until renderTown injects the sprite (and the cobble
-            // background) when the shop unlocks.
-            return `<div class="town-slot town-slot--shop" data-slot="${i}" data-building="${building.shop}"></div>`;
+            // Cobble background is always present; renderTown only injects the
+            // shop sprite once the shop unlocks.
+            return `<div class="town-slot town-slot--shop" data-slot="${i}" data-building="${building.shop}" style="${BG_COBBLE}"></div>`;
           }
-          return `<div class="town-slot" data-slot="${i}"></div>`;
+          return `<div class="town-slot" data-slot="${i}" style="${BG_COBBLE}"></div>`;
         }).join('')}
       </div>
     </section>
@@ -417,13 +417,10 @@ function renderTown(refs: LayoutRefs, town: TownPublic): void {
     const isActive = active.has(shop);
     const meta = buildingByShop.get(shop);
     if (isActive && meta) {
-      // Only inject DOM if the slot is currently empty -- avoid thrashing on every step.
       if (!slot.firstElementChild) {
-        slot.setAttribute('style', BG_COBBLE);
         slot.innerHTML = `<img class="town-sprite" src="${spriteSrc(meta.sprite)}" alt="${meta.label}" title="${meta.label}" />`;
       }
     } else if (slot.firstElementChild) {
-      slot.removeAttribute('style');
       clearChildren(slot);
     }
   }
