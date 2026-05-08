@@ -10,7 +10,7 @@ Each player starts with an empty farm and a small amount of income (seed money, 
 
 | Type | Yield Type | Seed Cost | Base Market Price | Time to First Yield | Time to Max Yield | Subsequent Yields | Max Yield | Action Cost | Max yield / tile / DAY |
 | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- |
-| **Wheat** | One-time | 10 | 25 | 2 days | 4 days | none | 4 | 1 | 1 |
+| **Wheat** | One-time | 10 | 25 | 2 days | 4 days | none | 6 | 1 | 1.5 |
 | **Carrot** | One-time | 20 | 35 | 2 days | 3 days | none | 4 | 1 | 1.333 |
 | **Tomato** | Ongoing | 50 | 60 | 8 days | NA | every day | 4 | 1 | 4 |
 | **Strawberry** | Ongoing | 100 | 120 | 10 days | NA | every other day | 4 | 1 | 2 |
@@ -47,7 +47,7 @@ Picks up an item from the shed (must be orthogonally adjacent) into the inventor
   - If you try to plant too many in a specific turn, none are planted  
     - ie if you have 1 melon seed, but two units do the PLANT MELON command  
 - WATER — Water a plant. This only needs to be done once per day, and subsequent waterings on the same day are a no-op.  
-- HARVEST — Gather produce from a plant. If the plant does not have subsequent yields, it will be removed from the map. Each harvest action will yield at least one unit of the crop, with the potential of a double yield if the plant has been watered consistently (see harvest yields below). Harvested items are added to the inventory. 
+- HARVEST — Gather produce from a plant. If the plant does not have subsequent yields, it will be removed from the map. Each harvest action will yield at least one unit of the crop, with the potential of additional yield depending on watering and fertilizer (the formula differs by crop type — see harvest yields below). Harvested items are added to the inventory. 
 - FERTILIZE — Fertilize a plant to increase its potential yield (see harvest yields below).  
   - Doubles the per-day yield bonus for the next 3 days. The bonus only applies on days the plant is also watered (basic needs first).
 
@@ -107,10 +107,12 @@ Note that watering one-time yield plants during their yield window results in a 
 
 Plants will potentially have higher yields based on how well they have been cared for. 
 
-* **One-time crops** (wheat, carrot, melon): Starting at half the plant's maximum lifespan rounded up, watering during the bonus window will add one unit per day to the total harvestable yield.  
+* **One-time crops** (wheat, carrot, melon): Starting at half the plant's `max_yield_day` (Time to Max Yield) rounded up, watering during the bonus window will add one unit per day to the total harvestable yield.  
   * Fertilized plants add 2 per day instead.  
 * **Ongoing crops** (tomato, strawberry): Scheduled production happens at fixed intervals. The base yield is 1 per scheduled production. If the plant is fertilized AND watered that day, yield is doubled to 2.  
 * Once a plant has hit its maximum lifespan, the total yield available on the plant will reduce by 1 every other turn until it hits 0, at which point the plant becomes a weed.
+  * **One-time crops** reach max lifespan one day after `max_yield_day`.
+  * **Ongoing crops** start decay one day after their cumulative production count reaches `max_yield` (i.e. they've fired enough scheduled productions to hit the cap, regardless of whether the produce has been harvested).
 
 ## Map Features
 
@@ -129,7 +131,7 @@ Each player has their own farm with a set number of squares. Players are unable 
 - Functions as an inventory for items that are harvested but not yet sold, or for seeds that have not yet been planted  
 - Farmer and hired farm hands will spawn at the shed at the start of each day  
 - Farmer and hired farm hands drop their inventory at the end of the day in the shed (if there is room)  
-- Limited to 100 items, excluding seeds
+- Limited to 100 items, excluding seeds. Once the shed is full, any further items added (via `PLACE` mid-day or end-of-day inventory drop) are discarded — there is no overflow holding area, so stockpiling on farmer/hand inventories does not bypass the cap.
 
 ### Farmer/Farm Hand
 
@@ -137,14 +139,14 @@ Each player has their own farm with a set number of squares. Players are unable 
 
 - Hiring is an action only available to the farmer. It costs more every time you want to hire an additional hand each day. At the end of the day all, hands drop inventory at the farm and disappear (need to be re-hired each day)  
 - Cost  
-  - 100, 100, 200, 300, 500, 800, 1300, etc…  
+  - 100, 100, 200, 300, 500, 800, 1300, etc… (resets to 100 at the start of each day)  
 - A hired hand appears orthogonally adjacent to the shed in a free space following NWSE. If there are not open spaces, it looks for the one with the least occupants, breaking ties by NWSE preference
 
 #### Inventory
 
 - When harvesting or picking items up, they are added to inventory.  
 - Can drop items in the shed  
-- At the end of the day, all items in all inventory will be added to shed inventory (if there is room)
+- At the end of the day, all items in all inventory will be added to shed inventory (if there is room). Anything that doesn't fit is discarded — overflow is lost.
 
 ### Town Buildings
 
@@ -158,7 +160,7 @@ In addition, the town center consumes one of every product every `townCenterSell
 | :---- | :---- |
 | Bakery | eggs, wheat  |
 | Pizza Shop | milk, tomatoes, wheat |
-| Brunch Spot | eggs, wheat |
+| Brunch Spot | eggs, wheat, strawberries |
 | Yarn Store | wool (2x) |
 | Ice Cream Shop | strawberries, milk, wheat |
 | Pet Cafe | carrots (2x) |

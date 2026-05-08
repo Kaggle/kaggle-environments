@@ -7,7 +7,7 @@ dirpath = path.dirname(__file__)
 
 
 CROPS = {
-    "WHEAT":      {"seed": 10, "first_yield_day": 2, "max_yield_day": 4, "interval": 0, "max_yield": 4, "ongoing": False},
+    "WHEAT":      {"seed": 10, "first_yield_day": 2, "max_yield_day": 4, "interval": 0, "max_yield": 6, "ongoing": False},
     "CARROT":     {"seed": 20, "first_yield_day": 2, "max_yield_day": 3, "interval": 0, "max_yield": 4, "ongoing": False},
     "TOMATO":     {"seed": 50, "first_yield_day": 8, "max_yield_day": 8, "interval": 1, "max_yield": 4, "ongoing": True},
     "STRAWBERRY": {"seed": 100, "first_yield_day": 10, "max_yield_day": 10, "interval": 2, "max_yield": 4, "ongoing": True},
@@ -55,7 +55,7 @@ HIRE_COSTS = [100, 100, 200, 300, 500, 800, 1300, 2100, 3400, 5500]
 SHOPS = {
     "BAKERY":         ["EGG", "WHEAT"],
     "PIZZA_SHOP":     ["MILK", "TOMATO", "WHEAT"],
-    "BRUNCH_SPOT":    ["EGG", "WHEAT"],
+    "BRUNCH_SPOT":    ["EGG", "WHEAT", "STRAWBERRY"],
     "YARN_STORE":     ["WOOL"],
     "ICE_CREAM_SHOP": ["STRAWBERRY", "MILK", "WHEAT"],
     "PET_CAFE":       ["CARROT"],
@@ -64,6 +64,9 @@ SHOPS = {
 }
 
 TOWN_CENTER_PRODUCTS = PRODUCTS
+
+# Town center demand schedule: (day_threshold, multiplier), highest threshold first.
+TOWN_CENTER_DEMAND_SCHEDULE = [(20, 4), (10, 2), (0, 1)]
 
 
 def get(d, key, default):
@@ -335,23 +338,28 @@ def _apply_unit_action(farm, private, idx, action, board_size, day, turns_per_da
     if op == "HARVEST":
         if not isinstance(tile, dict):
             return
+        if tile.get("yield_units", 0) <= 0:
+            return
         if tile.get("kind") == "PLANT":
             crop_data = CROPS[tile["crop"]]
-            age_days = day - tile["planted_day"]
-            if age_days < crop_data["first_yield_day"]:
+            if day - tile["planted_day"] < crop_data["first_yield_day"]:
+                # Ongoing crops only accumulate yield_units after first_yield_day,
+                # so reaching here with yield_units > 0 indicates a bug.
+                if crop_data["ongoing"]:
+                    print(
+                        f"WARNING: HARVEST on immature ongoing {tile['crop']} "
+                        f"(planted day {tile['planted_day']}, current day {day}, "
+                        f"first_yield_day {crop_data['first_yield_day']}, "
+                        f"yield_units {tile['yield_units']}); should never happen"
+                    )
                 return
             units = tile["yield_units"]
-            if units <= 0:
-                return
             tile["yield_units"] = 0
             _inv_add(inv, tile["crop"], units)
             if not crop_data["ongoing"]:
                 farm["tiles"][fy][fx] = None
-            return
-        if "animal" in tile:
+        elif "animal" in tile:
             units = tile["yield_units"]
-            if units <= 0:
-                return
             tile["yield_units"] = 0
             _inv_add(inv, ANIMALS[tile["animal"]]["product"], units)
         return
@@ -494,7 +502,12 @@ def _process_market(state, env):
                 order_states[player_id] = None
 
         # Per-unit lockstep loop for SELL / BUY_*.
+        idx_esc = 0
         while True:
+            idx_esc += 1
+            if idx_esc >= 100_000:
+                print("WARNING: kaggriculture market loop exceeded 100k iterations; aborting")
+                break
             quoted = [None, None]
             for player_id, ostate in enumerate(order_states):
                 if ostate is None or ostate["remaining"] <= 0:
@@ -638,8 +651,7 @@ def _town_consume(env, state, step):
                 market["inventory"][item] -= multiplier
 
     if step % center_interval == 0:
-        # Town center demand escalates after day 10, then again after day 20.
-        center_mult = 4 if day >= 20 else (2 if day >= 10 else 1)
+        center_mult = next(m for threshold, m in TOWN_CENTER_DEMAND_SCHEDULE if day >= threshold)
         for item in TOWN_CENTER_PRODUCTS:
             market["inventory"][item] -= center_mult
 
