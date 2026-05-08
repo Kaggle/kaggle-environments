@@ -50,8 +50,11 @@ body,
     background-color 300ms;
   white-space: nowrap;
   display: inline-flex;
+  flex-direction: row;
   align-items: center;
   gap: 8px;
+  width: auto;
+  height: auto;
 }
 
 .header .player.active {
