@@ -180,6 +180,15 @@ CONFIGURATION_SPEC_TEMPLATE = {
         "type": "boolean",
         "default": False,
     },
+    "includeGenerateReturns": {
+        "description": (
+            "If true, include a legacy generate_returns field on each action"
+            " with per-LLM-call metadata (model, token counts, finish reason,"
+            " duration). Useful for cost tracking and visualization pipelines."
+        ),
+        "type": "boolean",
+        "default": False,
+    },
 }
 
 OBSERVATION_SPEC_TEMPLATE = {
