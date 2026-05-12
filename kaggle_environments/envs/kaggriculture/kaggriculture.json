@@ -16,8 +16,14 @@
     "startingMoney": {
       "description": "Money each player starts with.",
       "type": "integer",
-      "default": 150,
+      "default": 2000,
       "minimum": 0
+    },
+    "maxMarketOrdersPerTurn": {
+      "description": "Maximum number of market orders processed per player per turn. Extra orders beyond this limit are silently dropped.",
+      "type": "integer",
+      "default": 10,
+      "minimum": 1
     },
     "turnsPerDay": {
       "description": "Number of turns that make up one in-game day.",

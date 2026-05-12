@@ -287,3 +287,42 @@ def test_random_agent_runs_full_episode():
 
 def test_crop_table_has_all_expected_crops():
     assert set(CROPS) == {"WHEAT", "CARROT", "TOMATO", "STRAWBERRY", "MELON"}
+
+
+def test_market_orders_capped_at_default_ten():
+    """An 11th market order in a single turn is silently dropped."""
+    def buyer(obs):
+        if obs.get("step", 0) == 0:
+            return {
+                "farmer": ["PASS"],
+                "market": [["BUY_SEED", "WHEAT", 1]] * 11,
+            }
+        return {"farmer": ["PASS"], "market": []}
+
+    env = make(
+        "kaggriculture_beginner",
+        configuration={"episodeSteps": 5, "startingMoney": 1000},
+    )
+    env.run([buyer, "pass"])
+    j = env.toJSON()
+    final_obs = j["steps"][-1][0]["observation"]
+    assert final_obs["farms"][0]["seeds"]["WHEAT"] == 10
+
+
+def test_market_order_limit_is_configurable():
+    def buyer(obs):
+        if obs.get("step", 0) == 0:
+            return {
+                "farmer": ["PASS"],
+                "market": [["BUY_SEED", "WHEAT", 1]] * 5,
+            }
+        return {"farmer": ["PASS"], "market": []}
+
+    env = make(
+        "kaggriculture_beginner",
+        configuration={"episodeSteps": 5, "startingMoney": 1000, "maxMarketOrdersPerTurn": 3},
+    )
+    env.run([buyer, "pass"])
+    j = env.toJSON()
+    final_obs = j["steps"][-1][0]["observation"]
+    assert final_obs["farms"][0]["seeds"]["WHEAT"] == 3

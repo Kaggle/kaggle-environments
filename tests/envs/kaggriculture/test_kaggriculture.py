@@ -8,6 +8,7 @@ from kaggle_environments.envs.kaggriculture.kaggriculture import (
     MARKET_PARAMS,
     PRODUCTS,
     SHOPS,
+    TOWN_CENTER_PRODUCTS,
     _apply_unit_action,
     _commit_unit,
     _daily_refresh_animals,
@@ -676,3 +677,77 @@ def test_animal_table_has_expected_animals():
 def test_products_table_includes_animal_products_and_fertilizer():
     for p in ("EGG", "MILK", "WOOL", "FERTILIZER"):
         assert p in PRODUCTS
+
+
+# --- Balance changes --------------------------------------------------------
+
+def test_no_shop_consumes_melon():
+    for shop, products in SHOPS.items():
+        assert "MELON" not in products, f"{shop} should not consume MELON"
+
+
+def test_town_center_excludes_fertilizer():
+    assert "FERTILIZER" not in TOWN_CENTER_PRODUCTS
+    # All other PRODUCTS are still consumed by the town center.
+    for p in PRODUCTS:
+        if p == "FERTILIZER":
+            continue
+        assert p in TOWN_CENTER_PRODUCTS
+
+
+def test_town_center_does_not_drain_fertilizer_inventory():
+    """Run a short episode and confirm fertilizer inventory never drops below
+    its initial I0 from town/shop consumption (no one consumes it)."""
+    env = make("kaggriculture", configuration={"episodeSteps": 100, "seed": 7})
+    env.run(["pass", "pass"])
+    j = env.toJSON()
+    initial = MARKET_PARAMS["FERTILIZER"]["I0"]
+    for step in j["steps"]:
+        inv = step[0]["observation"]["market"]["inventory"]["FERTILIZER"]
+        assert inv >= initial, f"FERTILIZER inventory dropped to {inv} (initial {initial})"
+
+
+def test_market_orders_capped_at_default_ten():
+    """An 11th market order in a single turn is silently dropped."""
+    def buyer(obs):
+        if obs.get("step", 0) == 0:
+            # 11 BUY_SEED orders for cheap wheat seeds (cost 10 each).
+            return {
+                "farmer": ["PASS"],
+                "hands": [],
+                "market": [["BUY_SEED", "WHEAT", 1]] * 11,
+            }
+        return {"farmer": ["PASS"], "hands": [], "market": []}
+
+    env = make("kaggriculture", configuration={"episodeSteps": 5, "startingMoney": 1000})
+    env.run([buyer, "pass"])
+    j = env.toJSON()
+    p0_priv = j["steps"][1][0]["observation"]["private"]
+    assert p0_priv["seeds"]["WHEAT"] == 10  # 11th order dropped
+
+
+def test_market_order_limit_is_configurable():
+    def buyer(obs):
+        if obs.get("step", 0) == 0:
+            return {
+                "farmer": ["PASS"],
+                "hands": [],
+                "market": [["BUY_SEED", "WHEAT", 1]] * 5,
+            }
+        return {"farmer": ["PASS"], "hands": [], "market": []}
+
+    env = make(
+        "kaggriculture",
+        configuration={"episodeSteps": 5, "startingMoney": 1000, "maxMarketOrdersPerTurn": 3},
+    )
+    env.run([buyer, "pass"])
+    j = env.toJSON()
+    p0_priv = j["steps"][1][0]["observation"]["private"]
+    assert p0_priv["seeds"]["WHEAT"] == 3
+
+
+def test_default_starting_money_is_2000():
+    env = make("kaggriculture", configuration={"episodeSteps": 3})
+    env.run(["pass", "pass"])
+    j = env.toJSON()
+    assert j["rewards"] == [2000.0, 2000.0]

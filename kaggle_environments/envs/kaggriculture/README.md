@@ -82,7 +82,7 @@ CARE banks a yield bonus that is paid out on the animal's next scheduled product
 
 ### Market Action
 
-Each turn you can execute as many market actions are desired. This is an ordered list and market orders will be processed in order simultaneously (one from each player) while both players have orders.
+Each turn you can submit up to `maxMarketOrdersPerTurn` (default 10) market actions; any orders past that limit are silently dropped. This is an ordered list and market orders will be processed in order simultaneously (one from each player) while both players have orders.
 
 - BUY\_SEED — Purchase N units of a single item from the market.  
   - BUY\_SEED WHEAT 1  
@@ -154,7 +154,7 @@ As the season progresses, new shops unlock at regular intervals (every `townShop
 
 Each unlocked shop consumes one of every product it demands every `townShopSellInterval` turns (default 2). So with the default interval, a shop demanding wheat removes 12 wheat from the market per day. Single-product shops consume 2x.
 
-In addition, the town center consumes one of every product every `townCenterSellInterval` turns (default 6). After day 10 this is increased to 2 of each, and after day 20 it is increased to 4 of each.
+In addition, the town center consumes one of every product (excluding fertilizer) every `townCenterSellInterval` turns (default 6). After day 10 this is increased to 2 of each, and after day 20 it is increased to 4 of each.
 
 | Shop Type | Increases Demand For |
 | :---- | :---- |
@@ -164,8 +164,8 @@ In addition, the town center consumes one of every product every `townCenterSell
 | Yarn Store | wool (2x) |
 | Ice Cream Shop | strawberries, milk, wheat |
 | Pet Cafe | carrots (2x) |
-| Smoothie Shop | strawberries, milk, melon |
-| Farmers Market | all plants |
+| Smoothie Shop | strawberries, milk |
+| Farmers Market | wheat, carrots, tomatoes, strawberries |
 
 ## Market Mechanics
 
@@ -331,7 +331,8 @@ Per-crop seed costs and per-product base prices are not configurable; they are d
 | :---- | :---- | :---- |
 | episodeSteps | 720 | Total turns in the season (24 turns × 30 days) |
 | boardSize | 10 | Width and height (in tiles) of each player's square farm. Advanced uses 10 = four 5x5 quadrants |
-| startingMoney | 150 | Coins each player starts with |
+| startingMoney | 2000 | Coins each player starts with |
+| maxMarketOrdersPerTurn | 10 | Maximum number of market orders processed per player per turn; extras are silently dropped |
 | turnsPerDay | 24 | Number of turns that make up one in-game day |
 | shedCapacity | 100 | Max non-seed items the shed can hold; overflow at end-of-day drop is discarded |
 | weedSpawnChance | 0.005 | Per-tile probability of a weed spawning on an empty unlocked tile during end-of-day refresh |

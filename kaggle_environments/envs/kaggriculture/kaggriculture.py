@@ -59,11 +59,11 @@ SHOPS = {
     "YARN_STORE":     ["WOOL"],
     "ICE_CREAM_SHOP": ["STRAWBERRY", "MILK", "WHEAT"],
     "PET_CAFE":       ["CARROT"],
-    "SMOOTHIE_SHOP":  ["STRAWBERRY", "MILK", "MELON"],
-    "FARMERS_MARKET": ["WHEAT", "CARROT", "TOMATO", "STRAWBERRY", "MELON"],
+    "SMOOTHIE_SHOP":  ["STRAWBERRY", "MILK"],
+    "FARMERS_MARKET": ["WHEAT", "CARROT", "TOMATO", "STRAWBERRY"],
 }
 
-TOWN_CENTER_PRODUCTS = PRODUCTS
+TOWN_CENTER_PRODUCTS = [p for p in PRODUCTS if p != "FERTILIZER"]
 
 # Town center demand schedule: (day_threshold, multiplier), highest threshold first.
 TOWN_CENTER_DEMAND_SCHEDULE = [(20, 4), (10, 2), (0, 1)]
@@ -473,12 +473,14 @@ def _process_market(state, env):
     farms = obs0.farms
     privates = [s.observation.private for s in state]
     board_size = int(get(env.configuration, "boardSize", 10))
+    max_orders = max(1, int(get(env.configuration, "maxMarketOrdersPerTurn", 10)))
 
     queues = []
     for s in state:
         action = s.action if isinstance(s.action, dict) else {}
         m = action.get("market", []) if isinstance(action, dict) else []
-        queues.append(list(m) if isinstance(m, list) else [])
+        q = list(m) if isinstance(m, list) else []
+        queues.append(q[:max_orders])
 
     max_len = max((len(q) for q in queues), default=0)
     for i in range(max_len):
