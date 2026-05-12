@@ -1,0 +1,68 @@
+{
+  "name": "kaggriculture_beginner",
+  "title": "Kaggriculture (Beginner)",
+  "description": "Beginner farming simulation: two players each tend a 5x5 farm, buying seeds and planting/watering/harvesting crops to maximize end-of-season money. Prices are fixed; no animals, town, inventory, or farm hands.",
+  "version": "0.1.0",
+  "agents": [2],
+  "configuration": {
+    "episodeSteps": 720,
+    "actTimeout": 1,
+    "boardSize": {
+      "description": "Width and height (in tiles) of each player's square farm.",
+      "type": "integer",
+      "default": 5,
+      "minimum": 2
+    },
+    "startingMoney": {
+      "description": "Money each player starts with.",
+      "type": "integer",
+      "default": 150,
+      "minimum": 0
+    },
+    "turnsPerDay": {
+      "description": "Number of turns that make up one in-game day.",
+      "type": "integer",
+      "default": 24,
+      "minimum": 1
+    }
+  },
+  "reward": {
+    "description": "Player money at end of game (final score).",
+    "type": "number",
+    "default": 0
+  },
+  "observation": {
+    "player": {
+      "description": "Player ID (0 or 1).",
+      "type": "integer",
+      "default": 0
+    },
+    "farms": {
+      "description": "Per-player farm state. Each entry: {money, seeds, farmer:[x,y], tiles:[[tile|null,...],...]}. Shared across agents.",
+      "type": "array",
+      "shared": true,
+      "default": []
+    },
+    "day": {
+      "description": "Current in-game day (0-indexed).",
+      "type": "integer",
+      "shared": true,
+      "default": 0
+    },
+    "hour": {
+      "description": "Current turn within the day (0-indexed).",
+      "type": "integer",
+      "shared": true,
+      "default": 0
+    },
+    "remainingOverageTime": 60
+  },
+  "action": {
+    "description": "Per-turn action: {\"farmer\": [op, ...args], \"market\": [[op, ...args], ...]}. Farmer ops: NORTH, SOUTH, EAST, WEST, PLANT <crop>, WATER, HARVEST, PASS. Market ops: BUY_SEED <crop> <n>.",
+    "type": "object",
+    "default": { "farmer": ["PASS"], "market": [] }
+  },
+  "status": {
+    "defaults": ["ACTIVE", "ACTIVE"]
+  }
+}

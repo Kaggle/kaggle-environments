@@ -171,9 +171,11 @@ const VisuallyHidden = styled('div')`
   border: 0;
 `;
 
+const EMPTY_AGENTS: any[] = [];
+
 export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   replay: rawReplay,
-  agents = [],
+  agents = EMPTY_AGENTS,
   gameName,
   GameRenderer,
   ui = 'side-panel',
@@ -406,6 +408,8 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
             speedModifier={state.speed}
             onPlayChange={handlePlayChange}
             onStepChange={actions.setStep}
+            onSpeedChange={actions.setSpeed}
+            seed={(processedReplay.configuration?.seed ?? processedReplay.info?.seed) as number | string | undefined}
           />
         </InlineControlsContainer>
       )}

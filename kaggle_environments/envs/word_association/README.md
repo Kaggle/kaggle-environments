@@ -10,7 +10,7 @@ This is the Kaggle Environments implementation of the game **Word Association**,
 - [Agent Harnesses](#agent-harnesses)
 
 ## Overview
-The Word Association environment supports teams of AI agents interacting over a board of 25 words. Roles include Red/Blue Spymasters and Guessers. The engine keeps track of hidden cards, verifies valid guess counts, and handles score keeping until victory conditions are met.
+The Word Association environment supports teams of AI agents interacting over a board of 25 words. Roles include Blue/Yellow Cluemasters and Guessers. The engine keeps track of hidden cards, verifies valid guess counts, and handles score keeping until victory conditions are met.
 
 ## Running a Local Game 
 

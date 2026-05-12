@@ -6,8 +6,8 @@ const BOARD_SIZE = 100;
 const CENTER = 50;
 const SUN_RADIUS = 10;
 
-// Player colors (bright for dark background)
-const PLAYER_COLORS = ['#FF4444', '#4a9eff', '#44FF44', '#FFFF44'];
+// Wong palette — colorblind-safe (blue, vermillion, teal, yellow)
+const PLAYER_COLORS = ['#0072B2', '#D55E00', '#009E73', '#F0E442'];
 const NEUTRAL_COLOR = '#666666';
 
 // Text size presets: [planetFont, deltaFont, fleetFont, stepFont]
@@ -178,15 +178,11 @@ export function renderer(options: RendererOptions) {
     }
   });
 
-  // Size canvas: always square, fill available space, handle DPR
+  // Size canvas: CSS handles square fitting and centering via aspect-ratio,
+  // max-width/max-height, and flexbox on the wrapper. We just set the
+  // drawing-surface resolution to match the CSS-computed display size.
   const dpr = window.devicePixelRatio || 1;
-  const wrapperRect = canvasWrapper.getBoundingClientRect();
-  const cssSize = Math.max(100, Math.floor(Math.min(wrapperRect.width, wrapperRect.height)));
-  canvas.style.width = `${cssSize}px`;
-  canvas.style.height = `${cssSize}px`;
-  canvas.style.position = 'absolute';
-  canvas.style.left = `${(wrapperRect.width - cssSize) / 2}px`;
-  canvas.style.top = `${(wrapperRect.height - cssSize) / 2}px`;
+  const cssSize = Math.max(100, Math.floor(canvas.getBoundingClientRect().width));
   canvas.width = Math.round(cssSize * dpr);
   canvas.height = Math.round(cssSize * dpr);
 
@@ -333,6 +329,8 @@ export function renderer(options: RendererOptions) {
     c.save();
     c.translate(fx, fy);
     c.rotate(fleet.angle);
+
+    // Standard chevron shape for all players
     c.beginPath();
     c.moveTo(sz, 0);
     c.lineTo(-sz, -sz * 0.6);
@@ -346,6 +344,29 @@ export function renderer(options: RendererOptions) {
     c.strokeStyle = '#222';
     c.lineWidth = 0.5;
     c.stroke();
+
+    // Per-player marking lines for colorblind accessibility
+    // P0: none, P1: 1 center line, P2: 2 lines (tip-to-wings), P3: 3 lines
+    c.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+    c.lineWidth = sz * 0.15;
+    c.lineCap = 'round';
+    if (fleet.owner === 1 || fleet.owner === 3) {
+      c.beginPath();
+      c.moveTo(sz * 0.8, 0);
+      c.lineTo(-sz * 0.2, 0);
+      c.stroke();
+    }
+    if (fleet.owner === 2 || fleet.owner === 3) {
+      c.beginPath();
+      c.moveTo(sz * 0.6, -sz * 0.15);
+      c.lineTo(-sz * 0.7, -sz * 0.45);
+      c.stroke();
+      c.beginPath();
+      c.moveTo(sz * 0.6, sz * 0.15);
+      c.lineTo(-sz * 0.7, sz * 0.45);
+      c.stroke();
+    }
+
     c.restore();
   }
 
@@ -374,7 +395,7 @@ export function renderer(options: RendererOptions) {
         if (delta !== 0) {
           const deltaText = delta > 0 ? `+${delta}` : `${delta}`;
           c.font = `bold ${deltaFontSize}px Inter, sans-serif`;
-          c.fillStyle = delta > 0 ? '#44FF44' : '#FF4444';
+          c.fillStyle = delta > 0 ? '#009E73' : '#D55E00';
           c.fillText(deltaText, px, py - planet.radius * scale - deltaFontSize);
         }
       }

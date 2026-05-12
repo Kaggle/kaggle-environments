@@ -17,26 +17,26 @@ def test_word_association_completes():
     # Note: Kaggle environments automatically nullify rewards (None) for agents with INVALID status.
     rewards = [agent.reward if agent.reward is not None else -1 for agent in env.state]
     
-    # Under the new logic, winning team gets +1, losing team gets -1. 
-    # The sum of all rewards should be 0, and max should be 1.
-    assert sum(rewards) == 0
+    # Under the cumulative win logic, winning team gets 1 win, losing team gets 0 wins.
+    # So the sum of rewards for the 4 agents should be 2 (two winning agents with 1.0).
+    assert sum(rewards) == 2
     assert max(rewards) == 1
-    assert min(rewards) == -1
+    assert min(rewards) == 0
 
     print("Game successfully finished with rewards:", rewards)
 
 def test_random_start_counts():
     env = make("word_association")
     roles = env.state[0].observation.roles
-    red_count = sum(1 for r in roles if r == "red")
     blue_count = sum(1 for r in roles if r == "blue")
+    yellow_count = sum(1 for r in roles if r == "yellow")
     
     # One team must have 9, the other must have 8
-    assert (red_count == 9 and blue_count == 8) or (red_count == 8 and blue_count == 9)
+    assert (blue_count == 9 and yellow_count == 8) or (blue_count == 8 and yellow_count == 9)
     
     # The starting team is determined by who has 9 words
     turn = env.state[0].observation.current_turn
-    if red_count == 9:
+    if blue_count == 9:
         assert turn == 0
     else:
         assert turn == 2
@@ -92,7 +92,7 @@ def test_clue_validation():
     
     words = state[0].observation.words
     first_word = words[0]
-    opponent_team = "blue" if turn == 0 else "red"
+    opponent_team = "yellow" if turn == 0 else "blue"
     opp_before = sum(1 for i in range(25) if state[0].observation.roles[i] == opponent_team and not state[0].observation.revealed[i])
     
     env.step([{"clue": first_word[1:4], "number": 1} if i == turn else None for i in range(4)])
@@ -107,7 +107,7 @@ def test_space_hyphen_validation():
     state = env.reset()
     turn = state[0].observation.current_turn
     
-    opponent_team = "blue" if turn == 0 else "red"
+    opponent_team = "yellow" if turn == 0 else "blue"
     opp_before = sum(1 for i in range(25) if state[0].observation.roles[i] == opponent_team and not state[0].observation.revealed[i])
     
     # Try clue with space
@@ -121,7 +121,7 @@ def test_space_hyphen_validation():
     # Reset for hyphen test
     state = env.reset()
     turn = state[0].observation.current_turn
-    opponent_team = "blue" if turn == 0 else "red"
+    opponent_team = "yellow" if turn == 0 else "blue"
     opp_before = sum(1 for i in range(25) if state[0].observation.roles[i] == opponent_team and not state[0].observation.revealed[i])
     
     # Try clue with hyphen

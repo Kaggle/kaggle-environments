@@ -23,16 +23,16 @@ def initialize_game(state, config):
     sampled_words = rng.sample(all_words, board_size)
     
     # Determine playing order and word counts
-    starting_team = rng.choice(["red", "blue"])
-    if starting_team == "red":
-        red_count = starting_team_words
-        blue_count = second_team_words
-    else:
-        red_count = second_team_words
+    starting_team = rng.choice(["blue", "yellow"])
+    if starting_team == "blue":
         blue_count = starting_team_words
+        yellow_count = second_team_words
+    else:
+        blue_count = second_team_words
+        yellow_count = starting_team_words
     
     # Assign roles
-    roles = ["red"] * red_count + ["blue"] * blue_count + ["assassin"] * 1
+    roles = ["blue"] * blue_count + ["yellow"] * yellow_count + ["trap"] * 1
     roles += ["neutral"] * (board_size - len(roles))
     rng.shuffle(roles)
     
@@ -42,18 +42,11 @@ def initialize_game(state, config):
         agent_state.observation.words = sampled_words
         agent_state.observation.roles = roles[:]
         agent_state.observation.revealed = revealed[:]
-        agent_state.observation.current_turn = 0 if starting_team == "red" else 2
+        agent_state.observation.current_turn = 0 if starting_team == "blue" else 2
         agent_state.observation.clue = ""
         agent_state.observation.guesses_remaining = 0
         agent_state.observation.clue_number = 0
         
-        # Initialize episode-level scores only once.
-        # These persist across games in a multi-game episode.
-        if not hasattr(agent_state.observation, 'red_wins'):
-            agent_state.observation.red_wins = 0
-        if not hasattr(agent_state.observation, 'blue_wins'):
-            agent_state.observation.blue_wins = 0
-            
         initialize_memory(agent_state.observation, board_size)
 
 def update_visibility(state):
@@ -73,18 +66,23 @@ def process_action(state, config):
     current_turn = state[0].observation.current_turn
     active_agent = state[current_turn]
     action = active_agent.action
+
+    # core_harness wraps the real action inside {"submission": ...}.
+    # Extract it so the rest of the interpreter sees the unwrapped value.
+    if isinstance(action, dict) and "submission" in action:
+        action = action["submission"]
     
     # helper to end game
     def end_game(winner=None):
         for i in range(4):
             if state[i].status != "INVALID":
                 state[i].status = "DONE"
-            if winner == "red":
+            if winner == "blue":
                 if i in [0, 1]:
                     state[i].reward = (state[i].reward or 0) + 1
                 else:
                     state[i].reward = state[i].reward or 0
-            elif winner == "blue":
+            elif winner == "yellow":
                 if i in [2, 3]:
                     state[i].reward = (state[i].reward or 0) + 1
                 else:
@@ -95,14 +93,14 @@ def process_action(state, config):
     # Handle Agent Failure / Invalid Action
     if action is None:
         active_agent.status = "INVALID"
-        end_game(winner="blue" if current_turn in [0, 1] else "red")
+        end_game(winner="yellow" if current_turn in [0, 1] else "blue")
         return
 
-    # SPYMASTER TURN
+    # CLUEMASTER TURN
     if current_turn in [0, 2]:
         if not isinstance(action, dict) or "clue" not in action or "number" not in action:
             active_agent.status = "INVALID"
-            end_game(winner="blue" if current_turn == 0 else "red")
+            end_game(winner="yellow" if current_turn == 0 else "blue")
             return
             
         # Clue validation
@@ -110,7 +108,7 @@ def process_action(state, config):
         words = state[0].observation.words
         revealed = state[0].observation.revealed
         roles = state[0].observation.roles
-        opponent_team = "blue" if current_turn == 0 else "red"
+        opponent_team = "yellow" if current_turn == 0 else "blue"
         
         is_invalid_clue = False
         if " " in normalized_clue or "-" in normalized_clue:
@@ -138,13 +136,13 @@ def process_action(state, config):
                 s.observation.current_turn = 2 if current_turn == 0 else 0
                 
             # Check if penalty won the game for opponent
-            red_left = sum(1 for i in range(BOARD_SIZE) if roles[i] == "red" and not state[0].observation.revealed[i])
             blue_left = sum(1 for i in range(BOARD_SIZE) if roles[i] == "blue" and not state[0].observation.revealed[i])
+            yellow_left = sum(1 for i in range(BOARD_SIZE) if roles[i] == "yellow" and not state[0].observation.revealed[i])
             
-            if red_left == 0:
-                end_game(winner="red")
-            elif blue_left == 0:
+            if blue_left == 0:
                 end_game(winner="blue")
+            elif yellow_left == 0:
+                end_game(winner="yellow")
             else:
                 for i in range(4):
                     state[i].status = "ACTIVE" if i == state[0].observation.current_turn else "INACTIVE"
@@ -169,7 +167,7 @@ def process_action(state, config):
         
         if not isinstance(guess_val, int) or guess_val < -1 or guess_val > BOARD_SIZE - 1:
             active_agent.status = "INVALID"
-            end_game(winner="blue" if current_turn == 1 else "red")
+            end_game(winner="yellow" if current_turn == 1 else "blue")
             return
             
         # Pass
@@ -179,7 +177,7 @@ def process_action(state, config):
             # 0 ("zero") and -1 ("infinity") clues both give unlimited guesses but STILL require at least 1 guess
             if state[0].observation.guesses_remaining == expected_remaining:
                 active_agent.status = "INVALID"
-                end_game(winner="blue" if current_turn == 1 else "red")
+                end_game(winner="yellow" if current_turn == 1 else "blue")
                 return
                 
             for s in state:
@@ -190,7 +188,7 @@ def process_action(state, config):
             # Check if already revealed
             if state[0].observation.revealed[guess_val]:
                 active_agent.status = "INVALID"
-                end_game(winner="blue" if current_turn == 1 else "red")
+                end_game(winner="yellow" if current_turn == 1 else "blue")
                 return
                 
             # Reveal
@@ -199,11 +197,11 @@ def process_action(state, config):
             
             roles = state[0].observation.roles
             guessed_role = roles[guess_val]
-            team_color = "red" if current_turn == 1 else "blue"
+            team_color = "blue" if current_turn == 1 else "yellow"
             
-            # Assassin check
-            if guessed_role == "assassin":
-                end_game(winner="blue" if team_color == "red" else "red")
+            # Trap check
+            if guessed_role == "trap":
+                end_game(winner="yellow" if team_color == "blue" else "blue")
                 return
                 
             # Neutral or Opponent word
@@ -226,14 +224,14 @@ def process_action(state, config):
         # Win condition check
         revealed = state[0].observation.revealed
         roles = state[0].observation.roles
-        red_left = sum(1 for i in range(BOARD_SIZE) if roles[i] == "red" and not revealed[i])
         blue_left = sum(1 for i in range(BOARD_SIZE) if roles[i] == "blue" and not revealed[i])
+        yellow_left = sum(1 for i in range(BOARD_SIZE) if roles[i] == "yellow" and not revealed[i])
         
-        if red_left == 0:
-            end_game(winner="red")
-            return
-        elif blue_left == 0:
+        if blue_left == 0:
             end_game(winner="blue")
+            return
+        elif yellow_left == 0:
+            end_game(winner="yellow")
             return
 
         # Next turn setup if not done
@@ -254,8 +252,8 @@ def interpreter(state, env):
     if env.done:
         return state
 
-    prev_red_reward = state[0].reward or 0
-    prev_blue_reward = state[2].reward or 0
+    prev_blue_reward = state[0].reward or 0
+    prev_yellow_reward = state[2].reward or 0
 
     process_action(state, env.configuration)
     update_visibility(state)
@@ -272,16 +270,16 @@ def interpreter(state, env):
         is_done = all(s.status in ["DONE", "INVALID"] for s in state)
         if is_done:
             winner = None
-            if (state[0].reward or 0) > prev_red_reward: winner = "red"
-            elif (state[2].reward or 0) > prev_blue_reward: winner = "blue"
+            if (state[0].reward or 0) > prev_blue_reward: winner = "blue"
+            elif (state[2].reward or 0) > prev_yellow_reward: winner = "yellow"
             
             # Update wins in observation
-            if winner == "red":
-                for s in state:
-                    s.observation.red_wins += 1
-            elif winner == "blue":
+            if winner == "blue":
                 for s in state:
                     s.observation.blue_wins += 1
+            elif winner == "yellow":
+                for s in state:
+                    s.observation.yellow_wins += 1
             
             window_size = env.configuration.get("memory_window_size", 0)
             save_game_to_history(obs, winner, window_size)
@@ -299,8 +297,7 @@ def interpreter(state, env):
                 # Reset agent statuses based on new current_turn
                 active_agent = state[0].observation.current_turn
                 for i in range(4):
-                    state[i].status = "ACTIVE" if i == active_agent else "INACTIVE"
-
+                    state[i].status = "ACTIVE" if i == state[0].observation.current_turn else "INACTIVE"
                     
     return state
 

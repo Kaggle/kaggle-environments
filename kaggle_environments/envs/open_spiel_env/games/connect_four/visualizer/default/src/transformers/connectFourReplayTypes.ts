@@ -20,6 +20,8 @@ export interface ConnectFourStep extends Omit<BaseGameStep, 'players'> {
   boardState: ConnectFourBoardState;
   isTerminal: boolean;
   winner: string | null;
+  /** Set when the loser failed to produce a valid action (e.g. response cut off). */
+  forfeitReason?: string | null;
 }
 
 /**

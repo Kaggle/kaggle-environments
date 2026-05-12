@@ -46,17 +46,20 @@ export function getConnectFourStepDescription(step: ConnectFourStep) {
   return step.players.find((player) => player.isTurn)?.thoughts ?? '';
 }
 
-export function deriveWinnerFromRewards(players: ConnectFourPlayer[], teamNames: string[]) {
-  if (players.length < 2) return '';
+export function deriveWinnerFromRewards(rewards: (number | null | undefined)[], teamNames: string[]) {
+  if (rewards.length < 2) return '';
 
-  const player0Reward = players[0].reward;
-  const player1Reward = players[1].reward;
+  const player0Reward = rewards[0] ?? null;
+  const player1Reward = rewards[1] ?? null;
 
   if (player0Reward === player1Reward) {
     return 'Draw';
   }
 
-  const winnerPlayerIndex = player0Reward === 1 ? 0 : 1;
+  // Higher reward wins (handles null vs -1, 1 vs -1, etc.)
+  const r0 = player0Reward ?? -Infinity;
+  const r1 = player1Reward ?? -Infinity;
+  const winnerPlayerIndex = r0 > r1 ? 0 : 1;
   const piece = winnerPlayerIndex === 0 ? 'X' : 'O';
   const name = teamNames[winnerPlayerIndex] || `Player ${winnerPlayerIndex + 1}`;
 
@@ -77,6 +80,7 @@ export const connectFourTransformer = (environment: any) => {
     boardState: parseBoardState(stateHistory[0]), // Initial empty board
     isTerminal: false,
     winner: null,
+    forfeitReason: null,
   });
 
   // Track actual moves to properly index into stateHistory
@@ -117,16 +121,53 @@ export const connectFourTransformer = (environment: any) => {
       boardState,
       isTerminal: false,
       winner: null,
+      forfeitReason: null,
     });
   });
+
+  // The original replay's last step holds the terminal rewards (e.g. [1, -1])
+  // even when the losing agent's response was cut off and never produced a
+  // valid move. Using these instead of the last in-game step's rewards
+  // (which are typically null mid-play) ensures we still declare a winner
+  // when an agent errors out instead of falling back to "Draw".
+  const lastReplayStep = connectFourReplay.steps[connectFourReplay.steps.length - 1] ?? [];
+  const terminalRewards = lastReplayStep.map((p) => p.reward);
+  const finalBoardState = { ...connectFourSteps[moveCount].boardState };
+  if (!finalBoardState.winner && terminalRewards.length >= 2) {
+    const r0 = terminalRewards[0] ?? null;
+    const r1 = terminalRewards[1] ?? null;
+    if (r0 !== r1) {
+      finalBoardState.winner = (r0 ?? -Infinity) > (r1 ?? -Infinity) ? 'x' : 'o';
+    }
+  }
+
+  // If rewards indicate a winner but the on-board game state never reached
+  // a real "in-a-row" win, the loser must have forfeited (e.g. response cut
+  // off / unparsable submission). Surface that explicitly so the UI doesn't
+  // imply a normal win.
+  let forfeitReason: string | null = null;
+  if (terminalRewards.length >= 2) {
+    const r0 = terminalRewards[0] ?? null;
+    const r1 = terminalRewards[1] ?? null;
+    const gameWonOnBoard =
+      connectFourSteps[moveCount].boardState.winner === 'x' || connectFourSteps[moveCount].boardState.winner === 'o';
+    if (r0 !== r1 && !gameWonOnBoard) {
+      const loserIndex = (r0 ?? -Infinity) < (r1 ?? -Infinity) ? 0 : 1;
+      const winnerIndex = 1 - loserIndex;
+      const loserName = agents[loserIndex] || `Player ${loserIndex + 1}`;
+      const winnerName = agents[winnerIndex] || `Player ${winnerIndex + 1}`;
+      forfeitReason = `${loserName} failed to produce valid input. ${winnerName} wins by default.`;
+    }
+  }
 
   // Artificially insert a step at the end to emphasize the win state
   connectFourSteps.push({
     step: moveCount,
     players: [],
-    boardState: connectFourSteps[moveCount].boardState,
+    boardState: finalBoardState,
     isTerminal: true,
-    winner: deriveWinnerFromRewards(connectFourSteps[moveCount].players, agents),
+    winner: deriveWinnerFromRewards(terminalRewards, agents),
+    forfeitReason,
   });
 
   return connectFourSteps;

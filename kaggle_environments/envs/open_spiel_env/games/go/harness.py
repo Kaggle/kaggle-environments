@@ -1,16 +1,22 @@
-"""LLM harness for OpenSpiel Go."""
+"""LLM harness for OpenSpiel Go.
+
+Drop the body of this file into the notebook attached to the competition via
+HarnessKernelId. The auto-generated ``main.py`` calls these three module-level
+functions: ``get_legal_moves``, ``generate_prompt``, ``parse_response``.
+"""
+
+from __future__ import annotations
 
 import json
-import os
 import re
 from typing import Any, Mapping, Sequence
 
-import litellm
 import pyspiel
 
-litellm.drop_params = True
+from kaggle_environments.core_harness import ParseResult
 
 _JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
+_BARE_JSON_RE = re.compile(r"\{[^{}]*\"move\"\s*:\s*\"([^\"]+)\"[^{}]*\}", re.DOTALL)
 
 
 # --- Prompt ---
@@ -61,13 +67,74 @@ Reconsider and play a legal move.
 """
 
 
-def _make_go_prompt(
+# --- Helpers ----------------------------------------------------------------
+
+
+def _extract_move_from_json(response: str) -> str | None:
+    """Try to extract a move string from a JSON code block or bare JSON."""
+    match = _JSON_BLOCK_RE.search(response)
+    if match:
+        try:
+            data = json.loads(match.group(1))
+            move = data.get("move", "").strip()
+            if move:
+                return move
+        except json.JSONDecodeError:
+            pass
+
+    bare = _BARE_JSON_RE.search(response)
+    if bare:
+        return bare.group(1).strip()
+
+    return None
+
+
+def _match_move_to_legal(
+    move: str,
+    legal_moves: Sequence[str],
+) -> str | None:
+    """Match a move string (e.g. "e5", "PASS") to a legal move string."""
+    move_lower = move.lower()
+
+    if move_lower == "pass":
+        for legal in legal_moves:
+            if legal.upper().endswith("PASS"):
+                return legal
+        return None
+
+    for legal in legal_moves:
+        parts = legal.split()
+        if len(parts) == 2 and parts[1].lower() == move_lower:
+            return legal
+
+    return None
+
+
+# --- Public functions (called by main.py) -----------------------------------
+
+
+def get_legal_moves(observation: Mapping[str, Any]) -> dict[int, str]:
+    """Return ``{action_id: action_string}`` for the current state."""
+    legal_actions = observation.get("legalActions")
+    legal_action_strings = observation.get("legalActionStrings")
+    if legal_actions and legal_action_strings:
+        return dict(zip(legal_actions, legal_action_strings))
+
+    serialized = observation.get("serializedGameAndState", "")
+    if not serialized:
+        return {}
+    _, state = pyspiel.deserialize_game_and_state(serialized)
+    actions = state.legal_actions()
+    return {a: state.action_to_string(a) for a in actions}
+
+
+def generate_prompt(
     observation: Mapping[str, Any],
     move_history: list[str],
     previous_response: str | None = None,
     previous_action: str | None = None,
 ) -> str:
-    """Create a Go prompt from the observation."""
+    """Build the LLM prompt for the current game state."""
     obs_string = observation.get("observationString", "")
     player_id = observation.get("playerId", 0)
     player_name = "Black" if player_id == 0 else "White"
@@ -91,173 +158,27 @@ def _make_go_prompt(
     return prompt
 
 
-# --- Parser ---
-
-
-def _extract_move_from_json(response: str) -> str | None:
-    """Try to extract a move string from a JSON code block in the response."""
-    match = _JSON_BLOCK_RE.search(response)
-    if not match:
-        return None
-    try:
-        data = json.loads(match.group(1))
-        move = data.get("move", "").strip()
-        return move or None
-    except json.JSONDecodeError:
-        return None
-
-
-def _match_move_to_legal(
-    move: str, legal_moves: Sequence[str],
-) -> str | None:
-    """Match a move string (e.g. "e5", "PASS") to a legal move string."""
-    move_lower = move.lower()
-
-    if move_lower == "pass":
-        for legal in legal_moves:
-            if legal.upper().endswith("PASS"):
-                return legal
-        return None
-
-    for legal in legal_moves:
-        parts = legal.split()
-        if len(parts) == 2 and parts[1].lower() == move_lower:
-            return legal
-
-    return None
-
-
-def _parse_go_response(response: str, legal_moves: Sequence[str]) -> str | None:
-    """Parse model response to extract a Go move.
+def parse_response(
+    response: str, legal_action_strings: Sequence[str],
+) -> ParseResult:
+    """Extract a legal Go move from the model response.
 
     Tries to extract move from JSON block first, then falls back to
     searching for coordinates in the response text.
-
-    Args:
-        response: The model's response text.
-        legal_moves: List of legal move strings (e.g., ["B a1", "B b2", ...]).
-
-    Returns:
-        The matching legal move string, or None if no match found.
     """
-    move = _extract_move_from_json(response)
-    if move:
-        result = _match_move_to_legal(move, legal_moves)
-        if result:
-            return result
+    raw = _extract_move_from_json(response)
+    if raw is not None:
+        matched = _match_move_to_legal(raw, legal_action_strings)
+        if matched is not None:
+            return ParseResult(legal_action=matched, raw_action=raw)
 
     # Fallback: search for coordinates in response
     response_lower = response.lower()
-    for legal in legal_moves:
+    for legal in legal_action_strings:
         parts = legal.split()
         if len(parts) == 2:
             coord = parts[1].lower()
             if coord in response_lower:
-                return legal
+                return ParseResult(legal_action=legal, raw_action=raw or coord)
 
-    return None
-
-
-# --- Legal moves ---
-
-
-def _get_legal_moves(
-    observation: Mapping[str, Any],
-) -> tuple[list[int], list[str]]:
-    """Get legal actions and their string representations from observation."""
-    legal_actions = observation.get("legalActions")
-    legal_action_strings = observation.get("legalActionStrings")
-    if legal_actions and legal_action_strings:
-        return legal_actions, legal_action_strings
-
-    serialized = observation.get("serializedGameAndState", "")
-    if not serialized:
-        return [], []
-    _, state = pyspiel.deserialize_game_and_state(serialized)
-    legal_actions = state.legal_actions()
-    legal_action_strings = [state.action_to_string(a) for a in legal_actions]
-    return legal_actions, legal_action_strings
-
-
-# --- Agent ---
-
-
-_SETUP_COMPLETE = False
-_MODEL_NAME = None
-_LITELLM_KWARGS: dict[str, str] = {}
-_MOVE_HISTORY: list[str] = []
-
-
-def agent_fn(
-    obs: dict[str, Any] | Any, config: dict[str, Any],
-) -> dict[str, int]:
-    """Kaggle-compatible Go agent backed by an LLM."""
-    global _SETUP_COMPLETE, _MODEL_NAME, _LITELLM_KWARGS
-
-    if not _SETUP_COMPLETE:
-        if "MODEL_NAME" not in os.environ:
-            raise ValueError("MODEL_NAME environment variable is required.")
-        if "MODEL_PROXY_KEY" not in os.environ:
-            raise ValueError("MODEL_PROXY_KEY environment variable is required.")
-        if "MODEL_PROXY_URL" not in os.environ:
-            raise ValueError("MODEL_PROXY_URL environment variable is required.")
-
-        _MODEL_NAME = os.environ["MODEL_NAME"]
-        if os.environ["MODEL_PROXY_URL"] != "dummy_url":
-            _MODEL_NAME = f"openai/{_MODEL_NAME}"
-            _LITELLM_KWARGS = {
-                "api_base": f"{os.environ['MODEL_PROXY_URL']}/openapi",
-                "api_key": os.environ["MODEL_PROXY_KEY"],
-            }
-        elif (
-            "gemini" in _MODEL_NAME.lower()
-            and not _MODEL_NAME.startswith("gemini/")
-        ):
-            _MODEL_NAME = f"gemini/{_MODEL_NAME}"
-
-        _SETUP_COMPLETE = True
-
-    observation = obs if isinstance(obs, dict) else vars(obs)
-    legal_actions, legal_action_strings = _get_legal_moves(observation)
-
-    if not legal_actions:
-        return {"submission": -1}
-
-    previous_response = None
-    previous_action = None
-    content = ""
-
-    for attempt in range(2):
-        prompt = _make_go_prompt(
-            observation,
-            _MOVE_HISTORY,
-            previous_response=previous_response,
-            previous_action=previous_action,
-        )
-
-        try:
-            response = litellm.completion(
-                model=_MODEL_NAME,
-                messages=[{"role": "user", "content": prompt}],
-                reasoning_effort="high",
-                **_LITELLM_KWARGS,
-            )
-            content = response.choices[0].message.content.strip()
-        except Exception as e:
-            print(f"[Go Harness] LLM call failed on attempt {attempt + 1}: {e}")
-            raise
-
-        action_str = _parse_go_response(content, legal_action_strings)
-        if action_str is not None:
-            idx = legal_action_strings.index(action_str)
-            _MOVE_HISTORY.append(action_str)
-            return {"submission": legal_actions[idx]}
-
-        previous_action = _extract_move_from_json(content)
-        previous_response = content
-        print(f"[Go Harness] Attempt {attempt + 1} failed to parse a legal move.")
-
-    raise ValueError(
-        f"Failed to parse a legal move after 2 attempts. "
-        f"Last response: {content[:200]}"
-    )
+    return ParseResult(legal_action=None, raw_action=raw)
