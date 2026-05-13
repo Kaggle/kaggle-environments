@@ -26,8 +26,7 @@ export interface ChessStep extends Omit<BaseGameStep, 'players'> {
   fenState: FenState;
   isTerminal: boolean;
   winner: string | null;
-  /** Set when the loser failed to produce a valid action (e.g. ran out of overage time, errored, or submitted an illegal move). */
-  forfeitReason?: string | null;
+  status: string | null;
 }
 
 /**

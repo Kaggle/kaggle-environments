@@ -23,5 +23,9 @@ export function getStepLabel(step: BaseGameStep) {
     return `${winner === 'black' ? blackName : whiteName} wins`;
   }
 
+  if ((step as ChessStep).isTerminal) {
+    return 'Draw';
+  }
+
   return '';
 }
