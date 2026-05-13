@@ -356,6 +356,7 @@ def parse_response(
         return ParseResult(raw_action=response[:200])
 
     # --- Cluemaster (free-form) ---
+    thinking = parsed.get("thinking")
     if legal_action_strings is None:
         clue = parsed.get("clue")
         number = parsed.get("number")
@@ -363,31 +364,32 @@ def parse_response(
             try:
                 num = int(number)
             except (ValueError, TypeError):
-                return ParseResult(raw_action=response[:200])
+                return ParseResult(raw_action=response[:200], thoughts=thinking)
             return ParseResult(
                 submission={"clue": str(clue), "number": num},
                 raw_action=json.dumps({"clue": str(clue), "number": num}),
+                thoughts=thinking,
             )
-        return ParseResult(raw_action=response[:200])
+        return ParseResult(raw_action=response[:200], thoughts=thinking)
 
     # --- Guesser (enumerable) ---
     guess = parsed.get("guess")
     if guess is None:
-        return ParseResult(raw_action=response[:200])
+        return ParseResult(raw_action=response[:200], thoughts=thinking)
 
     raw = str(guess)
     try:
         guess_int = int(guess)
     except (ValueError, TypeError):
-        return ParseResult(legal_action=None, raw_action=raw)
+        return ParseResult(legal_action=None, raw_action=raw, thoughts=thinking)
 
     # Match by index prefix in legal_action_strings (e.g. "4: APPLE").
     target = f"{guess_int}:"
     for legal in legal_action_strings:
         if legal.startswith(target):
-            return ParseResult(legal_action=legal, raw_action=raw)
+            return ParseResult(legal_action=legal, raw_action=raw, thoughts=thinking)
 
-    return ParseResult(legal_action=None, raw_action=raw)
+    return ParseResult(legal_action=None, raw_action=raw, thoughts=thinking)
 
 
 # --- Agent wiring -----------------------------------------------------------

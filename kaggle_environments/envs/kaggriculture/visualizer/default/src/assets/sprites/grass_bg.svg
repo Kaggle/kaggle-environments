@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80">
+  <rect width="80" height="80" fill="#aacf8a"/>
+  <g fill="none" stroke="#8fb86d" stroke-width="1.2" stroke-linecap="round" opacity="0.55">
+    <path d="M8 18 q1 -4 2 -7"/>
+    <path d="M22 12 q-1 -4 -1 -7"/>
+    <path d="M38 26 q1.5 -4 3 -7"/>
+    <path d="M55 16 q-1 -4 -2 -7"/>
+    <path d="M70 30 q1 -4 2 -7"/>
+    <path d="M14 44 q-1 -4 -2 -7"/>
+    <path d="M30 52 q1 -4 2 -7"/>
+    <path d="M48 46 q-1.5 -4 -3 -7"/>
+    <path d="M62 58 q1 -4 2 -7"/>
+    <path d="M6 66 q1 -4 2 -7"/>
+    <path d="M24 74 q-1 -4 -1 -7"/>
+    <path d="M42 70 q1.5 -4 3 -7"/>
+    <path d="M58 76 q-1 -4 -2 -7"/>
+    <path d="M74 64 q1 -4 2 -7"/>
+  </g>
+  <g fill="#9ac478" opacity="0.45">
+    <circle cx="12" cy="34" r="0.9"/>
+    <circle cx="34" cy="8" r="0.8"/>
+    <circle cx="50" cy="36" r="0.9"/>
+    <circle cx="68" cy="20" r="0.8"/>
+    <circle cx="20" cy="60" r="0.9"/>
+    <circle cx="44" cy="58" r="0.8"/>
+    <circle cx="64" cy="72" r="0.9"/>
+    <circle cx="6" cy="50" r="0.8"/>
+  </g>
+</svg>

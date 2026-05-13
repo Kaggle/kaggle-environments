@@ -116,11 +116,14 @@ class ParseResult:
             illegal).  Used to build rethink prompts.
         submission: The validated action for free-form action spaces, or
             ``None`` if parsing failed.  Ignored for enumerable actions.
+        thoughts: Optional extracted reasoning/thinking text.  When set,
+            the core harness records this instead of the full LLM response.
     """
 
     legal_action: str | None = None
     raw_action: str | None = None
     submission: Any = None
+    thoughts: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -183,7 +186,19 @@ def _call_llm(
     model_name: str,
     litellm_kwargs: dict[str, Any],
 ) -> tuple[str, dict[str, Any]]:
-    """Call the LLM and return ``(response_text, usage_dict)``."""
+    """Call the LLM and return ``(response_text, call_details)``.
+
+    ``call_details`` contains per-call usage and metadata::
+
+        {
+            "prompt_tokens": int | None,
+            "generation_tokens": int | None,
+            "reasoning_tokens": int | None,
+            "total_tokens": int | None,
+            "finish_reason": str | None,
+            "duration_secs": float,
+        }
+    """
     _TELEMETRY(calling_llm=True)
     start = time.perf_counter()
     try:
@@ -195,18 +210,37 @@ def _call_llm(
         )
         content = response.choices[0].message.content.strip()
         duration = time.perf_counter() - start
-        usage = {
-            "prompt_tokens": getattr(response.usage, "prompt_tokens", None),
-            "completion_tokens": getattr(
-                response.usage, "completion_tokens", None,
+
+        usage_obj = getattr(response, "usage", None)
+        ctd = (
+            getattr(usage_obj, "completion_tokens_details", None)
+            if usage_obj
+            else None
+        )
+        reasoning_tokens = (
+            getattr(ctd, "reasoning_tokens", None) if ctd else None
+        )
+
+        details: dict[str, Any] = {
+            "prompt_tokens": getattr(usage_obj, "prompt_tokens", None),
+            "generation_tokens": getattr(
+                usage_obj, "completion_tokens", None,
             ),
+            "total_tokens": getattr(usage_obj, "total_tokens", None),
+            "finish_reason": getattr(
+                response.choices[0], "finish_reason", None,
+            ),
+            "duration_secs": round(duration, 3),
         }
+        if reasoning_tokens is not None:
+            details["reasoning_tokens"] = reasoning_tokens
         _TELEMETRY(
             llm_call_success=True,
-            duration_secs=round(duration, 3),
-            **usage,
+            duration_secs=details["duration_secs"],
+            prompt_tokens=details["prompt_tokens"],
+            completion_tokens=details["generation_tokens"],
         )
-        return content, usage
+        return content, details
     except Exception as exc:
         duration = time.perf_counter() - start
         _TELEMETRY(
@@ -214,6 +248,51 @@ def _call_llm(
             duration_secs=round(duration, 3),
         )
         raise
+
+
+def _build_call_detail(
+    record: dict[str, Any],
+    save_prompt: bool,
+) -> dict[str, Any]:
+    """Build a single ``call_details`` entry from an internal call record."""
+    detail: dict[str, Any] = {
+        "model": record["model"],
+        "response": record["content"],
+        "prompt_tokens": record["prompt_tokens"],
+        "generation_tokens": record["generation_tokens"],
+        "total_tokens": record["total_tokens"],
+        "finish_reason": record["finish_reason"],
+        "duration_secs": record["duration_secs"],
+    }
+    if "reasoning_tokens" in record:
+        detail["reasoning_tokens"] = record["reasoning_tokens"]
+    if save_prompt:
+        detail["prompt"] = record["prompt"]
+    return detail
+
+
+def _build_generate_return(record: dict[str, Any]) -> dict[str, Any]:
+    """Build a legacy ``GenerateReturn``-shaped dict from a call record.
+
+    Omits raw prompts and responses to avoid duplicating large content
+    already available via ``call_details`` and ``thoughts``.
+    """
+    gr: dict[str, Any] = {
+        "request_for_logging": {
+            "model": record["model"],
+        },
+        "response_for_logging": {
+            "finish_reason": record.get("finish_reason"),
+        },
+        "generation_tokens": record.get("generation_tokens"),
+        "prompt_tokens": record.get("prompt_tokens"),
+        "total_tokens": record.get("total_tokens"),
+        "duration_success_only_secs": record.get("duration_secs"),
+    }
+    reasoning = record.get("reasoning_tokens")
+    if reasoning is not None:
+        gr["reasoning_tokens"] = reasoning
+    return gr
 
 
 # ---------------------------------------------------------------------------
@@ -288,7 +367,10 @@ def create_agent_fn(
             )
             setup_done = True
 
-        save_prompt = bool(config.get("savePrompt", False)) if config else False
+        save_prompt = bool(config.get("savePrompt", True)) if config else True
+        include_generate_returns = (
+            bool(config.get("includeGenerateReturns", False)) if config else False
+        )
 
         observation = obs if isinstance(obs, dict) else vars(obs)
 
@@ -345,6 +427,7 @@ def create_agent_fn(
         previous_action: str | None = None
         last_content = ""
         all_responses: list[str] = []
+        call_records: list[dict[str, Any]] = []
 
         for attempt in range(max_retries):
             if attempt == 0:
@@ -362,9 +445,17 @@ def create_agent_fn(
             )
 
             try:
-                content, _usage = _call_llm(prompt, model_name, litellm_kwargs)
+                content, call_details = _call_llm(
+                    prompt, model_name, litellm_kwargs,
+                )
                 last_content = content
                 all_responses.append(content)
+                call_records.append({
+                    "content": content,
+                    "prompt": prompt,
+                    "model": model_name,
+                    **call_details,
+                })
             except Exception as exc:
                 _log.error(
                     "LLM call failed on attempt %d: %s", attempt + 1, exc,
@@ -397,11 +488,18 @@ def create_agent_fn(
                 action: dict[str, Any] = {
                     "submission": matched_submission,
                     "actionString": action_str,
-                    "thoughts": last_content,
+                    "thoughts": result.thoughts if result.thoughts is not None else last_content,
                     "status": "OK",
+                    "call_details": [
+                        _build_call_detail(r, save_prompt)
+                        for r in call_records
+                    ],
                 }
-                if save_prompt:
-                    action["prompt"] = prompt
+                if include_generate_returns:
+                    action["generate_returns"] = [
+                        json.dumps(_build_generate_return(r))
+                        for r in call_records
+                    ]
                 return action
 
             # -- parse failed → prepare rethink --

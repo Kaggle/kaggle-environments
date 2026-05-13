@@ -166,19 +166,25 @@ CONFIGURATION_SPEC_TEMPLATE = {
     },
     "savePrompt": {
         "description": (
-            "If true, the LLM prompt produced by the harness is included as a"
-            " 'prompt' field on the action returned by core_harness, which causes"
-            " it to be persisted in the episode replay. Defaults to false to keep"
-            " replays small."
+            "If disabled, skip logging LLM prompts in the replay file."
         ),
         "type": "boolean",
-        "default": False,
+        "default": True,
     },
     "freeForm": {
         "description": (
             "If true, the core harness allows free-form actions"
             " (get_legal_moves may return None) on turns where the action"
             " space is not enumerable. Defaults to false for OpenSpiel games."
+        ),
+        "type": "boolean",
+        "default": False,
+    },
+    "includeGenerateReturns": {
+        "description": (
+            "If true, include a legacy generate_returns field on each action"
+            " with per-LLM-call metadata (model, token counts, finish reason,"
+            " duration). Useful for cost tracking and visualization pipelines."
         ),
         "type": "boolean",
         "default": False,

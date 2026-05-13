@@ -24,15 +24,20 @@ function getObservation(replay: any, step: number): any | null {
   return agentStep?.observation ?? null;
 }
 
+function getPlayerNames(agents: RendererOptions['agents']): [string, string] {
+  return [0, 1].map((i) => agents?.[i]?.name || `Player ${i + 1}`) as [string, string];
+}
+
 export function renderer(options: RendererOptions): void {
-  const { parent, replay, step } = options;
+  const { parent, replay, step, agents } = options;
   if (!parent || !replay) return;
 
   const board = inferBoardSize(replay);
-  const expectedKey = `${board.rows}x${board.cols}`;
+  const playerNames = getPlayerNames(agents);
+  const expectedKey = `${board.rows}x${board.cols}|${playerNames[0]}|${playerNames[1]}`;
   let cached = skeletonCache.get(parent);
   if (!cached || cached.key !== expectedKey) {
-    buildSkeleton(parent, board);
+    buildSkeleton(parent, board, playerNames);
     cached = { key: expectedKey, refs: collectRefs(parent, board) };
     skeletonCache.set(parent, cached);
   }

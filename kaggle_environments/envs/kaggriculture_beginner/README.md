@@ -43,7 +43,7 @@ Each Farmer can be given an action every turn.
 
 ### **Market Action**
 
-Each turn you can execute as many market actions are desired. This is an ordered list and market orders will be processed in order simultaneously (one from each player) while both players have orders.
+Each turn you can submit up to `maxMarketOrdersPerTurn` (default 10) market actions; any orders past that limit are silently dropped. This is an ordered list and market orders will be processed in order simultaneously (one from each player) while both players have orders.
 
 - BUY\_SEED — Purchase N units of a single seed type from the market.  
   - BUY\_SEED WHEAT 1  
@@ -161,6 +161,7 @@ Three built-in agents are available by name: `"pass"`, `"random"`, and `"starter
 | `boardSize` | 5 | Side length (in tiles) of each player's square farm |
 | `startingMoney` | 150 | Coins each player starts with |
 | `turnsPerDay` | 24 | Number of turns that make up one in-game day |
+| `maxMarketOrdersPerTurn` | 10 | Max market orders processed per player per turn; extras are silently dropped |
 | `actTimeout` | 1 | Per-turn agent action timeout (seconds) |
 
 Per-crop seed costs and sale prices are not configurable in the beginner version — they are fixed in the `CROPS` table inside the interpreter (see the Object Types table above for the values).
