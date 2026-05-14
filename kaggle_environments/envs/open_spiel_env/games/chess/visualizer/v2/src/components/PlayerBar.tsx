@@ -55,7 +55,7 @@ export default function PlayerBar({ color }: Props) {
   const headers = game.getHeaders();
   const name = headers[color];
   const opponent = color === 'w' ? 'b' : 'w';
-
+  const isActive = !game.isGameOver() && game.turn() === color;
   const captures = takenPieces(game).filter((p) => p.color === color);
 
   // Temporary array of captures, we will do this properly later.
@@ -69,7 +69,7 @@ export default function PlayerBar({ color }: Props) {
   }
 
   return (
-    <div className={styles.playerBar} data-player={color}>
+    <div className={styles.playerBar} data-active={isActive} data-player={color}>
       <div className={`${styles.player} squiggle-border`}>
         <div className={`grid-pile ${styles.logo}`}>
           <img src={pieceColorImages[color]} alt="" width="64" height="64" />
