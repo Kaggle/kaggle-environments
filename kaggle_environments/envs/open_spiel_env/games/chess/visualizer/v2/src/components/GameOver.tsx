@@ -38,12 +38,13 @@ export default function GameOver() {
   const step = options.replay.steps.at(options.step);
   // TODO(pim-at-stink): https://github.com/Stinkstudios/kaggle-ai-visualiser/issues/15
   if (!step) return null;
-  if (!step.winner) return null;
+  if (!step.isTerminal) return null;
 
   const winnerColor = step.winner;
   const blackName = game.getHeaders()['b'] ?? 'Black';
   const whiteName = game.getHeaders()['w'] ?? 'White';
   const winnerName = winnerColor === 'black' ? blackName : whiteName;
+  const loserName = winnerColor === 'black' ? whiteName : blackName;
 
   const board = game.board().flat();
   const captures = {
@@ -83,6 +84,15 @@ export default function GameOver() {
   const allDurations = [...durations.black, ...durations.white];
   const gameDuration = allDurations.reduce((a, b) => a + b, 0);
 
+  const winnerText = step.winner ? `Winner is ${winnerName}!` : `It's a draw!`;
+
+  const forfeits = new Map<string, string>([
+    ['TIMEOUT', `${loserName} ran out of time.`],
+    ['ERROR', `${loserName} submitted an illegal move.`],
+    ['INVALID', `${loserName} failed to produce valid input.`],
+  ]);
+  const forfeitText = forfeits.get(step.status || '') || null;
+
   const rows: StatRow[] = [
     {
       label: 'Pieces Captured',
@@ -101,39 +111,67 @@ export default function GameOver() {
     },
   ];
 
-  trackEvent('game-over');
+  switch (step.status) {
+    case 'TIMEOUT':
+      trackEvent('game-over-timeout');
+      break;
+    case 'ERROR':
+      trackEvent('game-over-error');
+      break;
+    case 'INVALID':
+      trackEvent('game-over-invalid');
+      break;
+    default:
+      if (!step.winner) {
+        trackEvent('game-over-draw');
+      } else {
+        trackEvent('game-over');
+      }
+  }
 
   return (
     <dialog ref={dialogRef} className={styles.modal} aria-label="Game over" tabIndex={-1}>
       <div className="ribbon">
         <Ribbon>
-          <h2 className={styles.heading}>Winner is {winnerName}!</h2>
+          <h2 className={styles.heading}>{winnerText}</h2>
         </Ribbon>
       </div>
-      {step.forfeitReason && <p className={styles.forfeit}>{step.forfeitReason}</p>}
-      <div className={styles.meta}>
-        Game Duration: {formatDuration(gameDuration)}
-        <br />
-        Total Moves: {totalMoves}
-      </div>
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            <th />
-            <th>{blackName}</th>
-            <th>{whiteName}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.label}>
-              <td>{row.label}</td>
-              <td>{row.black}</td>
-              <td>{row.white}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+
+      {forfeitText && (
+        <p className={styles.forfeit}>
+          {forfeitText}
+          <br />
+          <b>Game Over.</b>
+        </p>
+      )}
+
+      {!forfeitText && (
+        <>
+          <div className={styles.meta}>
+            Game Duration: {formatDuration(gameDuration)}
+            <br />
+            Total Moves: {totalMoves}
+          </div>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th />
+                <th>{blackName}</th>
+                <th>{whiteName}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.label}>
+                  <td>{row.label}</td>
+                  <td>{row.black}</td>
+                  <td>{row.white}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
     </dialog>
   );
 }
