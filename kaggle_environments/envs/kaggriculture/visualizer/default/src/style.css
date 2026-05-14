@@ -22,7 +22,6 @@ body {
   padding: 16px;
   box-sizing: border-box;
   gap: 12px;
-  container-type: inline-size;
   justify-content: safe center;
   overflow-y: auto;
   overflow-x: hidden;
@@ -55,14 +54,22 @@ body {
 }
 
 /* Mobile layout (phone breakpoint from design system).
-   Promote farm-panel/town-panel children into the .demo-main flex column so
-   we can interleave them: P1 field/inventory, market, P2 inventory/field,
-   then town center and shops at the bottom. */
+   Promote farm-panel/town-panel children into the .demo-main grid so we can
+   interleave them via named areas: P1 field/inventory, market, P2
+   inventory/field, then town center and shops at the bottom. */
 @container (max-width: 480px) {
   .demo-main {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "p1-header"
+      "p1-field"
+      "p1-shed"
+      "market"
+      "p2-shed"
+      "p2-header"
+      "p2-field"
+      "town-header"
+      "town-grid";
   }
 
   .farm-panel,
@@ -82,18 +89,18 @@ body {
     margin-right: 0;
   }
 
-  .farm-panel[data-player="1"] .farm-header { order: 1; }
-  .farm-panel[data-player="1"] .farm-area   { order: 2; }
-  .farm-panel[data-player="1"] .shed-area   { order: 3; }
+  .farm-panel[data-player="1"] .farm-header { grid-area: p1-header; }
+  .farm-panel[data-player="1"] .farm-area   { grid-area: p1-field; }
+  .farm-panel[data-player="1"] .shed-area   { grid-area: p1-shed; }
 
-  .town-panel .market-panel { order: 4; }
+  .town-panel .market-panel { grid-area: market; }
 
-  .farm-panel[data-player="2"] .shed-area   { order: 5; }
-  .farm-panel[data-player="2"] .farm-header { order: 6; }
-  .farm-panel[data-player="2"] .farm-area   { order: 7; }
+  .farm-panel[data-player="2"] .shed-area   { grid-area: p2-shed; }
+  .farm-panel[data-player="2"] .farm-header { grid-area: p2-header; }
+  .farm-panel[data-player="2"] .farm-area   { grid-area: p2-field; }
 
-  .town-panel .town-header { order: 8; }
-  .town-panel .town-grid   { order: 9; }
+  .town-panel .town-header { grid-area: town-header; }
+  .town-panel .town-grid   { grid-area: town-grid; }
 }
 
 /* ---- Farm panel ---- */
