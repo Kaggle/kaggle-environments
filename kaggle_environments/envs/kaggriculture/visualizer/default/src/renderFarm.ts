@@ -98,10 +98,13 @@ function farmPanel(player: 1 | 2, rows: number, cols: number, name: string): str
   return `
     <section class="farm-panel" data-player="${player}">
       <header class="farm-header sketched-border" style="${BG_WOOD}">
-        <span class="player-name">
-          <img class="player-name-icon" src="${spriteSrc(`farmer_p${player}`)}" alt="farmer p${player}" />
-          <span>${escapeHtml(name)}</span>
-        </span>
+        <div class="farm-header-left">
+          <span class="player-name">
+            <img class="player-name-icon" src="${spriteSrc(`farmer_p${player}`)}" alt="farmer p${player}" />
+            <span>${escapeHtml(name)}</span>
+          </span>
+          <button type="button" class="header-toggle shed-toggle" data-dialog="shed-${player}">View Shed</button>
+        </div>
         <span class="player-balance">
           <img class="balance-icon" src="${spriteSrc('coin')}" alt="coins" />
           <span class="balance-amount">0</span>
@@ -126,6 +129,10 @@ function townPanel(): string {
         <div class="town-subheader">
           <span>Day <span class="day-value">1</span> / <span class="day-total">30</span></span>
           <span>Turn <span class="turn-value">1</span> / <span class="turn-total">24</span></span>
+        </div>
+        <div class="town-header-toggles">
+          <button type="button" class="header-toggle market-toggle" data-dialog="market">View Market</button>
+          <button type="button" class="header-toggle town-toggle" data-dialog="town">View Town</button>
         </div>
       </header>
       <div class="market-panel sketched-border" style="${BG_WOOD}">
@@ -160,6 +167,13 @@ export function buildShell(root: HTMLElement, board: BoardSize, playerNames: str
         ${townPanel()}
         ${farmPanel(2, board.rows, board.cols, playerNames[1] ?? 'Player 2')}
       </main>
+      <div class="simple-dialog" hidden>
+        <div class="simple-dialog-titlebar">
+          <span class="simple-dialog-title"></span>
+          <button type="button" class="simple-dialog-close" aria-label="Close">×</button>
+        </div>
+        <div class="simple-dialog-body"></div>
+      </div>
     </div>
   `;
 }
@@ -200,7 +214,14 @@ export function collectRefs(root: HTMLElement, board: BoardSize): LayoutRefs {
       price: item.querySelector<HTMLElement>('.market-price')!,
     };
   }
-  return {
+  const overlay = root.querySelector<HTMLElement>('.simple-dialog')!;
+  const dialog = {
+    overlay,
+    title: overlay.querySelector<HTMLElement>('.simple-dialog-title')!,
+    body: overlay.querySelector<HTMLElement>('.simple-dialog-body')!,
+    closeBtn: overlay.querySelector<HTMLElement>('.simple-dialog-close')!,
+  };
+  const refs: LayoutRefs = {
     dayValue: root.querySelector<HTMLElement>('.day-value')!,
     turnValue: root.querySelector<HTMLElement>('.turn-value')!,
     marketItems,
@@ -208,7 +229,69 @@ export function collectRefs(root: HTMLElement, board: BoardSize): LayoutRefs {
     players: [1, 2].map((p) =>
       collectPlayerRefs(root.querySelector<HTMLElement>(`.farm-panel[data-player="${p}"]`)!, board)
     ),
+    dialog,
   };
+  wireDialogs(root, refs);
+  return refs;
+}
+
+interface DialogTarget {
+  title: string;
+  panel: HTMLElement;
+}
+
+function wireDialogs(root: HTMLElement, refs: LayoutRefs): void {
+  const targets = new Map<string, DialogTarget>();
+  const p1Shed = root.querySelector<HTMLElement>('.farm-panel[data-player="1"] .shed-area');
+  const p2Shed = root.querySelector<HTMLElement>('.farm-panel[data-player="2"] .shed-area');
+  const market = root.querySelector<HTMLElement>('.market-panel');
+  const town = root.querySelector<HTMLElement>('.town-grid');
+  if (p1Shed) targets.set('shed-1', { title: 'Player 1 Shed', panel: p1Shed });
+  if (p2Shed) targets.set('shed-2', { title: 'Player 2 Shed', panel: p2Shed });
+  if (market) targets.set('market', { title: 'Market', panel: market });
+  if (town) targets.set('town', { title: 'Town', panel: town });
+
+  const homes = new Map<HTMLElement, { parent: HTMLElement; next: ChildNode | null }>();
+  for (const { panel } of targets.values()) {
+    homes.set(panel, { parent: panel.parentElement!, next: panel.nextSibling });
+  }
+
+  let currentKey: string | null = null;
+  const close = () => {
+    if (!currentKey) return;
+    const target = targets.get(currentKey);
+    if (target) {
+      const home = homes.get(target.panel);
+      if (home) home.parent.insertBefore(target.panel, home.next);
+    }
+    refs.dialog.overlay.hidden = true;
+    currentKey = null;
+  };
+  const open = (key: string) => {
+    if (currentKey === key) {
+      close();
+      return;
+    }
+    if (currentKey) close();
+    const target = targets.get(key);
+    if (!target) return;
+    refs.dialog.title.textContent = target.title;
+    refs.dialog.body.appendChild(target.panel);
+    refs.dialog.overlay.hidden = false;
+    currentKey = key;
+  };
+
+  root.querySelectorAll<HTMLElement>('.header-toggle[data-dialog]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const key = btn.dataset.dialog;
+      if (key) open(key);
+    });
+  });
+  refs.dialog.closeBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    close();
+  });
 }
 
 // --- Per-step render ---------------------------------------------------------
