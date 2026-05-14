@@ -12,6 +12,8 @@
     "lint:fix": "eslint --fix .",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
+    "test": "npx playwright test",
+    "test:ui": "npx playwright test --ui",
     "download-replays": "node ./scripts/download.js",
     "replay-openings": "node ./scripts/openings.js"
   },
