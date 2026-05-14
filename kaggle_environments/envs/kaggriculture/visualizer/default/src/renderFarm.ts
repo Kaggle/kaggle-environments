@@ -154,8 +154,8 @@ function townPanel(): string {
 
 export function buildShell(root: HTMLElement, board: BoardSize, playerNames: string[]): void {
   root.innerHTML = `
-    <div class="demo-container" style="${BG_GRASS}">
-      <main class="demo-main">
+    <div class="kaggriculture-container" style="${BG_GRASS}">
+      <main class="kaggriculture-main">
         ${farmPanel(1, board.rows, board.cols, playerNames[0] ?? 'Player 1')}
         ${townPanel()}
         ${farmPanel(2, board.rows, board.cols, playerNames[1] ?? 'Player 2')}

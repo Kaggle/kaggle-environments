@@ -15,7 +15,7 @@ body {
   border: 1px dashed #3c3b37;
 }
 
-.demo-container {
+.kaggriculture-container {
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -34,13 +34,13 @@ body {
 
 /* Force black text everywhere inside the visualizer, overriding any
    inherited color from the MUI theme that wraps us. */
-.demo-container,
-.demo-container * {
+.kaggriculture-container,
+.kaggriculture-container * {
   color: #050001;
 }
 
 /* ---- Main 3-column layout ---- */
-.demo-main {
+.kaggriculture-main {
   display: grid;
   grid-template-columns: minmax(280px, 1.4fr) minmax(260px, 1fr) minmax(280px, 1.4fr);
   gap: 16px;
@@ -48,17 +48,17 @@ body {
 }
 
 @container (max-width: 900px) {
-  .demo-main {
+  .kaggriculture-main {
     grid-template-columns: 1fr;
   }
 }
 
 /* Mobile layout (phone breakpoint from design system).
-   Promote farm-panel/town-panel children into the .demo-main grid so we can
+   Promote farm-panel/town-panel children into the .kaggriculture-main grid so we can
    interleave them via named areas: P1 field/inventory, market, P2
    inventory/field, then town center and shops at the bottom. */
 @container (max-width: 480px) {
-  .demo-main {
+  .kaggriculture-main {
     grid-template-columns: 1fr;
     grid-template-areas:
       "p1-header"
