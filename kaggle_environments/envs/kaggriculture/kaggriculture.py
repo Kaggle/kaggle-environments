@@ -140,7 +140,7 @@ def market_price(item, inventory):
     """Floor at 1."""
     p = MARKET_PARAMS[item]
     if inventory < p["I0"]:
-        price = -p["a_ln"] * inventory + p["b_ln"]
+        price = -p["a_ln"] * max(0, inventory) + p["b_ln"]
     else:
         price = p["a_lg"] * math.log(max(inventory, 1)) + p["b_lg"]
     price = round(price)
@@ -519,7 +519,10 @@ def _process_market(state, env):
                 if op == "SELL" and item in PRODUCTS and item != "FERTILIZER":
                     quoted[player_id] = ("SELL", item, market_price(item, market["inventory"][item]), ostate)
                 elif op == "BUY_PRODUCT" and item in PRODUCTS:
-                    quoted[player_id] = ("BUY_PRODUCT", item, market_price(item, market["inventory"][item]), ostate)
+                    if market["inventory"][item] <= 0:
+                        order_states[player_id] = None  # nothing left to buy
+                    else:
+                        quoted[player_id] = ("BUY_PRODUCT", item, market_price(item, market["inventory"][item]), ostate)
                 elif op == "BUY_SEED" and item in CROPS:
                     quoted[player_id] = ("BUY_SEED", item, CROPS[item]["seed"], ostate)
                 elif op == "BUY_ANIMAL" and item in ANIMALS:
@@ -582,6 +585,8 @@ def _commit_unit(op, item, price, farm, private, market):
         return True
     if op == "BUY_PRODUCT":
         if farm["money"] < price:
+            return False
+        if market["inventory"][item] <= 0:
             return False
         farm["money"] -= price
         private["shed"][item] = private["shed"].get(item, 0) + 1
@@ -650,12 +655,12 @@ def _town_consume(env, state, step):
             products = SHOPS[shop_name]
             multiplier = 2 if len(products) == 1 else 1
             for item in products:
-                market["inventory"][item] -= multiplier
+                market["inventory"][item] = max(0, market["inventory"][item] - multiplier)
 
     if step % center_interval == 0:
         center_mult = next(m for threshold, m in TOWN_CENTER_DEMAND_SCHEDULE if day >= threshold)
         for item in TOWN_CENTER_PRODUCTS:
-            market["inventory"][item] -= center_mult
+            market["inventory"][item] = max(0, market["inventory"][item] - center_mult)
 
     _refresh_prices(market)
 

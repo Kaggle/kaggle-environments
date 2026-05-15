@@ -751,3 +751,75 @@ def test_default_starting_money_is_2000():
     env.run(["pass", "pass"])
     j = env.toJSON()
     assert j["rewards"] == [2000.0, 2000.0]
+
+
+# --- Market inventory floor & price cap ------------------------------------
+
+def test_market_inventory_never_negative_under_heavy_town_demand():
+    """Run an episode with aggressive town consumption (every turn, every
+    interval) and confirm market inventory never dips below zero and prices
+    never exceed each item's b_ln cap."""
+    env = make(
+        "kaggriculture",
+        configuration={
+            "episodeSteps": 200,
+            "seed": 13,
+            "townShopSellInterval": 1,
+            "townCenterSellInterval": 1,
+        },
+    )
+    env.run(["pass", "pass"])
+    j = env.toJSON()
+    for step in j["steps"]:
+        market = step[0]["observation"]["market"]
+        assert min(market["inventory"].values()) >= 0, market["inventory"]
+        for item, price in market["prices"].items():
+            assert price <= MARKET_PARAMS[item]["b_ln"], (item, price)
+
+
+def test_buy_product_refused_when_market_empty():
+    farm = _new_farm(10, 1000)
+    private = _new_private()
+    market = _new_market()
+    market["inventory"]["WHEAT"] = 0
+    price = market_price("WHEAT", 0)
+    ok = _commit_unit("BUY_PRODUCT", "WHEAT", price, farm, private, market)
+    assert ok is False
+    assert farm["money"] == 1000
+    assert market["inventory"]["WHEAT"] == 0
+    assert private["shed"].get("WHEAT", 0) == 0
+
+
+def test_town_consumption_clamps_inventory_at_zero():
+    """If shop demand exceeds inventory in a single tick, inventory floors at
+    zero rather than going negative."""
+    env = make(
+        "kaggriculture",
+        configuration={
+            "episodeSteps": 2,
+            "seed": 1,
+            "townShopSellInterval": 1,
+        },
+    )
+    env.reset(num_agents=2)
+    market = env.state[0].observation.market
+    town = env.state[0].observation.town
+    # Force a shop unlock and zero out a product it consumes.
+    target_shop = next(iter(SHOPS))
+    town["unlocked_shops"] = [target_shop]
+    target_item = SHOPS[target_shop][0]
+    market["inventory"][target_item] = 1
+    env.step([
+        {"farmer": ["PASS"], "hands": [], "market": []},
+        {"farmer": ["PASS"], "hands": [], "market": []},
+    ])
+    assert env.state[0].observation.market["inventory"][target_item] >= 0
+
+
+def test_market_price_at_negative_inventory_does_not_exceed_cap():
+    """Defense in depth: even if inventory is somehow negative, price should
+    still floor at b_ln (the cap at inventory=0)."""
+    for item, p in MARKET_PARAMS.items():
+        cap = market_price(item, 0)
+        assert market_price(item, -10) == cap, item
+        assert cap <= p["b_ln"], item
