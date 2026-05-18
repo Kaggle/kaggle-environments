@@ -173,6 +173,64 @@ def test_build_scout():
     assert len(scouts) >= 1, "Should have built at least one scout"
 
 
+def test_build_worker():
+    """Factory can build a worker."""
+    env = make("crawl", configuration={"randomSeed": 42, "episodeSteps": 10}, debug=True)
+    env.reset(2)
+    obs = env.state[0].observation
+    f0 = next(uid for uid, d in obs.robots.items() if d[0] == 0 and d[4] == 0)
+    fc, fr = obs.robots[f0][1], obs.robots[f0][2]
+    # Clear the spawn cell's south wall (north of factory) so the spawn lands.
+    obs.globalWalls[str(fr)][fc] &= ~1
+    obs.globalWalls[str(fr + 1)][fc] &= ~4
+    env.step([{f0: "BUILD_WORKER"}, {}])
+    obs = env.state[0].observation
+    workers = [uid for uid, d in obs.robots.items() if d[0] == 2 and d[4] == 0]
+    assert len(workers) >= 1, "Should have built at least one worker"
+
+
+def test_build_miner():
+    """Factory can build a miner."""
+    env = make("crawl", configuration={"randomSeed": 42, "episodeSteps": 10}, debug=True)
+    env.reset(2)
+    obs = env.state[0].observation
+    f0 = next(uid for uid, d in obs.robots.items() if d[0] == 0 and d[4] == 0)
+    fc, fr = obs.robots[f0][1], obs.robots[f0][2]
+    obs.globalWalls[str(fr)][fc] &= ~1
+    obs.globalWalls[str(fr + 1)][fc] &= ~4
+    env.step([{f0: "BUILD_MINER"}, {}])
+    obs = env.state[0].observation
+    miners = [uid for uid, d in obs.robots.items() if d[0] == 3 and d[4] == 0]
+    assert len(miners) >= 1, "Should have built at least one miner"
+
+
+def test_miner_transforms_into_mine():
+    """A miner on a mining node TRANSFORMs into a mine; node is consumed, miner is destroyed."""
+    env = make("crawl", configuration={"randomSeed": 42, "episodeSteps": 10}, debug=True)
+    env.reset(2)
+    obs = env.state[0].observation
+    # Inject a mining node and a miner on the same cell.
+    col, row = 5, obs.southBound + 3
+    key = f"{col},{row}"
+    obs.globalMiningNodes[key] = 1
+    miner_energy = 300
+    m = _make_robot(env, 3, col, row, owner=0, energy=miner_energy, uid="t-miner")
+    env.step([{m: "TRANSFORM"}, {}])
+    obs = env.state[0].observation
+    # Miner consumed, node consumed.
+    assert m not in obs.globalRobots, "miner should be destroyed after TRANSFORM"
+    assert key not in obs.globalMiningNodes, "mining node should be consumed"
+    # Mine energy = (miner_energy after Phase 2 tick) - transformCost, then
+    # Phase 7 adds mineRate that same turn.
+    assert key in obs.globalMines, f"mine should exist at {key}"
+    mine = obs.globalMines[key]
+    cfg = env.configuration
+    expected = miner_energy - cfg.energyPerTurn - cfg.transformCost + cfg.mineRate
+    assert mine[0] == expected, f"mine energy {mine[0]} != expected {expected}"
+    assert mine[1] == cfg.mineMaxEnergy
+    assert mine[2] == 0, "mine should be owned by player 0"
+
+
 def test_crystal_collection():
     """Robot on a crystal cell collects its energy."""
     env = make(
@@ -415,7 +473,7 @@ def test_resolve_tiebreak_energy():
         "a": {"owner": 0, "energy": 100, "type": 0},
         "b": {"owner": 1, "energy": 50, "type": 0},
     }
-    assert _resolve_tiebreak(robots) == (1, 0)
+    assert _resolve_tiebreak(robots) == (1, -1)
 
 
 def test_resolve_tiebreak_unit_count():
@@ -425,7 +483,7 @@ def test_resolve_tiebreak_unit_count():
         "b": {"owner": 0, "energy": 0, "type": 1},
         "c": {"owner": 1, "energy": 100, "type": 0},
     }
-    assert _resolve_tiebreak(robots) == (1, 0)
+    assert _resolve_tiebreak(robots) == (1, -1)
 
 
 def test_resolve_tiebreak_draw():
@@ -467,7 +525,7 @@ def test_factory_factory_mutual_destruction():
     result = env.toJSON()
     assert result["statuses"] == ["DONE", "DONE"]
     # Player 0 has surviving scout (energy + unit count) → wins tiebreak
-    assert result["rewards"] == [1, 0]
+    assert result["rewards"] == [1, -1]
 
 
 def test_factory_crushes_enemy_unit():
@@ -500,9 +558,9 @@ def test_step_500_tiebreak():
     env.run([idle, idle])
     result = env.toJSON()
     assert result["statuses"] == ["DONE", "DONE"]
-    # Both factories alive (idle agents), so result should be a 1/0/0.5 tiebreak,
-    # not raw energy values.
-    assert set(result["rewards"]).issubset({0, 0.5, 1})
+    # Both factories alive (idle agents), so result should be a tiebreak
+    # (1/-1/0.5), not raw energy values.
+    assert set(result["rewards"]).issubset({-1, 0.5, 1})
 
 
 def _make_robot(env, rtype, col, row, owner=0, energy=200, uid=None):
@@ -722,6 +780,55 @@ def test_factory_jumps_off_north_edge_destroyed():
     env.step([{f0: "JUMP_NORTH"}, {}])
     obs = env.state[0].observation
     assert f0 not in obs.globalRobots, "factory should die jumping off the north edge"
+
+
+def test_scout_moves_every_turn():
+    """Scout (movePeriod=1) moves on every NORTH command."""
+    env = make("crawl", configuration={"randomSeed": 42, "episodeSteps": 50}, debug=True)
+    env.reset(2)
+    obs = env.state[0].observation
+    col, row = 2, obs.southBound + 2
+    for r in range(row, row + 6):
+        _clear_walls_around(env, col, r, radius=1)
+    s = _make_robot(env, 1, col, row, owner=0, energy=200, uid="t-scout")
+    for i in range(4):
+        env.step([{s: "NORTH"}, {}])
+        d = env.state[0].observation.globalRobots[s]
+        assert d[2] == row + i + 1, f"scout should be at row {row + i + 1} after step {i + 1}, got {d[2]}"
+
+
+def test_worker_moves_every_other_turn():
+    """Worker (movePeriod=2) moves on turns 1, 3, 5 — stationary in between."""
+    env = make("crawl", configuration={"randomSeed": 42, "episodeSteps": 50}, debug=True)
+    env.reset(2)
+    obs = env.state[0].observation
+    col, row = 2, obs.southBound + 2
+    for r in range(row, row + 6):
+        _clear_walls_around(env, col, r, radius=1)
+    w = _make_robot(env, 2, col, row, owner=0, energy=200, uid="t-worker")
+    expected_rows = [row + 1, row + 1, row + 2, row + 2, row + 3]
+    for i, expected in enumerate(expected_rows):
+        env.step([{w: "NORTH"}, {}])
+        d = env.state[0].observation.globalRobots[w]
+        assert d[2] == expected, f"worker should be at row {expected} after step {i + 1}, got {d[2]}"
+
+
+def test_factory_moves_every_other_turn():
+    """Factory (movePeriod=2 by default) moves on turns 1, 3, 5 — stationary in between."""
+    env = make("crawl", configuration={"randomSeed": 42, "episodeSteps": 50}, debug=True)
+    env.reset(2)
+    obs = env.state[0].observation
+    f0 = next(uid for uid, d in obs.globalRobots.items() if d[0] == 0 and d[4] == 0)
+    obs.globalRobots[f0][1] = 2
+    obs.globalRobots[f0][2] = obs.southBound + 2
+    col, row = obs.globalRobots[f0][1], obs.globalRobots[f0][2]
+    for r in range(row, row + 6):
+        _clear_walls_around(env, col, r, radius=1)
+    expected_rows = [row + 1, row + 1, row + 2, row + 2, row + 3]
+    for i, expected in enumerate(expected_rows):
+        env.step([{f0: "NORTH"}, {}])
+        d = env.state[0].observation.globalRobots[f0]
+        assert d[2] == expected, f"factory should be at row {expected} after step {i + 1}, got {d[2]}"
 
 
 def test_factory_jumps_onto_enemy_unit_crushes():
