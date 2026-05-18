@@ -67,7 +67,7 @@ function getVisualizerInfo(testFile: string): VisualizerInfo | null {
     return {
       name: dirName,
       testMatch: `kaggle_environments/envs/${dirName}/visualizer/**/*.test.ts`,
-      port: 0,
+      port: 0, // Placeholder — real port assigned below after sorting, so collisions can't happen.
       packageFilter: matchingName,
     };
   }
@@ -87,7 +87,7 @@ function getVisualizerInfo(testFile: string): VisualizerInfo | null {
     return {
       name: projectName,
       testMatch: `kaggle_environments/envs/open_spiel_env/games/${gameName}/visualizer/${version}/**/*.test.ts`,
-      port: 0,
+      port: 0, // Placeholder — real port assigned below after sorting, so collisions can't happen.
       packageFilter: `@kaggle-environments/open-spiel-${kebabGameName}${versionSuffix}-visualizer`,
     };
   }
@@ -110,7 +110,7 @@ if (coreTestFiles.length > 0) {
   visualizerMap.set('core', {
     name: 'core',
     testMatch: 'web/core/e2e/**/*.test.ts',
-    port: 0,
+    port: 0, // Placeholder — real port assigned below after sorting, so collisions can't happen.
     packageFilter: '@kaggle-environments/core',
   });
 }
