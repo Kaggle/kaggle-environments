@@ -132,6 +132,41 @@ def test_space_hyphen_validation():
     assert opp_after == opp_before - 1
     assert state[0].observation.current_turn == (2 if turn == 0 else 0)
 
+
+def test_multi_game_cumulative_rewards():
+    # Configure environment with 3 games per episode
+    env = make("word_association", configuration={"games_per_episode": 3})
+    
+    # Run a full episode of multiple games using random agents
+    env.run(["random", "random", "random", "random"])
+    
+    # Assert that the episode successfully completed
+    assert env.done
+    
+    # Assert that 4 agents were present in the state list
+    assert len(env.state) == 4
+    
+    # Retrieve the blue and yellow wins from the last state's observation
+    obs = env.state[0].observation
+    blue_wins = obs.blue_wins
+    yellow_wins = obs.yellow_wins
+    
+    # Retrieve cumulative rewards for all agents
+    rewards = [agent.reward if agent.reward is not None else 0 for agent in env.state]
+    
+    # For Blue team (agents 0 and 1), their rewards should equal blue_wins
+    assert rewards[0] == blue_wins
+    assert rewards[1] == blue_wins
+    
+    # For Yellow team (agents 2 and 3), their rewards should equal yellow_wins
+    assert rewards[2] == yellow_wins
+    assert rewards[3] == yellow_wins
+    
+    # The sum of wins should equal games_per_episode (3)
+    assert blue_wins + yellow_wins == 3
+    # Sum of all 4 agent rewards should be 2 * (blue_wins + yellow_wins) = 6
+    assert sum(rewards) == 6
+
 if __name__ == "__main__":
     test_word_association_completes()
     test_random_start_counts()
@@ -140,4 +175,5 @@ if __name__ == "__main__":
     test_infinity_clues_require_one_guess()
     test_clue_validation()
     test_space_hyphen_validation()
+    test_multi_game_cumulative_rewards()
     print("All Word Association rule tests passed!")
