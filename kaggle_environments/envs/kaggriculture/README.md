@@ -15,9 +15,9 @@ Each player starts with an empty farm and a small amount of income (seed money, 
 | **Tomato** | Ongoing | 50 | 60 | 8 days | NA | every day | 4 | 1 | 4 |
 | **Strawberry** | Ongoing | 100 | 120 | 10 days | NA | every other day | 4 | 1 | 2 |
 | **Melon** | One-time | 80 | 250 | 10 days | 12 days | none | 6 | 1 | .5 |
-| **Goose/Egg** | Ongoing | 400 | 50 | 5 days | NA | every day | 2 | 1 \+ 1 (build coop) | 2 |
-| **Cow/Milk** | Ongoing | 800 | 160 | 10 days | NA | every two days | 4 | 1 \+ 1 (build pasture) | 1 |
-| **Sheep/Wool** | Ongoing | 700 | 200 | 8 days | NA | every three days | 4 | 1 \+ 1 (build pasture) | .67 |
+| **Goose/Egg** | Ongoing | 200 | 80 | 3 days | NA | every day | 4 | 1 \+ 1 (build coop) | 2 |
+| **Cow/Milk** | Ongoing | 500 | 240 | 6 days | NA | every two days | 6 | 1 \+ 1 (build pasture) | 1 |
+| **Sheep/Wool** | Ongoing | 400 | 300 | 5 days | NA | every three days | 6 | 1 \+ 1 (build pasture) | .67 |
 | **Fertilizer** | NA | 100 | X |  | X | X |  | 1 |  |
 
 All plants must be watered every day. They will turn into weeds if they are not watered for two successive days. All animals must be fed every day using wheat. They will escape and be unrecoverable if they are not fed for two successive days. Wheat is also available to buy at the market and can be purchased at the current market price.
@@ -65,7 +65,7 @@ Picks up an item from the shed (must be orthogonally adjacent) into the inventor
 
 CARE banks a yield bonus that is paid out on the animal's next scheduled production:
 
-* At end of day, if the animal was both fed AND cared for that day, `pending_care_bonus` increments by 1. Days where the animal was unfed do not bank a bonus (basic needs first).
+* At end of day, if the animal was both fed AND cared for that day, `pending_care_bonus` increments by 2. Days where the animal was unfed do not bank a bonus (basic needs first).
 * On a scheduled production day, if the animal is fed, the entire banked bonus is added to that production's yield (in addition to the base 1) and the bank resets to 0.
 * If the animal is unfed on the production day, no yield is produced that day and the bank is also reset.
 * `pending_care_bonus` is capped indirectly by the per-animal `max_held` cap on `yield_units`.
@@ -209,9 +209,9 @@ The price function is of the form
 | **Tomato** | 60 | 120 | 1.0000 | 180.0000 | \-25.6234 | 182.6717 | 180.0000 | 60.0000 | 60.0000 | 1.0000 |
 | **Strawberry** | 120 | 100 | 2.4000 | 360.0000 | \-51.6810 | 358.0000 | 360.0000 | 120.0000 | 120.0000 | 1.0000 |
 | **Melon** | 250 | 60 | 8.3333 | 750.0000 | \-108.1393 | 692.7597 | 750.0000 | 250.0000 | 250.0000 | 1.0000 |
-| **Egg** | 50 | 120 | 0.8333 | 150.0000 | \-21.2804 | 151.8799 | 150.0000 | 50.0000 | 50.0000 | 1.0000 |
-| **Milk** | 160 | 80 | 4.0000 | 480.0000 | \-69.0528 | 462.5913 | 480.0000 | 160.0000 | 160.0000 | 1.0000 |
-| **Wool** | 200 | 60 | 6.6667 | 600.0000 | \-86.4246 | 553.8521 | 600.0000 | 200.0000 | 200.0000 | 1.0000 |
+| **Egg** | 80 | 120 | 1.3333 | 240.0000 | \-34.0486 | 243.0078 | 240.0000 | 80.0000 | 80.0000 | 1.0000 |
+| **Milk** | 240 | 80 | 6.0000 | 720.0000 | \-103.5792 | 693.8870 | 720.0000 | 240.0000 | 240.0000 | 1.0000 |
+| **Wool** | 300 | 60 | 10.0000 | 900.0000 | \-129.6369 | 830.7782 | 900.0000 | 300.0000 | 300.0000 | 1.0000 |
 | **Fertilizer** | 100 | 80 | 2.5000 | 300.0000 | \-42.9952 | 288.4059 | 300.0000 | 100.0000 | 100.0000 | 1.0000 |
 
 ## Turn Processing Order

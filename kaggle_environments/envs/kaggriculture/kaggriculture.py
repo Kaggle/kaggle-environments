@@ -15,9 +15,9 @@ CROPS = {
 }
 
 ANIMALS = {
-    "GOOSE": {"cost": 400, "structure": "COOP",    "first_yield_day": 5,  "interval": 1, "max_held": 2, "product": "EGG"},
-    "COW":   {"cost": 800, "structure": "PASTURE", "first_yield_day": 10, "interval": 2, "max_held": 4, "product": "MILK"},
-    "SHEEP": {"cost": 700, "structure": "PASTURE", "first_yield_day": 8,  "interval": 3, "max_held": 4, "product": "WOOL"},
+    "GOOSE": {"cost": 200, "structure": "COOP",    "first_yield_day": 3, "interval": 1, "max_held": 4, "product": "EGG"},
+    "COW":   {"cost": 500, "structure": "PASTURE", "first_yield_day": 6, "interval": 2, "max_held": 6, "product": "MILK"},
+    "SHEEP": {"cost": 400, "structure": "PASTURE", "first_yield_day": 5, "interval": 3, "max_held": 6, "product": "WOOL"},
 }
 
 PRODUCTS = ["WHEAT", "CARROT", "TOMATO", "STRAWBERRY", "MELON", "EGG", "MILK", "WOOL", "FERTILIZER"]
@@ -31,9 +31,9 @@ MARKET_PARAMS = {
     "TOMATO":     {"base": 60,  "I0": 120, "a_ln": 1.0,     "b_ln": 180.0, "a_lg": -25.6234,  "b_lg": 182.6717},
     "STRAWBERRY": {"base": 120, "I0": 100, "a_ln": 2.4,     "b_ln": 360.0, "a_lg": -51.6810,  "b_lg": 358.0},
     "MELON":      {"base": 250, "I0": 60,  "a_ln": 8.3333,  "b_ln": 750.0, "a_lg": -108.1393, "b_lg": 692.7597},
-    "EGG":        {"base": 50,  "I0": 120, "a_ln": 0.8333,  "b_ln": 150.0, "a_lg": -21.2804,  "b_lg": 151.8799},
-    "MILK":       {"base": 160, "I0": 80,  "a_ln": 4.0,     "b_ln": 480.0, "a_lg": -69.0528,  "b_lg": 462.5913},
-    "WOOL":       {"base": 200, "I0": 60,  "a_ln": 6.6667,  "b_ln": 600.0, "a_lg": -86.4246,  "b_lg": 553.8521},
+    "EGG":        {"base": 80,  "I0": 120, "a_ln": 1.3333,  "b_ln": 240.0, "a_lg": -34.0486,  "b_lg": 243.0078},
+    "MILK":       {"base": 240, "I0": 80,  "a_ln": 6.0,     "b_ln": 720.0, "a_lg": -103.5792, "b_lg": 693.8870},
+    "WOOL":       {"base": 300, "I0": 60,  "a_ln": 10.0,    "b_ln": 900.0, "a_lg": -129.6369, "b_lg": 830.7782},
     "FERTILIZER": {"base": 100, "I0": 80,  "a_ln": 2.5,     "b_ln": 300.0, "a_lg": -42.9952,  "b_lg": 288.4059},
 }
 
@@ -738,7 +738,7 @@ def _daily_refresh_animals(farm, day):
                 tile["yield_units"] = min(a["max_held"], tile["yield_units"] + base + bonus)
                 tile["pending_care_bonus"] = 0
             if tile["cared_today"] and tile["fed_today"]:
-                tile["pending_care_bonus"] = tile.get("pending_care_bonus", 0) + 1
+                tile["pending_care_bonus"] = tile.get("pending_care_bonus", 0) + 2
             tile["fertilizer_available"] = True
             tile["fed_today"] = False
             tile["cared_today"] = False
