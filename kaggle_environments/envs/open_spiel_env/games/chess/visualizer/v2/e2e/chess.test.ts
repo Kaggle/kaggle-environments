@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Chess Visualizer (v2)', () => {
+test.describe('Chess Visualizer', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
   });
