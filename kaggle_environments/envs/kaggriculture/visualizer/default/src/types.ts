@@ -137,10 +137,18 @@ export interface PlayerRefs {
   inventory: InventorySlotRefs[];
 }
 
+export interface DialogRefs {
+  overlay: HTMLElement;
+  title: HTMLElement;
+  body: HTMLElement;
+  closeBtn: HTMLElement;
+}
+
 export interface LayoutRefs {
   dayValue: HTMLElement;
   turnValue: HTMLElement;
   marketItems: Record<string, { item: HTMLElement; price: HTMLElement }>;
   shopSlots: HTMLElement[];
   players: PlayerRefs[];
+  dialog: DialogRefs;
 }
