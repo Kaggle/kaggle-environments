@@ -2,9 +2,9 @@
 
 OpenSpiel encodes a Dots and Boxes action as an integer that selects either a
 horizontal or vertical line on a (num_rows+1) x (num_cols+1) lattice of dots.
-The proxy decodes this into ``{"orientation": "h"|"v", "row", "col"}`` and
-exposes the full line grid, owned boxes, and per-player scores so agents and
-the visualizer never have to parse OpenSpiel's box-drawing ASCII.
+The proxy replays the action history into ``h_lines`` / ``v_lines`` grids
+plus owned ``boxes`` and per-player ``scores`` so agents and the visualizer
+never have to parse OpenSpiel's box-drawing ASCII.
 """
 
 import json
@@ -13,9 +13,6 @@ from typing import Any
 import pyspiel
 
 from ... import proxy
-
-_DEFAULT_NUM_ROWS = 2
-_DEFAULT_NUM_COLS = 2
 
 
 def _player_label(player: int) -> str:
@@ -26,27 +23,20 @@ def _player_label(player: int) -> str:
     return ""
 
 
+def _decode_action(action: int, num_rows: int, num_cols: int) -> tuple[str, int, int]:
+    max_h = (num_rows + 1) * num_cols
+    if action < max_h:
+        return "h", action // num_cols, action % num_cols
+    action -= max_h
+    return "v", action // (num_cols + 1), action % (num_cols + 1)
+
+
 class DotsAndBoxesState(proxy.State):
     """Dots and Boxes state proxy returning structured JSON observations."""
 
     def _dimensions(self) -> tuple[int, int]:
         params = self.get_game().get_parameters()
-        return (
-            int(params.get("num_rows", _DEFAULT_NUM_ROWS)),
-            int(params.get("num_cols", _DEFAULT_NUM_COLS)),
-        )
-
-    def _decode_action(self, action: int, num_rows: int, num_cols: int) -> tuple[str, int, int]:
-        max_h = (num_rows + 1) * num_cols
-        if action < max_h:
-            return "h", action // num_cols, action % num_cols
-        action -= max_h
-        return "v", action // (num_cols + 1), action % (num_cols + 1)
-
-    def _encode_action(self, orientation: str, row: int, col: int, num_rows: int, num_cols: int) -> int:
-        if orientation == "h":
-            return row * num_cols + col
-        return (num_rows + 1) * num_cols + row * (num_cols + 1) + col
+        return int(params["num_rows"]), int(params["num_cols"])
 
     def _replay(self, num_rows: int, num_cols: int) -> dict[str, Any]:
         h_lines = [[0] * num_cols for _ in range(num_rows + 1)]
@@ -57,30 +47,30 @@ class DotsAndBoxesState(proxy.State):
         last_action: dict[str, Any] | None = None
 
         for action in self.history():
-            orientation, row, col = self._decode_action(action, num_rows, num_cols)
+            orientation, row, col = _decode_action(action, num_rows, num_cols)
             mark = current + 1
             won_box = False
             if orientation == "h":
                 h_lines[row][col] = mark
                 # Box above this line
-                if row > 0 and self._box_complete(h_lines, v_lines, row - 1, col, num_rows, num_cols):
+                if row > 0 and self._box_complete(h_lines, v_lines, row - 1, col):
                     boxes[row - 1][col] = mark
                     scores[current] += 1
                     won_box = True
                 # Box below this line
-                if row < num_rows and self._box_complete(h_lines, v_lines, row, col, num_rows, num_cols):
+                if row < num_rows and self._box_complete(h_lines, v_lines, row, col):
                     boxes[row][col] = mark
                     scores[current] += 1
                     won_box = True
             else:
                 v_lines[row][col] = mark
                 # Box left of this line
-                if col > 0 and self._box_complete(h_lines, v_lines, row, col - 1, num_rows, num_cols):
+                if col > 0 and self._box_complete(h_lines, v_lines, row, col - 1):
                     boxes[row][col - 1] = mark
                     scores[current] += 1
                     won_box = True
                 # Box right of this line
-                if col < num_cols and self._box_complete(h_lines, v_lines, row, col, num_rows, num_cols):
+                if col < num_cols and self._box_complete(h_lines, v_lines, row, col):
                     boxes[row][col] = mark
                     scores[current] += 1
                     won_box = True
@@ -108,10 +98,7 @@ class DotsAndBoxesState(proxy.State):
         v_lines: list[list[int]],
         row: int,
         col: int,
-        num_rows: int,
-        num_cols: int,
     ) -> bool:
-        del num_rows, num_cols
         return (
             h_lines[row][col] != 0
             and h_lines[row + 1][col] != 0
@@ -140,35 +127,15 @@ class DotsAndBoxesState(proxy.State):
             "v_lines": replayed["v_lines"],
             "boxes": replayed["boxes"],
             "scores": replayed["scores"],
-            "current_player": _player_label(self.current_player()) if not self.is_terminal() else "",
+            "current_player": _player_label(self.current_player()),
             "is_terminal": self.is_terminal(),
             "winner": winner,
             "last_action": replayed["last_action"],
+            "move_number": self.move_number(),
         }
 
     def to_json(self) -> str:
         return json.dumps(self.state_dict())
-
-    def action_to_dict(self, action: int) -> dict[str, Any]:
-        num_rows, num_cols = self._dimensions()
-        orientation, row, col = self._decode_action(action, num_rows, num_cols)
-        return {"orientation": orientation, "row": row, "col": col}
-
-    def action_to_json(self, action: int) -> str:
-        return json.dumps(self.action_to_dict(action))
-
-    def dict_to_action(self, action_dict: dict[str, Any]) -> int:
-        num_rows, num_cols = self._dimensions()
-        return self._encode_action(
-            str(action_dict["orientation"]),
-            int(action_dict["row"]),
-            int(action_dict["col"]),
-            num_rows,
-            num_cols,
-        )
-
-    def json_to_action(self, action_json: str) -> int:
-        return self.dict_to_action(json.loads(action_json))
 
     def observation_string(self, player: int) -> str:
         del player
