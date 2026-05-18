@@ -27,7 +27,7 @@ Each turn, you return a dictionary mapping robot UIDs to action strings.
 - `NORTH`, `SOUTH`, `EAST`, `WEST` — Move one cell in that direction (blocked by walls). **A unit that successfully moves off the north or south edge of the board (no wall blocking) is destroyed.** East/west are always blocked by perimeter walls.
 
 ### Factory Actions
-- `BUILD_SCOUT`, `BUILD_WORKER`, `BUILD_MINER` — Spawn a new robot in the cell **north** of the factory. Requires no wall between factory and spawn cell. 10-turn cooldown between builds. The new robot is placed *before* the movement phase, so it counts as a stationary occupant during combat — if an enemy on that cell moves away the same turn, the new robot lands safely; otherwise crush combat resolves on the spawn cell.
+- `BUILD_SCOUT`, `BUILD_WORKER`, `BUILD_MINER` — Spawn a new robot in an adjacent cell. **Defaults to spawning north** when no direction is given (legacy form). To choose a direction explicitly, append a suffix: `BUILD_SCOUT_NORTH`, `BUILD_SCOUT_SOUTH`, `BUILD_SCOUT_EAST`, `BUILD_SCOUT_WEST` (same for `WORKER` and `MINER`). Requires no wall between factory and spawn cell, and the spawn cell must be in-bounds. 10-turn cooldown between builds. The new robot is placed *before* the movement phase, so it counts as a stationary occupant during combat — if an enemy on that cell moves away the same turn, the new robot lands safely; otherwise crush combat resolves on the spawn cell.
 - `JUMP_NORTH`, `JUMP_SOUTH`, `JUMP_EAST`, `JUMP_WEST` — Leap 2 cells in a direction, ignoring all walls. The jump always happens and the cooldown is consumed. **If the landing cell is off the board, the factory is destroyed.** 20-turn cooldown.
 
 ### Worker Actions
