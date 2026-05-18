@@ -67,7 +67,7 @@ function getVisualizerInfo(testFile: string): VisualizerInfo | null {
     return {
       name: dirName,
       testMatch: `kaggle_environments/envs/${dirName}/visualizer/**/*.test.ts`,
-      port: getPortForVisualizer(dirName),
+      port: 0,
       packageFilter: matchingName,
     };
   }
@@ -87,28 +87,12 @@ function getVisualizerInfo(testFile: string): VisualizerInfo | null {
     return {
       name: projectName,
       testMatch: `kaggle_environments/envs/open_spiel_env/games/${gameName}/visualizer/${version}/**/*.test.ts`,
-      port: getPortForVisualizer(projectName),
+      port: 0,
       packageFilter: `@kaggle-environments/open-spiel-${kebabGameName}${versionSuffix}-visualizer`,
     };
   }
 
   return null;
-}
-
-// Generate a deterministic port for a visualizer based on its name
-// Uses a simple hash to ensure consistent ports across runs
-function getPortForVisualizer(name: string): number {
-  const BASE_PORT = 5173;
-  const PORT_RANGE = 100; // Ports 5173-5272
-
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    const char = name.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash;
-  }
-
-  return BASE_PORT + (Math.abs(hash) % PORT_RANGE);
 }
 
 // Deduplicate visualizers (multiple test files in same visualizer)
@@ -126,12 +110,16 @@ if (coreTestFiles.length > 0) {
   visualizerMap.set('core', {
     name: 'core',
     testMatch: 'web/core/e2e/**/*.test.ts',
-    port: getPortForVisualizer('core'),
+    port: 0,
     packageFilter: '@kaggle-environments/core',
   });
 }
 
-const visualizers = Array.from(visualizerMap.values());
+// Sort before assigning ports so each name gets a stable port regardless of glob order.
+const visualizers = Array.from(visualizerMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+visualizers.forEach((viz, i) => {
+  viz.port = 5173 + i;
+});
 
 const projects = visualizers.map((viz) => ({
   name: viz.name,
