@@ -14,11 +14,13 @@ html, body {
 
 /* EpisodePlayer wrapper (.player) and its inline-controls strip use MUI's
    dark `paper` color by default. Repaint them as parchment so the page
-   matches the renderer's sketched-paper feel. */
+   matches the renderer's sketched-paper feel. The deepest selector targets
+   the PlaybackControls root, which sets a dark backgroundColor inline. */
 .player,
 .player > div,
 .player > div > div:last-child,
-.player > div > div:last-child > div {
+.player > div > div:last-child > div,
+.player > div > div:last-child > div > div {
   background-color: #f5f1e2 !important;
 }
 
@@ -32,6 +34,34 @@ html, body {
   color: #050001 !important;
 }
 
+/* PlaybackControls renders the seed badge as a <button> with a dark inline
+   background and border. Repaint it to match the parchment select styling. */
+.player > div > div:last-child > div > div > button[aria-label^="Episode seed"] {
+  background-color: #f1f1f1 !important;
+  border: 1px dashed #3c3b37 !important;
+}
+
+/* PlaybackControls' step counter is a <span> with hardcoded white inline
+   color. Force it dark so it remains readable on parchment. */
+.player > div > div:last-child > div > div > span {
+  color: #050001 !important;
+}
+
+/* The core player wraps the renderer in `.viewer` (no min-height: 0) and
+   injects `box-sizing: content-box` for everything under
+   `.game-renderer-isolation`. Without these overrides the padding on
+   `.renderer-container` overflows its parent and pushes the inline controls
+   off the bottom of the viewport. */
+.player .viewer {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.game-renderer-isolation .renderer-container,
+.game-renderer-isolation .renderer-container * {
+  box-sizing: border-box;
+}
+
 .renderer-container {
   display: flex;
   flex-direction: column;
@@ -42,7 +72,6 @@ html, body {
   background-color: #f5f1e2;
   overflow: hidden;
   font-family: 'Inter', sans-serif;
-  box-sizing: border-box;
   padding: 12px;
   color: #050001;
   container-type: inline-size;

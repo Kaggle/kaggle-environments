@@ -1,0 +1,542 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+
+html, body, #app {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+.sketched-border {
+  border: 1px dashed #3c3b37;
+}
+
+.kaggriculture-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  box-sizing: border-box;
+  gap: 12px;
+  justify-content: safe center;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background-color: #aacf8a;
+  background-repeat: repeat;
+  background-size: 80px 80px;
+  color: #050001;
+  font-family: 'Inter', sans-serif;
+}
+
+/* Force black text everywhere inside the visualizer, overriding any
+   inherited color from the MUI theme that wraps us. */
+.kaggriculture-container,
+.kaggriculture-container * {
+  color: #050001;
+}
+
+/* ---- Main 3-column layout ---- */
+.kaggriculture-main {
+  display: grid;
+  grid-template-columns: minmax(280px, 1.4fr) minmax(260px, 1fr) minmax(280px, 1.4fr);
+  gap: 16px;
+  align-items: start;
+}
+
+/* Hide mobile-only header buttons on desktop. */
+.header-toggle {
+  display: none;
+}
+
+/* Dialog overlay is mobile/tablet-only; never shown on desktop. */
+.simple-dialog {
+  display: none;
+}
+
+/* ---- Farm panel ---- */
+.farm-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.farm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: #e8d2a6;
+  background-repeat: repeat;
+  background-size: 120px 80px;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.farm-header-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.player-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.player-name-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.player-balance {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.balance-icon {
+  width: 24px;
+  height: 24px;
+  display: inline-block;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+/* ---- Farm grid ---- */
+.farm-area {
+  background-color: #efe7ce;
+  padding: 6px;
+  border: 1px dashed #3c3b37;
+}
+
+.farm-grid {
+  position: relative;
+  display: grid;
+  gap: 1px;
+  aspect-ratio: 1;
+  width: 100%;
+}
+
+.shed-overlay {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 12%;
+  height: 12%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.shed-sprite {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.cell {
+  position: relative;
+  aspect-ratio: 1;
+  background-color: #f7efd8;
+  outline: 1px solid rgba(60, 59, 55, 0.15);
+}
+
+/* Land segment dividers (5x5 chunks) */
+.cell[data-col="5"] { border-left: 1px dashed #3c3b37; }
+.cell[data-row="5"] { border-top: 1px dashed #3c3b37; }
+
+.cell-base,
+.cell-overlay,
+.cell-object,
+.cell-agent {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Re-enable hover only on the sprite <img>s themselves, not the layer divs
+   (which cover the whole cell and would otherwise swallow hover events for
+   sprites in lower layers). */
+.cell-object .cell-sprite,
+.cell-agent .cell-sprite {
+  pointer-events: auto;
+}
+
+.cell-base    { z-index: 1; }
+.cell-overlay { z-index: 2; }
+.cell-object  { z-index: 3; }
+.cell-agent   { z-index: 4; }
+
+.cell-sprite {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  image-rendering: pixelated;
+}
+
+.cell-animal {
+  inset: auto;
+  width: 65%;
+  height: 65%;
+  bottom: 5%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.cell-agent-sprite {
+  inset: auto;
+  width: 80%;
+  height: 80%;
+  bottom: 5%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* ---- Shed / inventory ---- */
+.shed-area {
+  background-color: #e8d2a6;
+  background-repeat: repeat;
+  background-size: 120px 80px;
+  padding: 8px 10px;
+  box-sizing: border-box;
+}
+
+.shed-header {
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 6px;
+}
+
+.inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 4px;
+}
+
+.inventory-slot {
+  position: relative;
+  aspect-ratio: 1;
+  background-color: #c9a978;
+  border: 1px dashed #8b6f44;
+}
+
+.item-icon {
+  position: absolute;
+  inset: 2px;
+}
+
+.item-icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.item-count {
+  position: absolute;
+  right: 1px;
+  bottom: 0;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #050001;
+}
+
+/* ---- Town panel ---- */
+.town-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.town-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  background-color: #e8d2a6;
+  background-repeat: repeat;
+  background-size: 120px 80px;
+  font-weight: 700;
+}
+
+.town-title {
+  text-align: center;
+}
+
+.town-subheader {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}
+
+.town-grid {
+  display: grid;
+  gap: 0;
+  width: 80%;
+  margin-top: auto;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.town-slot {
+  position: relative;
+  aspect-ratio: 1;
+}
+
+.town-slot--shop,
+.town-slot--center {
+  background-size: 100% 100%;
+  image-rendering: pixelated;
+}
+
+.town-slot--center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.town-sprite {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  image-rendering: pixelated;
+}
+
+/* ---- Market ---- */
+.market-panel {
+  background-color: #e8d2a6;
+  background-repeat: repeat;
+  background-size: 120px 80px;
+  padding: 8px 10px;
+  box-sizing: border-box;
+}
+
+.market-header {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.market-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  font-size: 0.95rem;
+  color: #050001;
+}
+
+.market-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.market-item-icon {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
+.market-price-row {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.market-price {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.market-coin {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+/* Breakpoints mirror MUI theme aliases in web/core/src/theme.ts:
+   `tablet` = 840px (MUI `down()` subtracts 0.05px).
+   Below 840px we switch to a single-screen layout: a compact title bar plus
+   the two farms; shed/market/town are hidden and surfaced via header
+   buttons that open the .simple-dialog overlay. This block lives at the end
+   of the file so its rules override the unscoped base rules above (e.g.
+   `.farm-panel { display: flex }`, `.town-grid { display: grid }`). */
+@media (max-width: 839.95px) {
+  .kaggriculture-container {
+    height: 100%;
+    padding: 8px;
+    gap: 6px;
+    overflow: hidden;
+    /* keep default `safe center` so the main is centered vertically when
+       its content (capped farms + headers) is shorter than the container */
+  }
+
+  .kaggriculture-main {
+    /* size to content so farm rows hug the 34vh-capped grid; leftover space
+       stays as flex padding above/below via the container's safe-center */
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(5, auto);
+    grid-template-areas:
+      "title-bar"
+      "p1-header"
+      "p1-field"
+      "p2-field"
+      "p2-header";
+    gap: 6px;
+    align-items: stretch;
+  }
+
+  .farm-panel,
+  .town-panel {
+    display: contents;
+  }
+
+  /* Hide everything that's now dialog-only by default. */
+  .shed-area,
+  .market-panel,
+  .town-grid {
+    display: none;
+  }
+
+  .town-panel .town-header { grid-area: title-bar; }
+  .farm-panel[data-player="1"] .farm-header { grid-area: p1-header; }
+  .farm-panel[data-player="1"] .farm-area   { grid-area: p1-field; }
+  .farm-panel[data-player="2"] .farm-header { grid-area: p2-header; }
+  .farm-panel[data-player="2"] .farm-area   { grid-area: p2-field; }
+
+  .town-header {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px 10px;
+    padding: 6px 10px;
+    font-size: 0.9rem;
+  }
+  .town-title {
+    text-align: left;
+  }
+  .town-subheader {
+    gap: 10px;
+    font-size: 0.85rem;
+  }
+  .town-header-toggles {
+    display: flex;
+    gap: 6px;
+  }
+
+  .farm-header {
+    padding: 4px 8px;
+    font-size: 0.95rem;
+    gap: 6px;
+  }
+
+  .header-toggle {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border: 1px dashed #3c3b37;
+    background: #efe7ce;
+    color: #050001;
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .header-toggle:active {
+    background: #d8c89f;
+  }
+
+  /* Border + background hug the square farm grid only, not the full row
+     width. The .farm-area row just centers the square. */
+  .farm-area {
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    background: transparent;
+    border: none;
+  }
+  .farm-grid {
+    width: min(100%, 34vh);
+    aspect-ratio: 1;
+    background-color: #efe7ce;
+    border: 1px dashed #3c3b37;
+    padding: 4px;
+    box-sizing: border-box;
+  }
+
+  /* Show + position the dialog overlay when the JS controller un-hides it. */
+  .simple-dialog:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    inset: 8px;
+    z-index: 20;
+    background: #efe7ce;
+    border: 1px dashed #3c3b37;
+    padding: 8px;
+    overflow: hidden;
+    box-sizing: border-box;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  }
+  .simple-dialog-titlebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 6px 8px;
+    font-weight: 700;
+  }
+  .simple-dialog-close {
+    appearance: none;
+    border: none;
+    background: transparent;
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+    color: #050001;
+    padding: 0 4px;
+  }
+  .simple-dialog-body {
+    flex: 1 1 auto;
+    overflow: auto;
+    min-height: 0;
+  }
+  /* Inside the dialog body, panels become block-level and reset hidden. */
+  .simple-dialog-body .shed-area,
+  .simple-dialog-body .market-panel {
+    display: block;
+  }
+    .simple-dialog-body .shed-area,
+  .simple-dialog-body {
+    width: 100%;
+  }
+  .simple-dialog-body .town-grid {
+    display: grid;
+    width: 80%;
+    margin: 0 auto;
+  }
+}
+

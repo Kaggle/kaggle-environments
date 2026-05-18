@@ -14,11 +14,20 @@ export const wordAssociationTransformer = (environment: ReplayData, _gameName: s
     const currentTurnVal = prevTurnData ? prevTurnData[0]?.observation?.current_turn : -1;
 
     const players = stepAgents.map((agent: any, idx: number) => {
-      const action = agent.action;
+      const rawAction = agent.action;
+
+      // core_harness wraps actions as {submission, thoughts, status}.
+      // Unwrap to get the actual game action and thoughts.
+      const isCoreHarness = typeof rawAction === 'object' && rawAction !== null && 'submission' in rawAction;
+      const action = isCoreHarness ? rawAction.submission : rawAction;
 
       let thoughts = '';
       let actionDisplayText = '';
       let isTurn = currentTurnVal === idx;
+
+      if (isCoreHarness && rawAction.thoughts) {
+        thoughts = rawAction.thoughts;
+      }
 
       if (typeof action === 'object' && action !== null) {
         if ('thinking' in action) {

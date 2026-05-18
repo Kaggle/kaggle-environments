@@ -74,6 +74,19 @@ function parseObservation(step: any, playerIdx: number): GinRummyObservation | n
   }
 }
 
+function findInitialUpcard(steps: GinRummyStep[]): string | null {
+  // In Oklahoma the initial upcard is the knock card; its rank-value sets the
+  // deadwood limit. Look only at the FirstUpcard phase since the upcard slot
+  // can be empty once play continues.
+  for (const s of steps) {
+    const obs = mergedObservation(s.rawStep);
+    if (!obs) continue;
+    if (obs.phase === 'FirstUpcard') return obs.upcard;
+    return obs.upcard ?? null;
+  }
+  return null;
+}
+
 function mergedObservation(step: any): GinRummyObservation | null {
   // Player 0's observation has player 0's hand visible; player 1's observation
   // has player 1's hand visible. Merge so the spectator view shows both.
@@ -292,8 +305,30 @@ export function renderer(options: RendererOptions<GinRummyStep[]>) {
     highlightCardP1
   );
 
-  // Center: stock | discard | (recent action info)
+  // Center: [knock card] | stock | discard | (recent action info)
   centerRow.innerHTML = '';
+
+  // Knock card (Oklahoma rules only): the initial upcard determines the
+  // deadwood limit for knocking, so surface it persistently in the table.
+  const oklahoma = !!replay?.configuration?.openSpielGameParameters?.oklahoma;
+  if (oklahoma) {
+    const knockCardPile = document.createElement('div');
+    knockCardPile.className = 'pile';
+    const initialUpcard = findInitialUpcard(steps);
+    if (initialUpcard) {
+      knockCardPile.appendChild(buildCard(initialUpcard));
+    } else {
+      const empty = document.createElement('div');
+      empty.className = 'pile-empty';
+      empty.textContent = '?';
+      knockCardPile.appendChild(empty);
+    }
+    const lbl = document.createElement('div');
+    const limit = observation.knock_card;
+    lbl.textContent = limit !== null ? `Knock Card (≤${limit})` : 'Knock Card';
+    knockCardPile.appendChild(lbl);
+    centerRow.appendChild(knockCardPile);
+  }
 
   // Stock pile (face-down stack)
   const stockPile = document.createElement('div');

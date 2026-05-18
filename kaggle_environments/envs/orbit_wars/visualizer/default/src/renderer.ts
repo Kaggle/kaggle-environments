@@ -6,8 +6,8 @@ const BOARD_SIZE = 100;
 const CENTER = 50;
 const SUN_RADIUS = 10;
 
-// Wong palette — colorblind-safe (blue, orange, teal, yellow)
-const PLAYER_COLORS = ['#0072B2', '#E69F00', '#009E73', '#F0E442'];
+// Wong palette — colorblind-safe (blue, vermillion, teal, yellow)
+const PLAYER_COLORS = ['#0072B2', '#D55E00', '#009E73', '#F0E442'];
 const NEUTRAL_COLOR = '#666666';
 
 // Text size presets: [planetFont, deltaFont, fleetFont, stepFont]
