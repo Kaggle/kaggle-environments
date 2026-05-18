@@ -14,41 +14,19 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult, create_agent_fn
+from kaggle_environments.core_harness import (
+    BASIC_PROMPT_TEMPLATE,
+    BASIC_RETHINK_ILLEGAL,
+    BASIC_RETHINK_UNPARSABLE,
+    ParseResult,
+    create_agent_fn,
+)
 
 # ---------------------------------------------------------------------------
 # Player mapping (matches OpenSpiel chess convention)
 # ---------------------------------------------------------------------------
 
 _PLAYER_MAP = {0: "Black", 1: "White"}
-
-# ---------------------------------------------------------------------------
-# Prompt templates — exact replicas from GameArena prompt_templates.py
-# ---------------------------------------------------------------------------
-
-# GameArena's NO_LEGAL_ACTIONS template, with {rethink_prompt} appended.
-_PROMPT_TEMPLATE = """\
-Let's play {game_short_name}. The current game state in {notation} is:
-{readable_state_str}
-The moves played so far are:
-{move_history}
-You are playing as player {player_name}.
-It is now your turn. Play your strongest move. The move MUST be legal. Reason step by step to come up with your move, then output your final answer in the format "Final Answer: X" where X is your chosen move in {move_notation}.
-{rethink_prompt}"""
-
-# GameArena's RETHINK_WITH_ENV_UNPARSABLE
-_RETHINK_UNPARSABLE = """\
-Your previously suggested move was not parsable.
-Please think carefully and generate a new and legal move. Your previous response was:
-{generation}
-"""
-
-# GameArena's RETHINK_WITH_ENV_ILLEGAL
-_RETHINK_ILLEGAL = """\
-Your previously suggested move was: {last_move}, which is an illegal move.
-Please think carefully and generate a new and legal move.
-"""
-
 
 # ---------------------------------------------------------------------------
 # PGN movetext builder (replaces GameArena's get_pgn + format_chess_movetext)
@@ -268,18 +246,18 @@ def generate_prompt(
     if previous_response is not None:
         if previous_action is None:
             # Unparseable response
-            rethink_prompt = _RETHINK_UNPARSABLE.format(
+            rethink_prompt = BASIC_RETHINK_UNPARSABLE.format(
                 generation=previous_response,
             )
         else:
             # Parsed but illegal move
-            rethink_prompt = _RETHINK_ILLEGAL.format(
+            rethink_prompt = BASIC_RETHINK_ILLEGAL.format(
                 last_move=previous_action,
             )
     else:
         rethink_prompt = ""
 
-    return _PROMPT_TEMPLATE.format(
+    return BASIC_PROMPT_TEMPLATE.format(
         game_short_name="chess",
         notation="Forsyth-Edwards Notation (FEN) notation",
         readable_state_str=fen,
