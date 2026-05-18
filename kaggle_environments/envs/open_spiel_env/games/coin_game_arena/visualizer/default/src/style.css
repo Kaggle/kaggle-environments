@@ -1,0 +1,178 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.renderer-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background-color: #f5f1e2;
+  overflow: hidden;
+  font-family: "Inter", sans-serif;
+  color: #050001;
+  container-type: inline-size;
+  box-sizing: border-box;
+  padding: 12px;
+}
+
+.sketched-border {
+  border: 1px dashed #3c3b37;
+}
+
+.header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+  padding: 8px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.team-block {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background-color: white;
+}
+
+.team-block .team-label {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.team-block .seats {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.team-block .seat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  padding: 2px 6px;
+  background: #f5f1e2;
+  border: 1px dashed #3c3b37;
+  white-space: nowrap;
+}
+
+.team-block .seat.active {
+  background: #bdeeff;
+}
+
+.team-block .seat .pref {
+  color: #444343;
+  font-weight: 500;
+}
+
+.header .vs {
+  color: #444343;
+  font-weight: 500;
+  font-size: 1.2rem;
+}
+
+.boards-row {
+  display: flex;
+  flex: 1 1 0;
+  align-items: stretch;
+  justify-content: center;
+  width: 100%;
+  min-height: 0;
+  gap: 16px;
+  padding: 8px 0;
+  overflow: hidden;
+}
+
+.board-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  gap: 6px;
+}
+
+.board-column .team-banner {
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 3px 10px;
+  background: white;
+}
+
+.board-column .board-canvas-wrap {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 0;
+}
+
+.board-column canvas {
+  display: block;
+  background: transparent;
+}
+
+.board-column .board-score {
+  display: flex;
+  gap: 8px;
+  font-size: 0.78rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.board-column .board-score .row {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: white;
+  border: 1px dashed #3c3b37;
+}
+
+.board-column .board-score .swatch {
+  width: 11px;
+  height: 11px;
+  display: inline-block;
+  border: 1px solid #3c3b37;
+}
+
+.status-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 5px 16px;
+  background-color: white;
+  font-size: 0.9rem;
+  font-weight: 600;
+  min-height: 18px;
+  min-width: 240px;
+  margin: 8px 0 4px;
+  flex-shrink: 0;
+  text-align: center;
+  flex-wrap: wrap;
+}
+
+.status-container .annotation {
+  font-family: "Mynerve", cursive;
+  font-weight: 400;
+  color: #444343;
+}
