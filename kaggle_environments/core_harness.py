@@ -600,6 +600,33 @@ def create_agent_fn(
         )
         if last_exception is not None:
             raise last_exception
+
+        illegal_move_forfeit = (
+            bool(config.get("illegalMoveForfeit", True)) if config else True
+        )
+        if illegal_move_forfeit:
+            # Mimic game_arena: submit pyspiel.INVALID_ACTION (-1) so the env
+            # marks this player INVALID and forfeits them, rather than
+            # raising and voiding the whole episode.
+            _TELEMETRY(illegal_move_forfeit=True)
+            action = {
+                "submission": -1,
+                "actionString": previous_action,
+                "thoughts": last_content,
+                "status": (
+                    f"Failed to parse a legal move after {max_retries}"
+                    " attempts; forfeiting."
+                ),
+                "call_details": [
+                    _build_call_detail(r, save_prompt) for r in call_records
+                ],
+            }
+            if include_generate_returns:
+                action["generate_returns"] = [
+                    json.dumps(_build_generate_return(r)) for r in call_records
+                ]
+            return action
+
         raise ValueError(
             f"Failed to parse a legal move after {max_retries} attempts. "
             f"Last response: {last_content[:200]}"
