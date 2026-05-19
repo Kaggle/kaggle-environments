@@ -98,8 +98,7 @@ class GeneratePromptTest(absltest.TestCase):
         prompt = generate_prompt(obs, [])
         self.assertIn("Dots and Boxes", prompt)
         self.assertIn("Player 1", prompt)
-        # Default 2x2 board: at least one shorthand move should appear.
-        self.assertIn("h 0 0", prompt)
+        self.assertIn("Action notation", prompt)
 
     def test_player_label_swap(self):
         self.state.apply_action(self.state.legal_actions()[0])
@@ -214,11 +213,43 @@ class _DotsAndBoxesHarness:
         return parse_response(response, legal_action_strings)
 
 
-def _make_mock_response(content: str) -> MagicMock:
-    resp = MagicMock()
-    resp.usage = MagicMock(prompt_tokens=10, completion_tokens=20)
-    resp.choices = [MagicMock(message=MagicMock(content=content), finish_reason="stop")]
-    return resp
+class _StreamDelta:
+    def __init__(self, content):
+        self.content = content
+
+
+class _StreamChoice:
+    def __init__(self, content, finish_reason=None):
+        self.delta = _StreamDelta(content)
+        self.finish_reason = finish_reason
+
+
+class _StreamChunk:
+    def __init__(self, choices, usage=None):
+        self.choices = choices
+        self.usage = usage
+
+
+def _make_mock_response(content: str):
+    """Build a streaming-style mock LLM response (a re-iterable chunk list)."""
+    usage = MagicMock(
+        prompt_tokens=10,
+        completion_tokens=20,
+        total_tokens=30,
+        completion_tokens_details=None,
+    )
+    return [
+        _StreamChunk([_StreamChoice(content)]),
+        _StreamChunk([_StreamChoice("", finish_reason="stop")]),
+        _StreamChunk([], usage=usage),
+    ]
+
+
+def _shorthand(action_string: str) -> str:
+    """Convert OpenSpiel ``P1(h,0,1)`` to the documented ``h 0 1`` shorthand."""
+    inner = action_string.split("(", 1)[1].rstrip(")")
+    orient, r, c = inner.split(",")
+    return f"{orient} {int(r)} {int(c)}"
 
 
 _ENV = {
@@ -250,7 +281,9 @@ class AgentIntegrationTest(absltest.TestCase):
         game = dots_and_boxes_proxy.DotsAndBoxesGame()
         state = game.new_initial_state()
         first_legal = state.action_to_string(0, state.legal_actions()[0])
-        mock_litellm.completion.return_value = _make_mock_response(f'```json\n{{"move": "{first_legal}"}}\n```')
+        mock_litellm.completion.return_value = _make_mock_response(
+            f'```json\n{{"move": "{_shorthand(first_legal)}"}}\n```'
+        )
         agent = create_agent_fn(_DotsAndBoxesHarness())
 
         obs = _make_observation(state, game, player_id=0)
@@ -269,7 +302,7 @@ class AgentIntegrationTest(absltest.TestCase):
         first_legal = state.action_to_string(0, state.legal_actions()[0])
         mock_litellm.completion.side_effect = [
             _make_mock_response('```json\n{"move": "h 9 9"}\n```'),
-            _make_mock_response(f'```json\n{{"move": "{first_legal}"}}\n```'),
+            _make_mock_response(f'```json\n{{"move": "{_shorthand(first_legal)}"}}\n```'),
         ]
         agent = create_agent_fn(_DotsAndBoxesHarness())
 
@@ -311,7 +344,7 @@ class AgentIntegrationTest(absltest.TestCase):
             content = messages[0]["content"]
             player_id = 0 if "You are Player 1" in content else 1
             first = state.action_to_string(player_id, state.legal_actions()[0])
-            return _make_mock_response(f'```json\n{{"move": "{first}"}}\n```')
+            return _make_mock_response(f'```json\n{{"move": "{_shorthand(first)}"}}\n```')
 
         mock_litellm.completion.side_effect = fake_completion
         agent_p0 = create_agent_fn(_DotsAndBoxesHarness())
