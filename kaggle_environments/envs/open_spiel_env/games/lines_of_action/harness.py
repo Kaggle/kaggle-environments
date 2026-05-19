@@ -44,15 +44,24 @@ neighbours count as connected). If your move connects both your pieces and
 your opponent's pieces simultaneously, your opponent wins. There are no
 draws under normal play.
 
-The current game state is:
-{state_str}
-The moves played so far are:
-{move_history}
+Board (rank labels on the left, file labels on top; '.' = empty,
+'x' = Black, 'o' = White):
+{board_ascii}
+
+Move number: {move_number}
+Last move played: {last_move}
+Moves played so far: {move_history}
+
 You are playing as {player_name} ({player_code}).
 It is now your turn. Play your strongest move.
 The move MUST be legal.
-Your response should include the reasoning that led you to your move, and
-conclude with your final move as a JSON formatted as follows:
+
+Action notation: ``<from><sep><to>`` -- e.g. ``b1-h1`` (slide b1 to h1)
+or ``c3xa3`` (capture moving from c3 onto an opponent piece at a3). Use
+'-' for a normal move and 'x' for a capture. Files are lowercase a-h;
+ranks are 1-8.
+
+Respond with your reasoning followed by your final move in a JSON block:
 
 ```json
 {{
@@ -60,14 +69,8 @@ conclude with your final move as a JSON formatted as follows:
 }}
 ```
 
-Where move uses the notation "<from><sep><to>" -- for example "b1-h1" for
-a non-capturing move from b1 to h1, or "c3xa3" for a capture moving from
-c3 onto an opponent piece at a3. Use '-' for a normal move and 'x' for a
-capture. Files are lowercase a-h; ranks are 1-8.
-
-Failure to output your final answer in the specified format will result in
-a loss.
-Begin!
+Failure to output your final answer in the specified format, or selecting
+an illegal move, will result in a loss.
 """
 
 
@@ -82,6 +85,41 @@ Reconsider and play a legal move.
 
 
 # --- Helpers ----------------------------------------------------------------
+
+
+def _parse_observation_payload(observation: Mapping[str, Any]) -> dict[str, Any]:
+    """Pull the structured LoA state dict out of the observation."""
+    raw = observation.get("observationString", "") or ""
+    if raw:
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+    serialized = observation.get("serializedGameAndState", "")
+    if serialized:
+        _, state = pyspiel.deserialize_game_and_state(serialized)
+        try:
+            return json.loads(state.observation_string(0))
+        except (json.JSONDecodeError, RuntimeError):
+            pass
+    return {}
+
+
+def _format_board_ascii(board: Sequence[Sequence[str]]) -> str:
+    """Render the 8x8 board with rank labels on the left and files on top.
+
+    ``board[0]`` is rank 1 (bottom row); ``board[7]`` is rank 8 (top). We
+    print ranks top-down so the visual board matches standard orientation.
+    """
+    if not board:
+        return "(unavailable)"
+    file_header = "  " + " ".join(chr(ord("a") + c) for c in range(len(board[0])))
+    lines = [file_header]
+    for r in range(len(board) - 1, -1, -1):
+        lines.append(f"{r + 1} " + " ".join(board[r]))
+    return "\n".join(lines)
 
 
 def _normalize(move: str) -> str:
@@ -164,15 +202,21 @@ def generate_prompt(
     previous_action: str | None = None,
 ) -> str:
     """Build the LLM prompt for the current game state."""
-    obs_string = observation.get("observationString", "")
+    state = _parse_observation_payload(observation)
     player_id = observation.get("playerId", 0)
     player_name = "Black" if player_id == 0 else "White"
     player_code = "X" if player_id == 0 else "O"
 
+    board = state.get("board") or []
+    move_number = state.get("move_number", len(move_history))
+    last_move = state.get("last_move") or "(none yet)"
+
     move_history_str = " ".join(move_history) if move_history else "None"
 
     prompt = LOA_PROMPT_TEMPLATE.format(
-        state_str=obs_string,
+        board_ascii=_format_board_ascii(board),
+        move_number=move_number,
+        last_move=last_move,
         move_history=move_history_str,
         player_name=player_name,
         player_code=player_code,
