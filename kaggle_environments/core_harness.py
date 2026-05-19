@@ -600,6 +600,38 @@ def create_agent_fn(
         )
         if last_exception is not None:
             raise last_exception
+
+        # Fallback is False: -1 as a forfeit signal is an OpenSpiel
+        # convention (pyspiel.INVALID_ACTION), and the open_spiel_env spec
+        # opts in by declaring `illegalMoveForfeit` with default True. Any
+        # other environment can support the parameter by adding it to its
+        # own spec and treating submission=-1 as an invalid action.
+        illegal_move_forfeit = (
+            bool(config.get("illegalMoveForfeit", False)) if config else False
+        )
+        if illegal_move_forfeit:
+            # Mimic game_arena: submit pyspiel.INVALID_ACTION (-1) so the env
+            # marks this player INVALID and forfeits them, rather than
+            # raising and voiding the whole episode.
+            _TELEMETRY(illegal_move_forfeit=True)
+            action = {
+                "submission": -1,
+                "actionString": previous_action,
+                "thoughts": last_content,
+                "status": (
+                    f"Failed to parse a legal move after {max_retries}"
+                    " attempts; forfeiting."
+                ),
+                "call_details": [
+                    _build_call_detail(r, save_prompt) for r in call_records
+                ],
+            }
+            if include_generate_returns:
+                action["generate_returns"] = [
+                    json.dumps(_build_generate_return(r)) for r in call_records
+                ]
+            return action
+
         raise ValueError(
             f"Failed to parse a legal move after {max_retries} attempts. "
             f"Last response: {last_content[:200]}"

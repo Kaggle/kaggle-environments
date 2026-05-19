@@ -151,7 +151,25 @@ class CoreHarnessTest(absltest.TestCase):
         # Second prompt should reflect rethink context.
         self.assertIn("prev=garbage", harness.prompts[1])
 
-    def test_all_attempts_fail_raises(self):
+    def test_all_attempts_fail_forfeits_when_opted_in(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=2)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            side_effect=lambda *a, **kw: _fake_completion("nope"),
+        ):
+            result = agent({}, {"illegalMoveForfeit": True})
+
+        self.assertEqual(result["submission"], -1)
+        self.assertEqual(result["actionString"], "nope")
+        self.assertIn("forfeiting", result["status"])
+        self.assertTrue(
+            any("illegal_move_forfeit" in e for e in self.events),
+            "expected illegal_move_forfeit telemetry event",
+        )
+
+    def test_all_attempts_fail_raises_by_default(self):
         harness = _SimpleHarness()
         agent = create_agent_fn(harness, max_retries=2)
         with patch.dict("os.environ", _ENV, clear=False), patch.object(
@@ -161,6 +179,17 @@ class CoreHarnessTest(absltest.TestCase):
         ):
             with self.assertRaisesRegex(ValueError, "Failed to parse"):
                 agent({}, {})
+
+    def test_all_attempts_fail_raises_when_forfeit_explicitly_disabled(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=2)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            side_effect=lambda *a, **kw: _fake_completion("nope"),
+        ):
+            with self.assertRaisesRegex(ValueError, "Failed to parse"):
+                agent({}, {"illegalMoveForfeit": False})
 
     def test_no_legal_moves_raises(self):
         harness = _SimpleHarness(num_actions=0)
@@ -461,14 +490,30 @@ class CoreHarnessTest(absltest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "second failure"):
                 agent({}, {})
 
-    def test_exception_then_parse_failure_raises_value_error(self):
-        """If the last attempt was a parse failure (not an exception), raise the
-        usual 'Failed to parse' ValueError — last_exception should not leak through."""
+    def test_exception_then_parse_failure_forfeits_when_opted_in(self):
+        """If the last attempt was a parse failure (not an exception), the
+        forfeit path applies — last_exception should not leak through."""
         harness = _SimpleHarness()
         agent = create_agent_fn(harness, max_retries=2)
         side_effects = [
             RuntimeError("first attempt blew up"),
             _fake_completion("garbage"),  # parses to None → parse failure
+        ]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=side_effects,
+        ):
+            result = agent({}, {"illegalMoveForfeit": True})
+
+        self.assertEqual(result["submission"], -1)
+        self.assertEqual(result["actionString"], "garbage")
+        self.assertIn("forfeiting", result["status"])
+
+    def test_exception_then_parse_failure_raises_by_default(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=2)
+        side_effects = [
+            RuntimeError("first attempt blew up"),
+            _fake_completion("garbage"),
         ]
         with patch.dict("os.environ", _ENV, clear=False), patch.object(
             core_harness.litellm, "completion", side_effect=side_effects,
@@ -594,7 +639,20 @@ class FreeFormHarnessTest(absltest.TestCase):
         self.assertEqual(mock_call.call_count, 2)
         self.assertIn("prev=not json", harness.prompts[1])
 
-    def test_free_form_all_attempts_fail_raises(self):
+    def test_free_form_all_attempts_fail_forfeits_when_opted_in(self):
+        harness = _FreeFormHarness()
+        agent = create_agent_fn(harness, max_retries=2)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            side_effect=lambda *a, **kw: _fake_completion("garbage"),
+        ):
+            result = agent({}, {"freeForm": True, "illegalMoveForfeit": True})
+
+        self.assertEqual(result["submission"], -1)
+        self.assertIn("forfeiting", result["status"])
+
+    def test_free_form_all_attempts_fail_raises_by_default(self):
         harness = _FreeFormHarness()
         agent = create_agent_fn(harness, max_retries=2)
         with patch.dict("os.environ", _ENV, clear=False), patch.object(
