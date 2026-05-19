@@ -97,6 +97,22 @@ function GameRenderer({ replay, step }: GameRendererProps) {
     return m;
   }, [sowing]);
 
+  // Capture: when the last seed lands in an empty pit on the mover's own side,
+  // that seed plus all stones in the opposite pit are scooped into the mover's store.
+  // Detect by looking at prev/current board state at the opposite pit.
+  const capturedPit = useMemo(() => {
+    if (!sowing || !prevState) return null;
+    const player = typeof prevState.current_player === 'number' ? (prevState.current_player as 0 | 1) : null;
+    if (player !== 0 && player !== 1) return null;
+    const dest = sowing.lastDest;
+    const ownSide = player === 0 ? dest >= 1 && dest <= 6 : dest >= 8 && dest <= 13;
+    if (!ownSide) return null;
+    const opposite = 14 - dest;
+    const tookOpposite = (prevState.board[opposite] ?? 0) > 0 && (state.board[opposite] ?? 0) === 0;
+    const destEmptied = (state.board[dest] ?? 0) === 0;
+    return tookOpposite && destEmptied ? opposite : null;
+  }, [sowing, prevState, state]);
+
   function pitProps(idx: number) {
     const step = pathStep.get(idx);
     return {
@@ -104,11 +120,17 @@ function GameRenderer({ replay, step }: GameRendererProps) {
       pathStep: step,
       pathTotal: sowing?.total,
       isLastDest: sowing?.lastDest === idx,
+      isCaptured: capturedPit === idx,
     };
   }
 
   const player0Score = state.scores[0];
   const player1Score = state.scores[1];
+
+  function outcome(player: 0 | 1): 'winner' | 'loser' | undefined {
+    if (!state!.is_terminal || state!.winner === 'draw' || state!.winner === null) return undefined;
+    return state!.winner === player ? 'winner' : 'loser';
+  }
 
   return (
     <div className="mancala-root" style={{ backgroundImage: `url(${backdropImg})` }}>
@@ -119,7 +141,7 @@ function GameRenderer({ replay, step }: GameRendererProps) {
           spriteUrl={gooseSprite(0, state)}
           active={state.current_player === 0 && !state.is_terminal}
           mirrored={false}
-          subtitle="Honorable Goose I"
+          outcome={outcome(0)}
         />
         <div className="mancala-title-block">
           <div className="mancala-title">
@@ -151,19 +173,13 @@ function GameRenderer({ replay, step }: GameRendererProps) {
           spriteUrl={gooseSprite(1, state)}
           active={state.current_player === 1 && !state.is_terminal}
           mirrored
-          subtitle="Honorable Goose II"
+          outcome={outcome(1)}
         />
       </div>
 
       <div className="mancala-board" style={{ backgroundImage: `url(${boardImg})` }}>
         <div className="mancala-store-slot mancala-store-slot-left">
-          <MancalaStore
-            count={state.board[STORE_LEFT]}
-            label={`${player2Name}`}
-            side="left"
-            pitIndex={STORE_LEFT}
-            {...pitProps(STORE_LEFT)}
-          />
+          <MancalaStore count={state.board[STORE_LEFT]} side="left" pitIndex={STORE_LEFT} {...pitProps(STORE_LEFT)} />
         </div>
 
         <div className="mancala-pits-grid">
@@ -182,7 +198,6 @@ function GameRenderer({ replay, step }: GameRendererProps) {
         <div className="mancala-store-slot mancala-store-slot-right">
           <MancalaStore
             count={state.board[STORE_RIGHT]}
-            label={`${player1Name}`}
             side="right"
             pitIndex={STORE_RIGHT}
             {...pitProps(STORE_RIGHT)}
@@ -199,12 +214,20 @@ interface PlayerCardProps {
   spriteUrl: string;
   active: boolean;
   mirrored: boolean;
-  subtitle: string;
+  outcome?: 'winner' | 'loser';
 }
 
-function PlayerCard({ name, score, spriteUrl, active, mirrored, subtitle }: PlayerCardProps) {
+function PlayerCard({ name, score, spriteUrl, active, mirrored, outcome }: PlayerCardProps) {
+  const classes = [
+    'mancala-player-card',
+    active ? 'is-active' : '',
+    outcome === 'winner' ? 'is-winner' : '',
+    outcome === 'loser' ? 'is-loser' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
   return (
-    <div className={`mancala-player-card${active ? ' is-active' : ''}`}>
+    <div className={classes}>
       <div className="mancala-player-frame">
         <motion.img
           key={spriteUrl}
@@ -216,7 +239,6 @@ function PlayerCard({ name, score, spriteUrl, active, mirrored, subtitle }: Play
         />
       </div>
       <div className="mancala-player-name">
-        <span className="mancala-player-subtitle">{subtitle}</span>
         <span className="mancala-player-display-name" title={name}>
           {name}
         </span>

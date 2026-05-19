@@ -1,5 +1,6 @@
 import { AnimatePresence } from 'motion/react';
 import Stone from './Stone';
+import { pathTint } from '../types';
 
 interface PitProps {
   count: number;
@@ -9,6 +10,7 @@ interface PitProps {
   pathStep?: number;
   pathTotal?: number;
   isLastDest?: boolean;
+  isCaptured?: boolean;
   arrowDir?: 'left' | 'right';
 }
 
@@ -20,22 +22,22 @@ export default function Pit({
   pathStep,
   pathTotal,
   isLastDest,
+  isCaptured,
   arrowDir,
 }: PitProps) {
   const stones = Array.from({ length: count }, (_, i) => i);
   const onPath = pathStep !== undefined && pathTotal !== undefined;
-  const intensity = onPath ? 0.18 + (pathStep! / pathTotal!) * 0.42 : 0;
   const classes = [
     'mancala-pit',
     isSource ? 'is-source' : '',
     onPath ? 'is-on-path' : '',
     isLastDest ? 'is-last-dest' : '',
+    isCaptured ? 'is-captured' : '',
   ]
     .filter(Boolean)
     .join(' ');
-  const style = onPath
-    ? ({ ['--path-bg' as any]: `rgba(0, 138, 187, ${intensity})` } as React.CSSProperties)
-    : undefined;
+  const showArrow = (isSource || onPath) && !isLastDest && arrowDir;
+  const style = onPath ? ({ ['--path-bg' as any]: pathTint(pathStep!, pathTotal!) } as React.CSSProperties) : undefined;
   return (
     <div className={classes} style={style}>
       <div className="mancala-pit-stones">
@@ -45,8 +47,10 @@ export default function Pit({
           ))}
         </AnimatePresence>
       </div>
-      {isSource && arrowDir && (
-        <span className={`mancala-arrow mancala-arrow-${arrowDir}`}>{arrowDir === 'right' ? '➤' : '➤'}</span>
+      {showArrow && (
+        <span className={`mancala-arrow mancala-arrow-${arrowDir}`} aria-hidden>
+          ➤
+        </span>
       )}
       <div className={`mancala-pit-count ${isTopRow ? 'is-top' : 'is-bottom'}`}>{count}</div>
     </div>

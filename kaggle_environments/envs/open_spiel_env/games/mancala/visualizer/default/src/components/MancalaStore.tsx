@@ -1,29 +1,21 @@
 import { AnimatePresence } from 'motion/react';
 import Stone from './Stone';
+import { pathTint } from '../types';
 
 interface MancalaStoreProps {
   count: number;
-  label: string;
   side: 'left' | 'right';
   pitIndex: number;
   isSource?: boolean;
   pathStep?: number;
   pathTotal?: number;
   isLastDest?: boolean;
+  isCaptured?: boolean; // stores can't be captured; accepted only because pitProps is shared
 }
 
-export default function MancalaStore({
-  count,
-  label,
-  side,
-  pitIndex,
-  pathStep,
-  pathTotal,
-  isLastDest,
-}: MancalaStoreProps) {
+export default function MancalaStore({ count, side, pitIndex, pathStep, pathTotal, isLastDest }: MancalaStoreProps) {
   const stones = Array.from({ length: count }, (_, i) => i);
   const onPath = pathStep !== undefined && pathTotal !== undefined;
-  const intensity = onPath ? 0.22 + (pathStep! / pathTotal!) * 0.5 : 0;
   const classes = [
     'mancala-store',
     `mancala-store-${side}`,
@@ -32,12 +24,19 @@ export default function MancalaStore({
   ]
     .filter(Boolean)
     .join(' ');
+  // Flow through stores is always vertical: right store exits upward to top row,
+  // left store exits downward to bottom row. We only render the exit arrow -- entry
+  // is already implied by the previous pit's arrow.
   const style = onPath
-    ? ({ ['--path-bg' as any]: `rgba(0, 138, 187, ${intensity})` } as React.CSSProperties)
+    ? ({ ['--path-bg' as any]: pathTint(pathStep!, pathTotal!, 0.36) } as React.CSSProperties)
     : undefined;
   return (
     <div className={classes} style={style}>
-      <div className="mancala-store-label">{label}</div>
+      {onPath && !isLastDest && (
+        <span className={`mancala-store-arrow mancala-store-arrow-${side}`} aria-hidden>
+          ➤
+        </span>
+      )}
       <div className="mancala-store-stones">
         <AnimatePresence mode="popLayout">
           {stones.map((i) => (
