@@ -219,11 +219,36 @@ class _MancalaHarness:
         return parse_response(response, legal_action_strings)
 
 
-def _make_mock_response(content: str) -> MagicMock:
-    resp = MagicMock()
-    resp.usage = MagicMock(prompt_tokens=10, completion_tokens=20)
-    resp.choices = [MagicMock(message=MagicMock(content=content), finish_reason="stop")]
-    return resp
+class _StreamDelta:
+    def __init__(self, content):
+        self.content = content
+
+
+class _StreamChoice:
+    def __init__(self, content, finish_reason=None):
+        self.delta = _StreamDelta(content)
+        self.finish_reason = finish_reason
+
+
+class _StreamChunk:
+    def __init__(self, choices, usage=None):
+        self.choices = choices
+        self.usage = usage
+
+
+def _make_mock_response(content: str):
+    """Build a streaming-style mock LLM response (a re-iterable chunk list)."""
+    usage = MagicMock(
+        prompt_tokens=10,
+        completion_tokens=20,
+        total_tokens=30,
+        completion_tokens_details=None,
+    )
+    return [
+        _StreamChunk([_StreamChoice(content)]),
+        _StreamChunk([_StreamChoice("", finish_reason="stop")]),
+        _StreamChunk([], usage=usage),
+    ]
 
 
 _ENV = {
