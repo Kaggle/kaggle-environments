@@ -80,8 +80,9 @@ FARMER_MOVES = {
 LAND_ORDER = ["NE", "SW", "SE"]
 LAND_PRICES = [1000, 2000, 4000]
 
-# n-th hire of the day -> cost.
-HIRE_COSTS = [100, 100, 200, 300, 500, 800, 1300, 2100, 3400, 5500]
+# n-th hire of the day -> cost = FARM_HAND_COST_MULT * fib(n), where
+# fib starts 1, 1, 2, 3, 5, 8, 13, ... Configurable via `farmHandCostMult`.
+FARM_HAND_COST_MULT = 10
 
 SHOPS = {
     "BAKERY":         ["EGG", "WHEAT"],
@@ -518,6 +519,7 @@ def _process_market(state, env):
     privates = [s.observation.private for s in state]
     board_size = int(get(env.configuration, "boardSize", 10))
     max_orders = max(1, int(get(env.configuration, "maxMarketOrdersPerTurn", 10)))
+    hire_mult = int(get(env.configuration, "farmHandCostMult", FARM_HAND_COST_MULT))
 
     queues = []
     for s in state:
@@ -541,7 +543,7 @@ def _process_market(state, env):
                 continue
             op = ostate["type"]
             if op == "HIRE":
-                _do_hire(farms[player_id], privates[player_id], board_size)
+                _do_hire(farms[player_id], privates[player_id], board_size, hire_mult)
                 order_states[player_id] = None
             elif op == "BUY_LAND":
                 _do_buy_land(farms[player_id], board_size)
@@ -646,15 +648,20 @@ def _commit_unit(op, item, price, farm, private, market):
     return False
 
 
-def _hire_cost(n_already_today):
-    if n_already_today < len(HIRE_COSTS):
-        return HIRE_COSTS[n_already_today]
-    # Roughly doubling beyond the table.
-    return HIRE_COSTS[-1] * 2 ** (n_already_today - len(HIRE_COSTS) + 1)
+def _fib(n):
+    """Indexed so _fib(0)=1, _fib(1)=1, _fib(2)=2, _fib(3)=3, _fib(4)=5..."""
+    a, b = 1, 1
+    for _ in range(n):
+        a, b = b, a + b
+    return a
 
 
-def _do_hire(farm, private, board_size):
-    cost = _hire_cost(farm["hires_today"])
+def _hire_cost(n_already_today, mult=FARM_HAND_COST_MULT):
+    return mult * _fib(n_already_today)
+
+
+def _do_hire(farm, private, board_size, mult=FARM_HAND_COST_MULT):
+    cost = _hire_cost(farm["hires_today"], mult)
     if farm["money"] < cost:
         return
     farm["money"] -= cost
