@@ -1,4 +1,27 @@
-"""Structured JSON observations for Ultimate Tic Tac Toe."""
+"""Structured JSON observations for Ultimate Tic Tac Toe.
+
+Ultimate Tic-Tac-Toe is a strategic variant of Tic-Tac-Toe played on a board
+consisting of nine 3x3 Tic-Tac-Toe sub-grids arranged in a larger 3x3 grid.
+Player 0 ('x') moves first; player 1 ('o') follows. The sub-grid where a
+player must place their piece is determined by the cell coordinates of the
+opponent's previous move.
+
+OpenSpiel's default `to_string()` observation representation for Ultimate
+Tic Tac Toe is a formatted ASCII grid where sub-grids are separated by visual
+grid dividers. The proxy state parses this representation into a structured
+JSON dictionary so that agents and visualizers can easily consume the state:
+
+Transformations:
+- Parses the ASCII board into a list of nine 9-element lists `board`, where
+  `board[subgrid_idx][cell_idx]` stores `"x"`, `"o"`, or `""` (empty).
+- Evaluates and tracks `subgrid_winners` representing the state of each
+  sub-grid (`"x"`, `"o"`, `"draw"`, or `""`).
+- Reconstructs `active_subgrid` (index of the sub-grid where the player must
+  play, or `None` if any incomplete subgrid is allowed) and `phase` (either
+  `"choose_subgrid"` or `"choose_cell"`) by traversing the game history.
+- Identifies overall game `winner` (`"x"`, `"o"`, `"draw"`, or `None` if
+  ongoing).
+"""
 
 import json
 from typing import Any
