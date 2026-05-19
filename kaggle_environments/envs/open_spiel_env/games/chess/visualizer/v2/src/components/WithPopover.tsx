@@ -15,16 +15,21 @@ interface Props {
 
 export function WithPopover({ children, icon, id, label, onChange }: Props) {
   const [open, setOpen] = useState(false);
-  const onChangeRef = useRef(open);
+  const prevOpenRef = useRef(open);
+  const onChangeRef = useRef(onChange);
   const transition = useTransition({ duration: 0.2, ease: 'easeOut' });
   const iconPath = `${svgSymbolPath}#${icon}`;
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (onChange && onChangeRef.current !== open) {
-      onChangeRef.current = open;
-      onChange(open);
+    onChangeRef.current = onChange;
+  });
+
+  useEffect(() => {
+    if (prevOpenRef.current !== open) {
+      prevOpenRef.current = open;
+      onChangeRef.current?.(open);
     }
 
     if (!open) return;
@@ -54,7 +59,7 @@ export function WithPopover({ children, icon, id, label, onChange }: Props) {
       document.removeEventListener('mousedown', handleMouseDown);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [open, onChange]);
+  }, [open]);
 
   return (
     <div className={styles.wrapper}>
