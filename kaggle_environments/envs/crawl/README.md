@@ -82,9 +82,9 @@ Each robot has a vision range (Manhattan distance). You can only see what's with
 
 The southern boundary advances over time, destroying all robots, mines, and crystals below it.
 
-- **Start:** Scrolls once every 4 turns
-- **Ramp:** Linearly increases speed over 400 steps
-- **End:** Scrolls every turn from step 400 onward (until game end at step 500)
+- **Start:** Scrolls once every 10 turns
+- **Ramp:** Linearly increases speed over 450 steps
+- **End:** Scrolls once every 2 turns from step 450 onward (until game end at step 500)
 
 If a factory falls below the southern boundary, that player is eliminated.
 
@@ -200,9 +200,9 @@ env.render(mode="ipython", width=800, height=800)
 | `visionScout` | 5 | Scout vision range |
 | `visionWorker` | 3 | Worker vision range |
 | `visionMiner` | 3 | Miner vision range |
-| `scrollStartInterval` | 4 | Initial turns between scrolls |
-| `scrollEndInterval` | 1 | Final turns between scrolls |
-| `scrollRampSteps` | 400 | Step when max scroll speed reached |
+| `scrollStartInterval` | 10 | Initial turns between scrolls |
+| `scrollEndInterval` | 2 | Final turns between scrolls |
+| `scrollRampSteps` | 450 | Step when max scroll speed reached |
 | `crystalDensity` | 0.06 | Crystal spawn probability per cell |
 | `miningNodeDensity` | 0.03 | Mining node spawn probability per cell |
 | `doorProbability` | 0.08 | Door probability between maze halves |
