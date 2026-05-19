@@ -150,6 +150,49 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("Player 0 men=12", prompt)
         self.assertIn("Player 1 men=12", prompt)
 
+    def test_own_pieces_listed_for_player_0(self):
+        obs = _make_observation(self.state, self.game, player_id=0)
+        prompt = generate_prompt(obs, [])
+        # Initial position: player 0 men on ranks 1-3 dark squares.
+        for sq in ("a1", "c1", "e1", "g1", "b2", "d2", "f2", "h2",
+                   "a3", "c3", "e3", "g3"):
+            self.assertIn(sq, prompt)
+        self.assertIn("Your kings ('O') are at: (none)", prompt)
+
+    def test_own_pieces_listed_for_player_1(self):
+        first = self.state.legal_actions()[0]
+        self.state.apply_action(first)
+        obs = _make_observation(self.state, self.game, player_id=1)
+        prompt = generate_prompt(obs, [])
+        for sq in ("b6", "d6", "f6", "h6", "a7", "c7", "e7", "g7",
+                   "b8", "d8", "f8", "h8"):
+            self.assertIn(sq, prompt)
+        self.assertIn("Your kings ('*') are at: (none)", prompt)
+
+    def test_captures_flag_no_at_start(self):
+        obs = _make_observation(self.state, self.game, player_id=0)
+        prompt = generate_prompt(obs, [])
+        self.assertIn("Captures available this turn: no", prompt)
+        self.assertNotIn("MUST take a capture this turn", prompt)
+
+    def test_captures_flag_yes_when_capture_available(self):
+        obs = _make_observation(self.state, self.game, player_id=0)
+        # Synthesize a capture by overriding legal moves with a 2-rank jump.
+        obs["legalActions"] = [0]
+        obs["legalActionStrings"] = ["c3e5"]
+        prompt = generate_prompt(obs, [])
+        self.assertIn("Captures available this turn: yes", prompt)
+        self.assertIn("MUST take a capture this turn", prompt)
+
+    def test_forward_direction_explained_per_player(self):
+        obs0 = _make_observation(self.state, self.game, player_id=0)
+        self.assertIn("toward rank 8", generate_prompt(obs0, []))
+
+        first = self.state.legal_actions()[0]
+        self.state.apply_action(first)
+        obs1 = _make_observation(self.state, self.game, player_id=1)
+        self.assertIn("toward rank 1", generate_prompt(obs1, []))
+
     def test_rethink_suffix(self):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [], previous_response="I'll play z9z9", previous_action="z9z9")
