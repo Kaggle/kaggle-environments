@@ -15,9 +15,9 @@ CROPS = {
 }
 
 ANIMALS = {
-    "GOOSE": {"cost": 200, "structure": "COOP",    "first_yield_day": 3, "interval": 1, "max_held": 4, "product": "EGG"},
-    "COW":   {"cost": 500, "structure": "PASTURE", "first_yield_day": 6, "interval": 2, "max_held": 6, "product": "MILK"},
-    "SHEEP": {"cost": 400, "structure": "PASTURE", "first_yield_day": 5, "interval": 3, "max_held": 6, "product": "WOOL"},
+    "GOOSE": {"cost": 300, "structure": "COOP",    "first_yield_day": 4, "interval": 1, "max_held": 4, "product": "EGG"},
+    "COW":   {"cost": 600, "structure": "PASTURE", "first_yield_day": 8, "interval": 2, "max_held": 6, "product": "MILK"},
+    "SHEEP": {"cost": 500, "structure": "PASTURE", "first_yield_day": 6, "interval": 3, "max_held": 6, "product": "WOOL"},
 }
 
 PRODUCTS = ["WHEAT", "CARROT", "TOMATO", "STRAWBERRY", "MELON", "EGG", "MILK", "WOOL", "FERTILIZER"]
@@ -782,7 +782,7 @@ def _daily_refresh_animals(farm, day):
                 tile["yield_units"] = min(a["max_held"], tile["yield_units"] + base + bonus)
                 tile["pending_care_bonus"] = 0
             if tile["cared_today"] and tile["fed_today"]:
-                tile["pending_care_bonus"] = tile.get("pending_care_bonus", 0) + 2
+                tile["pending_care_bonus"] = tile.get("pending_care_bonus", 0) + 1
             tile["fertilizer_available"] = True
             tile["fed_today"] = False
             tile["cared_today"] = False

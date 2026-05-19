@@ -377,17 +377,17 @@ def test_animal_produces_on_schedule_and_partial_harvest_works():
     private = _new_private()
     fx, fy = farm["farmer"]
     farm["tiles"][fy][fx] = _new_animal("GOOSE", 0)
-    # Goose: first_yield_day=3, interval=1, max_held=4.
+    # Goose: first_yield_day=4, interval=1, max_held=4.
     # Feed every day, then refresh end-of-day.
     for d in range(0, 6):
         farm["tiles"][fy][fx]["fed_today"] = True
         _daily_refresh_animals(farm, d)
     tile = farm["tiles"][fy][fx]
-    # First production at end of day 2 (next_day=3), then capped at max_held=4.
-    assert tile["yield_units"] == 4
+    # First production at end of day 3 (next_day=4); produces on days 3,4,5 → 3 units.
+    assert tile["yield_units"] == 3
     # Partial harvest before cap is fine — harvest now empties to 0.
     _apply_unit_action(farm, private, 0, ["HARVEST"], 10, 6, 24)
-    assert private["inventories"][0]["EGG"] == 4
+    assert private["inventories"][0]["EGG"] == 3
     assert farm["tiles"][fy][fx]["yield_units"] == 0
 
 
