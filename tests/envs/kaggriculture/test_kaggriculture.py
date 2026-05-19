@@ -377,17 +377,17 @@ def test_animal_produces_on_schedule_and_partial_harvest_works():
     private = _new_private()
     fx, fy = farm["farmer"]
     farm["tiles"][fy][fx] = _new_animal("GOOSE", 0)
-    # Goose: first_yield_day=5, interval=1, max_held=2.
+    # Goose: first_yield_day=4, interval=1, max_held=4.
     # Feed every day, then refresh end-of-day.
     for d in range(0, 6):
         farm["tiles"][fy][fx]["fed_today"] = True
         _daily_refresh_animals(farm, d)
     tile = farm["tiles"][fy][fx]
-    # First production at end of day 4 (next_day=5), then capped at 2 by day 5.
-    assert tile["yield_units"] == 2
+    # First production at end of day 3 (next_day=4); produces on days 3,4,5 → 3 units.
+    assert tile["yield_units"] == 3
     # Partial harvest before cap is fine — harvest now empties to 0.
     _apply_unit_action(farm, private, 0, ["HARVEST"], 10, 6, 24)
-    assert private["inventories"][0]["EGG"] == 2
+    assert private["inventories"][0]["EGG"] == 3
     assert farm["tiles"][fy][fx]["yield_units"] == 0
 
 
@@ -431,8 +431,8 @@ def test_care_bonus_adds_to_next_production():
     farm["tiles"][fy][fx]["fed_today"] = True
     farm["tiles"][fy][fx]["cared_today"] = True
     _daily_refresh_animals(farm, 4)
-    # Care bonus capped at max_held = 2.
-    assert farm["tiles"][fy][fx]["yield_units"] == 2
+    # Care bonus capped at max_held = 4.
+    assert farm["tiles"][fy][fx]["yield_units"] == 4
 
 
 def test_dig_does_not_remove_placed_animal():

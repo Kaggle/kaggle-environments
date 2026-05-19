@@ -46,7 +46,7 @@
       "default": true
     },
     "savePrompt": {
-      "description": "If disabled, skip logging LLM prompts in the replay file.", 
+      "description": "If disabled, skip logging LLM prompts in the replay file.",
       "type": "boolean",
       "default": true
     }

@@ -1,4 +1,4 @@
-# Kaggriculture
+ß# Kaggriculture
 
 A farming sim where two players compete to maximize their income from farming by selling to a dynamic market.
 
@@ -15,9 +15,9 @@ Each player starts with an empty farm and a small amount of income (seed money, 
 | **Tomato** | Ongoing | 50 | 60 | 8 days | NA | every day | 4 | 1 | 4 |
 | **Strawberry** | Ongoing | 100 | 120 | 10 days | NA | every other day | 4 | 1 | 2 |
 | **Melon** | One-time | 80 | 250 | 10 days | 12 days | none | 6 | 1 | .5 |
-| **Goose/Egg** | Ongoing | 400 | 50 | 5 days | NA | every day | 2 | 1 \+ 1 (build coop) | 2 |
-| **Cow/Milk** | Ongoing | 800 | 160 | 10 days | NA | every two days | 4 | 1 \+ 1 (build pasture) | 1 |
-| **Sheep/Wool** | Ongoing | 700 | 200 | 8 days | NA | every three days | 4 | 1 \+ 1 (build pasture) | .67 |
+| **Goose/Egg** | Ongoing | 200 | 80 | 3 days | NA | every day | 4 | 1 \+ 1 (build coop) | 2 |
+| **Cow/Milk** | Ongoing | 500 | 240 | 6 days | NA | every two days | 6 | 1 \+ 1 (build pasture) | 1 |
+| **Sheep/Wool** | Ongoing | 400 | 300 | 5 days | NA | every three days | 6 | 1 \+ 1 (build pasture) | .67 |
 | **Fertilizer** | NA | 100 | X |  | X | X |  | 1 |  |
 
 All plants must be watered every day. They will turn into weeds if they are not watered for two successive days. All animals must be fed every day using wheat. They will escape and be unrecoverable if they are not fed for two successive days. Wheat is also available to buy at the market and can be purchased at the current market price.
@@ -65,7 +65,7 @@ Picks up an item from the shed (must be orthogonally adjacent) into the inventor
 
 CARE banks a yield bonus that is paid out on the animal's next scheduled production:
 
-* At end of day, if the animal was both fed AND cared for that day, `pending_care_bonus` increments by 1. Days where the animal was unfed do not bank a bonus (basic needs first).
+* At end of day, if the animal was both fed AND cared for that day, `pending_care_bonus` increments by 2. Days where the animal was unfed do not bank a bonus (basic needs first).
 * On a scheduled production day, if the animal is fed, the entire banked bonus is added to that production's yield (in addition to the base 1) and the bank resets to 0.
 * If the animal is unfed on the production day, no yield is produced that day and the bank is also reset.
 * `pending_care_bonus` is capped indirectly by the per-animal `max_held` cap on `yield_units`.

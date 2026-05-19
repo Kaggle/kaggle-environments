@@ -15,9 +15,9 @@ CROPS = {
 }
 
 ANIMALS = {
-    "GOOSE": {"cost": 400, "structure": "COOP",    "first_yield_day": 5,  "interval": 1, "max_held": 2, "product": "EGG"},
-    "COW":   {"cost": 800, "structure": "PASTURE", "first_yield_day": 10, "interval": 2, "max_held": 4, "product": "MILK"},
-    "SHEEP": {"cost": 700, "structure": "PASTURE", "first_yield_day": 8,  "interval": 3, "max_held": 4, "product": "WOOL"},
+    "GOOSE": {"cost": 300, "structure": "COOP",    "first_yield_day": 4, "interval": 1, "max_held": 4, "product": "EGG"},
+    "COW":   {"cost": 600, "structure": "PASTURE", "first_yield_day": 8, "interval": 2, "max_held": 6, "product": "MILK"},
+    "SHEEP": {"cost": 500, "structure": "PASTURE", "first_yield_day": 6, "interval": 3, "max_held": 6, "product": "WOOL"},
 }
 
 PRODUCTS = ["WHEAT", "CARROT", "TOMATO", "STRAWBERRY", "MELON", "EGG", "MILK", "WOOL", "FERTILIZER"]
