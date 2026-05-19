@@ -101,6 +101,41 @@ _TELEMETRY = get_telemetry_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# Prompt templates
+# ---------------------------------------------------------------------------
+#
+# Reusable prompt templates that game harnesses can use to assemble prompts.
+# These mirror the GameArena ``NO_LEGAL_ACTIONS_RETHINK_APPENDED`` /
+# ``RETHINK_WITH_ENV_*`` templates and are the format the migrated chess 
+# harness was validated against.
+
+# Main game prompt. Placeholders:
+#   game_short_name, notation, readable_state_str, move_history,
+#   player_name, move_notation, rethink_prompt
+BASIC_PROMPT_TEMPLATE = """\
+Let's play {game_short_name}. The current game state in {notation} is:
+{readable_state_str}
+The moves played so far are:
+{move_history}
+You are playing as player {player_name}.
+It is now your turn. Play your strongest move. The move MUST be legal. Reason step by step to come up with your move, then output your final answer in the format "Final Answer: X" where X is your chosen move in {move_notation}.
+{rethink_prompt}"""
+
+# Rethink suffix for an unparseable previous response. Placeholder: generation.
+BASIC_RETHINK_UNPARSABLE = """\
+Your previously suggested move was not parsable.
+Please think carefully and generate a new and legal move. Your previous response was:
+{generation}
+"""
+
+# Rethink suffix for a parseable but illegal previous move. Placeholder: last_move.
+BASIC_RETHINK_ILLEGAL = """\
+Your previously suggested move was: {last_move}, which is an illegal move.
+Please think carefully and generate a new and legal move.
+"""
+
+
+# ---------------------------------------------------------------------------
 # Parse result
 # ---------------------------------------------------------------------------
 
