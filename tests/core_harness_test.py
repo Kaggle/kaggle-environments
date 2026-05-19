@@ -65,12 +65,20 @@ class _Chunk:
         self.usage = usage
 
 
-def _fake_completion(content: str, *, pieces: int = 2):
+def _fake_completion(
+    content: str,
+    *,
+    pieces: int = 2,
+    finish_reason: str | None = "stop",
+):
     """Build a mock streaming litellm.completion iterator.
 
     Splits ``content`` into ``pieces`` delta chunks, followed by an empty
-    chunk carrying ``finish_reason="stop"`` and a final usage-only chunk —
+    chunk carrying ``finish_reason`` and a final usage-only chunk —
     mirroring litellm's stream when ``stream_options={"include_usage": True}``.
+
+    Passing ``finish_reason=None`` suppresses the finish-reason chunk so tests
+    can simulate a truncated stream.
     """
     if pieces < 1:
         raise ValueError("pieces must be >= 1")
@@ -84,7 +92,8 @@ def _fake_completion(content: str, *, pieces: int = 2):
     def _gen():
         for s in slices:
             yield _Chunk([_ChunkChoice(s)])
-        yield _Chunk([_ChunkChoice("", finish_reason="stop")])
+        if finish_reason is not None:
+            yield _Chunk([_ChunkChoice("", finish_reason=finish_reason)])
         yield _Chunk([], usage=_Usage())
 
     return _gen()
@@ -148,7 +157,7 @@ class CoreHarnessTest(absltest.TestCase):
         with patch.dict("os.environ", _ENV, clear=False), patch.object(
             core_harness.litellm,
             "completion",
-            return_value=_fake_completion("nope"),
+            side_effect=lambda *a, **kw: _fake_completion("nope"),
         ):
             with self.assertRaisesRegex(ValueError, "Failed to parse"):
                 agent({}, {})
@@ -362,6 +371,37 @@ class CoreHarnessTest(absltest.TestCase):
         self.assertGreaterEqual(cd["first_token_secs"], 0.0)
         self.assertLessEqual(cd["first_token_secs"], cd["duration_secs"])
 
+    def test_empty_stream_raises(self):
+        """A stream that delivers no content should raise, not silently succeed."""
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("", pieces=1),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "no content"):
+                agent({}, {})
+
+        # The exception path should record an llm_call_exception telemetry event.
+        kinds = {k for e in self.events for k in e if k != "module"}
+        self.assertIn("llm_call_exception", kinds)
+
+    def test_missing_finish_reason_raises(self):
+        """A stream that ends without a finish_reason should raise."""
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("move_1", finish_reason=None),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "finish_reason"):
+                agent({}, {})
+
+        kinds = {k for e in self.events for k in e if k != "module"}
+        self.assertIn("llm_call_exception", kinds)
+
     def test_move_history_accumulates_across_calls(self):
         harness = _SimpleHarness()
         agent = create_agent_fn(harness)
@@ -486,7 +526,7 @@ class FreeFormHarnessTest(absltest.TestCase):
         with patch.dict("os.environ", _ENV, clear=False), patch.object(
             core_harness.litellm,
             "completion",
-            return_value=_fake_completion("garbage"),
+            side_effect=lambda *a, **kw: _fake_completion("garbage"),
         ):
             with self.assertRaisesRegex(ValueError, "Failed to parse"):
                 agent({}, {"freeForm": True})

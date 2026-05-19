@@ -238,6 +238,17 @@ def _call_llm(
         content = "".join(content_parts).strip()
         duration = time.perf_counter() - start
 
+        if not content:
+            raise RuntimeError(
+                "LLM stream produced no content "
+                f"(finish_reason={finish_reason!r}, duration_secs={duration:.3f})"
+            )
+        if finish_reason is None:
+            raise RuntimeError(
+                "LLM stream ended without a finish_reason "
+                f"(content_length={len(content)}, duration_secs={duration:.3f})"
+            )
+
         ctd = (
             getattr(usage_obj, "completion_tokens_details", None)
             if usage_obj
