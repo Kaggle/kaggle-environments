@@ -359,9 +359,9 @@ body {
 
 .market-price-row {
   display: inline-flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
 }
 
 .market-price {
@@ -369,10 +369,39 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.market-coin-stack {
+  position: relative;
+  display: inline-block;
+  width: 32px;
+  height: 32px;
+}
+
 .market-coin {
-  width: 20px;
-  height: 20px;
+  width: 32px;
+  height: 32px;
   object-fit: contain;
+  display: block;
+}
+
+.market-sparkline {
+  position: absolute;
+  /* Coin is 32x32; inset to sit on the face, clear of the rim. Explicit
+     width/height are required: with only `left/right/top/bottom`, the SVG's
+     intrinsic viewBox aspect ratio collapses its height. */
+  left: 5px;
+  top: 11px;
+  width: 22px;
+  height: 10px;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.market-sparkline-path {
+  stroke: #3a2412;
+  stroke-width: 1.25;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
 }
 
 /* Breakpoints mirror MUI theme aliases in web/core/src/theme.ts:

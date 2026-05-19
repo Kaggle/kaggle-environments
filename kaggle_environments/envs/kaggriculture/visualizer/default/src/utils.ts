@@ -1,4 +1,5 @@
-import { READY_SPRITE_TYPES } from './types';
+import { getStepData } from '@kaggle-environments/core';
+import { MARKET_ITEMS, READY_SPRITE_TYPES, type PrivateState, type ViewModel } from './types';
 
 import bakery from './assets/sprites/bakery.png';
 import brunch_spot from './assets/sprites/brunch_spot.png';
@@ -141,4 +142,55 @@ export function titleCase(s: string): string {
     .filter(Boolean)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ');
+}
+
+export function pricesAt(replay: any, step: number): Record<string, number> {
+  const data = getStepData(replay, step) as any;
+  if (!data) return {};
+  const entry = Array.isArray(data) ? data[0] : data;
+  return entry?.observation?.market?.prices ?? {};
+}
+
+export function buildPriceHistory(replay: any, step: number, windowSize: number): Record<string, number[]> {
+  const startPrices = pricesAt(replay, 0);
+  const firstStep = Math.max(0, step - windowSize + 1);
+  const windowPrices: Record<string, number>[] = [];
+  for (let s = firstStep; s <= step; s++) windowPrices.push(pricesAt(replay, s));
+  const padCount = windowSize - windowPrices.length;
+  const history: Record<string, number[]> = {};
+  for (const { key } of MARKET_ITEMS) {
+    const start = Number(startPrices[key] ?? 0);
+    const series: number[] = new Array(padCount).fill(start);
+    for (const p of windowPrices) {
+      const v = p[key];
+      series.push(Number(v == null ? start : v));
+    }
+    history[key] = series;
+  }
+  return history;
+}
+
+export function buildView(replay: any, step: number, turnsPerDay: number): ViewModel | null {
+  const stepData = getStepData(replay, step) as any;
+  if (!stepData) return null;
+  const entries = Array.isArray(stepData) ? stepData : [stepData];
+  const obs0 = entries[0]?.observation;
+  if (!obs0) return null;
+
+  const privates: (PrivateState | undefined)[] = [];
+  for (const entry of entries) {
+    const obs = entry?.observation;
+    const idx = typeof obs?.player === 'number' ? obs.player : privates.length;
+    privates[idx] = obs?.private;
+  }
+
+  return {
+    day: Number(obs0.day ?? 0),
+    hour: Number(obs0.hour ?? 0),
+    farms: obs0.farms ?? [],
+    market: obs0.market ?? { prices: {}, inventory: {} },
+    town: obs0.town ?? { unlocked_shops: [] },
+    privates,
+    priceHistory: buildPriceHistory(replay, step, turnsPerDay),
+  };
 }
