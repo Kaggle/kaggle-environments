@@ -15,27 +15,58 @@ CROPS = {
 }
 
 ANIMALS = {
-    "GOOSE": {"cost": 400, "structure": "COOP",    "first_yield_day": 5,  "interval": 1, "max_held": 2, "product": "EGG"},
-    "COW":   {"cost": 800, "structure": "PASTURE", "first_yield_day": 10, "interval": 2, "max_held": 4, "product": "MILK"},
-    "SHEEP": {"cost": 700, "structure": "PASTURE", "first_yield_day": 8,  "interval": 3, "max_held": 4, "product": "WOOL"},
+    "GOOSE": {"cost": 300, "structure": "COOP",    "first_yield_day": 4, "interval": 1, "max_held": 4, "product": "EGG"},
+    "COW":   {"cost": 600, "structure": "PASTURE", "first_yield_day": 8, "interval": 2, "max_held": 6, "product": "MILK"},
+    "SHEEP": {"cost": 500, "structure": "PASTURE", "first_yield_day": 6, "interval": 3, "max_held": 6, "product": "WOOL"},
 }
 
 PRODUCTS = ["WHEAT", "CARROT", "TOMATO", "STRAWBERRY", "MELON", "EGG", "MILK", "WOOL", "FERTILIZER"]
 
-# Linear branch applies for inventory < I0 (price = -a_ln*inv + b_ln);
-# log branch applies for inventory >= I0 (price = a_lg * ln(inv) + b_lg).
-# Both branches meet at (I0, base).
+# Pricing model:
+#     price(inv) = base + sign * amp * f(|inv - I0|)
+#     sign = +1 below I0 (scarcity), -1 above I0 (glut)
+#     amp  = target * base / f(T)            (derived; selling T units moves
+#                                             price by `target` * base)
+#     T    = production capacity of one 5x5 field over a 24-day game at
+#            optimal watering, no fertilizer (animal T pre-discounted 30% for
+#            wheat-feed overhead)
+#     f    in {linear, sq, sqrt, log, log10}; log uses ln(1+x) so f(0)=0
+# Floored at PRICE_FLOOR.
+MARKET_I0 = 10000
+PRICE_FLOOR = 1
+
 MARKET_PARAMS = {
-    "WHEAT":      {"base": 25,  "I0": 200, "a_ln": 0.25,    "b_ln": 75.0,  "a_lg": -10.4231,  "b_lg": 80.2247},
-    "CARROT":     {"base": 35,  "I0": 150, "a_ln": 0.4667,  "b_ln": 105.0, "a_lg": -14.7660,  "b_lg": 108.9871},
-    "TOMATO":     {"base": 60,  "I0": 120, "a_ln": 1.0,     "b_ln": 180.0, "a_lg": -25.6234,  "b_lg": 182.6717},
-    "STRAWBERRY": {"base": 120, "I0": 100, "a_ln": 2.4,     "b_ln": 360.0, "a_lg": -51.6810,  "b_lg": 358.0},
-    "MELON":      {"base": 250, "I0": 60,  "a_ln": 8.3333,  "b_ln": 750.0, "a_lg": -108.1393, "b_lg": 692.7597},
-    "EGG":        {"base": 50,  "I0": 120, "a_ln": 0.8333,  "b_ln": 150.0, "a_lg": -21.2804,  "b_lg": 151.8799},
-    "MILK":       {"base": 160, "I0": 80,  "a_ln": 4.0,     "b_ln": 480.0, "a_lg": -69.0528,  "b_lg": 462.5913},
-    "WOOL":       {"base": 200, "I0": 60,  "a_ln": 6.6667,  "b_ln": 600.0, "a_lg": -86.4246,  "b_lg": 553.8521},
-    "FERTILIZER": {"base": 100, "I0": 80,  "a_ln": 2.5,     "b_ln": 300.0, "a_lg": -42.9952,  "b_lg": 288.4059},
+    "WHEAT":      {"base":  25, "I0": MARKET_I0, "T": 400, "below_func": "sqrt",   "below_target": 0.80, "above_func": "log",    "above_target": 0.20},
+    "CARROT":     {"base":  35, "I0": MARKET_I0, "T": 450, "below_func": "log",    "below_target": 0.20, "above_func": "sqrt",   "above_target": 0.70},
+    "TOMATO":     {"base":  60, "I0": MARKET_I0, "T": 200, "below_func": "linear", "below_target": 0.40, "above_func": "sqrt",   "above_target": 0.60},
+    "STRAWBERRY": {"base": 120, "I0": MARKET_I0, "T": 100, "below_func": "sqrt",   "below_target": 0.70, "above_func": "linear", "above_target": 0.40},
+    "MELON":      {"base": 250, "I0": MARKET_I0, "T": 300, "below_func": "log",    "below_target": 0.20, "above_func": "sq",     "above_target": 0.90},
+    "EGG":        {"base":  50, "I0": MARKET_I0, "T": 332, "below_func": "linear", "below_target": 0.40, "above_func": "log",    "above_target": 0.20},
+    "MILK":       {"base": 160, "I0": MARKET_I0, "T": 122, "below_func": "sqrt",   "below_target": 0.60, "above_func": "linear", "above_target": 0.40},
+    "WOOL":       {"base": 200, "I0": MARKET_I0, "T": 105, "below_func": "log",    "below_target": 0.20, "above_func": "sq",     "above_target": 0.80},
+    "FERTILIZER": {"base": 100, "I0": MARKET_I0, "T": 200, "below_func": "linear", "below_target": 0.40, "above_func": "linear", "above_target": 0.40},
 }
+
+
+def _shape(func, x):
+    x = max(0.0, x)
+    if func == "linear": return x
+    if func == "sq":     return x * x
+    if func == "sqrt":   return math.sqrt(x)
+    if func == "log":    return math.log(1.0 + x)
+    if func == "log10":  return math.log10(1.0 + x)
+    return x
+
+
+def _resolve_market_params(overrides):
+    """Merge per-resource overrides onto MARKET_PARAMS defaults (sparse)."""
+    resolved = {item: dict(p) for item, p in MARKET_PARAMS.items()}
+    if not overrides:
+        return resolved
+    for item, patch in overrides.items():
+        if item in resolved and isinstance(patch, dict):
+            resolved[item].update(patch)
+    return resolved
 
 # (dx, dy); y grows downward.
 FARMER_MOVES = {
@@ -49,8 +80,9 @@ FARMER_MOVES = {
 LAND_ORDER = ["NE", "SW", "SE"]
 LAND_PRICES = [1000, 2000, 4000]
 
-# n-th hire of the day -> cost.
-HIRE_COSTS = [100, 100, 200, 300, 500, 800, 1300, 2100, 3400, 5500]
+# n-th hire of the day -> cost = FARM_HAND_COST_MULT * fib(n), where
+# fib starts 1, 1, 2, 3, 5, 8, 13, ... Configurable via `farmHandCostMult`.
+FARM_HAND_COST_MULT = 10
 
 SHOPS = {
     "BAKERY":         ["EGG", "WHEAT"],
@@ -126,30 +158,41 @@ def _new_private():
     }
 
 
-def _new_market():
-    inv = {item: MARKET_PARAMS[item]["I0"] for item in PRODUCTS}
-    prices = {item: MARKET_PARAMS[item]["base"] for item in PRODUCTS}
-    return {"inventory": inv, "prices": prices}
+def _new_market(params=None):
+    params = params or MARKET_PARAMS
+    inv = {item: params[item]["I0"] for item in PRODUCTS}
+    prices = {item: params[item]["base"] for item in PRODUCTS}
+    market = {"inventory": inv, "prices": prices}
+    if params is not MARKET_PARAMS:
+        market["params"] = params
+    return market
 
 
 def _new_town():
     return {"unlocked_shops": []}
 
 
-def market_price(item, inventory):
-    """Floor at 1."""
-    p = MARKET_PARAMS[item]
-    if inventory < p["I0"]:
-        price = -p["a_ln"] * inventory + p["b_ln"]
+def market_price(item, inventory, params=None):
+    """Floor at PRICE_FLOOR."""
+    p = (params or MARKET_PARAMS)[item]
+    base = p["base"]
+    I0 = p["I0"]
+    T = p["T"]
+    if inventory < I0:
+        f = p["below_func"]
+        amp = p["below_target"] * base / _shape(f, T)
+        price = base + amp * _shape(f, I0 - inventory)
     else:
-        price = p["a_lg"] * math.log(max(inventory, 1)) + p["b_lg"]
-    price = round(price)
-    return max(1, int(price))
+        f = p["above_func"]
+        amp = p["above_target"] * base / _shape(f, T)
+        price = base - amp * _shape(f, inventory - I0)
+    return max(PRICE_FLOOR, int(round(price)))
 
 
 def _refresh_prices(market):
+    params = market.get("params")
     for item in PRODUCTS:
-        market["prices"][item] = market_price(item, market["inventory"][item])
+        market["prices"][item] = market_price(item, market["inventory"][item], params)
 
 
 def _new_plant(crop, day, turns_per_day):
@@ -205,7 +248,9 @@ def _initialize(state, env):
 
     farms = [_new_farm(board_size, starting_money) for _ in range(num_agents)]
     privates = [_new_private() for _ in range(num_agents)]
-    market = _new_market()
+    market_overrides = get(configuration, "marketParams", None)
+    resolved_params = _resolve_market_params(market_overrides) if market_overrides else None
+    market = _new_market(resolved_params)
     town = _new_town()
 
     obs0.farms = farms
@@ -474,6 +519,7 @@ def _process_market(state, env):
     privates = [s.observation.private for s in state]
     board_size = int(get(env.configuration, "boardSize", 10))
     max_orders = max(1, int(get(env.configuration, "maxMarketOrdersPerTurn", 10)))
+    hire_mult = int(get(env.configuration, "farmHandCostMult", FARM_HAND_COST_MULT))
 
     queues = []
     for s in state:
@@ -497,7 +543,7 @@ def _process_market(state, env):
                 continue
             op = ostate["type"]
             if op == "HIRE":
-                _do_hire(farms[player_id], privates[player_id], board_size)
+                _do_hire(farms[player_id], privates[player_id], board_size, hire_mult)
                 order_states[player_id] = None
             elif op == "BUY_LAND":
                 _do_buy_land(farms[player_id], board_size)
@@ -517,9 +563,9 @@ def _process_market(state, env):
                 op = ostate["type"]
                 item = ostate["item"]
                 if op == "SELL" and item in PRODUCTS and item != "FERTILIZER":
-                    quoted[player_id] = ("SELL", item, market_price(item, market["inventory"][item]), ostate)
+                    quoted[player_id] = ("SELL", item, market_price(item, market["inventory"][item], market.get("params")), ostate)
                 elif op == "BUY_PRODUCT" and item in PRODUCTS:
-                    quoted[player_id] = ("BUY_PRODUCT", item, market_price(item, market["inventory"][item]), ostate)
+                    quoted[player_id] = ("BUY_PRODUCT", item, market_price(item, market["inventory"][item], market.get("params")), ostate)
                 elif op == "BUY_SEED" and item in CROPS:
                     quoted[player_id] = ("BUY_SEED", item, CROPS[item]["seed"], ostate)
                 elif op == "BUY_ANIMAL" and item in ANIMALS:
@@ -602,15 +648,20 @@ def _commit_unit(op, item, price, farm, private, market):
     return False
 
 
-def _hire_cost(n_already_today):
-    if n_already_today < len(HIRE_COSTS):
-        return HIRE_COSTS[n_already_today]
-    # Roughly doubling beyond the table.
-    return HIRE_COSTS[-1] * 2 ** (n_already_today - len(HIRE_COSTS) + 1)
+def _fib(n):
+    """Indexed so _fib(0)=1, _fib(1)=1, _fib(2)=2, _fib(3)=3, _fib(4)=5..."""
+    a, b = 1, 1
+    for _ in range(n):
+        a, b = b, a + b
+    return a
 
 
-def _do_hire(farm, private, board_size):
-    cost = _hire_cost(farm["hires_today"])
+def _hire_cost(n_already_today, mult=FARM_HAND_COST_MULT):
+    return mult * _fib(n_already_today)
+
+
+def _do_hire(farm, private, board_size, mult=FARM_HAND_COST_MULT):
+    cost = _hire_cost(farm["hires_today"], mult)
     if farm["money"] < cost:
         return
     farm["money"] -= cost

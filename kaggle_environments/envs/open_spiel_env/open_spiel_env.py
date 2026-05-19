@@ -952,6 +952,7 @@ GAMES_LIST = [
     "hearts",
     "hex",
     "lines_of_action",
+    "mancala",
     "matching_pennies_3p",
     "oshi_zumo",
     "othello",

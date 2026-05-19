@@ -101,6 +101,41 @@ _TELEMETRY = get_telemetry_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# Prompt templates
+# ---------------------------------------------------------------------------
+#
+# Reusable prompt templates that game harnesses can use to assemble prompts.
+# These mirror the GameArena ``NO_LEGAL_ACTIONS_RETHINK_APPENDED`` /
+# ``RETHINK_WITH_ENV_*`` templates and are the format the migrated chess 
+# harness was validated against.
+
+# Main game prompt. Placeholders:
+#   game_short_name, notation, readable_state_str, move_history,
+#   player_name, move_notation, rethink_prompt
+BASIC_PROMPT_TEMPLATE = """\
+Let's play {game_short_name}. The current game state in {notation} is:
+{readable_state_str}
+The moves played so far are:
+{move_history}
+You are playing as player {player_name}.
+It is now your turn. Play your strongest move. The move MUST be legal. Reason step by step to come up with your move, then output your final answer in the format "Final Answer: X" where X is your chosen move in {move_notation}.
+{rethink_prompt}"""
+
+# Rethink suffix for an unparseable previous response. Placeholder: generation.
+BASIC_RETHINK_UNPARSABLE = """\
+Your previously suggested move was not parsable.
+Please think carefully and generate a new and legal move. Your previous response was:
+{generation}
+"""
+
+# Rethink suffix for a parseable but illegal previous move. Placeholder: last_move.
+BASIC_RETHINK_ILLEGAL = """\
+Your previously suggested move was: {last_move}, which is an illegal move.
+Please think carefully and generate a new and legal move.
+"""
+
+
+# ---------------------------------------------------------------------------
 # Parse result
 # ---------------------------------------------------------------------------
 
@@ -186,7 +221,10 @@ def _call_llm(
     model_name: str,
     litellm_kwargs: dict[str, Any],
 ) -> tuple[str, dict[str, Any]]:
-    """Call the LLM and return ``(response_text, call_details)``.
+    """Call the LLM (streaming) and return ``(response_text, call_details)``.
+
+    The response is streamed via ``stream=True`` and assembled before return,
+    so callers see the same blocking-style ``(text, details)`` interface.
 
     ``call_details`` contains per-call usage and metadata::
 
@@ -197,21 +235,55 @@ def _call_llm(
             "total_tokens": int | None,
             "finish_reason": str | None,
             "duration_secs": float,
+            "first_token_secs": float,  # only when any content streamed
         }
     """
     _TELEMETRY(calling_llm=True)
     start = time.perf_counter()
+    first_token_secs: float | None = None
     try:
-        response = litellm.completion(
+        stream = litellm.completion(
             model=model_name,
             messages=[{"role": "user", "content": prompt}],
             timeout=3600,
+            stream=True,
+            stream_options={"include_usage": True},
             **litellm_kwargs,
         )
-        content = response.choices[0].message.content.strip()
+
+        content_parts: list[str] = []
+        finish_reason: str | None = None
+        usage_obj: Any = None
+        for chunk in stream:
+            choices = getattr(chunk, "choices", None) or []
+            if choices:
+                delta = getattr(choices[0], "delta", None)
+                piece = getattr(delta, "content", None) if delta else None
+                if piece:
+                    if first_token_secs is None:
+                        first_token_secs = time.perf_counter() - start
+                    content_parts.append(piece)
+                fr = getattr(choices[0], "finish_reason", None)
+                if fr:
+                    finish_reason = fr
+            chunk_usage = getattr(chunk, "usage", None)
+            if chunk_usage is not None:
+                usage_obj = chunk_usage
+
+        content = "".join(content_parts).strip()
         duration = time.perf_counter() - start
 
-        usage_obj = getattr(response, "usage", None)
+        if not content:
+            raise RuntimeError(
+                "LLM stream produced no content "
+                f"(finish_reason={finish_reason!r}, duration_secs={duration:.3f})"
+            )
+        if finish_reason is None:
+            raise RuntimeError(
+                "LLM stream ended without a finish_reason "
+                f"(content_length={len(content)}, duration_secs={duration:.3f})"
+            )
+
         ctd = (
             getattr(usage_obj, "completion_tokens_details", None)
             if usage_obj
@@ -227,13 +299,13 @@ def _call_llm(
                 usage_obj, "completion_tokens", None,
             ),
             "total_tokens": getattr(usage_obj, "total_tokens", None),
-            "finish_reason": getattr(
-                response.choices[0], "finish_reason", None,
-            ),
+            "finish_reason": finish_reason,
             "duration_secs": round(duration, 3),
         }
         if reasoning_tokens is not None:
             details["reasoning_tokens"] = reasoning_tokens
+        if first_token_secs is not None:
+            details["first_token_secs"] = round(first_token_secs, 3)
         _TELEMETRY(
             llm_call_success=True,
             duration_secs=details["duration_secs"],
@@ -266,6 +338,8 @@ def _build_call_detail(
     }
     if "reasoning_tokens" in record:
         detail["reasoning_tokens"] = record["reasoning_tokens"]
+    if "first_token_secs" in record:
+        detail["first_token_secs"] = record["first_token_secs"]
     if save_prompt:
         detail["prompt"] = record["prompt"]
     return detail
@@ -428,6 +502,7 @@ def create_agent_fn(
         last_content = ""
         all_responses: list[str] = []
         call_records: list[dict[str, Any]] = []
+        last_exception: Exception | None = None
 
         for attempt in range(max_retries):
             if attempt == 0:
@@ -456,13 +531,14 @@ def create_agent_fn(
                     "model": model_name,
                     **call_details,
                 })
+                result = game_harness.parse_response(content, legal_action_strings)
+                last_exception = None
             except Exception as exc:
-                _log.error(
-                    "LLM call failed on attempt %d: %s", attempt + 1, exc,
+                last_exception = exc
+                _log.warning(
+                    "Attempt %d failed with exception: %s", attempt + 1, exc,
                 )
-                raise
-
-            result = game_harness.parse_response(content, legal_action_strings)
+                continue
 
             # -- check for a valid action --
             matched_submission: Any = None
@@ -522,6 +598,8 @@ def create_agent_fn(
             all_attempts_failed=True,
             total_attempts=max_retries,
         )
+        if last_exception is not None:
+            raise last_exception
         raise ValueError(
             f"Failed to parse a legal move after {max_retries} attempts. "
             f"Last response: {last_content[:200]}"

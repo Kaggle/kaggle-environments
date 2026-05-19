@@ -68,19 +68,36 @@ def _guesser_obs(turn=1, clue="ANIMAL", clue_number=2, guesses_remaining=3, **ov
     return obs
 
 
+class _StreamDelta:
+    def __init__(self, content): self.content = content
+
+
+class _StreamChoice:
+    def __init__(self, content, finish_reason=None):
+        self.delta = _StreamDelta(content)
+        self.finish_reason = finish_reason
+
+
+class _StreamChunk:
+    def __init__(self, choices, usage=None):
+        self.choices = choices
+        self.usage = usage
+
+
+class _StreamUsage:
+    prompt_tokens = 1
+    completion_tokens = 1
+    total_tokens = 2
+    completion_tokens_details = None
+
+
 def _fake_completion(content: str):
-    class _Msg:
-        def __init__(self, c): self.content = c
-    class _Choice:
-        def __init__(self, c): self.message = _Msg(c)
-    class _Usage:
-        prompt_tokens = 1
-        completion_tokens = 1
-    class _Resp:
-        def __init__(self, c):
-            self.choices = [_Choice(c)]
-            self.usage = _Usage()
-    return _Resp(content)
+    """Streaming-style mock litellm response (a re-iterable chunk list)."""
+    return [
+        _StreamChunk([_StreamChoice(content)]),
+        _StreamChunk([_StreamChoice("", finish_reason="stop")]),
+        _StreamChunk([], usage=_StreamUsage()),
+    ]
 
 
 _ENV = {

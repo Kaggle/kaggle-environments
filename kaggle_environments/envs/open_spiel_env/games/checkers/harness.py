@@ -67,26 +67,34 @@ Piece counts: Player 0 men={p0_men}, kings={p0_kings}; Player 1 men={p1_men},
 kings={p1_kings}.
 
 You are Player {player_label} ('{my_piece}').
+Your men ('{my_piece}') are at: {my_men_squares}
+Your kings ('{my_king}') are at: {my_king_squares}
+Captures available this turn: {captures_flag}{capture_reminder}
+
 Move number: {move_number}
 Last move played: {last_move}
 Moves you have played so far: {move_history}
 
-Action notation: ``<from><to>`` -- four lowercase characters, e.g.
-``a3b4`` (slide a3 to b4) or ``d6b4`` (capture jump from d6 to b4 over
-the opponent piece on c5).
+Action notation: ``<from><to>`` -- four lowercase characters. As Player
+{player_label}, "forward" for your men means toward rank {forward_rank}.
+Examples: ``{slide_example}`` slides one of your men {slide_explanation};
+``{capture_example}`` is a capture jump that lands two squares diagonally
+away {capture_explanation}. Kings may move and capture in any diagonal
+direction.
 
-You MUST pick one of the legal moves listed below: {legal_moves}.
+It is your turn. Choose a legal move for one of your pieces, remembering
+that if any capture is available you MUST take a capture.
 
 Respond with your reasoning followed by your final move in a JSON block:
 
 ```json
 {{
-  "move": "<one of the legal moves>"
+  "move": "<from><to>, e.g. a3b4"
 }}
 ```
 
-Failure to output your final answer in the specified format, or selecting a
-move that is not in the legal list, will result in a loss.
+Failure to output your final answer in the specified format, or selecting
+an illegal move, will result in a loss.
 """
 
 
@@ -95,8 +103,9 @@ RETHINK_SUFFIX = """
 Your previous response was:
 {previous_response}
 
-You suggested move "{previous_action}" but it is NOT in the legal move list.
-Reconsider and pick one of the legal moves exactly.
+You suggested move "{previous_action}" but it is not a legal move.
+Reconsider and pick a legal move for one of your pieces (taking a capture
+if any are available).
 """
 
 
@@ -136,6 +145,34 @@ def _format_board_ascii(board: Sequence[Sequence[str]]) -> str:
     for r in range(len(board) - 1, -1, -1):
         lines.append(f"{r + 1} " + " ".join(board[r]))
     return "\n".join(lines)
+
+
+def _list_own_pieces(
+    board: Sequence[Sequence[str]], player_id: int
+) -> tuple[list[str], list[str]]:
+    """Return (men_squares, king_squares) in algebraic notation for player."""
+    man_char = "o" if player_id == 0 else "+"
+    king_char = "O" if player_id == 0 else "*"
+    men: list[str] = []
+    kings: list[str] = []
+    for r, row in enumerate(board):
+        for c, cell in enumerate(row):
+            square = f"{chr(ord('a') + c)}{r + 1}"
+            if cell == man_char:
+                men.append(square)
+            elif cell == king_char:
+                kings.append(square)
+    return men, kings
+
+
+def _is_capture(action_string: str) -> bool:
+    """A checkers capture jumps two ranks (e.g. d6b4); a slide moves one."""
+    if len(action_string) != 4:
+        return False
+    try:
+        return abs(int(action_string[1]) - int(action_string[3])) == 2
+    except ValueError:
+        return False
 
 
 def _extract_move_from_json(response: str) -> str | None:
@@ -190,11 +227,35 @@ def generate_prompt(
     last_move = state.get("last_move") or "(none yet)"
     piece_counts = state.get("piece_counts") or {}
     my_piece = "o" if player_id == 0 else "+"
+    my_king = "O" if player_id == 0 else "*"
 
-    legal_action_strings = observation.get("legalActionStrings") or []
-    if not legal_action_strings:
-        legal_action_strings = list(get_legal_moves(observation).values())
-    legal_moves_str = ", ".join(sorted(legal_action_strings)) or "(none)"
+    men, kings = _list_own_pieces(board, player_id)
+    my_men_squares = ", ".join(men) if men else "(none)"
+    my_king_squares = ", ".join(kings) if kings else "(none)"
+
+    legal_moves = get_legal_moves(observation)
+    captures_available = any(_is_capture(s) for s in legal_moves.values())
+    captures_flag = "yes" if captures_available else "no"
+    capture_reminder = (
+        " (you MUST take a capture this turn)" if captures_available else ""
+    )
+
+    if player_id == 0:
+        forward_rank = 8
+        slide_example = "a3b4"
+        slide_explanation = "forward-right from a3 to the empty square b4"
+        capture_example = "c3e5"
+        capture_explanation = (
+            "from c3 over an opponent on d4 onto the empty square e5"
+        )
+    else:
+        forward_rank = 1
+        slide_example = "f6e5"
+        slide_explanation = "forward-left from f6 to the empty square e5"
+        capture_example = "f6d4"
+        capture_explanation = (
+            "from f6 over an opponent on e5 onto the empty square d4"
+        )
 
     move_history_str = ", ".join(move_history) if move_history else "None"
 
@@ -206,10 +267,19 @@ def generate_prompt(
         p1_kings=piece_counts.get("*", 0),
         player_label=player_id,
         my_piece=my_piece,
+        my_king=my_king,
+        my_men_squares=my_men_squares,
+        my_king_squares=my_king_squares,
+        captures_flag=captures_flag,
+        capture_reminder=capture_reminder,
+        forward_rank=forward_rank,
+        slide_example=slide_example,
+        slide_explanation=slide_explanation,
+        capture_example=capture_example,
+        capture_explanation=capture_explanation,
         move_number=move_number,
         last_move=last_move,
         move_history=move_history_str,
-        legal_moves=legal_moves_str,
     )
 
     if previous_response is not None:

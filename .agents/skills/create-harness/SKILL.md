@@ -110,9 +110,20 @@ A good prompt follows this pattern:
 2. **Current state** — the board/situation, parsed from `observation["observationString"]`
 3. **Move history** — what's happened so far
 4. **Player identity** — which side the LLM is playing
-5. **Legal moves** — optionally list them (helpful for complex action spaces)
-6. **Output format** — tell the LLM exactly how to format its move
-7. **Rethink suffix** — appended on retries to explain what went wrong
+5. **Output format** — tell the LLM exactly how to format its move
+6. **Rethink suffix** — appended on retries to explain what went wrong
+
+**Do not enumerate the legal moves in the prompt.** The framework already
+validates the LLM's response against `legalActionStrings` and triggers a
+retry with the rethink suffix on an illegal move, so listing every legal
+action just bloats the prompt, encourages the model to pick mechanically
+from the list instead of reasoning about the position, and trivializes the
+benchmark for games whose challenge is partly *finding* the legal moves
+(e.g. checkers' forced captures). Instead, describe the move-legality rules
+clearly and let the model derive legality from the state. The lone
+exception is when the legal-action set is not derivable from the visible
+state at all (e.g. a hidden hand of cards the LLM owns but the rules text
+cannot enumerate) — in that case, list only what the model cannot infer.
 
 ### Prompt template example
 
@@ -134,8 +145,6 @@ Your response should include your reasoning, then conclude with your move as JSO
 ```json
 {{"move": "<your_move>"}}
 ```
-
-{legal_moves_section}
 """
 
 RETHINK_SUFFIX = """
@@ -143,7 +152,7 @@ Your previous response was:
 {previous_response}
 
 You suggested move "{previous_action}" but this is not a legal move.
-Reconsider and play a legal move from the list above.
+Reconsider the rules and the current state, then pick a legal move.
 """
 ```
 
@@ -154,7 +163,7 @@ Reconsider and play a legal move from the list above.
 - **Explain the coordinate system.** If the game uses a board, explain notation clearly (e.g., "columns are letters a-h, rows are numbers 1-9").
 - **Include rules that affect strategy.** Don't just list rules mechanically — highlight the ones that matter for making good decisions.
 - **Don't give strategy advice.** The prompt should explain rules and mechanics, not coach the model on how to play. Saying "capture pieces to win" is fine (that's a rule); saying "control the center early" or "prefer defensive moves" is not (that's strategy). The LLM should reason about strategy on its own from the rules and game state.
-- **Keep the rethink suffix concise.** Truncate the previous response to ~500 characters. Include the illegal move attempt and remind the LLM to pick from legal moves.
+- **Keep the rethink suffix concise.** Truncate the previous response to ~500 characters. Include the illegal move attempt and remind the LLM to re-derive a legal move from the state and rules (do *not* paste in a legal-moves list on retry either — same reasoning as above).
 - **Move history formatting.** Show it as a readable list or "None" if empty. Don't let an empty string confuse the model.
 
 ```python
@@ -579,6 +588,7 @@ uv sync && uv run pytest tests/envs/open_spiel_env/games/<name>/harness_test.py 
 - [ ] Identified the action space type (enumerable, free-form, or mixed)
 - [ ] `get_legal_moves` returns `dict[int, str]` or `None` as appropriate
 - [ ] Prompt includes: rules, state, move history, player identity, output format
+- [ ] Prompt does **not** enumerate the legal moves (let the model derive legality from the state and rules)
 - [ ] Prompt has a rethink suffix for retries (uses `previous_response` and `previous_action`)
 - [ ] `parse_response` has multi-stage fallback (JSON block -> bare JSON -> text scan)
 - [ ] `parse_response` does case-insensitive matching

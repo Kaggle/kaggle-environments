@@ -65,6 +65,17 @@
       "description": "Optional input seed for deterministic episode generation. The interpreter clears this from configuration after reading and stores the resolved seed on env.info['seed'] so it stays out of agent observations but is still recorded in the replay.",
       "type": ["integer", "null"],
       "default": null
+    },
+    "farmHandCostMult": {
+      "description": "Multiplier applied to the Fibonacci hire-cost sequence (1, 1, 2, 3, 5, 8, 13, ...). The n-th hire of the day costs this value times fib(n).",
+      "type": "integer",
+      "default": 10,
+      "minimum": 0
+    },
+    "marketParams": {
+      "description": "Per-resource market price-curve overrides. Sparse: keyed by product name; each entry may set any subset of {base, I0, T, below_func, below_target, above_func, above_target}. Missing keys (and missing products) inherit from MARKET_PARAMS defaults in kaggriculture.py. Functions: linear, sq, sqrt, log, log10. amp is derived as target * base / f(T).",
+      "type": "object",
+      "default": {}
     }
   },
   "reward": {
