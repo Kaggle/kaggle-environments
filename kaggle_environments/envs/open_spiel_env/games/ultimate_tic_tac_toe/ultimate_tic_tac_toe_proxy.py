@@ -51,53 +51,6 @@ def check_subgrid_winner(subgrid: list[str]) -> str:
     return ""
 
 
-def get_active_subgrid_and_phase(history: list[int]) -> tuple[int | None, str]:
-    """Reconstruct the active sub-grid and turn phase by playing through history.
-
-    Returns:
-        (active_subgrid_idx, phase) where phase is 'choose_subgrid' or 'choose_cell'.
-    """
-    active_subgrid = None
-    phase = "choose_subgrid"
-    subgrid_winners = ["" for _ in range(9)]
-    temp_board = [["" for _ in range(9)] for _ in range(9)]
-    current_player = "x"
-
-    i = 0
-    while i < len(history):
-        if active_subgrid is None:
-            if i + 1 >= len(history):
-                return history[i], "choose_cell"
-            s = history[i]
-            c = history[i + 1]
-            temp_board[s][c] = current_player
-            subgrid_winners[s] = check_subgrid_winner(temp_board[s])
-            next_s = c
-            if subgrid_winners[next_s] != "":
-                active_subgrid = None
-                phase = "choose_subgrid"
-            else:
-                active_subgrid = next_s
-                phase = "choose_cell"
-            current_player = "o" if current_player == "x" else "x"
-            i += 2
-        else:
-            s = active_subgrid
-            c = history[i]
-            temp_board[s][c] = current_player
-            subgrid_winners[s] = check_subgrid_winner(temp_board[s])
-            next_s = c
-            if subgrid_winners[next_s] != "":
-                active_subgrid = None
-                phase = "choose_subgrid"
-            else:
-                active_subgrid = next_s
-                phase = "choose_cell"
-            current_player = "o" if current_player == "x" else "x"
-            i += 1
-    return active_subgrid, phase
-
-
 class UltimateTicTacToeState(proxy.State):
     """Wraps OpenSpiel Ultimate Tic Tac Toe state with JSON observations."""
 
@@ -154,7 +107,15 @@ class UltimateTicTacToeState(proxy.State):
             else:
                 winner = "draw"
 
-        active_subgrid, phase = get_active_subgrid_and_phase(self.history())
+        if self.is_terminal():
+            active_subgrid, phase = None, None
+        else:
+            label = self.action_to_string(self.current_player(), self.legal_actions()[0])
+            if label.startswith("Choose local board"):
+                active_subgrid, phase = None, "choose_subgrid"
+            else:
+                active_subgrid = int(label.split()[2].rstrip(":"))
+                phase = "choose_cell"
 
         return {
             "board": board,
