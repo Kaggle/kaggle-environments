@@ -149,9 +149,6 @@ class UltimateTicTacToeState(proxy.State):
     def observation_string(self, player: int) -> str:
         return self.to_json(player)
 
-    def observation_json(self, player: int) -> str:
-        return self.to_json(player)
-
     def __str__(self):
         return self.to_json()
 
