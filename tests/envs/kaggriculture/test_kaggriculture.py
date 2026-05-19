@@ -465,8 +465,10 @@ def test_market_price_rises_with_low_inventory():
 
 def test_market_price_floored_at_one_dollar():
     # At sufficiently high inventory, price floors at 1.
-    very_high = MARKET_PARAMS["WHEAT"]["I0"] * 1000
-    assert market_price("WHEAT", very_high) == 1
+    # Use CARROT: above-side is sqrt (steep glut), so it actually hits the
+    # floor at a reasonable inventory.
+    very_high = MARKET_PARAMS["CARROT"]["I0"] * 1000
+    assert market_price("CARROT", very_high) == 1
 
 
 def test_sell_credits_at_current_price_and_grows_inventory():
@@ -484,16 +486,18 @@ def test_sell_credits_at_current_price_and_grows_inventory():
 
 
 def test_sell_at_one_dollar_does_not_grow_inventory():
+    # CARROT's above-side is sqrt (steep glut), so a massive inventory floors
+    # the price at $1 quickly. WHEAT uses log above and never floors here.
     farm = _new_farm(10, 0)
     private = _new_private()
-    private["shed"]["WHEAT"] = 1
+    private["shed"]["CARROT"] = 1
     market = _new_market()
-    market["inventory"]["WHEAT"] = MARKET_PARAMS["WHEAT"]["I0"] * 1000
-    price = market_price("WHEAT", market["inventory"]["WHEAT"])
+    market["inventory"]["CARROT"] = MARKET_PARAMS["CARROT"]["I0"] * 1000
+    price = market_price("CARROT", market["inventory"]["CARROT"])
     assert price == 1
-    inv_before = market["inventory"]["WHEAT"]
-    _commit_unit("SELL", "WHEAT", price, farm, private, market)
-    assert market["inventory"]["WHEAT"] == inv_before  # unchanged
+    inv_before = market["inventory"]["CARROT"]
+    _commit_unit("SELL", "CARROT", price, farm, private, market)
+    assert market["inventory"]["CARROT"] == inv_before  # unchanged
 
 
 def test_buy_product_charges_and_depletes_market():
