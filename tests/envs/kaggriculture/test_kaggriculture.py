@@ -2,7 +2,7 @@ from kaggle_environments import make
 from kaggle_environments.envs.kaggriculture.kaggriculture import (
     ANIMALS,
     CROPS,
-    HIRE_COSTS,
+    FARM_HAND_COST_MULT,
     LAND_ORDER,
     LAND_PRICES,
     MARKET_PARAMS,
@@ -576,18 +576,19 @@ def test_hire_cost_increases_with_each_hire_today():
     initial = farm["money"]
     for i in range(5):
         _do_hire(farm, private, 10)
-    spent = sum(HIRE_COSTS[:5])
+    # Fib: 1, 1, 2, 3, 5 → 12 units × default mult 10 = 120.
+    spent = FARM_HAND_COST_MULT * (1 + 1 + 2 + 3 + 5)
     assert farm["money"] == initial - spent
     assert farm["hires_today"] == 5
     assert len(farm["hands"]) == 5
 
 
 def test_hire_rejected_when_too_expensive():
-    farm = _new_farm(10, 50)
+    farm = _new_farm(10, FARM_HAND_COST_MULT - 1)
     private = _new_private()
     _do_hire(farm, private, 10)
     assert farm["hands"] == []
-    assert farm["money"] == 50
+    assert farm["money"] == FARM_HAND_COST_MULT - 1
 
 
 def test_hand_actions_dispatched_via_hands_field():

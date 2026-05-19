@@ -137,9 +137,9 @@ Each player has their own farm with a set number of squares. Players are unable 
 
 #### Hiring
 
-- Hiring is an action only available to the farmer. It costs more every time you want to hire an additional hand each day. At the end of the day all, hands drop inventory at the farm and disappear (need to be re-hired each day)  
-- Cost  
-  - 100, 100, 200, 300, 500, 800, 1300, etc… (resets to 100 at the start of each day)  
+- Hiring is a market order (`HIRE`). It costs more every time you want to hire an additional hand each day. At the end of the day all, hands drop inventory at the farm and disappear (need to be re-hired each day)  
+- Cost is `farmHandCostMult * fib(n)` where `n` is the number of hires already made today (fib starts 1, 1, 2, 3, 5, 8, 13, ...).  
+  - With the default `farmHandCostMult = 10`: 10, 10, 20, 30, 50, 80, 130, 210, etc… (resets at the start of each day)  
 - A hired hand appears orthogonally adjacent to the shed in a free space following NWSE. If there are not open spaces, it looks for the one with the least occupants, breaking ties by NWSE preference
 
 #### Inventory
