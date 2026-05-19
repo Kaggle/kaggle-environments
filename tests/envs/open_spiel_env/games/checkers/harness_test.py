@@ -95,7 +95,7 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("Checkers", prompt)
         self.assertIn("Player 0", prompt)
         self.assertIn("'o'", prompt)
-        # All initial Player 0 opening moves should be listed.
+        # The action-notation example uses "a3b4".
         self.assertIn("a3b4", prompt)
 
     def test_player_label_swap(self):
@@ -106,11 +106,16 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("Player 1", prompt)
         self.assertIn("'+'", prompt)
 
-    def test_legal_moves_listed(self):
+    def test_legal_moves_not_listed(self):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [])
+        # The prompt deliberately omits the legal-move list so the model has
+        # to reason about legality from the board alone. "a3b4" is excluded
+        # because the action-notation example uses that token.
         for legal in obs["legalActionStrings"]:
-            self.assertIn(legal, prompt)
+            if legal == "a3b4":
+                continue
+            self.assertNotIn(legal, prompt)
 
     def test_board_ascii_includes_files_and_ranks(self):
         obs = _make_observation(self.state, self.game, player_id=0)
@@ -150,7 +155,7 @@ class GeneratePromptTest(absltest.TestCase):
         prompt = generate_prompt(obs, [], previous_response="I'll play z9z9", previous_action="z9z9")
         self.assertIn("Your previous response was", prompt)
         self.assertIn("z9z9", prompt)
-        self.assertIn("NOT in the legal move list", prompt)
+        self.assertIn("not a legal move", prompt)
 
     def test_no_rethink_on_first_attempt(self):
         obs = _make_observation(self.state, self.game, player_id=0)

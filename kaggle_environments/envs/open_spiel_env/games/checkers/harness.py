@@ -75,18 +75,19 @@ Action notation: ``<from><to>`` -- four lowercase characters, e.g.
 ``a3b4`` (slide a3 to b4) or ``d6b4`` (capture jump from d6 to b4 over
 the opponent piece on c5).
 
-You MUST pick one of the legal moves listed below: {legal_moves}.
+It is your turn. Choose a legal move for one of your pieces, remembering
+that if any capture is available you MUST take a capture.
 
 Respond with your reasoning followed by your final move in a JSON block:
 
 ```json
 {{
-  "move": "<one of the legal moves>"
+  "move": "<from><to>, e.g. a3b4"
 }}
 ```
 
-Failure to output your final answer in the specified format, or selecting a
-move that is not in the legal list, will result in a loss.
+Failure to output your final answer in the specified format, or selecting
+an illegal move, will result in a loss.
 """
 
 
@@ -95,8 +96,9 @@ RETHINK_SUFFIX = """
 Your previous response was:
 {previous_response}
 
-You suggested move "{previous_action}" but it is NOT in the legal move list.
-Reconsider and pick one of the legal moves exactly.
+You suggested move "{previous_action}" but it is not a legal move.
+Reconsider and pick a legal move for one of your pieces (taking a capture
+if any are available).
 """
 
 
@@ -191,11 +193,6 @@ def generate_prompt(
     piece_counts = state.get("piece_counts") or {}
     my_piece = "o" if player_id == 0 else "+"
 
-    legal_action_strings = observation.get("legalActionStrings") or []
-    if not legal_action_strings:
-        legal_action_strings = list(get_legal_moves(observation).values())
-    legal_moves_str = ", ".join(sorted(legal_action_strings)) or "(none)"
-
     move_history_str = ", ".join(move_history) if move_history else "None"
 
     prompt = CHECKERS_PROMPT_TEMPLATE.format(
@@ -209,7 +206,6 @@ def generate_prompt(
         move_number=move_number,
         last_move=last_move,
         move_history=move_history_str,
-        legal_moves=legal_moves_str,
     )
 
     if previous_response is not None:

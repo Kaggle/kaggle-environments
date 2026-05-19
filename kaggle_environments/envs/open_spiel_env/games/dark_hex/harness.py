@@ -56,24 +56,22 @@ Move history (your nominated moves only -- you do not see the opponent's):
 {move_history}
 
 {last_move_line}
-Legal moves you may play (already excludes cells you know are yours;
-collision attempts on unknown cells are still legal):
-{legal_moves}
-
-It is your turn. Think about which cell most advances your connection
-across {connect_goal} (or which probe most reduces your uncertainty), then
-choose a move. The move MUST be exactly one of the legal moves listed above.
+It is your turn. You may nominate any cell that you do not already know to
+contain one of your own stones (including unknown cells -- a collision there
+reveals an opponent stone and keeps your turn). Think about which cell most
+advances your connection across {connect_goal} (or which probe most reduces
+your uncertainty), then choose a move.
 
 Respond with your reasoning followed by your final move in a JSON block:
 
 ```json
 {{
-  "move": "<coordinate from the legal list, e.g. a1, b3, d2>"
+  "move": "<coordinate, e.g. a1, b3, d2>"
 }}
 ```
 
 Failure to output your final answer in the specified format, or selecting a
-move that is not in the legal list, will result in a loss.
+cell that is not a legal move, will result in a loss.
 """
 
 
@@ -82,8 +80,9 @@ RETHINK_SUFFIX = """
 Your previous response was:
 {previous_response}
 
-You suggested move "{previous_action}" but it is NOT in the legal moves list.
-Reconsider and pick a coordinate that appears verbatim in the legal moves above.
+You suggested move "{previous_action}" but it is not a legal move.
+Reconsider and pick a valid coordinate on the board that you do not already
+know to be one of your own stones.
 """
 
 
@@ -219,10 +218,6 @@ def generate_prompt(
     player_id = observation.get("playerId", 0)
     player_name, player_code, connect_goal = _player_info(player_id)
 
-    legal_action_strings = observation.get("legalActionStrings") or []
-    if not legal_action_strings:
-        legal_action_strings = list(get_legal_moves(observation).values())
-
     prompt = DARK_HEX_PROMPT_TEMPLATE.format(
         num_rows=num_rows,
         num_cols=num_cols,
@@ -232,7 +227,6 @@ def generate_prompt(
         board_render=_render_board(board, num_cols),
         move_history=_format_move_history(move_history),
         last_move_line=_last_move_line(move_history),
-        legal_moves=", ".join(legal_action_strings),
     )
 
     if previous_response is not None:
