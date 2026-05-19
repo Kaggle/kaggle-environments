@@ -103,11 +103,15 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("Kalah", prompt)
         self.assertIn("Player 0", prompt)
 
-    def test_legal_moves_listed(self):
+    def test_legal_moves_not_listed(self):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [])
-        for legal in obs["legalActionStrings"]:
-            self.assertIn(legal, prompt)
+        # The prompt deliberately omits the legal-move list so the model has
+        # to derive legality from the board. Individual pit digits still
+        # appear in rule text and labels, so assert the comma-joined list
+        # and the directive phrase are absent.
+        self.assertNotIn(", ".join(obs["legalActionStrings"]), prompt)
+        self.assertNotIn("legal pit indices:", prompt)
 
     def test_board_rows_rendered(self):
         obs = _make_observation(self.state, self.game, player_id=0)
@@ -141,7 +145,7 @@ class GeneratePromptTest(absltest.TestCase):
         prompt = generate_prompt(obs, [], previous_response="I'll play 99", previous_action="99")
         self.assertIn("Your previous response was", prompt)
         self.assertIn("99", prompt)
-        self.assertIn("NOT in the legal move", prompt)
+        self.assertIn("not a legal move", prompt)
 
     def test_no_rethink_on_first_attempt(self):
         obs = _make_observation(self.state, self.game, player_id=0)

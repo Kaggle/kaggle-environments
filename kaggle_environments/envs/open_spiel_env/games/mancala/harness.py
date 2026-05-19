@@ -85,14 +85,14 @@ You are Player {player_id}. Move number: {move_number}.
 Last action played: {last_action}.
 Your move history: {move_history}.
 
-You MUST choose one of the legal pit indices: {legal_moves}.
+It is your turn. Choose one of YOUR own pits that contains seeds.
 
 Respond with your reasoning followed by your chosen pit index in a JSON
 block:
 
 ```json
 {{
-  "move": "<one of the legal pit indices>"
+  "move": "<pit index, e.g. 3>"
 }}
 ```
 
@@ -106,8 +106,9 @@ RETHINK_SUFFIX = """
 Your previous response was:
 {previous_response}
 
-You suggested move "{previous_action}" but it is NOT in the legal move
-list. Pick one of the legal pit indices exactly: {legal_moves}.
+You suggested move "{previous_action}" but it is not a legal move.
+Reconsider the rules and the current state, then pick one of your own
+pits that contains seeds.
 """
 
 
@@ -200,11 +201,6 @@ def generate_prompt(
     last_action = state.get("last_action")
     last_action_str = str(last_action) if last_action is not None else "(none yet)"
 
-    legal_action_strings = observation.get("legalActionStrings") or []
-    if not legal_action_strings:
-        legal_action_strings = list(get_legal_moves(observation).values())
-    legal_moves_str = ", ".join(legal_action_strings) or "(none)"
-
     move_history_str = ", ".join(move_history) if move_history else "None"
 
     prompt = MANCALA_PROMPT_TEMPLATE.format(
@@ -216,14 +212,12 @@ def generate_prompt(
         move_number=move_number,
         last_action=last_action_str,
         move_history=move_history_str,
-        legal_moves=legal_moves_str,
     )
 
     if previous_response is not None:
         prompt += RETHINK_SUFFIX.format(
             previous_response=previous_response[:500],
             previous_action=previous_action or "(could not parse)",
-            legal_moves=legal_moves_str,
         )
 
     return prompt
