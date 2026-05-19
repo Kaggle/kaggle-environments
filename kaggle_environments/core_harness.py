@@ -601,8 +601,13 @@ def create_agent_fn(
         if last_exception is not None:
             raise last_exception
 
+        # Fallback is False: -1 as a forfeit signal is an OpenSpiel
+        # convention (pyspiel.INVALID_ACTION), and the open_spiel_env spec
+        # opts in by declaring `illegalMoveForfeit` with default True. Any
+        # other environment can support the parameter by adding it to its
+        # own spec and treating submission=-1 as an invalid action.
         illegal_move_forfeit = (
-            bool(config.get("illegalMoveForfeit", True)) if config else True
+            bool(config.get("illegalMoveForfeit", False)) if config else False
         )
         if illegal_move_forfeit:
             # Mimic game_arena: submit pyspiel.INVALID_ACTION (-1) so the env

@@ -151,7 +151,7 @@ class CoreHarnessTest(absltest.TestCase):
         # Second prompt should reflect rethink context.
         self.assertIn("prev=garbage", harness.prompts[1])
 
-    def test_all_attempts_fail_forfeits_by_default(self):
+    def test_all_attempts_fail_forfeits_when_opted_in(self):
         harness = _SimpleHarness()
         agent = create_agent_fn(harness, max_retries=2)
         with patch.dict("os.environ", _ENV, clear=False), patch.object(
@@ -159,18 +159,28 @@ class CoreHarnessTest(absltest.TestCase):
             "completion",
             side_effect=lambda *a, **kw: _fake_completion("nope"),
         ):
-            result = agent({}, {})
+            result = agent({}, {"illegalMoveForfeit": True})
 
         self.assertEqual(result["submission"], -1)
         self.assertEqual(result["actionString"], "nope")
         self.assertIn("forfeiting", result["status"])
-        kinds = [e.get("module") for e in self.events]
         self.assertTrue(
             any("illegal_move_forfeit" in e for e in self.events),
-            f"expected illegal_move_forfeit telemetry, got {kinds}",
+            "expected illegal_move_forfeit telemetry event",
         )
 
-    def test_all_attempts_fail_raises_when_forfeit_disabled(self):
+    def test_all_attempts_fail_raises_by_default(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=2)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            side_effect=lambda *a, **kw: _fake_completion("nope"),
+        ):
+            with self.assertRaisesRegex(ValueError, "Failed to parse"):
+                agent({}, {})
+
+    def test_all_attempts_fail_raises_when_forfeit_explicitly_disabled(self):
         harness = _SimpleHarness()
         agent = create_agent_fn(harness, max_retries=2)
         with patch.dict("os.environ", _ENV, clear=False), patch.object(
@@ -480,7 +490,7 @@ class CoreHarnessTest(absltest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "second failure"):
                 agent({}, {})
 
-    def test_exception_then_parse_failure_forfeits_by_default(self):
+    def test_exception_then_parse_failure_forfeits_when_opted_in(self):
         """If the last attempt was a parse failure (not an exception), the
         forfeit path applies — last_exception should not leak through."""
         harness = _SimpleHarness()
@@ -492,13 +502,13 @@ class CoreHarnessTest(absltest.TestCase):
         with patch.dict("os.environ", _ENV, clear=False), patch.object(
             core_harness.litellm, "completion", side_effect=side_effects,
         ):
-            result = agent({}, {})
+            result = agent({}, {"illegalMoveForfeit": True})
 
         self.assertEqual(result["submission"], -1)
         self.assertEqual(result["actionString"], "garbage")
         self.assertIn("forfeiting", result["status"])
 
-    def test_exception_then_parse_failure_raises_when_forfeit_disabled(self):
+    def test_exception_then_parse_failure_raises_by_default(self):
         harness = _SimpleHarness()
         agent = create_agent_fn(harness, max_retries=2)
         side_effects = [
@@ -509,7 +519,7 @@ class CoreHarnessTest(absltest.TestCase):
             core_harness.litellm, "completion", side_effect=side_effects,
         ):
             with self.assertRaisesRegex(ValueError, "Failed to parse"):
-                agent({}, {"illegalMoveForfeit": False})
+                agent({}, {})
 
     def test_move_history_accumulates_across_calls(self):
         harness = _SimpleHarness()
@@ -629,7 +639,7 @@ class FreeFormHarnessTest(absltest.TestCase):
         self.assertEqual(mock_call.call_count, 2)
         self.assertIn("prev=not json", harness.prompts[1])
 
-    def test_free_form_all_attempts_fail_forfeits_by_default(self):
+    def test_free_form_all_attempts_fail_forfeits_when_opted_in(self):
         harness = _FreeFormHarness()
         agent = create_agent_fn(harness, max_retries=2)
         with patch.dict("os.environ", _ENV, clear=False), patch.object(
@@ -637,12 +647,12 @@ class FreeFormHarnessTest(absltest.TestCase):
             "completion",
             side_effect=lambda *a, **kw: _fake_completion("garbage"),
         ):
-            result = agent({}, {"freeForm": True})
+            result = agent({}, {"freeForm": True, "illegalMoveForfeit": True})
 
         self.assertEqual(result["submission"], -1)
         self.assertIn("forfeiting", result["status"])
 
-    def test_free_form_all_attempts_fail_raises_when_forfeit_disabled(self):
+    def test_free_form_all_attempts_fail_raises_by_default(self):
         harness = _FreeFormHarness()
         agent = create_agent_fn(harness, max_retries=2)
         with patch.dict("os.environ", _ENV, clear=False), patch.object(
@@ -651,7 +661,7 @@ class FreeFormHarnessTest(absltest.TestCase):
             side_effect=lambda *a, **kw: _fake_completion("garbage"),
         ):
             with self.assertRaisesRegex(ValueError, "Failed to parse"):
-                agent({}, {"freeForm": True, "illegalMoveForfeit": False})
+                agent({}, {"freeForm": True})
 
     def test_free_form_move_history_accumulates(self):
         harness = _FreeFormHarness()
