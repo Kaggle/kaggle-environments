@@ -47,9 +47,9 @@ class ParseResponseTest(absltest.TestCase):
         self.assertEqual(result.legal_action, "P1(h,0,0)")
         self.assertEqual(result.raw_action, "h 0 0")
 
-    def test_parse_json_block_canonical(self):
+    def test_parse_rejects_openspiel_form(self):
         result = parse_response('```json\n{"move": "P1(v,1,2)"}\n```', self.legal)
-        self.assertEqual(result.legal_action, "P1(v,1,2)")
+        self.assertIsNone(result.legal_action)
 
     def test_parse_bare_json(self):
         result = parse_response('I think {"move": "v 0 0"} works.', self.legal)
@@ -63,8 +63,8 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response('```json\n{"move": "H 0 0"}\n```', self.legal)
         self.assertEqual(result.legal_action, "P1(h,0,0)")
 
-    def test_parse_alternate_punctuation(self):
-        result = parse_response('```json\n{"move": "h(0,1)"}\n```', self.legal)
+    def test_parse_comma_separators(self):
+        result = parse_response('```json\n{"move": "h, 0, 1"}\n```', self.legal)
         self.assertEqual(result.legal_action, "P1(h,0,1)")
 
     def test_parse_illegal_move_returns_raw(self):
@@ -107,15 +107,6 @@ class GeneratePromptTest(absltest.TestCase):
         prompt = generate_prompt(obs1, [])
         self.assertIn("You are Player 2", prompt)
 
-    def test_legal_moves_listed_in_shorthand(self):
-        obs = _make_observation(self.state, self.game, player_id=0)
-        prompt = generate_prompt(obs, [])
-        # Every legal move should appear in shorthand form (orientation r c).
-        for legal in obs["legalActionStrings"]:
-            shorthand = legal.replace("P1(", "").replace("P2(", "").rstrip(")")
-            orient, r, c = shorthand.split(",")
-            self.assertIn(f"{orient} {int(r)} {int(c)}", prompt)
-
     def test_board_ascii_includes_dots(self):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [])
@@ -154,7 +145,7 @@ class GeneratePromptTest(absltest.TestCase):
         prompt = generate_prompt(obs, [], previous_response="I'll play x 9 9", previous_action="x 9 9")
         self.assertIn("Your previous response was", prompt)
         self.assertIn("x 9 9", prompt)
-        self.assertIn("NOT in the legal move list", prompt)
+        self.assertIn("not a legal move", prompt)
 
     def test_no_rethink_on_first_attempt(self):
         obs = _make_observation(self.state, self.game, player_id=0)

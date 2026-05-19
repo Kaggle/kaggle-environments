@@ -10,11 +10,10 @@ a player draws the fourth edge of a unit box they claim that box (marked with
 their player number) and immediately take another turn. When every edge has
 been drawn the player with more boxes wins.
 
-OpenSpiel encodes each move as ``P<n>(h|v,row,col)`` (e.g. ``P1(h,0,1)`` for
-Player 1 drawing the horizontal edge between dots (0,1) and (0,2)). The
-harness prompt explains this notation and asks the LLM to respond with a
-JSON ``{"move": "h r c"}``-style payload, which is normalized against the
-legal action strings.
+The harness prompt asks the LLM to respond with a JSON
+``{"move": "h r c"}`` shorthand payload (e.g. ``h 0 1`` for the horizontal
+edge between dots (0,1) and (0,2)), which is normalized and matched against
+the legal action strings produced by OpenSpiel.
 """
 
 from __future__ import annotations
@@ -32,9 +31,17 @@ _BARE_JSON_RE = re.compile(
     r"\{[^{}]*\"move\"\s*:\s*\"([^\"]+)\"[^{}]*\}",
     re.DOTALL | re.IGNORECASE,
 )
-# Matches "h 0 1", "h,0,1", "h(0,1)", "P1(h,0,1)", etc.
+# Matches the shorthand "h 0 1" / "v 2 0" the LLM is asked to produce
+# (whitespace or comma separators). A leading lookbehind rejects matches
+# inside ``P1(h,0,1)`` or other wrapped forms.
 _MOVE_TOKEN_RE = re.compile(
-    r"(?:P\d+\s*\()?\s*([hv])\s*[\s,(]\s*(\d+)\s*[\s,]\s*(\d+)\s*\)?",
+    r"(?<![(\w])([hv])[\s,]+(\d+)[\s,]+(\d+)",
+    re.IGNORECASE,
+)
+# Matches the canonical OpenSpiel form ``P1(h,0,1)`` for normalizing the
+# legal-action list produced by pyspiel.
+_OPENSPIEL_LEGAL_RE = re.compile(
+    r"P\d+\(([hv]),(\d+),(\d+)\)",
     re.IGNORECASE,
 )
 
@@ -68,21 +75,19 @@ You are Player {player_label}.
 Last move played: {last_move}
 Moves you have played so far: {move_history}
 
-Action notation: ``<h|v> <row> <col>`` (e.g. ``h 0 1`` or ``v 2 0``). The
-canonical OpenSpiel form ``P{player_label}(h,0,1)`` is also accepted.
-
-You MUST pick one of the legal moves listed below: {legal_moves}.
+Action notation: ``<h|v> <row> <col>`` (e.g. ``h 0 1`` or ``v 2 0``). Only
+open edges (shown as ``.`` on the board) are legal.
 
 Respond with your reasoning followed by your final move in a JSON block:
 
 ```json
 {{
-  "move": "<one of the legal moves>"
+  "move": "<your move>"
 }}
 ```
 
-Failure to output your final answer in the specified format, or selecting a
-move that is not in the legal list, will result in a loss.
+Failure to output your final answer in the specified format, or selecting
+an illegal move, will result in a loss.
 """
 
 
@@ -91,8 +96,8 @@ RETHINK_SUFFIX = """
 Your previous response was:
 {previous_response}
 
-You suggested move "{previous_action}" but it is NOT in the legal move list.
-Reconsider and pick one of the legal moves exactly.
+You suggested move "{previous_action}" but it is not a legal move.
+Reconsider and pick a legal move (an open edge shown as ``.`` on the board).
 """
 
 
@@ -180,7 +185,10 @@ def _normalize_move(raw: str) -> str | None:
 
 def _normalize_legal(action_string: str) -> str | None:
     """Normalize an OpenSpiel ``P1(h,0,1)`` string to ``h 0 1``."""
-    return _normalize_move(action_string)
+    m = _OPENSPIEL_LEGAL_RE.search(action_string or "")
+    if not m:
+        return None
+    return f"{m.group(1).lower()} {int(m.group(2))} {int(m.group(3))}"
 
 
 def _extract_move_from_json(response: str) -> str | None:
@@ -260,14 +268,6 @@ def generate_prompt(
     else:
         last_move = "(none yet)"
 
-    legal_action_strings = observation.get("legalActionStrings") or []
-    if not legal_action_strings:
-        legal_action_strings = list(get_legal_moves(observation).values())
-    legal_normalized = sorted(
-        {n for n in (_normalize_legal(s) for s in legal_action_strings) if n is not None}
-    )
-    legal_moves_str = ", ".join(legal_normalized) or "(none)"
-
     move_history_str = ", ".join(move_history) if move_history else "None"
 
     prompt = DOTS_AND_BOXES_PROMPT_TEMPLATE.format(
@@ -284,7 +284,6 @@ def generate_prompt(
         player_label=player_label,
         last_move=last_move,
         move_history=move_history_str,
-        legal_moves=legal_moves_str,
     )
 
     if previous_response is not None:
