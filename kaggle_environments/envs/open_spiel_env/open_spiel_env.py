@@ -801,13 +801,15 @@ def random_agent(
     configuration: dict[str, Any],
 ) -> int:
     """A built-in random agent specifically for OpenSpiel environments."""
-    del configuration
     legal_actions = observation.get("legalActions")
     if not legal_actions:
         return None
-    action = random.choice(legal_actions)
+    action = int(random.choice(legal_actions))
+    # strictMode requires the action dict to contain ONLY 'submission'.
+    if configuration.get("strictMode", False):
+        return {"submission": action}
     thoughts = " ".join(random.choices(_RANDOM_THOUGHT_WORDS, k=8))
-    return {"submission": int(action), "thoughts": thoughts}
+    return {"submission": action, "thoughts": thoughts}
 
 
 AGENT_REGISTRY = {

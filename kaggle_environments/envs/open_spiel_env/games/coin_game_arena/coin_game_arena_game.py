@@ -1,9 +1,10 @@
 """Coin Game Arena: 2v2 team variant of OpenSpiel's Coin Game.
 
 Two teams of two LLMs each play their own private coin_game board in
-parallel. Team A is players 0,1; team B is players 2,3. Each step, one
-seat from each team plays simultaneously (turn 0: players 0+2, turn 1:
-players 1+3, repeating). Players only ever see their own team's board.
+parallel. Team A is players 0,1; team B is players 2,3. Players take
+turns one-at-a-time in the order [0, 2, 1, 3] repeating, so the two
+teams interleave while each team's seats alternate. Players only ever
+see their own team's board.
 
 Scoring follows the standard Coin Game rule per player:
 
@@ -15,10 +16,13 @@ unowned colours collected by anyone on that board). The team total is
 the sum of its two players' rewards. Higher team total wins; equal
 totals = draw.
 
-Dynamics are SIMULTANEOUS so the kaggle harness can request both teams'
-moves in parallel each step. Setup (preferences, player and coin
-placement) is baked deterministically into the initial state via the
-``seed`` parameter so paired AA-vs-BB matches can use identical boards.
+Dynamics are SEQUENTIAL — exactly one player is active per step.
+``episode_length`` is the number of moves PER BOARD; the episode runs
+for ``2 * episode_length`` total steps so each board gets the same
+number of moves as it would have under the prior simultaneous design.
+Setup (preferences, player and coin placement) is baked deterministically
+into the initial state via the ``seed`` parameter so paired AA-vs-BB
+matches can use identical boards.
 """
 
 from __future__ import annotations
@@ -69,7 +73,7 @@ _ACTION_DELTAS = {
 _GAME_TYPE = pyspiel.GameType(
     short_name="coin_game_arena",
     long_name="Coin Game Arena (2v2)",
-    dynamics=pyspiel.GameType.Dynamics.SIMULTANEOUS,
+    dynamics=pyspiel.GameType.Dynamics.SEQUENTIAL,
     chance_mode=pyspiel.GameType.ChanceMode.DETERMINISTIC,
     information=pyspiel.GameType.Information.IMPERFECT_INFORMATION,
     utility=pyspiel.GameType.Utility.GENERAL_SUM,
@@ -131,6 +135,10 @@ class CoinGameArenaGame(pyspiel.Game):
         max_utility = float(max_coins * max_coins)
         min_utility = float(-(max_coins * max_coins))
 
+        # Sequential play: 2 moves per "tick" (one per board), so the
+        # total number of game steps is 2 * episode_length.
+        self.total_moves = self.episode_length * _NUM_TEAMS
+
         game_info = pyspiel.GameInfo(
             num_distinct_actions=len(Action),
             max_chance_outcomes=0,
@@ -138,7 +146,7 @@ class CoinGameArenaGame(pyspiel.Game):
             min_utility=min_utility,
             max_utility=max_utility,
             utility_sum=0.0,
-            max_game_length=self.episode_length,
+            max_game_length=self.total_moves,
         )
         super().__init__(_GAME_TYPE, game_info, params)
 
@@ -153,9 +161,10 @@ class CoinGameArenaState(pyspiel.State):
     """State for Coin Game Arena.
 
     Internally holds two ``Board`` dicts (one per team) plus a shared
-    move counter. ``current_player()`` always returns SIMULTANEOUS; the
-    framework reads per-player ``legal_actions(pid)`` and only the seat
-    whose turn it is on each board returns a non-empty list.
+    move counter. Sequential play: players act in the order
+    [0, 2, 1, 3] repeating, so the two teams interleave while each
+    team's seats alternate. ``current_player()`` returns the active
+    player id (or TERMINAL).
     """
 
     def __init__(self, game: CoinGameArenaGame):
@@ -216,43 +225,36 @@ class CoinGameArenaState(pyspiel.State):
 
     # --- OpenSpiel core ----------------------------------------------------
 
+    def _current_player_id(self) -> int:
+        """Player id whose turn it is. Interleaves teams: [0, 2, 1, 3]."""
+        team = self._move_number % _NUM_TEAMS
+        seat = (self._move_number // _NUM_TEAMS) % _PLAYERS_PER_TEAM
+        return team * _PLAYERS_PER_TEAM + seat
+
     def current_player(self):
         if self._is_terminal:
             return pyspiel.PlayerId.TERMINAL
-        return pyspiel.PlayerId.SIMULTANEOUS
-
-    def _active_seat(self) -> int:
-        """Which seat (0 or 1) plays on each board this step."""
-        return self._move_number % _PLAYERS_PER_TEAM
+        return self._current_player_id()
 
     def _legal_actions(self, player: int):
         if self._is_terminal:
             return []
-        if _seat_of(player) != self._active_seat():
+        if player != self._current_player_id():
             return []
         return [a.value for a in Action]
 
-    def _apply_actions(self, actions):
-        """Apply one move per board (the active seat's action).
-
-        ``actions`` is a 4-list. Inactive seats supplied INVALID_ACTION
-        (they have empty legal_actions); we ignore them.
-        """
+    def _apply_action(self, action_value):
         if self._is_terminal:
             return
-        active_seat = self._active_seat()
-        for team in range(_NUM_TEAMS):
-            pid = _team_player_ids(team)[active_seat]
-            action_value = actions[pid]
-            if action_value == pyspiel.INVALID_ACTION:
-                # Should not happen when this seat is active, but guard.
-                continue
-            action = Action(action_value)
-            self._step_player(team, active_seat, action)
-            self._move_history[team].append((active_seat, _ACTION_NAMES[action]))
+        pid = self._current_player_id()
+        team = _team_of(pid)
+        seat = _seat_of(pid)
+        action = Action(action_value)
+        self._step_player(team, seat, action)
+        self._move_history[team].append((seat, _ACTION_NAMES[action]))
 
         self._move_number += 1
-        if self._move_number >= self._game.episode_length:
+        if self._move_number >= self._game.total_moves:
             self._is_terminal = True
 
     def _step_player(self, team: int, seat: int, action: Action) -> None:
@@ -362,14 +364,22 @@ class CoinGameArenaState(pyspiel.State):
 
     def observation_dict(self, player: int | None = None) -> dict[str, Any]:
         episode_length = self._game.episode_length
-        active_seat = (
-            self._active_seat() if not self._is_terminal else None
-        )
+        total_moves = self._game.total_moves
+        if self._is_terminal:
+            active_player_id = None
+            active_team_id = None
+            active_seat = None
+        else:
+            active_player_id = self._current_player_id()
+            active_team_id = _team_of(active_player_id)
+            active_seat = _seat_of(active_player_id)
         result: dict[str, Any] = {
             "phase": "terminal" if self._is_terminal else "play",
             "move_number": self._move_number,
-            "moves_remaining": max(0, episode_length - self._move_number),
+            "moves_remaining": max(0, total_moves - self._move_number),
             "episode_length": episode_length,
+            "active_player_id": active_player_id,
+            "active_team_id": active_team_id,
             "active_seat": active_seat,
             "num_teams": _NUM_TEAMS,
             "players_per_team": _PLAYERS_PER_TEAM,
@@ -392,7 +402,7 @@ class CoinGameArenaState(pyspiel.State):
             result["board"] = self._board_view(team, player)
             # Convenience flag for the harness.
             result["your_turn"] = (
-                not self._is_terminal and _seat_of(player) == active_seat
+                not self._is_terminal and player == active_player_id
             )
         if self._is_terminal:
             result["returns"] = self.returns()
