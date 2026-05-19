@@ -18,6 +18,7 @@ import pyspiel
 from open_spiel.python.games import pokerkit_wrapper  # noqa: F401
 
 from kaggle_environments.envs.open_spiel_env.games.snake import snake_game  # noqa: F401
+from kaggle_environments.envs.open_spiel_env.games.coin_game_arena import coin_game_arena_game  # noqa: F401
 
 from kaggle_environments import core, utils
 
@@ -941,6 +942,7 @@ GAMES_LIST = [
     "chess",
     "clobber",
     "coin_game",
+    "coin_game_arena",
     "connect_four",
     "dark_hex",
     "gin_rummy",

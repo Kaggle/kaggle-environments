@@ -107,6 +107,9 @@ export interface ViewModel {
   market: MarketPublic;
   town: TownPublic;
   privates: (PrivateState | undefined)[];
+  // Per-item price series for the most recent `turnsPerDay` steps; padded on
+  // the left with the starting price when the game is younger than one day.
+  priceHistory: Record<string, number[]>;
 }
 
 export interface CellRefs {
@@ -137,10 +140,21 @@ export interface PlayerRefs {
   inventory: InventorySlotRefs[];
 }
 
+export interface DialogRefs {
+  overlay: HTMLElement;
+  title: HTMLElement;
+  body: HTMLElement;
+  closeBtn: HTMLElement;
+}
+
 export interface LayoutRefs {
   dayValue: HTMLElement;
   turnValue: HTMLElement;
-  marketItems: Record<string, { item: HTMLElement; price: HTMLElement }>;
+  marketItems: Record<
+    string,
+    { item: HTMLElement; price: HTMLElement; sparkPath: SVGPathElement; lastSparkKey?: string }
+  >;
   shopSlots: HTMLElement[];
   players: PlayerRefs[];
+  dialog: DialogRefs;
 }

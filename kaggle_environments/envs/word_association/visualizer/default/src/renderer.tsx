@@ -69,20 +69,54 @@ const ToggleButton = styled.button<{ active: boolean }>`
   }
 `;
 
-const ScoreBoard = styled.div`
+const UnifiedScoreboard = styled.div`
   display: flex;
-  gap: 16px;
+  align-items: center;
+  background-color: #222;
+  border-radius: 12px;
+  border: 1px solid #444;
+  overflow: hidden;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
 `;
 
-const TeamScore = styled.div<{ team: 'blue' | 'yellow' }>`
-  background-color: ${(props: { team: 'blue' | 'yellow' }) =>
-    props.team === 'blue' ? 'rgba(32, 190, 255, 0.2)' : 'rgba(229, 207, 74, 0.2)'};
-  color: ${(props: { team: 'blue' | 'yellow' }) => (props.team === 'blue' ? '#20BEFF' : '#E5CF4A')};
-  border: 1px solid ${(props: { team: 'blue' | 'yellow' }) => (props.team === 'blue' ? '#20BEFF' : '#E5CF4A')};
+const ScoreSection = styled.div<{ team?: 'blue' | 'yellow' }>`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   padding: 8px 16px;
-  border-radius: 8px;
-  font-weight: bold;
-  font-size: 16px;
+  min-width: 80px;
+  background-color: ${(props) => {
+    if (props.team === 'blue') return 'rgba(32, 190, 255, 0.1)';
+    if (props.team === 'yellow') return 'rgba(229, 207, 74, 0.1)';
+    return 'transparent';
+  }};
+  border-right: ${(props) => (props.team === 'blue' ? '1px solid #444' : 'none')};
+  border-left: ${(props) => (props.team === 'yellow' ? '1px solid #444' : 'none')};
+`;
+
+const ScoreLabel = styled.div`
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #888;
+  margin-bottom: 2px;
+`;
+
+const ScoreValue = styled.div<{ team?: 'blue' | 'yellow' }>`
+  font-size: 20px;
+  font-weight: 800;
+  color: ${(props) => {
+    if (props.team === 'blue') return '#20BEFF';
+    if (props.team === 'yellow') return '#E5CF4A';
+    return '#fff';
+  }};
+`;
+
+const VersusSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 12px;
 `;
 
 const Grid = styled.div`
@@ -279,6 +313,9 @@ interface GameState {
   clue?: string;
   guesses_remaining?: number;
   reward?: number;
+  current_game?: number;
+  blue_wins?: number;
+  yellow_wins?: number;
 }
 
 export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererProps) => {
@@ -294,12 +331,59 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
     return <div style={{ color: 'white', padding: 20 }}>Initializing...</div>;
   }
 
-  const blueRemaining = state.roles.filter((r, i) => r === 'blue' && !state.revealed[i]).length;
-  const yellowRemaining = state.roles.filter((r, i) => r === 'yellow' && !state.revealed[i]).length;
+  let renderState = state;
+  if (step > 0) {
+    const prevStepData = replay.steps[step - 1] as any;
+    const prevEnvStep = Array.isArray(prevStepData) ? prevStepData : prevStepData.rawAgents;
+    const prevState = prevEnvStep[0].observation;
+
+    if ((state.current_game || 0) > (prevState.current_game || 0)) {
+      // Game just transitioned! Show the previous game's final state.
+      renderState = {
+        ...prevState,
+        blue_wins: state.blue_wins,
+        yellow_wins: state.yellow_wins,
+      };
+
+      // Apply the final action if it was a guess!
+      const currentStepData = replay.steps[step] as any;
+      const currentEnvStep = Array.isArray(currentStepData) ? currentStepData : currentStepData.rawAgents;
+
+      const agent1ActRaw = currentEnvStep[1].action;
+      const agent3ActRaw = currentEnvStep[3].action;
+
+      const agent1Act =
+        typeof agent1ActRaw === 'object' && agent1ActRaw !== null && 'guess' in agent1ActRaw
+          ? agent1ActRaw.guess
+          : agent1ActRaw;
+      const agent3Act =
+        typeof agent3ActRaw === 'object' && agent3ActRaw !== null && 'guess' in agent3ActRaw
+          ? agent3ActRaw.guess
+          : agent3ActRaw;
+
+      const currentTurnVal = prevState.current_turn;
+
+      renderState.revealed = [...renderState.revealed];
+      if (currentTurnVal === 1 && typeof agent1Act === 'number' && agent1Act >= 0) {
+        renderState.revealed[agent1Act] = true;
+      } else if (currentTurnVal === 3 && typeof agent3Act === 'number' && agent3Act >= 0) {
+        renderState.revealed[agent3Act] = true;
+      }
+    }
+  }
+
+  // Calculate remaining unrevealed words for each team for the scoreboard
+  const blueRemaining = renderState.roles.filter((r, i) => r === 'blue' && !renderState.revealed[i]).length;
+  const yellowRemaining = renderState.roles.filter((r, i) => r === 'yellow' && !renderState.revealed[i]).length;
 
   const logEntries: React.ReactNode[] = [];
+  let shouldClearLog = false;
 
   for (let i = 1; i <= step; i++) {
+    if (shouldClearLog) {
+      logEntries.length = 0;
+      shouldClearLog = false;
+    }
     const pastStepData = replay.steps[i] as any;
     const pastStep = Array.isArray(pastStepData) ? pastStepData : pastStepData.rawAgents;
 
@@ -384,6 +468,120 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
         );
       }
     }
+
+    // Check for game transition in multi-game episodes (placed at end to show after actions)
+    if (prevTurn) {
+      const prevState = prevTurn[0].observation;
+      const currentState = pastStep[0].observation;
+
+      if (currentState.current_game > prevState.current_game) {
+        const blueWon = (currentState.blue_wins || 0) > (prevState.blue_wins || 0);
+        const yellowWon = (currentState.yellow_wins || 0) > (prevState.yellow_wins || 0);
+        const winner = blueWon ? 'Blue' : yellowWon ? 'Yellow' : 'No one';
+
+        const currentTurnVal = prevState.current_turn;
+        const agent1ActRaw = pastStep[1].action;
+        const agent3ActRaw = pastStep[3].action;
+        const agent1Act =
+          typeof agent1ActRaw === 'object' && agent1ActRaw !== null && 'guess' in agent1ActRaw
+            ? agent1ActRaw.guess
+            : agent1ActRaw;
+        const agent3Act =
+          typeof agent3ActRaw === 'object' && agent3ActRaw !== null && 'guess' in agent3ActRaw
+            ? agent3ActRaw.guess
+            : agent3ActRaw;
+
+        const trapIndex = prevState.roles.findIndex((role: string) => role === 'trap');
+        const trapRevealed =
+          trapIndex !== -1 &&
+          (prevState.revealed[trapIndex] ||
+            (currentTurnVal === 1 && agent1Act === trapIndex) ||
+            (currentTurnVal === 3 && agent3Act === trapIndex));
+
+        let reason = '';
+        if (trapRevealed) {
+          reason = winner === 'Blue' ? '(Yellow team picked the Trap)' : '(Blue team picked the Trap)';
+        } else {
+          // Check if won by revealing all cards
+          const blueRemainingPrev = prevState.roles.filter(
+            (r: string, idx: number) => r === 'blue' && !prevState.revealed[idx]
+          ).length;
+          const yellowRemainingPrev = prevState.roles.filter(
+            (r: string, idx: number) => r === 'yellow' && !prevState.revealed[idx]
+          ).length;
+
+          if (winner === 'Blue' && blueRemainingPrev === 1) {
+            if (
+              agent1IsActive &&
+              typeof agent1Act === 'number' &&
+              agent1Act >= 0 &&
+              prevState.roles[agent1Act] === 'blue'
+            ) {
+              reason = '(Blue team revealed all their cards)';
+            } else if (
+              agent3IsActive &&
+              typeof agent3Act === 'number' &&
+              agent3Act >= 0 &&
+              prevState.roles[agent3Act] === 'blue'
+            ) {
+              reason = "(Yellow team guessed Blue's last card)";
+            }
+          } else if (winner === 'Yellow' && yellowRemainingPrev === 1) {
+            if (
+              agent3IsActive &&
+              typeof agent3Act === 'number' &&
+              agent3Act >= 0 &&
+              prevState.roles[agent3Act] === 'yellow'
+            ) {
+              reason = '(Yellow team revealed all their cards)';
+            } else if (
+              agent1IsActive &&
+              typeof agent1Act === 'number' &&
+              agent1Act >= 0 &&
+              prevState.roles[agent1Act] === 'yellow'
+            ) {
+              reason = "(Blue team guessed Yellow's last card)";
+            }
+          }
+        }
+
+        logEntries.push(
+          <div
+            key={`s${i}-end`}
+            style={{
+              textAlign: 'center',
+              marginTop: 10,
+              marginBottom: 10,
+              padding: 15,
+              background: '#333',
+              borderRadius: 8,
+              fontWeight: 'bold',
+            }}
+          >
+            <div
+              style={{
+                color: winner === 'Blue' ? '#20BEFF' : winner === 'Yellow' ? '#E5CF4A' : '#fff',
+                fontSize: '16px',
+              }}
+            >
+              {winner === 'Blue' ? '🔷' : winner === 'Yellow' ? '⬜' : ''} {winner.toUpperCase()} TEAM WINS!{' '}
+              {winner === 'Blue' ? '🔷' : winner === 'Yellow' ? '⬜' : ''}
+            </div>
+            {reason && (
+              <div style={{ fontSize: '14px', color: '#aaa', marginTop: '4px', fontWeight: 'normal' }}>{reason}</div>
+            )}
+            <div
+              style={{ fontSize: '12px', color: '#888', marginTop: '8px', fontWeight: 'normal', fontStyle: 'italic' }}
+            >
+              Starting Game {currentState.current_game + 1}...
+            </div>
+          </div>
+        );
+
+        // Set flag to clear logs at the start of the next iteration (next game)
+        shouldClearLog = true;
+      }
+    }
   }
 
   useEffect(() => {
@@ -397,11 +595,16 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
   let winnerText: React.ReactNode = null;
 
   if (isGameOver) {
-    const trapIndex = state.roles.findIndex((role) => role === 'trap');
-    const trapRevealed = trapIndex !== -1 && state.revealed[trapIndex];
+    const trapIndex = renderState.roles.findIndex((role) => role === 'trap');
+    const trapRevealed = trapIndex !== -1 && renderState.revealed[trapIndex];
+
+    const blueReward = currentEnvStep[0].reward || 0;
+    const yellowReward = currentEnvStep[2].reward || 0;
+    const blueWon = blueReward > yellowReward;
+    const yellowWon = yellowReward > blueReward;
 
     if (trapRevealed) {
-      if (state.reward === 1 || currentEnvStep[0].reward === 1) {
+      if (blueWon) {
         winnerText = (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.2' }}>
             <span style={{ color: '#20BEFF' }}>🔷 BLUE WINS! 🔷</span>
@@ -410,7 +613,7 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
             </span>
           </div>
         );
-      } else if (currentEnvStep[2].reward === 1) {
+      } else if (yellowWon) {
         winnerText = (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.2' }}>
             <span style={{ color: '#E5CF4A' }}>⬜ YELLOW WINS! ⬜</span>
@@ -419,18 +622,20 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
             </span>
           </div>
         );
+      } else {
+        winnerText = 'TIE GAME';
       }
     } else {
-      if (state.reward === 1 || currentEnvStep[0].reward === 1) {
+      if (blueWon) {
         winnerText = <span style={{ color: '#20BEFF' }}>🔷 BLUE WINS! 🔷</span>;
-      } else if (currentEnvStep[2].reward === 1) {
+      } else if (yellowWon) {
         winnerText = <span style={{ color: '#E5CF4A' }}>⬜ YELLOW WINS! ⬜</span>;
       } else if (blueRemaining === 0) {
         winnerText = <span style={{ color: '#20BEFF' }}>🔷 BLUE WINS! 🔷</span>;
       } else if (yellowRemaining === 0) {
         winnerText = <span style={{ color: '#E5CF4A' }}>⬜ YELLOW WINS! ⬜</span>;
       } else {
-        winnerText = 'GAME OVER';
+        winnerText = 'TIE GAME';
       }
     }
   }
@@ -446,28 +651,50 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
       <BoardPane>
         <TopBar>
           <Title>{isGameOver ? winnerText : 'WORD ASSOCIATION'}</Title>
-          <ScoreBoard>
-            <TeamScore team="blue">Blue: {blueRemaining}</TeamScore>
-            <TeamScore team="yellow">Yellow: {yellowRemaining}</TeamScore>
-          </ScoreBoard>
+          <UnifiedScoreboard>
+            <ScoreSection team="blue">
+              <ScoreLabel>Blue Cards</ScoreLabel>
+              <ScoreValue team="blue">{blueRemaining}</ScoreValue>
+            </ScoreSection>
+
+            {((replay.configuration as any)?.games_per_episode || 1) > 1 ? (
+              <VersusSection>
+                <ScoreLabel>Match Score</ScoreLabel>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ScoreValue team="blue">{renderState.blue_wins || 0}</ScoreValue>
+                  <span style={{ color: '#555', fontWeight: 'bold' }}>-</span>
+                  <ScoreValue team="yellow">{renderState.yellow_wins || 0}</ScoreValue>
+                </div>
+              </VersusSection>
+            ) : (
+              <VersusSection>
+                <ScoreValue style={{ fontSize: '16px' }}>VS</ScoreValue>
+              </VersusSection>
+            )}
+
+            <ScoreSection team="yellow">
+              <ScoreLabel>Yellow Cards</ScoreLabel>
+              <ScoreValue team="yellow">{yellowRemaining}</ScoreValue>
+            </ScoreSection>
+          </UnifiedScoreboard>
           <ToggleButton active={cluemasterView} onClick={() => setCluemasterView(!cluemasterView)}>
             {cluemasterView ? '👁 Cluemaster View' : '👓 Guesser View'}
           </ToggleButton>
         </TopBar>
 
         <Grid>
-          {state.words.map((word, index) => (
+          {renderState.words.map((word, index) => (
             <CardContainer
               key={index}
-              role={state.roles[index]}
-              revealed={state.revealed[index]}
+              role={renderState.roles[index]}
+              revealed={renderState.revealed[index]}
               cluemasterView={cluemasterView || isGameOver}
             >
-              <CardInner revealed={state.revealed[index] || isGameOver}>
-                <CardFront role={state.roles[index]} cluemasterView={cluemasterView || isGameOver}>
+              <CardInner revealed={renderState.revealed[index] || isGameOver}>
+                <CardFront role={renderState.roles[index]} cluemasterView={cluemasterView || isGameOver}>
                   {word}
                 </CardFront>
-                <CardBack role={state.roles[index]} revealed={true} cluemasterView={cluemasterView || isGameOver}>
+                <CardBack role={renderState.roles[index]} revealed={true} cluemasterView={cluemasterView || isGameOver}>
                   {word}
                 </CardBack>
               </CardInner>

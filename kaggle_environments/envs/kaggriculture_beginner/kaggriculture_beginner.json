@@ -24,6 +24,12 @@
       "type": "integer",
       "default": 24,
       "minimum": 1
+    },
+    "maxMarketOrdersPerTurn": {
+      "description": "Maximum number of market orders processed per player per turn. Extra orders beyond this limit are silently dropped.",
+      "type": "integer",
+      "default": 10,
+      "minimum": 1
     }
   },
   "reward": {
