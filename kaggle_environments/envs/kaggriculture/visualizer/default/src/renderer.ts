@@ -1,7 +1,7 @@
 import type { RendererOptions } from '@kaggle-environments/core';
 import { getStepData } from '@kaggle-environments/core';
 import { buildShell, collectRefs, renderObservation, type BoardSize, type LayoutRefs } from './renderFarm';
-import type { ViewModel, PrivateState } from './types';
+import { MARKET_ITEMS, type ViewModel, type PrivateState } from './types';
 
 const DEFAULT_BOARD: BoardSize = { rows: 10, cols: 10 };
 
@@ -21,7 +21,33 @@ function inferBoardSize(replay: any): BoardSize {
   return DEFAULT_BOARD;
 }
 
-function buildView(replay: any, step: number): ViewModel | null {
+function pricesAt(replay: any, step: number): Record<string, number> {
+  const data = getStepData(replay, step) as any;
+  if (!data) return {};
+  const entry = Array.isArray(data) ? data[0] : data;
+  return entry?.observation?.market?.prices ?? {};
+}
+
+function buildPriceHistory(replay: any, step: number, windowSize: number): Record<string, number[]> {
+  const startPrices = pricesAt(replay, 0);
+  const firstStep = Math.max(0, step - windowSize + 1);
+  const windowPrices: Record<string, number>[] = [];
+  for (let s = firstStep; s <= step; s++) windowPrices.push(pricesAt(replay, s));
+  const padCount = windowSize - windowPrices.length;
+  const history: Record<string, number[]> = {};
+  for (const { key } of MARKET_ITEMS) {
+    const start = Number(startPrices[key] ?? 0);
+    const series: number[] = new Array(padCount).fill(start);
+    for (const p of windowPrices) {
+      const v = p[key];
+      series.push(Number(v == null ? start : v));
+    }
+    history[key] = series;
+  }
+  return history;
+}
+
+function buildView(replay: any, step: number, turnsPerDay: number): ViewModel | null {
   const stepData = getStepData(replay, step) as any;
   if (!stepData) return null;
   const entries = Array.isArray(stepData) ? stepData : [stepData];
@@ -42,6 +68,7 @@ function buildView(replay: any, step: number): ViewModel | null {
     market: obs0.market ?? { prices: {}, inventory: {} },
     town: obs0.town ?? { unlocked_shops: [] },
     privates,
+    priceHistory: buildPriceHistory(replay, step, turnsPerDay),
   };
 }
 
@@ -59,7 +86,9 @@ export function renderer(options: RendererOptions): void {
     shellCache.set(parent, cached);
   }
 
-  const view = buildView(replay, step);
+  const cfg = replay?.configuration ?? {};
+  const turnsPerDay = Math.max(1, Number(cfg.turnsPerDay) || 24);
+  const view = buildView(replay, step, turnsPerDay);
   if (!view) return;
-  renderObservation(cached.refs, view, replay?.configuration ?? {});
+  renderObservation(cached.refs, view, cfg);
 }

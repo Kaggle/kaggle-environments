@@ -33,7 +33,12 @@ function marketList(): string {
     <div class="market-item" data-item="${key}">
       <img class="market-item-icon" src="${spriteSrc(sprite)}" alt="${sprite}" />
       <div class="market-price-row">
-        <img class="market-coin" src="${spriteSrc('coin')}" alt="coins" />
+        <span class="market-coin-stack">
+          <img class="market-coin" src="${spriteSrc('coin')}" alt="coins" />
+          <svg class="market-sparkline" viewBox="0 0 100 20" preserveAspectRatio="none" aria-hidden="true">
+            <path class="market-sparkline-path" d="" fill="none" />
+          </svg>
+        </span>
         <span class="market-price">--</span>
       </div>
     </div>
@@ -206,12 +211,13 @@ function collectPlayerRefs(panel: HTMLElement, board: BoardSize): PlayerRefs {
 }
 
 export function collectRefs(root: HTMLElement, board: BoardSize): LayoutRefs {
-  const marketItems: Record<string, { item: HTMLElement; price: HTMLElement }> = {};
+  const marketItems: LayoutRefs['marketItems'] = {};
   for (const { key } of MARKET_ITEMS) {
     const item = root.querySelector<HTMLElement>(`.market-item[data-item="${key}"]`)!;
     marketItems[key] = {
       item,
       price: item.querySelector<HTMLElement>('.market-price')!,
+      sparkPath: item.querySelector<SVGPathElement>('.market-sparkline-path')!,
     };
   }
   const overlay = root.querySelector<HTMLElement>('.simple-dialog')!;
@@ -479,13 +485,49 @@ function renderPlayer(
   renderShed(refs, priv);
 }
 
-function renderMarket(refs: LayoutRefs, market: MarketPublic): void {
+// SVG viewBox; CSS scales the element to its rendered size while preserving
+// none aspect ratio, so we draw in these abstract units.
+const SPARK_W = 100;
+const SPARK_H = 20;
+const SPARK_PAD = 2;
+
+function sparklinePath(series: number[]): string {
+  if (series.length === 0) return '';
+  let min = series[0];
+  let max = series[0];
+  for (const v of series) {
+    if (v < min) min = v;
+    if (v > max) max = v;
+  }
+  const range = max - min;
+  const yMid = SPARK_H / 2;
+  const yTop = SPARK_PAD;
+  const yBot = SPARK_H - SPARK_PAD;
+  const step = series.length > 1 ? SPARK_W / (series.length - 1) : 0;
+  let d = '';
+  for (let i = 0; i < series.length; i++) {
+    const x = i * step;
+    const y = range === 0 ? yMid : yBot - ((series[i] - min) / range) * (yBot - yTop);
+    d += (i === 0 ? 'M' : 'L') + x.toFixed(2) + ' ' + y.toFixed(2);
+  }
+  return d;
+}
+
+function renderMarket(refs: LayoutRefs, market: MarketPublic, priceHistory: Record<string, number[]>): void {
   const prices = market?.prices ?? {};
   for (const { key } of MARKET_ITEMS) {
     const slot = refs.marketItems[key];
     if (!slot) continue;
     const price = prices[key];
     slot.price.textContent = price == null ? '--' : String(Math.round(price));
+    const series = priceHistory[key] ?? [];
+    // Key off length + each value rounded to 2 decimals so we skip the SVG
+    // write when the visible curve hasn't changed.
+    const sparkKey = series.length + ':' + series.map((v) => v.toFixed(2)).join(',');
+    if (slot.lastSparkKey !== sparkKey) {
+      slot.lastSparkKey = sparkKey;
+      slot.sparkPath.setAttribute('d', sparklinePath(series));
+    }
   }
 }
 
@@ -522,7 +564,7 @@ function renderHeader(refs: LayoutRefs, view: ViewModel, cfg: any): void {
 
 export function renderObservation(refs: LayoutRefs, view: ViewModel, cfg: any): void {
   renderHeader(refs, view, cfg);
-  renderMarket(refs, view.market);
+  renderMarket(refs, view.market, view.priceHistory);
   renderTown(refs, view.town);
   const farms = view.farms ?? [];
   farms.forEach((farm, i) => {
