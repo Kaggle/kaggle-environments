@@ -45,15 +45,17 @@ Player 1 ('+') starts on ranks 6-8. Pieces move diagonally one square
 forward to an empty square. A capture jumps diagonally over an adjacent
 opponent piece onto the empty square beyond, removing the jumped piece.
 
-If any capture is available, you MUST take a capture (a man may capture
-either forward or backward). When a piece reaches the opponent's back rank
-(rank 8 for Player 0, rank 1 for Player 1) it is promoted to a king ('O'
-for Player 0, '*' for Player 1) and may move and capture in all four
-diagonal directions, one square at a time.
+If any capture is available, you MUST take a capture. When a piece
+reaches the opponent's back rank (rank 8 for Player 0, rank 1 for Player 1)
+it is promoted to a king ('O' for Player 0, '*' for Player 1) and may move
+and capture in all four diagonal directions, one square at a time.
 
 A multi-jump (capturing several opponent pieces in one turn) is represented
-by separate moves on consecutive turns of the same player; the legal-move
-list will only show the next single jump available.
+by separate moves on consecutive turns of the same player. On each
+continuation turn only the piece that just captured may move, and it must
+capture again; if more than one continuation jump is available you may
+choose any one. The sequence ends as soon as the moving piece is crowned,
+even if further captures would otherwise be possible.
 
 You win by capturing all of your opponent's pieces, or by leaving them with
 no legal move on their turn.
@@ -81,7 +83,7 @@ Examples: ``{slide_example}`` slides one of your men {slide_explanation};
 ``{capture_example}`` is a capture jump that lands two squares diagonally
 away {capture_explanation}. Kings may move and capture in any diagonal
 direction.
-
+{continuation_note}
 It is your turn. Choose a legal move for one of your pieces, remembering
 that if any capture is available you MUST take a capture.
 
@@ -224,7 +226,8 @@ def generate_prompt(
 
     board = state.get("board") or []
     move_number = state.get("move_number", 0)
-    last_move = state.get("last_move") or "(none yet)"
+    last_move_raw = state.get("last_move")
+    last_move = last_move_raw or "(none yet)"
     piece_counts = state.get("piece_counts") or {}
     my_piece = "o" if player_id == 0 else "+"
     my_king = "O" if player_id == 0 else "*"
@@ -239,6 +242,22 @@ def generate_prompt(
     capture_reminder = (
         " (you MUST take a capture this turn)" if captures_available else ""
     )
+
+    continuation_note = ""
+    if (
+        move_history
+        and last_move_raw
+        and _is_capture(move_history[-1])
+        and move_history[-1].lower() == last_move_raw.lower()
+    ):
+        landed_square = move_history[-1][2:4].lower()
+        continuation_note = (
+            f"\nMulti-jump in progress: your previous capture "
+            f"({move_history[-1]}) landed on {landed_square}. You must "
+            f"capture again with the piece now on {landed_square} -- no "
+            "other piece may move this turn. If more than one continuation "
+            "jump is available, you may choose any of them.\n"
+        )
 
     if player_id == 0:
         forward_rank = 8
@@ -280,6 +299,7 @@ def generate_prompt(
         move_number=move_number,
         last_move=last_move,
         move_history=move_history_str,
+        continuation_note=continuation_note,
     )
 
     if previous_response is not None:
