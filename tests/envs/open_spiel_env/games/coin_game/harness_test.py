@@ -203,14 +203,36 @@ class GetLegalMovesTest(absltest.TestCase):
             self.assertIsInstance(v, str)
 
 
+class _StreamDelta:
+    def __init__(self, content):
+        self.content = content
+
+
+class _StreamChoice:
+    def __init__(self, content, finish_reason=None):
+        self.delta = _StreamDelta(content)
+        self.finish_reason = finish_reason
+
+
+class _StreamChunk:
+    def __init__(self, choices, usage=None):
+        self.choices = choices
+        self.usage = usage
+
+
 def _make_mock_response(content):
-    """Create a mock LiteLLM response."""
-    resp = MagicMock()
-    resp.usage = MagicMock(prompt_tokens=10, completion_tokens=20)
-    resp.choices = [
-        MagicMock(message=MagicMock(content=content), finish_reason="stop"),
+    """Build a streaming-style mock LLM response (a re-iterable chunk list)."""
+    usage = MagicMock(
+        prompt_tokens=10,
+        completion_tokens=20,
+        total_tokens=30,
+        completion_tokens_details=None,
+    )
+    return [
+        _StreamChunk([_StreamChoice(content)]),
+        _StreamChunk([_StreamChoice("", finish_reason="stop")]),
+        _StreamChunk([], usage=usage),
     ]
-    return resp
 
 
 class _CoinHarness:
