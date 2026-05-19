@@ -1,0 +1,292 @@
+{
+  "id": "7c90837e-4a36-11f1-8e77-26f706723117",
+  "name": "open_spiel_mancala",
+  "title": "Open Spiel: mancala",
+  "description": "Kaggle environment wrapper for OpenSpiel games.\nFor game implementation details see:\nhttps://github.com/google-deepmind/open_spiel/tree/master/open_spiel/games",
+  "version": "0.1.0",
+  "module_version": "1.29.1",
+  "configuration": {
+    "openSpielGameString": "mancala_proxy()",
+    "episodeSteps": 1100,
+    "actTimeout": 3600,
+    "runTimeout": 172800,
+    "openSpielGameName": "mancala",
+    "openSpielGameParameters": {},
+    "observationType": "observation",
+    "useOpenings": false,
+    "useImage": false,
+    "includeLegalActions": false,
+    "loadPresetHands": false,
+    "metadata": {},
+    "strictMode": false,
+    "savePrompt": false,
+    "freeForm": false
+  },
+  "specification": {
+    "action": {
+      "description": "Action object MUST contain a field `submission`, and MAY contain arbitrary additional information.",
+      "type": "object",
+      "default": { "submission": -1 }
+    },
+    "agents": [2],
+    "configuration": {
+      "episodeSteps": {
+        "description": "Maximum number of steps in the episode.",
+        "type": "integer",
+        "minimum": 1,
+        "default": 1100
+      },
+      "actTimeout": {
+        "description": "Maximum runtime (seconds) to obtain an action from an agent.",
+        "type": "number",
+        "minimum": 0,
+        "default": 3600
+      },
+      "runTimeout": {
+        "description": "Maximum runtime (seconds) of an episode (not necessarily DONE).",
+        "type": "number",
+        "minimum": 0,
+        "default": 172800
+      },
+      "openSpielGameString": {
+        "description": "The full game string including parameters.",
+        "type": "string",
+        "default": "mancala_proxy()"
+      },
+      "openSpielGameName": {
+        "description": "The short_name of the OpenSpiel game to load.",
+        "type": "string",
+        "default": "mancala"
+      },
+      "openSpielGameParameters": {
+        "description": "Game parameters for Open Spiel game.",
+        "type": "object",
+        "default": {},
+        "properties": {}
+      },
+      "observationType": {
+        "description": "Type of observation string: 'observation' or 'information_state'.",
+        "type": "string",
+        "default": "observation"
+      },
+      "useOpenings": {
+        "description": "Whether to start from a position in an opening book.",
+        "type": "boolean",
+        "default": false
+      },
+      "useImage": {
+        "description": "If true, indicates the observation is intended to be rendered as an image. Note that currently the agent harness is responsible for the actual rendering; no image is passed in the observation.",
+        "type": "boolean",
+        "default": false
+      },
+      "includeLegalActions": {
+        "description": "If true, include legalActions and legalActionStrings in observations. Defaults to false since these can be derived from serializedGameAndState.",
+        "type": "boolean",
+        "default": false
+      },
+      "seed": {
+        "description": "Integer used to select a starting position (when useOpenings is true) and to seed chance-node sampling so episodes are reproducible.",
+        "type": "number"
+      },
+      "initialActions": {
+        "description": "Actions applied to initial state before play begins to set up starting position.",
+        "type": "array"
+      },
+      "loadPresetHands": {
+        "description": "Repeated poker only. Load preset hand chance actions from preset_hands.jsonl.",
+        "type": "boolean",
+        "default": false
+      },
+      "presetHands": {
+        "description": "Repeated poker only. List of per-hand chance action sequences to use instead of random chance.",
+        "type": "array"
+      },
+      "metadata": {
+        "description": "Arbitrary metadata.",
+        "type": "object",
+        "default": {},
+        "properties": {}
+      },
+      "strictMode": {
+        "description": "If true, agents must return only {'submission': int} (no extra fields like 'thoughts'), and per-agent TIMEOUT/ERROR/INVALID counts as a loss for the offending agent only \u2014 other agents are marked DONE with a winning reward. The offender keeps its natural ERROR or TIMEOUT status (matching how every other Kaggle competition reports per-player failures). If false (default), any agent error halts and voids the entire episode, matching the lenient research-mode behavior.",
+        "type": "boolean",
+        "default": false
+      },
+      "savePrompt": {
+        "description": "If true, the LLM prompt produced by the harness is included as a 'prompt' field on the action returned by core_harness, which causes it to be persisted in the episode replay. Defaults to false to keep replays small.",
+        "type": "boolean",
+        "default": false
+      },
+      "freeForm": {
+        "description": "If true, the core harness allows free-form actions (get_legal_moves may return None) on turns where the action space is not enumerable. Defaults to false for OpenSpiel games.",
+        "type": "boolean",
+        "default": false
+      }
+    },
+    "info": {},
+    "observation": {
+      "remainingOverageTime": {
+        "description": "Total remaining banked time (seconds) that can be used in excess of per-step actTimeouts -- agent is disqualified with TIMEOUT status when this drops below 0.",
+        "shared": false,
+        "type": "number",
+        "minimum": 0,
+        "default": 12
+      },
+      "step": {
+        "description": "Current step within the episode.",
+        "type": "integer",
+        "shared": true,
+        "minimum": 0,
+        "default": 0
+      },
+      "properties": {
+        "openSpielGameString": {
+          "description": "Full game string including parameters.",
+          "type": "string",
+          "default": "mancala_proxy()"
+        },
+        "openSpielGameName": {
+          "description": "Short name of the OpenSpiel game.",
+          "type": "string",
+          "default": "mancala"
+        },
+        "observationString": {
+          "description": "String representation of state.",
+          "type": "string"
+        },
+        "legalActions": {
+          "description": "List of OpenSpiel legal action integers. Only included if includeLegalActions is true.",
+          "type": "array"
+        },
+        "legalActionStrings": {
+          "description": "List of OpenSpiel legal action strings. Only included if includeLegalActions is true.",
+          "type": "array"
+        },
+        "currentPlayer": {
+          "description": "ID of player whose turn it is.",
+          "type": "integer"
+        },
+        "playerId": {
+          "description": "ID of the agent receiving this observation.",
+          "type": "integer"
+        },
+        "isTerminal": {
+          "description": "Boolean indicating game end.",
+          "type": "boolean"
+        },
+        "serializedGameAndState": {
+          "description": "Enables reconstructing the Game and State objects.",
+          "type": "string"
+        },
+        "remainingOverageTime": 60,
+        "step": 0
+      },
+      "default": {}
+    },
+    "reward": { "type": ["number", "null"], "default": 0.0 }
+  },
+  "steps": [
+    [
+      {
+        "action": { "submission": -1 },
+        "reward": 0.0,
+        "info": {},
+        "observation": { "remainingOverageTime": 12, "step": 0 },
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "reward": 0.0,
+        "info": {},
+        "observation": { "remainingOverageTime": 12 },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "reward": null,
+        "info": {
+          "actionSubmitted": null,
+          "actionSubmittedToString": null,
+          "actionApplied": null,
+          "timeTaken": null,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 1,
+          "observationString": "{\"board\": [0, 4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4], \"pits\": {\"0\": [4, 4, 4, 4, 4, 4], \"1\": [4, 4, 4, 4, 4, 4]}, \"stores\": {\"0\": 0, \"1\": 0}, \"scores\": [0, 0], \"current_player\": 0, \"move_number\": 0, \"last_action\": null, \"is_terminal\": false, \"winner\": null}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nmancala_proxy()\n[State]\nhistory=\nmove_number=0\n__dict__=gASVmAAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMayMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCm1hbmNhbGEoKQpbU3RhdGVdCgoKlGJzLg==\n"
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"board\": [0, 4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4], \"pits\": {\"0\": [4, 4, 4, 4, 4, 4], \"1\": [4, 4, 4, 4, 4, 4]}, \"stores\": {\"0\": 0, \"1\": 0}, \"scores\": [0, 0], \"current_player\": 0, \"move_number\": 0, \"last_action\": null, \"is_terminal\": false, \"winner\": null}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nmancala_proxy()\n[State]\nhistory=\nmove_number=0\n__dict__=gASVmAAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMayMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCm1hbmNhbGEoKQpbU3RhdGVdCgoKlGJzLg==\n"
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "reward": -1,
+        "info": {
+          "actionSubmitted": -1,
+          "actionSubmittedToString": null,
+          "actionApplied": null,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 2,
+          "observationString": "{\"board\": [0, 4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4], \"pits\": {\"0\": [4, 4, 4, 4, 4, 4], \"1\": [4, 4, 4, 4, 4, 4]}, \"stores\": {\"0\": 0, \"1\": 0}, \"scores\": [0, 0], \"current_player\": 0, \"move_number\": 0, \"last_action\": null, \"is_terminal\": false, \"winner\": null}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nmancala_proxy()\n[State]\nhistory=\nmove_number=0\n__dict__=gASVmAAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMayMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCm1hbmNhbGEoKQpbU3RhdGVdCgoKlGJzLg==\n"
+        },
+        "status": "DONE"
+      },
+      {
+        "action": { "submission": -1 },
+        "reward": 1,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"board\": [0, 4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4], \"pits\": {\"0\": [4, 4, 4, 4, 4, 4], \"1\": [4, 4, 4, 4, 4, 4]}, \"stores\": {\"0\": 0, \"1\": 0}, \"scores\": [0, 0], \"current_player\": 0, \"move_number\": 0, \"last_action\": null, \"is_terminal\": false, \"winner\": null}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nmancala_proxy()\n[State]\nhistory=\nmove_number=0\n__dict__=gASVmAAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMayMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCm1hbmNhbGEoKQpbU3RhdGVdCgoKlGJzLg==\n"
+        },
+        "status": "DONE"
+      }
+    ]
+  ],
+  "rewards": [-1, 1],
+  "statuses": ["DONE", "DONE"],
+  "schema_version": 1,
+  "info": {
+    "openSpielGameStringResolved": "mancala_proxy()",
+    "stateHistory": [
+      "{\"board\": [0, 4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4], \"pits\": {\"0\": [4, 4, 4, 4, 4, 4], \"1\": [4, 4, 4, 4, 4, 4]}, \"stores\": {\"0\": 0, \"1\": 0}, \"scores\": [0, 0], \"current_player\": 0, \"move_number\": 0, \"last_action\": null, \"is_terminal\": false, \"winner\": null}"
+    ],
+    "actionHistory": [],
+    "moveDurations": [0.0],
+    "TeamNames": ["Honorable Goose I", "Honorable Goose II"]
+  }
+}

@@ -1,0 +1,393 @@
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #4a3f35;
+  background-color: #f7f3ee;
+}
+
+/* === Root + backdrop === */
+.mancala-root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 16px clamp(12px, 2vw, 32px);
+  box-sizing: border-box;
+  background-color: #f7f3ee;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  overflow: hidden;
+}
+
+.mancala-loading {
+  justify-content: center;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.5rem;
+  color: #4a3f35;
+}
+
+/* === Header (player cards + title) === */
+.mancala-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  max-width: 1200px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.mancala-title-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.mancala-title {
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 2vw, 32px);
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  padding: clamp(8px, 1.2vw, 18px) clamp(16px, 3vw, 36px);
+  border-radius: 28px;
+  border: 2px solid #fff;
+  box-shadow: 0 6px 24px rgba(74, 63, 53, 0.15);
+}
+
+.mancala-title h1 {
+  margin: 0;
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 700;
+  font-size: clamp(1.6rem, 3.5vw, 2.8rem);
+  letter-spacing: 0.5em;
+  color: #4a3f35;
+}
+
+.mancala-diamond {
+  font-size: clamp(0.9rem, 1.5vw, 1.4rem);
+  color: #4a3f35;
+}
+
+.mancala-status {
+  background: #4a3f35;
+  color: #f7f3ee;
+  padding: 8px 22px;
+  border-radius: 999px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(0.95rem, 1.6vw, 1.4rem);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+/* === Player cards === */
+.mancala-player-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 2px solid transparent;
+  transition: all 250ms ease;
+  min-width: 0;
+}
+
+.mancala-player-card.is-active {
+  background: rgba(189, 238, 255, 0.55);
+  border-color: #008abb;
+  box-shadow: 0 0 0 4px rgba(0, 138, 187, 0.2);
+}
+
+.mancala-player-frame {
+  width: clamp(48px, 6vw, 84px);
+  height: clamp(48px, 6vw, 84px);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+}
+
+.mancala-player-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.1));
+}
+
+.mancala-player-name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mancala-player-subtitle {
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: rgba(74, 63, 53, 0.6);
+}
+
+.mancala-player-display-name {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #4a3f35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: clamp(80px, 14vw, 200px);
+}
+
+.mancala-player-score {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.mancala-score-value {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(1.2rem, 2vw, 1.8rem);
+  font-weight: 700;
+  color: #4a3f35;
+}
+
+.mancala-score-label {
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-weight: 700;
+  color: rgba(74, 63, 53, 0.45);
+}
+
+/* === Board === */
+.mancala-board {
+  position: relative;
+  width: 100%;
+  max-width: 1100px;
+  aspect-ratio: 1200 / 480;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  flex-shrink: 1;
+  margin-top: 8px;
+}
+
+.mancala-store-slot {
+  position: absolute;
+  top: 11.5%;
+  bottom: 11.5%;
+  width: 10.5%;
+}
+
+.mancala-store-slot-left {
+  left: 4.8%;
+}
+
+.mancala-store-slot-right {
+  right: 4.8%;
+}
+
+.mancala-pits-grid {
+  position: absolute;
+  left: 18.2%;
+  right: 18.2%;
+  top: 12.5%;
+  bottom: 12.5%;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 14% 0;
+}
+
+.mancala-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0 3.5%;
+}
+
+/* === Pit === */
+.mancala-pit {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 28px;
+  transition: background-color 250ms;
+}
+
+.mancala-pit.is-highlighted {
+  background-color: rgba(0, 138, 187, 0.2);
+  box-shadow: 0 0 0 2px rgba(0, 138, 187, 0.6) inset;
+}
+
+.mancala-pit.is-on-path {
+  background-color: var(--path-bg);
+  box-shadow: 0 0 0 2px rgba(0, 138, 187, 0.45) inset;
+}
+
+.mancala-pit.is-source {
+  background-color: rgba(232, 137, 64, 0.28);
+  box-shadow: 0 0 0 2px rgba(217, 110, 36, 0.85) inset;
+}
+
+.mancala-pit.is-last-dest {
+  box-shadow:
+    0 0 0 3px rgba(0, 138, 187, 0.95) inset,
+    0 0 16px rgba(0, 138, 187, 0.55);
+}
+
+.mancala-arrow {
+  position: absolute;
+  top: 50%;
+  font-size: clamp(0.9rem, 1.4vw, 1.4rem);
+  color: rgba(217, 110, 36, 0.95);
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.85);
+  pointer-events: none;
+  z-index: 3;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.15));
+}
+
+.mancala-arrow-right {
+  right: -10px;
+  transform: translateY(-50%);
+}
+
+.mancala-arrow-left {
+  left: -10px;
+  transform: translateY(-50%) scaleX(-1);
+}
+
+.mancala-store.is-on-path {
+  background-color: var(--path-bg);
+  box-shadow:
+    0 0 0 3px rgba(0, 138, 187, 0.55) inset;
+}
+
+.mancala-store.is-last-dest {
+  box-shadow:
+    0 0 0 4px rgba(0, 138, 187, 0.95) inset,
+    0 0 24px rgba(0, 138, 187, 0.55);
+}
+
+.mancala-pit-stones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
+  max-width: 80%;
+  max-height: 80%;
+  overflow: hidden;
+}
+
+.mancala-pit-count {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.95);
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #4a3f35;
+  border: 1px solid rgba(255, 255, 255, 1);
+  box-shadow: 0 4px 8px rgba(74, 63, 53, 0.18);
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.mancala-pit-count.is-top {
+  top: -22px;
+}
+
+.mancala-pit-count.is-bottom {
+  bottom: -22px;
+}
+
+/* === Store === */
+.mancala-store {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 64px;
+}
+
+.mancala-store-label {
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: rgba(74, 63, 53, 0.7);
+  white-space: nowrap;
+  max-width: 140%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mancala-store-stones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
+  padding: 8% 12% 16%;
+  max-width: 100%;
+  max-height: 90%;
+  overflow: hidden;
+}
+
+.mancala-store-count {
+  position: absolute;
+  bottom: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #4a3f35;
+  color: #fff;
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.12em;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 6px 12px rgba(74, 63, 53, 0.25);
+  z-index: 2;
+}
+
+/* === Stones === */
+.mancala-stone {
+  width: clamp(10px, 1.4vw, 18px);
+  height: clamp(10px, 1.4vw, 18px);
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.18));
+}
