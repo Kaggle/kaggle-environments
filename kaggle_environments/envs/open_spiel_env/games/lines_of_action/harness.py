@@ -44,9 +44,14 @@ neighbours count as connected). If your move connects both your pieces and
 your opponent's pieces simultaneously, your opponent wins. There are no
 draws under normal play.
 
-Board (rank labels on the left, file labels on top; '.' = empty,
-'x' = Black, 'o' = White):
+Board ('.' = empty, 'x' = Black, 'o' = White). Each rank has its total
+piece count on the right ("row"); each file's total is below ("col"):
 {board_ascii}
+
+Line counts for each of your pieces (use these to pick the move
+distance — your piece moves EXACTLY this many squares along the chosen
+line: row=horizontal, col=vertical, /=NE-SW diagonal, \\=NW-SE diagonal):
+{piece_line_counts}
 
 Move number: {move_number}
 Last move played: {last_move}
@@ -111,15 +116,65 @@ def _format_board_ascii(board: Sequence[Sequence[str]]) -> str:
     """Render the 8x8 board with rank labels on the left and files on top.
 
     ``board[0]`` is rank 1 (bottom row); ``board[7]`` is rank 8 (top). We
-    print ranks top-down so the visual board matches standard orientation.
+    print ranks top-down so the visual board matches standard orientation,
+    and add row/column piece counts in the margins so the model doesn't
+    have to count pieces on each line itself.
     """
     if not board:
         return "(unavailable)"
-    file_header = "  " + " ".join(chr(ord("a") + c) for c in range(len(board[0])))
+    n = len(board[0])
+    file_header = "    " + " ".join(chr(ord("a") + c) for c in range(n)) + "   row"
     lines = [file_header]
     for r in range(len(board) - 1, -1, -1):
-        lines.append(f"{r + 1} " + " ".join(board[r]))
+        row = board[r]
+        row_count = sum(1 for cell in row if cell != ".")
+        lines.append(f"  {r + 1} " + " ".join(row) + f"   {row_count}")
+    col_counts = [
+        sum(1 for r in range(len(board)) if board[r][c] != ".")
+        for c in range(n)
+    ]
+    lines.append("col   " + " ".join(str(c) for c in col_counts))
     return "\n".join(lines)
+
+
+def _format_piece_line_counts(
+    board: Sequence[Sequence[str]], my_piece: str,
+) -> str:
+    """For each of the player's pieces, list piece counts on its 4 lines.
+
+    A LoA piece moves EXACTLY this many squares along the chosen line, so
+    pre-computing these counts saves the model from a tedious step that's
+    easy to get wrong.
+    """
+    if not board:
+        return "(unavailable)"
+    n = len(board[0])
+    # Row r (1-indexed), column f (0=a). board[r-1][f].
+    row_count = [sum(1 for cell in board[r] if cell != ".") for r in range(n)]
+    col_count = [
+        sum(1 for r in range(n) if board[r][c] != ".") for c in range(n)
+    ]
+    ne_count: dict[int, int] = {}  # key = rank - file (constant on '/' diagonal)
+    nw_count: dict[int, int] = {}  # key = rank + file (constant on '\' diagonal)
+    for r in range(n):
+        for c in range(n):
+            if board[r][c] == ".":
+                continue
+            ne_count[(r + 1) - (c + 1)] = ne_count.get((r + 1) - (c + 1), 0) + 1
+            nw_count[(r + 1) + (c + 1)] = nw_count.get((r + 1) + (c + 1), 0) + 1
+
+    lines = []
+    for r in range(n - 1, -1, -1):
+        for c in range(n):
+            if board[r][c] != my_piece:
+                continue
+            sq = f"{chr(ord('a') + c)}{r + 1}"
+            row = row_count[r]
+            col = col_count[c]
+            ne = ne_count.get((r + 1) - (c + 1), 0)
+            nw = nw_count.get((r + 1) + (c + 1), 0)
+            lines.append(f"  {sq}: row={row}, col={col}, /={ne}, \\={nw}")
+    return "\n".join(lines) if lines else "  (no pieces)"
 
 
 def _normalize(move: str) -> str:
@@ -211,10 +266,12 @@ def generate_prompt(
     move_number = state.get("move_number", len(move_history))
     last_move = state.get("last_move") or "(none yet)"
 
+    my_piece = "x" if player_id == 0 else "o"
     move_history_str = " ".join(move_history) if move_history else "None"
 
     prompt = LOA_PROMPT_TEMPLATE.format(
         board_ascii=_format_board_ascii(board),
+        piece_line_counts=_format_piece_line_counts(board, my_piece),
         move_number=move_number,
         last_move=last_move,
         move_history=move_history_str,
