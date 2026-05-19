@@ -402,6 +402,80 @@ class CoreHarnessTest(absltest.TestCase):
         kinds = {k for e in self.events for k in e if k != "module"}
         self.assertIn("llm_call_exception", kinds)
 
+    def test_retry_on_llm_exception_then_succeeds(self):
+        """A raised exception during _call_llm should consume a retry, not abort."""
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=3)
+        side_effects = [
+            RuntimeError("transient network error"),
+            _fake_completion("move_1"),
+        ]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=side_effects,
+        ) as mock_call:
+            result = agent({}, {})
+
+        self.assertEqual(result["submission"], 1)
+        self.assertEqual(mock_call.call_count, 2)
+        # Only the successful call should appear in call_details.
+        self.assertLen(result["call_details"], 1)
+        self.assertEqual(result["call_details"][0]["response"], "move_1")
+
+    def test_retry_on_parse_exception_then_succeeds(self):
+        """An exception raised inside parse_response should consume a retry."""
+
+        class _FlakyParseHarness(_SimpleHarness):
+            def __init__(self):
+                super().__init__()
+                self.parse_calls = 0
+
+            def parse_response(self, response, legal_action_strings):
+                self.parse_calls += 1
+                if self.parse_calls == 1:
+                    raise RuntimeError("parser blew up")
+                return super().parse_response(response, legal_action_strings)
+
+        harness = _FlakyParseHarness()
+        agent = create_agent_fn(harness, max_retries=3)
+        responses = [_fake_completion("move_0"), _fake_completion("move_2")]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=responses,
+        ) as mock_call:
+            result = agent({}, {})
+
+        self.assertEqual(result["submission"], 2)
+        self.assertEqual(mock_call.call_count, 2)
+        self.assertEqual(harness.parse_calls, 2)
+
+    def test_all_attempts_exception_reraises_last(self):
+        """When every attempt raises, the final exception should be re-raised verbatim."""
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=2)
+        side_effects = [
+            RuntimeError("first failure"),
+            RuntimeError("second failure"),
+        ]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=side_effects,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "second failure"):
+                agent({}, {})
+
+    def test_exception_then_parse_failure_raises_value_error(self):
+        """If the last attempt was a parse failure (not an exception), raise the
+        usual 'Failed to parse' ValueError — last_exception should not leak through."""
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=2)
+        side_effects = [
+            RuntimeError("first attempt blew up"),
+            _fake_completion("garbage"),  # parses to None → parse failure
+        ]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=side_effects,
+        ):
+            with self.assertRaisesRegex(ValueError, "Failed to parse"):
+                agent({}, {})
+
     def test_move_history_accumulates_across_calls(self):
         harness = _SimpleHarness()
         agent = create_agent_fn(harness)
