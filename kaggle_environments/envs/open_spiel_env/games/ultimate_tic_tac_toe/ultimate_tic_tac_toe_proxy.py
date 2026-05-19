@@ -68,13 +68,9 @@ class UltimateTicTacToeState(proxy.State):
         del player
         state_str = self.to_string()
         board = [["" for _ in range(9)] for _ in range(9)]
-        lines = state_str.strip().splitlines()
+        lines = [line for line in state_str.strip().splitlines() if line.strip()]
 
-        grid_row_indices = [0, 1, 2, 4, 5, 6, 8, 9, 10]
-        for i, line_idx in enumerate(grid_row_indices):
-            if line_idx >= len(lines):
-                continue
-            line = lines[line_idx]
+        for i, line in enumerate(lines):
             parts = line.split(" ")
             major_row = i // 3
             minor_row = i % 3

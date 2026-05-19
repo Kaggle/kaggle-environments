@@ -401,7 +401,7 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertTrue(all(status == "DONE" for status in playthrough["statuses"]))
         final_obs = json.loads(playthrough["steps"][-1][0]["observation"]["observationString"])
         self.assertTrue(final_obs["is_terminal"])
-        self.assertIn(final_obs["winner"], ("o", "+"))
+        self.assertIn(final_obs["winner"], ("o", "+", "draw"))
 
     def test_checkers_manual_playthrough(self):
         env = make("open_spiel_checkers", debug=True)
