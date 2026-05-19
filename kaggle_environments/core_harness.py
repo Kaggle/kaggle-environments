@@ -502,6 +502,7 @@ def create_agent_fn(
         last_content = ""
         all_responses: list[str] = []
         call_records: list[dict[str, Any]] = []
+        last_exception: Exception | None = None
 
         for attempt in range(max_retries):
             if attempt == 0:
@@ -530,13 +531,14 @@ def create_agent_fn(
                     "model": model_name,
                     **call_details,
                 })
+                result = game_harness.parse_response(content, legal_action_strings)
+                last_exception = None
             except Exception as exc:
-                _log.error(
-                    "LLM call failed on attempt %d: %s", attempt + 1, exc,
+                last_exception = exc
+                _log.warning(
+                    "Attempt %d failed with exception: %s", attempt + 1, exc,
                 )
-                raise
-
-            result = game_harness.parse_response(content, legal_action_strings)
+                continue
 
             # -- check for a valid action --
             matched_submission: Any = None
@@ -596,6 +598,8 @@ def create_agent_fn(
             all_attempts_failed=True,
             total_attempts=max_retries,
         )
+        if last_exception is not None:
+            raise last_exception
         raise ValueError(
             f"Failed to parse a legal move after {max_retries} attempts. "
             f"Last response: {last_content[:200]}"
