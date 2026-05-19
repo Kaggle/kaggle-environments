@@ -41,30 +41,53 @@ class _SimpleHarness:
         return ParseResult(legal_action=None, raw_action=response or None)
 
 
-def _fake_completion(content: str):
-    """Build a mock litellm.completion return value with given content."""
+class _Usage:
+    prompt_tokens = 1
+    completion_tokens = 1
+    total_tokens = 2
+    completion_tokens_details = None
 
-    class _Msg:
-        def __init__(self, c):
-            self.content = c
 
-    class _Choice:
-        def __init__(self, c):
-            self.message = _Msg(c)
-            self.finish_reason = "stop"
+class _Delta:
+    def __init__(self, content):
+        self.content = content
 
-    class _Usage:
-        prompt_tokens = 1
-        completion_tokens = 1
-        total_tokens = 2
-        completion_tokens_details = None
 
-    class _Resp:
-        def __init__(self, c):
-            self.choices = [_Choice(c)]
-            self.usage = _Usage()
+class _ChunkChoice:
+    def __init__(self, content, finish_reason=None):
+        self.delta = _Delta(content)
+        self.finish_reason = finish_reason
 
-    return _Resp(content)
+
+class _Chunk:
+    def __init__(self, choices, usage=None):
+        self.choices = choices
+        self.usage = usage
+
+
+def _fake_completion(content: str, *, pieces: int = 2):
+    """Build a mock streaming litellm.completion iterator.
+
+    Splits ``content`` into ``pieces`` delta chunks, followed by an empty
+    chunk carrying ``finish_reason="stop"`` and a final usage-only chunk —
+    mirroring litellm's stream when ``stream_options={"include_usage": True}``.
+    """
+    if pieces < 1:
+        raise ValueError("pieces must be >= 1")
+    n = len(content)
+    if n == 0 or pieces == 1:
+        slices = [content]
+    else:
+        step = max(1, n // pieces)
+        slices = [content[i:i + step] for i in range(0, n, step)]
+
+    def _gen():
+        for s in slices:
+            yield _Chunk([_ChunkChoice(s)])
+        yield _Chunk([_ChunkChoice("", finish_reason="stop")])
+        yield _Chunk([], usage=_Usage())
+
+    return _gen()
 
 
 _ENV = {
@@ -308,6 +331,36 @@ class CoreHarnessTest(absltest.TestCase):
             result = agent({}, {})
 
         self.assertNotIn("generate_returns", result)
+
+    def test_streaming_assembles_chunks_and_passes_stream_kwargs(self):
+        """Verify litellm is invoked with stream=True and chunks are concatenated."""
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        # Use enough pieces that the move string is split across chunks.
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("move_1", pieces=3),
+        ) as mock_call:
+            result = agent({}, {})
+
+        self.assertEqual(result["submission"], 1)
+        self.assertEqual(result["actionString"], "move_1")
+        # litellm was asked to stream and to include usage in the final chunk.
+        _, kwargs = mock_call.call_args
+        self.assertTrue(kwargs.get("stream"))
+        self.assertEqual(kwargs.get("stream_options"), {"include_usage": True})
+        # The streamed call still produces full usage details.
+        cd = result["call_details"][0]
+        self.assertEqual(cd["response"], "move_1")
+        self.assertEqual(cd["finish_reason"], "stop")
+        self.assertEqual(cd["prompt_tokens"], 1)
+        self.assertEqual(cd["generation_tokens"], 1)
+        # Streaming surfaces a first-token latency on each call_detail entry.
+        self.assertIn("first_token_secs", cd)
+        self.assertIsInstance(cd["first_token_secs"], float)
+        self.assertGreaterEqual(cd["first_token_secs"], 0.0)
+        self.assertLessEqual(cd["first_token_secs"], cd["duration_secs"])
 
     def test_move_history_accumulates_across_calls(self):
         harness = _SimpleHarness()
