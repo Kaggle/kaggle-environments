@@ -15,6 +15,7 @@ import goose2Elated from '../assets/goose_2_elated.png';
 import goose2Sad from '../assets/goose_2_sad.png';
 import boardImg from '../assets/mancala_board.png';
 import backdropImg from '../assets/natural_paper_backdrop.png';
+import trophyImg from '../assets/kaggle_trophy.png';
 
 const GOOSE_SPRITES: Record<0 | 1, Record<'idle' | 'pensive' | 'elated' | 'sad', string>> = {
   0: { idle: goose1Idle, pensive: goose1Pensive, elated: goose1Elated, sad: goose1Sad },
@@ -237,6 +238,16 @@ function PlayerCard({ name, score, spriteUrl, active, mirrored, outcome }: Playe
           alt={`${name} mascot`}
           style={{ transform: mirrored ? 'scaleX(-1)' : undefined }}
         />
+        {outcome === 'winner' && (
+          <motion.div
+            className="mancala-trophy"
+            initial={{ scale: 0, rotate: -30, opacity: 0 }}
+            animate={{ scale: 1, rotate: 0, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 14, delay: 0.15 }}
+          >
+            <img src={trophyImg} alt="" aria-hidden />
+          </motion.div>
+        )}
       </div>
       <div className="mancala-player-name">
         <span className="mancala-player-display-name" title={name}>
