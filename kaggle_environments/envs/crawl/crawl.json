@@ -163,19 +163,19 @@
     "scrollStartInterval": {
       "description": "Turns between scroll advances at the start of the game.",
       "type": "integer",
-      "default": 4,
+      "default": 10,
       "minimum": 1
     },
     "scrollEndInterval": {
       "description": "Turns between scroll advances at max speed.",
       "type": "integer",
-      "default": 1,
+      "default": 2,
       "minimum": 1
     },
     "scrollRampSteps": {
       "description": "Step at which scroll speed reaches maximum.",
       "type": "integer",
-      "default": 400,
+      "default": 450,
       "minimum": 1
     },
     "crystalDensity": {

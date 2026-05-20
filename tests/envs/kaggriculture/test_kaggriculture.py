@@ -2,12 +2,13 @@ from kaggle_environments import make
 from kaggle_environments.envs.kaggriculture.kaggriculture import (
     ANIMALS,
     CROPS,
-    HIRE_COSTS,
+    FARM_HAND_COST_MULT,
     LAND_ORDER,
     LAND_PRICES,
     MARKET_PARAMS,
     PRODUCTS,
     SHOPS,
+    TOWN_CENTER_PRODUCTS,
     _apply_unit_action,
     _commit_unit,
     _daily_refresh_animals,
@@ -376,17 +377,17 @@ def test_animal_produces_on_schedule_and_partial_harvest_works():
     private = _new_private()
     fx, fy = farm["farmer"]
     farm["tiles"][fy][fx] = _new_animal("GOOSE", 0)
-    # Goose: first_yield_day=5, interval=1, max_held=2.
+    # Goose: first_yield_day=4, interval=1, max_held=4.
     # Feed every day, then refresh end-of-day.
     for d in range(0, 6):
         farm["tiles"][fy][fx]["fed_today"] = True
         _daily_refresh_animals(farm, d)
     tile = farm["tiles"][fy][fx]
-    # First production at end of day 4 (next_day=5), then capped at 2 by day 5.
-    assert tile["yield_units"] == 2
+    # First production at end of day 3 (next_day=4); produces on days 3,4,5 → 3 units.
+    assert tile["yield_units"] == 3
     # Partial harvest before cap is fine — harvest now empties to 0.
     _apply_unit_action(farm, private, 0, ["HARVEST"], 10, 6, 24)
-    assert private["inventories"][0]["EGG"] == 2
+    assert private["inventories"][0]["EGG"] == 3
     assert farm["tiles"][fy][fx]["yield_units"] == 0
 
 
@@ -430,8 +431,8 @@ def test_care_bonus_adds_to_next_production():
     farm["tiles"][fy][fx]["fed_today"] = True
     farm["tiles"][fy][fx]["cared_today"] = True
     _daily_refresh_animals(farm, 4)
-    # Care bonus capped at max_held = 2.
-    assert farm["tiles"][fy][fx]["yield_units"] == 2
+    # Care bonus capped at max_held = 4.
+    assert farm["tiles"][fy][fx]["yield_units"] == 4
 
 
 def test_dig_does_not_remove_placed_animal():
@@ -464,8 +465,10 @@ def test_market_price_rises_with_low_inventory():
 
 def test_market_price_floored_at_one_dollar():
     # At sufficiently high inventory, price floors at 1.
-    very_high = MARKET_PARAMS["WHEAT"]["I0"] * 1000
-    assert market_price("WHEAT", very_high) == 1
+    # Use CARROT: above-side is sqrt (steep glut), so it actually hits the
+    # floor at a reasonable inventory.
+    very_high = MARKET_PARAMS["CARROT"]["I0"] * 1000
+    assert market_price("CARROT", very_high) == 1
 
 
 def test_sell_credits_at_current_price_and_grows_inventory():
@@ -483,16 +486,18 @@ def test_sell_credits_at_current_price_and_grows_inventory():
 
 
 def test_sell_at_one_dollar_does_not_grow_inventory():
+    # CARROT's above-side is sqrt (steep glut), so a massive inventory floors
+    # the price at $1 quickly. WHEAT uses log above and never floors here.
     farm = _new_farm(10, 0)
     private = _new_private()
-    private["shed"]["WHEAT"] = 1
+    private["shed"]["CARROT"] = 1
     market = _new_market()
-    market["inventory"]["WHEAT"] = MARKET_PARAMS["WHEAT"]["I0"] * 1000
-    price = market_price("WHEAT", market["inventory"]["WHEAT"])
+    market["inventory"]["CARROT"] = MARKET_PARAMS["CARROT"]["I0"] * 1000
+    price = market_price("CARROT", market["inventory"]["CARROT"])
     assert price == 1
-    inv_before = market["inventory"]["WHEAT"]
-    _commit_unit("SELL", "WHEAT", price, farm, private, market)
-    assert market["inventory"]["WHEAT"] == inv_before  # unchanged
+    inv_before = market["inventory"]["CARROT"]
+    _commit_unit("SELL", "CARROT", price, farm, private, market)
+    assert market["inventory"]["CARROT"] == inv_before  # unchanged
 
 
 def test_buy_product_charges_and_depletes_market():
@@ -571,18 +576,19 @@ def test_hire_cost_increases_with_each_hire_today():
     initial = farm["money"]
     for i in range(5):
         _do_hire(farm, private, 10)
-    spent = sum(HIRE_COSTS[:5])
+    # Fib: 1, 1, 2, 3, 5 → 12 units × default mult 10 = 120.
+    spent = FARM_HAND_COST_MULT * (1 + 1 + 2 + 3 + 5)
     assert farm["money"] == initial - spent
     assert farm["hires_today"] == 5
     assert len(farm["hands"]) == 5
 
 
 def test_hire_rejected_when_too_expensive():
-    farm = _new_farm(10, 50)
+    farm = _new_farm(10, FARM_HAND_COST_MULT - 1)
     private = _new_private()
     _do_hire(farm, private, 10)
     assert farm["hands"] == []
-    assert farm["money"] == 50
+    assert farm["money"] == FARM_HAND_COST_MULT - 1
 
 
 def test_hand_actions_dispatched_via_hands_field():
@@ -676,3 +682,77 @@ def test_animal_table_has_expected_animals():
 def test_products_table_includes_animal_products_and_fertilizer():
     for p in ("EGG", "MILK", "WOOL", "FERTILIZER"):
         assert p in PRODUCTS
+
+
+# --- Balance changes --------------------------------------------------------
+
+def test_no_shop_consumes_melon():
+    for shop, products in SHOPS.items():
+        assert "MELON" not in products, f"{shop} should not consume MELON"
+
+
+def test_town_center_excludes_fertilizer():
+    assert "FERTILIZER" not in TOWN_CENTER_PRODUCTS
+    # All other PRODUCTS are still consumed by the town center.
+    for p in PRODUCTS:
+        if p == "FERTILIZER":
+            continue
+        assert p in TOWN_CENTER_PRODUCTS
+
+
+def test_town_center_does_not_drain_fertilizer_inventory():
+    """Run a short episode and confirm fertilizer inventory never drops below
+    its initial I0 from town/shop consumption (no one consumes it)."""
+    env = make("kaggriculture", configuration={"episodeSteps": 100, "seed": 7})
+    env.run(["pass", "pass"])
+    j = env.toJSON()
+    initial = MARKET_PARAMS["FERTILIZER"]["I0"]
+    for step in j["steps"]:
+        inv = step[0]["observation"]["market"]["inventory"]["FERTILIZER"]
+        assert inv >= initial, f"FERTILIZER inventory dropped to {inv} (initial {initial})"
+
+
+def test_market_orders_capped_at_default_ten():
+    """An 11th market order in a single turn is silently dropped."""
+    def buyer(obs):
+        if obs.get("step", 0) == 0:
+            # 11 BUY_SEED orders for cheap wheat seeds (cost 10 each).
+            return {
+                "farmer": ["PASS"],
+                "hands": [],
+                "market": [["BUY_SEED", "WHEAT", 1]] * 11,
+            }
+        return {"farmer": ["PASS"], "hands": [], "market": []}
+
+    env = make("kaggriculture", configuration={"episodeSteps": 5, "startingMoney": 1000})
+    env.run([buyer, "pass"])
+    j = env.toJSON()
+    p0_priv = j["steps"][1][0]["observation"]["private"]
+    assert p0_priv["seeds"]["WHEAT"] == 10  # 11th order dropped
+
+
+def test_market_order_limit_is_configurable():
+    def buyer(obs):
+        if obs.get("step", 0) == 0:
+            return {
+                "farmer": ["PASS"],
+                "hands": [],
+                "market": [["BUY_SEED", "WHEAT", 1]] * 5,
+            }
+        return {"farmer": ["PASS"], "hands": [], "market": []}
+
+    env = make(
+        "kaggriculture",
+        configuration={"episodeSteps": 5, "startingMoney": 1000, "maxMarketOrdersPerTurn": 3},
+    )
+    env.run([buyer, "pass"])
+    j = env.toJSON()
+    p0_priv = j["steps"][1][0]["observation"]["private"]
+    assert p0_priv["seeds"]["WHEAT"] == 3
+
+
+def test_default_starting_money_is_2000():
+    env = make("kaggriculture", configuration={"episodeSteps": 3})
+    env.run(["pass", "pass"])
+    j = env.toJSON()
+    assert j["rewards"] == [2000.0, 2000.0]

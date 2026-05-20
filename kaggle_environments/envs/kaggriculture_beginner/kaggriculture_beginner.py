@@ -197,16 +197,17 @@ def _try_harvest(farm, fx, fy, day):
     return (crop_name, yield_units)
 
 
-def _process_market(state):
+def _process_market(state, max_orders=10):
     """Round-robin process market queues across players. With BUY_SEED at fixed
-    prices the order doesn't matter, but we still keep it consistent with the 
+    prices the order doesn't matter, but we still keep it consistent with the
     behavior for the advanced version of kaggriculture."""
     obs0 = state[0].observation
     queues = []
     for s in state:
         action = s.action if isinstance(s.action, dict) else {}
         market = action.get("market", []) if isinstance(action, dict) else []
-        queues.append(list(market) if isinstance(market, list) else [])
+        q = list(market) if isinstance(market, list) else []
+        queues.append(q[:max_orders])
 
     max_len = max((len(q) for q in queues), default=0)
     for i in range(max_len):
@@ -311,6 +312,7 @@ def interpreter(state, env):
     configuration = env.configuration
     turns_per_day = max(1, int(get(configuration, "turnsPerDay", 24)))
     board_size = int(get(configuration, "boardSize", 5))
+    max_orders = max(1, int(get(configuration, "maxMarketOrdersPerTurn", 10)))
 
     step = get(obs0, "step", 0)
     day = step // turns_per_day
@@ -323,7 +325,7 @@ def interpreter(state, env):
             crop_name, units = result
             obs0.farms[i]["money"] += float(CROPS[crop_name]["price"] * units)
 
-    _process_market(state)
+    _process_market(state, max_orders)
 
     for farm in obs0.farms:
         _decay_plants(farm, step)

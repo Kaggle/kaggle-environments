@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { ThemeProvider } from '@mui/material/styles';
 import { PlaybackControls, PlaybackControlsProps } from './PlaybackControls';
+import { theme } from '../theme';
 
 const baseProps: PlaybackControlsProps = {
   playing: false,
@@ -14,7 +16,11 @@ const baseProps: PlaybackControlsProps = {
 
 const renderControls = (overrides: Partial<PlaybackControlsProps> = {}) => {
   const props = { ...baseProps, ...overrides };
-  return render(<PlaybackControls {...props} />);
+  return render(
+    <ThemeProvider theme={theme}>
+      <PlaybackControls {...props} />
+    </ThemeProvider>
+  );
 };
 
 afterEach(cleanup);

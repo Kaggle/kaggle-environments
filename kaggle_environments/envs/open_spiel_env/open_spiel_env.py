@@ -18,6 +18,7 @@ import pyspiel
 from open_spiel.python.games import pokerkit_wrapper  # noqa: F401
 
 from kaggle_environments.envs.open_spiel_env.games.snake import snake_game  # noqa: F401
+from kaggle_environments.envs.open_spiel_env.games.coin_game_arena import coin_game_arena_game  # noqa: F401
 
 from kaggle_environments import core, utils
 
@@ -188,6 +189,19 @@ CONFIGURATION_SPEC_TEMPLATE = {
         ),
         "type": "boolean",
         "default": False,
+    },
+    "illegalMoveForfeit": {
+        "description": (
+            "If true (default), when an LLM harness exhausts its retries"
+            " without producing a legal move, it submits an invalid action"
+            " so this player forfeits via the env's INVALID path (matching"
+            " the game_arena convention). If false, the harness re-raises"
+            " the parse failure, which voids the whole episode. Only affects"
+            " exhaustion from illegal/unparsable moves; uncaught exceptions"
+            " still propagate either way."
+        ),
+        "type": "boolean",
+        "default": True,
     },
 }
 
@@ -800,13 +814,15 @@ def random_agent(
     configuration: dict[str, Any],
 ) -> int:
     """A built-in random agent specifically for OpenSpiel environments."""
-    del configuration
     legal_actions = observation.get("legalActions")
     if not legal_actions:
         return None
-    action = random.choice(legal_actions)
+    action = int(random.choice(legal_actions))
+    # strictMode requires the action dict to contain ONLY 'submission'.
+    if configuration.get("strictMode", False):
+        return {"submission": action}
     thoughts = " ".join(random.choices(_RANDOM_THOUGHT_WORDS, k=8))
-    return {"submission": int(action), "thoughts": thoughts}
+    return {"submission": action, "thoughts": thoughts}
 
 
 AGENT_REGISTRY = {
@@ -941,14 +957,17 @@ GAMES_LIST = [
     "chess",
     "clobber",
     "coin_game",
+    "coin_game_arena",
     "connect_four",
     "dark_hex",
+    "dots_and_boxes",
     "gin_rummy",
     "go(board_size=9)",
     "goofspiel(num_cards=4,points_order=descending,returns_type=total_points)",
     "hearts",
     "hex",
     "lines_of_action",
+    "mancala",
     "matching_pennies_3p",
     "oshi_zumo",
     "othello",

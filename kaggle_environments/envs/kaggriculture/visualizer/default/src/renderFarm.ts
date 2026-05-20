@@ -33,7 +33,12 @@ function marketList(): string {
     <div class="market-item" data-item="${key}">
       <img class="market-item-icon" src="${spriteSrc(sprite)}" alt="${sprite}" />
       <div class="market-price-row">
-        <img class="market-coin" src="${spriteSrc('coin')}" alt="coins" />
+        <span class="market-coin-stack">
+          <img class="market-coin" src="${spriteSrc('coin')}" alt="coins" />
+          <svg class="market-sparkline" viewBox="0 0 100 20" preserveAspectRatio="none" aria-hidden="true">
+            <path class="market-sparkline-path" d="" fill="none" />
+          </svg>
+        </span>
         <span class="market-price">--</span>
       </div>
     </div>
@@ -98,10 +103,13 @@ function farmPanel(player: 1 | 2, rows: number, cols: number, name: string): str
   return `
     <section class="farm-panel" data-player="${player}">
       <header class="farm-header sketched-border" style="${BG_WOOD}">
-        <span class="player-name">
-          <img class="player-name-icon" src="${spriteSrc(`farmer_p${player}`)}" alt="farmer p${player}" />
-          <span>${escapeHtml(name)}</span>
-        </span>
+        <div class="farm-header-left">
+          <span class="player-name">
+            <img class="player-name-icon" src="${spriteSrc(`farmer_p${player}`)}" alt="farmer p${player}" />
+            <span>${escapeHtml(name)}</span>
+          </span>
+          <button type="button" class="header-toggle shed-toggle" data-dialog="shed-${player}">View Shed</button>
+        </div>
         <span class="player-balance">
           <img class="balance-icon" src="${spriteSrc('coin')}" alt="coins" />
           <span class="balance-amount">0</span>
@@ -126,6 +134,10 @@ function townPanel(): string {
         <div class="town-subheader">
           <span>Day <span class="day-value">1</span> / <span class="day-total">30</span></span>
           <span>Turn <span class="turn-value">1</span> / <span class="turn-total">24</span></span>
+        </div>
+        <div class="town-header-toggles">
+          <button type="button" class="header-toggle market-toggle" data-dialog="market">View Market</button>
+          <button type="button" class="header-toggle town-toggle" data-dialog="town">View Town</button>
         </div>
       </header>
       <div class="market-panel sketched-border" style="${BG_WOOD}">
@@ -154,12 +166,19 @@ function townPanel(): string {
 
 export function buildShell(root: HTMLElement, board: BoardSize, playerNames: string[]): void {
   root.innerHTML = `
-    <div class="demo-container" style="${BG_GRASS}">
-      <main class="demo-main">
+    <div class="kaggriculture-container" style="${BG_GRASS}">
+      <main class="kaggriculture-main">
         ${farmPanel(1, board.rows, board.cols, playerNames[0] ?? 'Player 1')}
         ${townPanel()}
         ${farmPanel(2, board.rows, board.cols, playerNames[1] ?? 'Player 2')}
       </main>
+      <div class="simple-dialog" hidden>
+        <div class="simple-dialog-titlebar">
+          <span class="simple-dialog-title"></span>
+          <button type="button" class="simple-dialog-close" aria-label="Close">×</button>
+        </div>
+        <div class="simple-dialog-body"></div>
+      </div>
     </div>
   `;
 }
@@ -192,15 +211,23 @@ function collectPlayerRefs(panel: HTMLElement, board: BoardSize): PlayerRefs {
 }
 
 export function collectRefs(root: HTMLElement, board: BoardSize): LayoutRefs {
-  const marketItems: Record<string, { item: HTMLElement; price: HTMLElement }> = {};
+  const marketItems: LayoutRefs['marketItems'] = {};
   for (const { key } of MARKET_ITEMS) {
     const item = root.querySelector<HTMLElement>(`.market-item[data-item="${key}"]`)!;
     marketItems[key] = {
       item,
       price: item.querySelector<HTMLElement>('.market-price')!,
+      sparkPath: item.querySelector<SVGPathElement>('.market-sparkline-path')!,
     };
   }
-  return {
+  const overlay = root.querySelector<HTMLElement>('.simple-dialog')!;
+  const dialog = {
+    overlay,
+    title: overlay.querySelector<HTMLElement>('.simple-dialog-title')!,
+    body: overlay.querySelector<HTMLElement>('.simple-dialog-body')!,
+    closeBtn: overlay.querySelector<HTMLElement>('.simple-dialog-close')!,
+  };
+  const refs: LayoutRefs = {
     dayValue: root.querySelector<HTMLElement>('.day-value')!,
     turnValue: root.querySelector<HTMLElement>('.turn-value')!,
     marketItems,
@@ -208,7 +235,69 @@ export function collectRefs(root: HTMLElement, board: BoardSize): LayoutRefs {
     players: [1, 2].map((p) =>
       collectPlayerRefs(root.querySelector<HTMLElement>(`.farm-panel[data-player="${p}"]`)!, board)
     ),
+    dialog,
   };
+  wireDialogs(root, refs);
+  return refs;
+}
+
+interface DialogTarget {
+  title: string;
+  panel: HTMLElement;
+}
+
+function wireDialogs(root: HTMLElement, refs: LayoutRefs): void {
+  const targets = new Map<string, DialogTarget>();
+  const p1Shed = root.querySelector<HTMLElement>('.farm-panel[data-player="1"] .shed-area');
+  const p2Shed = root.querySelector<HTMLElement>('.farm-panel[data-player="2"] .shed-area');
+  const market = root.querySelector<HTMLElement>('.market-panel');
+  const town = root.querySelector<HTMLElement>('.town-grid');
+  if (p1Shed) targets.set('shed-1', { title: 'Player 1 Shed', panel: p1Shed });
+  if (p2Shed) targets.set('shed-2', { title: 'Player 2 Shed', panel: p2Shed });
+  if (market) targets.set('market', { title: 'Market', panel: market });
+  if (town) targets.set('town', { title: 'Town', panel: town });
+
+  const homes = new Map<HTMLElement, { parent: HTMLElement; next: ChildNode | null }>();
+  for (const { panel } of targets.values()) {
+    homes.set(panel, { parent: panel.parentElement!, next: panel.nextSibling });
+  }
+
+  let currentKey: string | null = null;
+  const close = () => {
+    if (!currentKey) return;
+    const target = targets.get(currentKey);
+    if (target) {
+      const home = homes.get(target.panel);
+      if (home) home.parent.insertBefore(target.panel, home.next);
+    }
+    refs.dialog.overlay.hidden = true;
+    currentKey = null;
+  };
+  const open = (key: string) => {
+    if (currentKey === key) {
+      close();
+      return;
+    }
+    if (currentKey) close();
+    const target = targets.get(key);
+    if (!target) return;
+    refs.dialog.title.textContent = target.title;
+    refs.dialog.body.appendChild(target.panel);
+    refs.dialog.overlay.hidden = false;
+    currentKey = key;
+  };
+
+  root.querySelectorAll<HTMLElement>('.header-toggle[data-dialog]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const key = btn.dataset.dialog;
+      if (key) open(key);
+    });
+  });
+  refs.dialog.closeBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    close();
+  });
 }
 
 // --- Per-step render ---------------------------------------------------------
@@ -396,13 +485,49 @@ function renderPlayer(
   renderShed(refs, priv);
 }
 
-function renderMarket(refs: LayoutRefs, market: MarketPublic): void {
+// SVG viewBox; CSS scales the element to its rendered size while preserving
+// none aspect ratio, so we draw in these abstract units.
+const SPARK_W = 100;
+const SPARK_H = 20;
+const SPARK_PAD = 2;
+
+function sparklinePath(series: number[]): string {
+  if (series.length === 0) return '';
+  let min = series[0];
+  let max = series[0];
+  for (const v of series) {
+    if (v < min) min = v;
+    if (v > max) max = v;
+  }
+  const range = max - min;
+  const yMid = SPARK_H / 2;
+  const yTop = SPARK_PAD;
+  const yBot = SPARK_H - SPARK_PAD;
+  const step = series.length > 1 ? SPARK_W / (series.length - 1) : 0;
+  let d = '';
+  for (let i = 0; i < series.length; i++) {
+    const x = i * step;
+    const y = range === 0 ? yMid : yBot - ((series[i] - min) / range) * (yBot - yTop);
+    d += (i === 0 ? 'M' : 'L') + x.toFixed(2) + ' ' + y.toFixed(2);
+  }
+  return d;
+}
+
+function renderMarket(refs: LayoutRefs, market: MarketPublic, priceHistory: Record<string, number[]>): void {
   const prices = market?.prices ?? {};
   for (const { key } of MARKET_ITEMS) {
     const slot = refs.marketItems[key];
     if (!slot) continue;
     const price = prices[key];
     slot.price.textContent = price == null ? '--' : String(Math.round(price));
+    const series = priceHistory[key] ?? [];
+    // Key off length + each value rounded to 2 decimals so we skip the SVG
+    // write when the visible curve hasn't changed.
+    const sparkKey = series.length + ':' + series.map((v) => v.toFixed(2)).join(',');
+    if (slot.lastSparkKey !== sparkKey) {
+      slot.lastSparkKey = sparkKey;
+      slot.sparkPath.setAttribute('d', sparklinePath(series));
+    }
   }
 }
 
@@ -439,7 +564,7 @@ function renderHeader(refs: LayoutRefs, view: ViewModel, cfg: any): void {
 
 export function renderObservation(refs: LayoutRefs, view: ViewModel, cfg: any): void {
   renderHeader(refs, view, cfg);
-  renderMarket(refs, view.market);
+  renderMarket(refs, view.market, view.priceHistory);
   renderTown(refs, view.town);
   const farms = view.farms ?? [];
   farms.forEach((farm, i) => {

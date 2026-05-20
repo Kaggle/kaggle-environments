@@ -78,11 +78,17 @@ def process_action(state, config):
             if state[i].status != "INVALID":
                 state[i].status = "DONE"
             if winner == "blue":
-                state[i].reward = 1 if i in [0, 1] else -1
+                if i in [0, 1]:
+                    state[i].reward = (state[i].reward or 0) + 1
+                else:
+                    state[i].reward = state[i].reward or 0
             elif winner == "yellow":
-                state[i].reward = 1 if i in [2, 3] else -1
+                if i in [2, 3]:
+                    state[i].reward = (state[i].reward or 0) + 1
+                else:
+                    state[i].reward = state[i].reward or 0
             else:
-                state[i].reward = 0
+                state[i].reward = state[i].reward or 0
 
     # Handle Agent Failure / Invalid Action
     if action is None:
@@ -246,6 +252,9 @@ def interpreter(state, env):
     if env.done:
         return state
 
+    prev_blue_reward = state[0].reward or 0
+    prev_yellow_reward = state[2].reward or 0
+
     process_action(state, env.configuration)
     update_visibility(state)
     
@@ -261,8 +270,16 @@ def interpreter(state, env):
         is_done = all(s.status in ["DONE", "INVALID"] for s in state)
         if is_done:
             winner = None
-            if state[0].reward == 1: winner = "blue"
-            elif state[2].reward == 1: winner = "yellow"
+            if (state[0].reward or 0) > prev_blue_reward: winner = "blue"
+            elif (state[2].reward or 0) > prev_yellow_reward: winner = "yellow"
+            
+            # Update wins in observation
+            if winner == "blue":
+                for s in state:
+                    s.observation.blue_wins += 1
+            elif winner == "yellow":
+                for s in state:
+                    s.observation.yellow_wins += 1
             
             window_size = env.configuration.get("memory_window_size", 0)
             save_game_to_history(obs, winner, window_size)
@@ -281,7 +298,6 @@ def interpreter(state, env):
                 active_agent = state[0].observation.current_turn
                 for i in range(4):
                     state[i].status = "ACTIVE" if i == state[0].observation.current_turn else "INACTIVE"
-                    state[i].reward = 0
                     
     return state
 
