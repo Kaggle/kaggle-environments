@@ -326,9 +326,11 @@ function objectPlan(tile: RawTile, day: number): { key: string; html: string } {
     const sprite = plantSprite(cropLower, stage);
     const fertilized = (tile.fertilized_until_day ?? -1) >= day;
     const label = `${titleCase(tile.crop)} (${stage}${fertilized ? ', fertilized' : ''})`;
+    const yieldShown = stage === 'ready' ? tile.yield_units : 0;
+    const yieldHtml = yieldShown > 0 ? `<span class="cell-yield">${yieldShown}</span>` : '';
     return {
-      key: `plant:${cropLower}:${stage}:${fertilized ? 1 : 0}`,
-      html: `<img class="cell-sprite" src="${spriteSrc(sprite)}" alt="${sprite}" title="${label}" />`,
+      key: `plant:${cropLower}:${stage}:${fertilized ? 1 : 0}:y${yieldShown}`,
+      html: `<img class="cell-sprite" src="${spriteSrc(sprite)}" alt="${sprite}" title="${label}" />${yieldHtml}`,
     };
   }
   if (tile.kind === 'WEED') {
@@ -349,7 +351,9 @@ function objectPlan(tile: RawTile, day: number): { key: string; html: string } {
         `<img class="cell-sprite cell-animal" src="${spriteSrc(animal)}" alt="${animal}" title="${titleCase(tile.animal)}" />`
       );
     }
-    return { key: `${structure}:${animal}`, html: parts.join('') };
+    const yieldShown = tile.animal ? (tile.yield_units ?? 0) : 0;
+    if (yieldShown > 0) parts.push(`<span class="cell-yield">${yieldShown}</span>`);
+    return { key: `${structure}:${animal}:y${yieldShown}`, html: parts.join('') };
   }
   return { key: '', html: '' };
 }
