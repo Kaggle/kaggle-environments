@@ -18,42 +18,42 @@ def _new_state(seed=0, episode_length=20, **params):
 
 
 def _step_random(state, rng):
-    actions = []
-    for pid in range(4):
-        legal = state.legal_actions(pid)
-        actions.append(rng.choice(legal) if legal else pyspiel.INVALID_ACTION)
-    state.apply_actions(actions)
+    legal = state.legal_actions()
+    state.apply_action(rng.choice(legal))
+
+
+# Sequential player order: teams interleave, seats alternate per team.
+_PLAYER_ORDER = [0, 2, 1, 3]
 
 
 class StructureTest(absltest.TestCase):
-    """Tests for basic game shape: 4 players, 2 teams, simultaneous turns."""
+    """Tests for basic game shape: 4 players, 2 teams, sequential turns."""
 
     def test_four_players(self):
         g = pyspiel.load_game("coin_game_arena")
         self.assertEqual(g.num_players(), 4)
 
-    def test_simultaneous_dynamics(self):
+    def test_sequential_dynamics(self):
+        g = pyspiel.load_game("coin_game_arena")
+        self.assertEqual(g.get_type().dynamics, pyspiel.GameType.Dynamics.SEQUENTIAL)
         s = _new_state(seed=1)
-        self.assertEqual(s.current_player(), pyspiel.PlayerId.SIMULTANEOUS)
+        self.assertFalse(s.is_simultaneous_node())
+        self.assertEqual(s.current_player(), 0)
 
-    def test_only_two_seats_active_per_step(self):
+    def test_only_acting_player_has_legal_actions(self):
         s = _new_state(seed=1)
-        # Step 0: seats 0 (players 0, 2) active.
+        # Step 0: only player 0 acts.
         legal_counts = [len(s.legal_actions(p)) for p in range(4)]
-        self.assertEqual(legal_counts[0], 5)
-        self.assertEqual(legal_counts[1], 0)
-        self.assertEqual(legal_counts[2], 5)
-        self.assertEqual(legal_counts[3], 0)
+        self.assertEqual(legal_counts, [5, 0, 0, 0])
 
-    def test_active_seats_alternate_after_step(self):
+    def test_player_order_interleaves_teams(self):
         s = _new_state(seed=1)
-        s.apply_actions([4, pyspiel.INVALID_ACTION, 4, pyspiel.INVALID_ACTION])  # both stand
-        # Step 1: seats 1 (players 1, 3) active.
-        legal_counts = [len(s.legal_actions(p)) for p in range(4)]
-        self.assertEqual(legal_counts[0], 0)
-        self.assertEqual(legal_counts[1], 5)
-        self.assertEqual(legal_counts[2], 0)
-        self.assertEqual(legal_counts[3], 5)
+        observed = []
+        for _ in range(8):
+            observed.append(s.current_player())
+            s.apply_action(s.legal_actions()[0])  # stand-ish, just walk
+        # Two full cycles of [0, 2, 1, 3].
+        self.assertEqual(observed, _PLAYER_ORDER * 2)
 
 
 class ObservationTest(absltest.TestCase):
@@ -104,10 +104,12 @@ class TurnHistoryTest(absltest.TestCase):
 
     def test_history_includes_both_seats(self):
         s = _new_state(seed=2)
-        # Seat 0 plays "right" on both boards.
-        s.apply_actions([3, pyspiel.INVALID_ACTION, 3, pyspiel.INVALID_ACTION])
-        # Seat 1 plays "left" on both boards.
-        s.apply_actions([pyspiel.INVALID_ACTION, 2, pyspiel.INVALID_ACTION, 2])
+        # Sequential order is [0, 2, 1, 3]: seat 0 plays "right" on each
+        # board, then seat 1 plays "left" on each board.
+        s.apply_action(3)  # player 0: right
+        s.apply_action(3)  # player 2: right
+        s.apply_action(2)  # player 1: left
+        s.apply_action(2)  # player 3: left
 
         obs0 = json.loads(s.observation_string(0))  # team A view
         history = obs0["board"]["move_history"]
@@ -136,7 +138,7 @@ class DeterminismTest(absltest.TestCase):
 
 
 class TerminationTest(absltest.TestCase):
-    """Episode ends after exactly ``episode_length`` steps."""
+    """Episode ends after ``2 * episode_length`` steps (per-board moves)."""
 
     def test_terminates_on_episode_length(self):
         s = _new_state(seed=3, episode_length=4)
@@ -146,7 +148,8 @@ class TerminationTest(absltest.TestCase):
             _step_random(s, rng)
             steps += 1
         self.assertTrue(s.is_terminal())
-        self.assertEqual(steps, 4)
+        # 4 moves per board x 2 boards = 8 sequential steps.
+        self.assertEqual(steps, 8)
 
 
 class ScoringTest(absltest.TestCase):
@@ -154,9 +157,9 @@ class ScoringTest(absltest.TestCase):
 
     def test_zero_returns_when_no_coins_collected(self):
         s = _new_state(seed=1, episode_length=2)
-        # All players "stand" twice — collect nothing.
-        s.apply_actions([4, pyspiel.INVALID_ACTION, 4, pyspiel.INVALID_ACTION])
-        s.apply_actions([pyspiel.INVALID_ACTION, 4, pyspiel.INVALID_ACTION, 4])
+        # All four players "stand" once each (total moves = 2 * 2 = 4).
+        for _ in range(4):
+            s.apply_action(4)
         self.assertTrue(s.is_terminal())
         self.assertEqual(s.returns(), [0.0, 0.0, 0.0, 0.0])
 
@@ -217,8 +220,8 @@ class TerminalRevealTest(absltest.TestCase):
 
     def test_terminal_reveal(self):
         s = _new_state(seed=5, episode_length=2)
-        s.apply_actions([4, pyspiel.INVALID_ACTION, 4, pyspiel.INVALID_ACTION])
-        s.apply_actions([pyspiel.INVALID_ACTION, 4, pyspiel.INVALID_ACTION, 4])
+        for _ in range(4):
+            s.apply_action(4)  # stand
         obs0 = json.loads(s.observation_string(0))
         self.assertIn("boards", obs0)
         self.assertEqual(len(obs0["boards"]), 2)
