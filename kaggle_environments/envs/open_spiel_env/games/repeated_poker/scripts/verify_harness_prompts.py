@@ -14,11 +14,6 @@ a long session.
 Usage:
     python3 -m kaggle_environments.envs.open_spiel_env.games.repeated_poker.scripts.verify_harness_prompts \\
         /path/to/old_replay.json
-
-    # Or fetch a sample replay first:
-    curl -o /tmp/old.json https://www.kaggleusercontent.com/episodes/77159528.json
-    python3 -m kaggle_environments.envs.open_spiel_env.games.repeated_poker.scripts.verify_harness_prompts \\
-        /tmp/old.json
 """
 
 from __future__ import annotations
