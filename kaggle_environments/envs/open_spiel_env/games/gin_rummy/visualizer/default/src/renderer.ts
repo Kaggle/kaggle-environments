@@ -222,22 +222,33 @@ function buildPile(visual: HTMLElement, label: string, modifier?: string): HTMLD
   return pile;
 }
 
+function buildPileSlot(): HTMLDivElement {
+  const slot = document.createElement('div');
+  slot.className = 'card-slot--pile';
+  return slot;
+}
+
 function buildStockPile(stockSize: number): HTMLDivElement {
   const stack = document.createElement('div');
   stack.className = 'pile-stack';
-  // Decorative offset stack of up to 3 face-down cards.
-  for (let i = 0; i < Math.min(stockSize, 3); i++) {
-    stack.appendChild(buildCard(null, { faceDown: true }));
+  if (stockSize === 0) {
+    stack.appendChild(buildPileSlot());
+  } else {
+    // Decorative offset stack of up to 3 face-down cards.
+    for (let i = 0; i < Math.min(stockSize, 3); i++) {
+      stack.appendChild(buildCard(null, { faceDown: true }));
+    }
   }
   return buildPile(stack, `Stock (${stockSize})`);
 }
 
 function buildUpcardPile(upcard: string | null): HTMLDivElement {
-  // Wrap the upcard in a pile-stack so the empty and non-empty states have
-  // the same 64x90 footprint as the Stock pile.
+  // Wrap in a pile-stack so the empty and non-empty states have the same
+  // 64x90 footprint as the Stock pile; when empty, render a dashed
+  // card-shaped slot so the slot stays visible.
   const stack = document.createElement('div');
   stack.className = 'pile-stack';
-  if (upcard) stack.appendChild(buildCard(upcard));
+  stack.appendChild(upcard ? buildCard(upcard) : buildPileSlot());
   return buildPile(stack, 'Upcard');
 }
 

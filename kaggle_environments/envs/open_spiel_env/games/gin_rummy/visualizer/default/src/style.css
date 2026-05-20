@@ -45,8 +45,13 @@ body,
   flex-shrink: 0;
 }
 
-.header .player {
+/* Doubled `.player.player` selector raises specificity to 0,3,0 so the
+   kaggle core's `.game-renderer-isolation` reset can't expand the pill to
+   fill the flex row. */
+.header .player.player {
   display: inline-flex;
+  flex: none;
+  width: max-content;
   flex-direction: row;
   align-items: center;
   padding: 4px 12px;
@@ -279,6 +284,21 @@ body,
 .pile-stack .card:nth-child(3) {
   left: 8px;
   top: 0;
+}
+
+/* Card-shaped slot used when the upcard or stock pile is empty — keeps a
+   visible 56x80 dashed outline in place of the missing card. */
+.pile-stack .card-slot--pile {
+  position: absolute;
+  left: 0;
+  top: 6px;
+  box-sizing: border-box;
+  width: 56px;
+  height: 80px;
+  margin: 0;
+  border: 1px dashed #9a9684;
+  border-radius: 6px;
+  background: transparent;
 }
 
 /* Empty card slot inside a .pile (used by knock-card pile in Oklahoma mode). */
