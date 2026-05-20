@@ -204,6 +204,50 @@ def test_build_miner():
     assert len(miners) >= 1, "Should have built at least one miner"
 
 
+def test_build_directional_spawn():
+    """`BUILD_<UNIT>_<DIR>` spawns the new robot in that direction."""
+    for direction, (dc, dr) in [
+        ("NORTH", (0, 1)),
+        ("SOUTH", (0, -1)),
+        ("EAST", (1, 0)),
+        ("WEST", (-1, 0)),
+    ]:
+        env = make("crawl", configuration={"randomSeed": 42, "episodeSteps": 10}, debug=True)
+        env.reset(2)
+        obs = env.state[0].observation
+        f0 = next(uid for uid, d in obs.globalRobots.items() if d[0] == 0 and d[4] == 0)
+        fc, fr = obs.globalRobots[f0][1], obs.globalRobots[f0][2]
+        # Clear the wall between factory and the target spawn cell (both sides).
+        bits = {"NORTH": (1, 4), "SOUTH": (4, 1), "EAST": (2, 8), "WEST": (8, 2)}
+        my_bit, opp_bit = bits[direction]
+        sc, sr = fc + dc, fr + dr
+        obs.globalWalls[str(fr)][fc] &= ~my_bit
+        if str(sr) in obs.globalWalls and 0 <= sc < env.configuration.width:
+            obs.globalWalls[str(sr)][sc] &= ~opp_bit
+
+        env.step([{f0: f"BUILD_SCOUT_{direction}"}, {}])
+        obs = env.state[0].observation
+        spawned = [uid for uid, d in obs.globalRobots.items()
+                   if d[0] == 1 and d[4] == 0 and d[1] == sc and d[2] == sr]
+        assert len(spawned) == 1, f"BUILD_SCOUT_{direction} should spawn at ({sc},{sr})"
+
+
+def test_build_default_spawns_north():
+    """Legacy `BUILD_<UNIT>` (no direction) still defaults to NORTH."""
+    env = make("crawl", configuration={"randomSeed": 42, "episodeSteps": 10}, debug=True)
+    env.reset(2)
+    obs = env.state[0].observation
+    f0 = next(uid for uid, d in obs.globalRobots.items() if d[0] == 0 and d[4] == 0)
+    fc, fr = obs.globalRobots[f0][1], obs.globalRobots[f0][2]
+    obs.globalWalls[str(fr)][fc] &= ~1
+    obs.globalWalls[str(fr + 1)][fc] &= ~4
+    env.step([{f0: "BUILD_SCOUT"}, {}])
+    obs = env.state[0].observation
+    scouts = [uid for uid, d in obs.globalRobots.items()
+              if d[0] == 1 and d[4] == 0 and d[1] == fc and d[2] == fr + 1]
+    assert len(scouts) == 1, "Legacy BUILD_SCOUT should spawn one cell north of factory"
+
+
 def test_miner_transforms_into_mine():
     """A miner on a mining node TRANSFORMs into a mine; node is consumed, miner is destroyed."""
     env = make("crawl", configuration={"randomSeed": 42, "episodeSteps": 10}, debug=True)

@@ -29,7 +29,12 @@ TRANSFER_ACTIONS = {
     "TRANSFER_EAST",
     "TRANSFER_WEST",
 }
-FACTORY_BUILD_ACTIONS = {"BUILD_SCOUT", "BUILD_WORKER", "BUILD_MINER"}
+FACTORY_BUILD_UNITS = {"SCOUT": SCOUT, "WORKER": WORKER, "MINER": MINER}
+# Each unit can be built with no suffix (defaults to NORTH for backward
+# compatibility) or with an explicit direction suffix.
+FACTORY_BUILD_ACTIONS = {f"BUILD_{u}" for u in FACTORY_BUILD_UNITS} | {
+    f"BUILD_{u}_{d}" for u in FACTORY_BUILD_UNITS for d in DIR_OFFSETS
+}
 
 
 def is_fixed_wall(col, direction, width):
@@ -681,7 +686,9 @@ def interpreter(state, env):
             if neighbor_in_map:
                 walls[nr_key][nc] &= ~opp_bit
 
-    # 3d: BUILD (Factory spawns robot to the north, combat resolves in Phase 4)
+    # 3d: BUILD (Factory spawns robot in the chosen direction; combat resolves
+    # in Phase 4). `BUILD_<UNIT>` (no suffix) defaults to NORTH for backward
+    # compatibility; `BUILD_<UNIT>_<DIR>` spawns in that direction.
     for uid in list(robots.keys()):
         if uid in destroyed:
             continue
@@ -690,20 +697,18 @@ def interpreter(state, env):
             continue
         r = robots[uid]
 
-        if action == "BUILD_SCOUT":
+        parts = action.split("_")
+        unit_key = parts[1]
+        direction = parts[2] if len(parts) > 2 else "NORTH"
+
+        new_type = FACTORY_BUILD_UNITS[unit_key]
+        if new_type == SCOUT:
             cost = config.scoutCost
-            new_type = SCOUT
-            new_energy = config.scoutCost
-        elif action == "BUILD_WORKER":
+        elif new_type == WORKER:
             cost = config.workerCost
-            new_type = WORKER
-            new_energy = config.workerCost
-        elif action == "BUILD_MINER":
+        else:  # MINER
             cost = config.minerCost
-            new_type = MINER
-            new_energy = config.minerCost
-        else:
-            continue
+        new_energy = cost
 
         if r["energy"] < cost:
             validated_actions[uid] = "IDLE"
@@ -712,14 +717,15 @@ def interpreter(state, env):
             validated_actions[uid] = "IDLE"
             continue
 
-        # Spawn cell is always north of factory
-        sc, sr = r["col"], r["row"] + 1
+        dc, dr = DIR_OFFSETS[direction]
+        sc, sr = r["col"] + dc, r["row"] + dr
 
         # Check wall between factory and spawn cell
-        if not can_move_through(walls, width, r["col"], r["row"], "NORTH"):
+        if not can_move_through(walls, width, r["col"], r["row"], direction):
             validated_actions[uid] = "IDLE"
             continue
-        if sr > north:
+        # Spawn cell must be within the active window and the map width.
+        if sr > north or sr < south or sc < 0 or sc >= width:
             validated_actions[uid] = "IDLE"
             continue
 

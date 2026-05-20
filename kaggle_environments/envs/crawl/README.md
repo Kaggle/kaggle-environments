@@ -27,7 +27,7 @@ Each turn, you return a dictionary mapping robot UIDs to action strings.
 - `NORTH`, `SOUTH`, `EAST`, `WEST` — Move one cell in that direction (blocked by walls). **A unit that successfully moves off the north or south edge of the board (no wall blocking) is destroyed.** East/west are always blocked by perimeter walls.
 
 ### Factory Actions
-- `BUILD_SCOUT`, `BUILD_WORKER`, `BUILD_MINER` — Spawn a new robot in the cell **north** of the factory. Requires no wall between factory and spawn cell. 10-turn cooldown between builds. The new robot is placed *before* the movement phase, so it counts as a stationary occupant during combat — if an enemy on that cell moves away the same turn, the new robot lands safely; otherwise crush combat resolves on the spawn cell.
+- `BUILD_SCOUT`, `BUILD_WORKER`, `BUILD_MINER` — Spawn a new robot in an adjacent cell. **Defaults to spawning north** when no direction is given (legacy form). To choose a direction explicitly, append a suffix: `BUILD_SCOUT_NORTH`, `BUILD_SCOUT_SOUTH`, `BUILD_SCOUT_EAST`, `BUILD_SCOUT_WEST` (same for `WORKER` and `MINER`). Requires no wall between factory and spawn cell, and the spawn cell must be in-bounds. 10-turn cooldown between builds. The new robot is placed *before* the movement phase, so it counts as a stationary occupant during combat — if an enemy on that cell moves away the same turn, the new robot lands safely; otherwise crush combat resolves on the spawn cell.
 - `JUMP_NORTH`, `JUMP_SOUTH`, `JUMP_EAST`, `JUMP_WEST` — Leap 2 cells in a direction, ignoring all walls. The jump always happens and the cooldown is consumed. **If the landing cell is off the board, the factory is destroyed.** 20-turn cooldown.
 
 ### Worker Actions
@@ -82,9 +82,9 @@ Each robot has a vision range (Manhattan distance). You can only see what's with
 
 The southern boundary advances over time, destroying all robots, mines, and crystals below it.
 
-- **Start:** Scrolls once every 4 turns
-- **Ramp:** Linearly increases speed over 400 steps
-- **End:** Scrolls every turn from step 400 onward (until game end at step 500)
+- **Start:** Scrolls once every 10 turns
+- **Ramp:** Linearly increases speed over 450 steps
+- **End:** Scrolls once every 2 turns from step 450 onward (until game end at step 500)
 
 If a factory falls below the southern boundary, that player is eliminated.
 
@@ -200,9 +200,9 @@ env.render(mode="ipython", width=800, height=800)
 | `visionScout` | 5 | Scout vision range |
 | `visionWorker` | 3 | Worker vision range |
 | `visionMiner` | 3 | Miner vision range |
-| `scrollStartInterval` | 4 | Initial turns between scrolls |
-| `scrollEndInterval` | 1 | Final turns between scrolls |
-| `scrollRampSteps` | 400 | Step when max scroll speed reached |
+| `scrollStartInterval` | 10 | Initial turns between scrolls |
+| `scrollEndInterval` | 2 | Final turns between scrolls |
+| `scrollRampSteps` | 450 | Step when max scroll speed reached |
 | `crystalDensity` | 0.06 | Crystal spawn probability per cell |
 | `miningNodeDensity` | 0.03 | Mining node spawn probability per cell |
 | `doorProbability` | 0.08 | Door probability between maze halves |

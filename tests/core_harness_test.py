@@ -41,30 +41,62 @@ class _SimpleHarness:
         return ParseResult(legal_action=None, raw_action=response or None)
 
 
-def _fake_completion(content: str):
-    """Build a mock litellm.completion return value with given content."""
+class _Usage:
+    prompt_tokens = 1
+    completion_tokens = 1
+    total_tokens = 2
+    completion_tokens_details = None
 
-    class _Msg:
-        def __init__(self, c):
-            self.content = c
 
-    class _Choice:
-        def __init__(self, c):
-            self.message = _Msg(c)
-            self.finish_reason = "stop"
+class _Delta:
+    def __init__(self, content):
+        self.content = content
 
-    class _Usage:
-        prompt_tokens = 1
-        completion_tokens = 1
-        total_tokens = 2
-        completion_tokens_details = None
 
-    class _Resp:
-        def __init__(self, c):
-            self.choices = [_Choice(c)]
-            self.usage = _Usage()
+class _ChunkChoice:
+    def __init__(self, content, finish_reason=None):
+        self.delta = _Delta(content)
+        self.finish_reason = finish_reason
 
-    return _Resp(content)
+
+class _Chunk:
+    def __init__(self, choices, usage=None):
+        self.choices = choices
+        self.usage = usage
+
+
+def _fake_completion(
+    content: str,
+    *,
+    pieces: int = 2,
+    finish_reason: str | None = "stop",
+):
+    """Build a mock streaming litellm.completion iterator.
+
+    Splits ``content`` into ``pieces`` delta chunks, followed by an empty
+    chunk carrying ``finish_reason`` and a final usage-only chunk —
+    mirroring litellm's stream when ``stream_options={"include_usage": True}``.
+
+    Passing ``finish_reason=None`` suppresses the finish-reason chunk so tests
+    can simulate a truncated stream.
+    """
+    if pieces < 1:
+        raise ValueError("pieces must be >= 1")
+    n = len(content)
+    if n == 0 or pieces == 1:
+        slices = [content]
+    else:
+        step = max(1, n // pieces)
+        slices = [content[i:i + step] for i in range(0, n, step)]
+
+    def _gen():
+        for s in slices:
+            yield _Chunk([_ChunkChoice(s)])
+        if finish_reason is not None:
+            yield _Chunk([_ChunkChoice("", finish_reason=finish_reason)])
+        yield _Chunk([], usage=_Usage())
+
+    return _gen()
 
 
 _ENV = {
@@ -119,16 +151,45 @@ class CoreHarnessTest(absltest.TestCase):
         # Second prompt should reflect rethink context.
         self.assertIn("prev=garbage", harness.prompts[1])
 
-    def test_all_attempts_fail_raises(self):
+    def test_all_attempts_fail_forfeits_when_opted_in(self):
         harness = _SimpleHarness()
         agent = create_agent_fn(harness, max_retries=2)
         with patch.dict("os.environ", _ENV, clear=False), patch.object(
             core_harness.litellm,
             "completion",
-            return_value=_fake_completion("nope"),
+            side_effect=lambda *a, **kw: _fake_completion("nope"),
+        ):
+            result = agent({}, {"illegalMoveForfeit": True})
+
+        self.assertEqual(result["submission"], -1)
+        self.assertEqual(result["actionString"], "nope")
+        self.assertIn("forfeiting", result["status"])
+        self.assertTrue(
+            any("illegal_move_forfeit" in e for e in self.events),
+            "expected illegal_move_forfeit telemetry event",
+        )
+
+    def test_all_attempts_fail_raises_by_default(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=2)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            side_effect=lambda *a, **kw: _fake_completion("nope"),
         ):
             with self.assertRaisesRegex(ValueError, "Failed to parse"):
                 agent({}, {})
+
+    def test_all_attempts_fail_raises_when_forfeit_explicitly_disabled(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=2)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            side_effect=lambda *a, **kw: _fake_completion("nope"),
+        ):
+            with self.assertRaisesRegex(ValueError, "Failed to parse"):
+                agent({}, {"illegalMoveForfeit": False})
 
     def test_no_legal_moves_raises(self):
         harness = _SimpleHarness(num_actions=0)
@@ -309,6 +370,157 @@ class CoreHarnessTest(absltest.TestCase):
 
         self.assertNotIn("generate_returns", result)
 
+    def test_streaming_assembles_chunks_and_passes_stream_kwargs(self):
+        """Verify litellm is invoked with stream=True and chunks are concatenated."""
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        # Use enough pieces that the move string is split across chunks.
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("move_1", pieces=3),
+        ) as mock_call:
+            result = agent({}, {})
+
+        self.assertEqual(result["submission"], 1)
+        self.assertEqual(result["actionString"], "move_1")
+        # litellm was asked to stream and to include usage in the final chunk.
+        _, kwargs = mock_call.call_args
+        self.assertTrue(kwargs.get("stream"))
+        self.assertEqual(kwargs.get("stream_options"), {"include_usage": True})
+        # The streamed call still produces full usage details.
+        cd = result["call_details"][0]
+        self.assertEqual(cd["response"], "move_1")
+        self.assertEqual(cd["finish_reason"], "stop")
+        self.assertEqual(cd["prompt_tokens"], 1)
+        self.assertEqual(cd["generation_tokens"], 1)
+        # Streaming surfaces a first-token latency on each call_detail entry.
+        self.assertIn("first_token_secs", cd)
+        self.assertIsInstance(cd["first_token_secs"], float)
+        self.assertGreaterEqual(cd["first_token_secs"], 0.0)
+        self.assertLessEqual(cd["first_token_secs"], cd["duration_secs"])
+
+    def test_empty_stream_raises(self):
+        """A stream that delivers no content should raise, not silently succeed."""
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("", pieces=1),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "no content"):
+                agent({}, {})
+
+        # The exception path should record an llm_call_exception telemetry event.
+        kinds = {k for e in self.events for k in e if k != "module"}
+        self.assertIn("llm_call_exception", kinds)
+
+    def test_missing_finish_reason_raises(self):
+        """A stream that ends without a finish_reason should raise."""
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("move_1", finish_reason=None),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "finish_reason"):
+                agent({}, {})
+
+        kinds = {k for e in self.events for k in e if k != "module"}
+        self.assertIn("llm_call_exception", kinds)
+
+    def test_retry_on_llm_exception_then_succeeds(self):
+        """A raised exception during _call_llm should consume a retry, not abort."""
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=3)
+        side_effects = [
+            RuntimeError("transient network error"),
+            _fake_completion("move_1"),
+        ]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=side_effects,
+        ) as mock_call:
+            result = agent({}, {})
+
+        self.assertEqual(result["submission"], 1)
+        self.assertEqual(mock_call.call_count, 2)
+        # Only the successful call should appear in call_details.
+        self.assertLen(result["call_details"], 1)
+        self.assertEqual(result["call_details"][0]["response"], "move_1")
+
+    def test_retry_on_parse_exception_then_succeeds(self):
+        """An exception raised inside parse_response should consume a retry."""
+
+        class _FlakyParseHarness(_SimpleHarness):
+            def __init__(self):
+                super().__init__()
+                self.parse_calls = 0
+
+            def parse_response(self, response, legal_action_strings):
+                self.parse_calls += 1
+                if self.parse_calls == 1:
+                    raise RuntimeError("parser blew up")
+                return super().parse_response(response, legal_action_strings)
+
+        harness = _FlakyParseHarness()
+        agent = create_agent_fn(harness, max_retries=3)
+        responses = [_fake_completion("move_0"), _fake_completion("move_2")]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=responses,
+        ) as mock_call:
+            result = agent({}, {})
+
+        self.assertEqual(result["submission"], 2)
+        self.assertEqual(mock_call.call_count, 2)
+        self.assertEqual(harness.parse_calls, 2)
+
+    def test_all_attempts_exception_reraises_last(self):
+        """When every attempt raises, the final exception should be re-raised verbatim."""
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=2)
+        side_effects = [
+            RuntimeError("first failure"),
+            RuntimeError("second failure"),
+        ]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=side_effects,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "second failure"):
+                agent({}, {})
+
+    def test_exception_then_parse_failure_forfeits_when_opted_in(self):
+        """If the last attempt was a parse failure (not an exception), the
+        forfeit path applies — last_exception should not leak through."""
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=2)
+        side_effects = [
+            RuntimeError("first attempt blew up"),
+            _fake_completion("garbage"),  # parses to None → parse failure
+        ]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=side_effects,
+        ):
+            result = agent({}, {"illegalMoveForfeit": True})
+
+        self.assertEqual(result["submission"], -1)
+        self.assertEqual(result["actionString"], "garbage")
+        self.assertIn("forfeiting", result["status"])
+
+    def test_exception_then_parse_failure_raises_by_default(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=2)
+        side_effects = [
+            RuntimeError("first attempt blew up"),
+            _fake_completion("garbage"),
+        ]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=side_effects,
+        ):
+            with self.assertRaisesRegex(ValueError, "Failed to parse"):
+                agent({}, {})
+
     def test_move_history_accumulates_across_calls(self):
         harness = _SimpleHarness()
         agent = create_agent_fn(harness)
@@ -427,13 +639,26 @@ class FreeFormHarnessTest(absltest.TestCase):
         self.assertEqual(mock_call.call_count, 2)
         self.assertIn("prev=not json", harness.prompts[1])
 
-    def test_free_form_all_attempts_fail_raises(self):
+    def test_free_form_all_attempts_fail_forfeits_when_opted_in(self):
         harness = _FreeFormHarness()
         agent = create_agent_fn(harness, max_retries=2)
         with patch.dict("os.environ", _ENV, clear=False), patch.object(
             core_harness.litellm,
             "completion",
-            return_value=_fake_completion("garbage"),
+            side_effect=lambda *a, **kw: _fake_completion("garbage"),
+        ):
+            result = agent({}, {"freeForm": True, "illegalMoveForfeit": True})
+
+        self.assertEqual(result["submission"], -1)
+        self.assertIn("forfeiting", result["status"])
+
+    def test_free_form_all_attempts_fail_raises_by_default(self):
+        harness = _FreeFormHarness()
+        agent = create_agent_fn(harness, max_retries=2)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            side_effect=lambda *a, **kw: _fake_completion("garbage"),
         ):
             with self.assertRaisesRegex(ValueError, "Failed to parse"):
                 agent({}, {"freeForm": True})

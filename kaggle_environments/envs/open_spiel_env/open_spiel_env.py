@@ -190,6 +190,19 @@ CONFIGURATION_SPEC_TEMPLATE = {
         "type": "boolean",
         "default": False,
     },
+    "illegalMoveForfeit": {
+        "description": (
+            "If true (default), when an LLM harness exhausts its retries"
+            " without producing a legal move, it submits an invalid action"
+            " so this player forfeits via the env's INVALID path (matching"
+            " the game_arena convention). If false, the harness re-raises"
+            " the parse failure, which voids the whole episode. Only affects"
+            " exhaustion from illegal/unparsable moves; uncaught exceptions"
+            " still propagate either way."
+        ),
+        "type": "boolean",
+        "default": True,
+    },
 }
 
 OBSERVATION_SPEC_TEMPLATE = {
@@ -945,6 +958,7 @@ GAMES_LIST = [
     "coin_game_arena",
     "connect_four",
     "dark_hex",
+    "dots_and_boxes",
     "gin_rummy",
     "go(board_size=9)",
     "goofspiel(num_cards=4,points_order=descending,returns_type=total_points)",

@@ -1,7 +1,6 @@
 import type { RendererOptions } from '@kaggle-environments/core';
-import { getStepData } from '@kaggle-environments/core';
 import { buildShell, collectRefs, renderObservation, type BoardSize, type LayoutRefs } from './renderFarm';
-import type { ViewModel, PrivateState } from './types';
+import { buildView } from './utils';
 
 const DEFAULT_BOARD: BoardSize = { rows: 10, cols: 10 };
 
@@ -21,30 +20,6 @@ function inferBoardSize(replay: any): BoardSize {
   return DEFAULT_BOARD;
 }
 
-function buildView(replay: any, step: number): ViewModel | null {
-  const stepData = getStepData(replay, step) as any;
-  if (!stepData) return null;
-  const entries = Array.isArray(stepData) ? stepData : [stepData];
-  const obs0 = entries[0]?.observation;
-  if (!obs0) return null;
-
-  const privates: (PrivateState | undefined)[] = [];
-  for (const entry of entries) {
-    const obs = entry?.observation;
-    const idx = typeof obs?.player === 'number' ? obs.player : privates.length;
-    privates[idx] = obs?.private;
-  }
-
-  return {
-    day: Number(obs0.day ?? 0),
-    hour: Number(obs0.hour ?? 0),
-    farms: obs0.farms ?? [],
-    market: obs0.market ?? { prices: {}, inventory: {} },
-    town: obs0.town ?? { unlocked_shops: [] },
-    privates,
-  };
-}
-
 export function renderer(options: RendererOptions): void {
   const { parent, replay, step, agents } = options;
   if (!parent || !replay) return;
@@ -59,7 +34,9 @@ export function renderer(options: RendererOptions): void {
     shellCache.set(parent, cached);
   }
 
-  const view = buildView(replay, step);
+  const cfg = replay?.configuration ?? {};
+  const turnsPerDay = Math.max(1, Number(cfg.turnsPerDay) || 24);
+  const view = buildView(replay, step, turnsPerDay);
   if (!view) return;
-  renderObservation(cached.refs, view, replay?.configuration ?? {});
+  renderObservation(cached.refs, view, cfg);
 }

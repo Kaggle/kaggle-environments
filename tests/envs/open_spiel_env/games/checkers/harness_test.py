@@ -95,7 +95,7 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("Checkers", prompt)
         self.assertIn("Player 0", prompt)
         self.assertIn("'o'", prompt)
-        # All initial Player 0 opening moves should be listed.
+        # The action-notation example uses "a3b4".
         self.assertIn("a3b4", prompt)
 
     def test_player_label_swap(self):
@@ -106,11 +106,16 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("Player 1", prompt)
         self.assertIn("'+'", prompt)
 
-    def test_legal_moves_listed(self):
+    def test_legal_moves_not_listed(self):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [])
+        # The prompt deliberately omits the legal-move list so the model has
+        # to reason about legality from the board alone. "a3b4" is excluded
+        # because the action-notation example uses that token.
         for legal in obs["legalActionStrings"]:
-            self.assertIn(legal, prompt)
+            if legal == "a3b4":
+                continue
+            self.assertNotIn(legal, prompt)
 
     def test_board_ascii_includes_files_and_ranks(self):
         obs = _make_observation(self.state, self.game, player_id=0)
@@ -145,12 +150,55 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("Player 0 men=12", prompt)
         self.assertIn("Player 1 men=12", prompt)
 
+    def test_own_pieces_listed_for_player_0(self):
+        obs = _make_observation(self.state, self.game, player_id=0)
+        prompt = generate_prompt(obs, [])
+        # Initial position: player 0 men on ranks 1-3 dark squares.
+        for sq in ("a1", "c1", "e1", "g1", "b2", "d2", "f2", "h2",
+                   "a3", "c3", "e3", "g3"):
+            self.assertIn(sq, prompt)
+        self.assertIn("Your kings ('O') are at: (none)", prompt)
+
+    def test_own_pieces_listed_for_player_1(self):
+        first = self.state.legal_actions()[0]
+        self.state.apply_action(first)
+        obs = _make_observation(self.state, self.game, player_id=1)
+        prompt = generate_prompt(obs, [])
+        for sq in ("b6", "d6", "f6", "h6", "a7", "c7", "e7", "g7",
+                   "b8", "d8", "f8", "h8"):
+            self.assertIn(sq, prompt)
+        self.assertIn("Your kings ('*') are at: (none)", prompt)
+
+    def test_captures_flag_no_at_start(self):
+        obs = _make_observation(self.state, self.game, player_id=0)
+        prompt = generate_prompt(obs, [])
+        self.assertIn("Captures available this turn: no", prompt)
+        self.assertNotIn("MUST take a capture this turn", prompt)
+
+    def test_captures_flag_yes_when_capture_available(self):
+        obs = _make_observation(self.state, self.game, player_id=0)
+        # Synthesize a capture by overriding legal moves with a 2-rank jump.
+        obs["legalActions"] = [0]
+        obs["legalActionStrings"] = ["c3e5"]
+        prompt = generate_prompt(obs, [])
+        self.assertIn("Captures available this turn: yes", prompt)
+        self.assertIn("MUST take a capture this turn", prompt)
+
+    def test_forward_direction_explained_per_player(self):
+        obs0 = _make_observation(self.state, self.game, player_id=0)
+        self.assertIn("toward rank 8", generate_prompt(obs0, []))
+
+        first = self.state.legal_actions()[0]
+        self.state.apply_action(first)
+        obs1 = _make_observation(self.state, self.game, player_id=1)
+        self.assertIn("toward rank 1", generate_prompt(obs1, []))
+
     def test_rethink_suffix(self):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [], previous_response="I'll play z9z9", previous_action="z9z9")
         self.assertIn("Your previous response was", prompt)
         self.assertIn("z9z9", prompt)
-        self.assertIn("NOT in the legal move list", prompt)
+        self.assertIn("not a legal move", prompt)
 
     def test_no_rethink_on_first_attempt(self):
         obs = _make_observation(self.state, self.game, player_id=0)
@@ -220,11 +268,36 @@ class _CheckersHarness:
         return parse_response(response, legal_action_strings)
 
 
-def _make_mock_response(content: str) -> MagicMock:
-    resp = MagicMock()
-    resp.usage = MagicMock(prompt_tokens=10, completion_tokens=20)
-    resp.choices = [MagicMock(message=MagicMock(content=content), finish_reason="stop")]
-    return resp
+class _StreamDelta:
+    def __init__(self, content):
+        self.content = content
+
+
+class _StreamChoice:
+    def __init__(self, content, finish_reason=None):
+        self.delta = _StreamDelta(content)
+        self.finish_reason = finish_reason
+
+
+class _StreamChunk:
+    def __init__(self, choices, usage=None):
+        self.choices = choices
+        self.usage = usage
+
+
+def _make_mock_response(content: str):
+    """Build a streaming-style mock LLM response (a re-iterable chunk list)."""
+    usage = MagicMock(
+        prompt_tokens=10,
+        completion_tokens=20,
+        total_tokens=30,
+        completion_tokens_details=None,
+    )
+    return [
+        _StreamChunk([_StreamChoice(content)]),
+        _StreamChunk([_StreamChoice("", finish_reason="stop")]),
+        _StreamChunk([], usage=usage),
+    ]
 
 
 _ENV = {

@@ -34,7 +34,6 @@ class MancalaState(proxy.State):
         return player
 
     def _board(self) -> list[int]:
-        # The board state is encoded in the raw observation tensor.
         tensor = self.__wrapped__.observation_tensor(0)
         return [int(v) for v in tensor]
 
