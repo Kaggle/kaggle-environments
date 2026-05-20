@@ -46,6 +46,15 @@ import wood_bg from './assets/sprites/wood_bg.svg';
 import wool from './assets/sprites/wool.png';
 import yarn_store from './assets/sprites/yarn_store.png';
 
+import market_carrot from './assets/sprites/market_carrot.png';
+import market_melon from './assets/sprites/market_melon.png';
+import market_strawberry from './assets/sprites/market_strawberry.png';
+import market_tomato from './assets/sprites/market_tomato.png';
+import market_wheat from './assets/sprites/market_wheat.png';
+import market_egg from './assets/sprites/market_egg.png';
+import market_milk from './assets/sprites/market_milk.png';
+import market_wool from './assets/sprites/market_wool.png';
+
 // Map logical sprite names used in the renderer to imported asset URLs.
 // Keys can be the logical name (e.g. 'pizza') or the file basename
 // (e.g. 'pizza_shop') — both forms are looked up below.
@@ -104,6 +113,16 @@ const SPRITE_URLS: Record<string, string> = {
   wool,
   yarn_store,
   yarn: yarn_store,
+
+  // New illustrative market sprites
+  market_carrot,
+  market_melon,
+  market_strawberry,
+  market_tomato,
+  market_wheat,
+  market_egg,
+  market_milk,
+  market_wool,
 };
 
 export const BG_URLS = {
@@ -114,6 +133,11 @@ export const BG_URLS = {
 
 export function spriteSrc(name: string): string {
   return SPRITE_URLS[name] ?? '';
+}
+
+export function marketSpriteSrc(name: string): string {
+  const marketName = `market_${name}`;
+  return SPRITE_URLS[marketName] ?? SPRITE_URLS[name] ?? '';
 }
 
 export function plantSprite(plant: string, stage: string): string {

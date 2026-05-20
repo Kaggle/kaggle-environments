@@ -19,7 +19,7 @@ import {
   type TownPublic,
   type ViewModel,
 } from './types';
-import { BG_URLS, clearChildren, plantSprite, spriteSrc, titleCase } from './utils';
+import { BG_URLS, clearChildren, plantSprite, spriteSrc, marketSpriteSrc, titleCase } from './utils';
 
 export type { BoardSize, LayoutRefs } from './types';
 
@@ -31,7 +31,7 @@ function marketList(): string {
   return MARKET_ITEMS.map(
     ({ sprite, key }) => `
     <div class="market-item" data-item="${key}">
-      <img class="market-item-icon" src="${spriteSrc(sprite)}" alt="${sprite}" />
+      <img class="market-item-icon" src="${marketSpriteSrc(sprite)}" alt="${sprite}" />
       <div class="market-price-row">
         <span class="market-coin-stack">
           <img class="market-coin" src="${spriteSrc('coin')}" alt="coins" />
@@ -463,7 +463,7 @@ function renderShed(refs: PlayerRefs, priv: PrivateState | undefined): void {
     const iconKey = isSeed ? `seed:${item}` : `item:${item}`;
     if (slot.lastIconKey !== iconKey) {
       slot.lastIconKey = iconKey;
-      slot.icon.innerHTML = `<img class="item-icon-img" src="${spriteSrc(sprite)}" alt="${alt}" title="${label}" />`;
+      slot.icon.innerHTML = `<img class="item-icon-img" src="${marketSpriteSrc(sprite)}" alt="${alt}" title="${label}" />`;
     }
     const qtyStr = String(qty);
     if (slot.lastCount !== qtyStr) {
