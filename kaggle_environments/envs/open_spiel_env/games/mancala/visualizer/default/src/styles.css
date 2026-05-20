@@ -197,8 +197,8 @@ body {
 
 .mancala-trophy {
   position: absolute;
-  top: -28%;
-  right: -22%;
+  top: 45%;
+  right: 55%;
   width: 62%;
   height: 62%;
   z-index: 4;
