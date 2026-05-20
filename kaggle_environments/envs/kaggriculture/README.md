@@ -1,4 +1,4 @@
-ß# Kaggriculture
+# Kaggriculture
 
 A farming sim where two players compete to maximize their income from farming by selling to a dynamic market.
 
