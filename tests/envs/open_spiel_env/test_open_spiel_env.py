@@ -666,7 +666,10 @@ class OpenSpielEnvTest(absltest.TestCase):
         # winner and all four boxes claimed.
         env = make(
             "open_spiel_dots_and_boxes",
-            {"includeLegalActions": True},
+            {
+                "includeLegalActions": True,
+                "openSpielGameParameters": {"num_rows": 2, "num_cols": 2},
+            },
             debug=True,
         )
         env.reset()
