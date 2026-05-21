@@ -113,9 +113,11 @@ class GeneratePromptTest(absltest.TestCase):
         # state, then ensure player 0's prompt does not leak any of
         # team B's board info (and vice versa).
         s = _state(seed=7)
-        # Two full rounds: seat 0 then seat 1, on both boards.
-        s.apply_actions([3, pyspiel.INVALID_ACTION, 2, pyspiel.INVALID_ACTION])
-        s.apply_actions([pyspiel.INVALID_ACTION, 1, pyspiel.INVALID_ACTION, 0])
+        # Sequential order [0, 2, 1, 3]: seat 0 then seat 1, on each board.
+        s.apply_action(3)  # player 0
+        s.apply_action(2)  # player 2
+        s.apply_action(1)  # player 1
+        s.apply_action(0)  # player 3
 
         obs_a = _make_observation(s, 0)
         obs_b = _make_observation(s, 2)
@@ -169,9 +171,12 @@ class GeneratePromptTest(absltest.TestCase):
 
     def test_history_shows_partner_moves(self):
         s = _state(seed=7)
-        # Seat 0 plays right on each board, then seat 1 plays left.
-        s.apply_actions([3, pyspiel.INVALID_ACTION, 3, pyspiel.INVALID_ACTION])
-        s.apply_actions([pyspiel.INVALID_ACTION, 2, pyspiel.INVALID_ACTION, 2])
+        # Sequential order [0, 2, 1, 3]: seat 0 right, then seat 1 left
+        # on each board.
+        s.apply_action(3)  # player 0: right
+        s.apply_action(3)  # player 2: right
+        s.apply_action(2)  # player 1: left
+        s.apply_action(2)  # player 3: left
         # Now seat 0 (player 0) is up again; their prompt should include both.
         prompt = generate_prompt(_make_observation(s, 0), [])
         self.assertIn("seat 0", prompt)

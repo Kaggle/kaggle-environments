@@ -533,6 +533,72 @@ def test_buy_animal_uses_fixed_cost():
     assert private["shed"]["GOOSE"] == 1
 
 
+def test_buy_then_sell_wheat_round_trip_nets_zero():
+    """Buying N wheat and immediately selling them back must not change cash
+    when nothing else touches the market in between."""
+    env = make("kaggriculture", configuration={"episodeSteps": 5, "startingMoney": 10_000})
+    env.reset(num_agents=2)
+    money_before = env.state[0].observation.farms[0]["money"]
+    env.step([
+        {"farmer": ["PASS"], "hands": [], "market": [["BUY_PRODUCT", "WHEAT", 10], ["SELL", "WHEAT", 10]]},
+        {"farmer": ["PASS"], "hands": [], "market": []},
+    ])
+    assert env.state[0].observation.farms[0]["money"] == money_before
+    assert env.state[0].observation.private["shed"].get("WHEAT", 0) == 0
+
+
+def test_buy_then_sell_fertilizer_round_trip_nets_zero():
+    env = make("kaggriculture", configuration={"episodeSteps": 5, "startingMoney": 10_000})
+    env.reset(num_agents=2)
+    money_before = env.state[0].observation.farms[0]["money"]
+    inv_before = env.state[0].observation.market["inventory"]["FERTILIZER"]
+    env.step([
+        {"farmer": ["PASS"], "hands": [], "market": [["BUY_PRODUCT", "FERTILIZER", 5], ["SELL", "FERTILIZER", 5]]},
+        {"farmer": ["PASS"], "hands": [], "market": []},
+    ])
+    assert env.state[0].observation.farms[0]["money"] == money_before
+    assert env.state[0].observation.market["inventory"]["FERTILIZER"] == inv_before
+
+
+def test_buy_product_only_allows_wheat_and_fertilizer():
+    """BUY_PRODUCT for anything other than WHEAT/FERTILIZER must be a no-op."""
+    env = make("kaggriculture", configuration={"episodeSteps": 5, "startingMoney": 10_000})
+    env.reset(num_agents=2)
+    money_before = env.state[0].observation.farms[0]["money"]
+    env.step([
+        {"farmer": ["PASS"], "hands": [], "market": [
+            ["BUY_PRODUCT", "CARROT", 1],
+            ["BUY_PRODUCT", "TOMATO", 1],
+            ["BUY_PRODUCT", "STRAWBERRY", 1],
+            ["BUY_PRODUCT", "MELON", 1],
+            ["BUY_PRODUCT", "EGG", 1],
+            ["BUY_PRODUCT", "MILK", 1],
+            ["BUY_PRODUCT", "WOOL", 1],
+        ]},
+        {"farmer": ["PASS"], "hands": [], "market": []},
+    ])
+    # No money spent, no inventory added.
+    assert env.state[0].observation.farms[0]["money"] == money_before
+    shed = env.state[0].observation.private["shed"]
+    for item in ("CARROT", "TOMATO", "STRAWBERRY", "MELON", "EGG", "MILK", "WOOL"):
+        assert shed.get(item, 0) == 0
+
+
+def test_sell_fertilizer_is_allowed():
+    """Players should be able to sell FERTILIZER back to the market."""
+    env = make("kaggriculture", configuration={"episodeSteps": 5, "startingMoney": 0})
+    env.reset(num_agents=2)
+    env.state[0].observation.private["shed"]["FERTILIZER"] = 3
+    inv_before = env.state[0].observation.market["inventory"]["FERTILIZER"]
+    env.step([
+        {"farmer": ["PASS"], "hands": [], "market": [["SELL", "FERTILIZER", 3]]},
+        {"farmer": ["PASS"], "hands": [], "market": []},
+    ])
+    assert env.state[0].observation.private["shed"].get("FERTILIZER", 0) == 0
+    assert env.state[0].observation.farms[0]["money"] > 0
+    assert env.state[0].observation.market["inventory"]["FERTILIZER"] == inv_before + 3
+
+
 def test_concurrent_sells_get_same_quoted_price_per_unit():
     """End-to-end: both players SELL 2 wheat from full sheds — they should each
     receive the same price for unit 1, then both for unit 2 (post-update)."""

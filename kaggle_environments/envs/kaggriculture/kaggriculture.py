@@ -562,10 +562,12 @@ def _process_market(state, env):
                     continue
                 op = ostate["type"]
                 item = ostate["item"]
-                if op == "SELL" and item in PRODUCTS and item != "FERTILIZER":
+                if op == "SELL" and item in PRODUCTS:
                     quoted[player_id] = ("SELL", item, market_price(item, market["inventory"][item], market.get("params")), ostate)
-                elif op == "BUY_PRODUCT" and item in PRODUCTS:
-                    quoted[player_id] = ("BUY_PRODUCT", item, market_price(item, market["inventory"][item], market.get("params")), ostate)
+                elif op == "BUY_PRODUCT" and item in ("WHEAT", "FERTILIZER"):
+                    # Quote at post-buy inventory so a buy/sell round-trip
+                    # against an unchanged market nets zero.
+                    quoted[player_id] = ("BUY_PRODUCT", item, market_price(item, market["inventory"][item] - 1, market.get("params")), ostate)
                 elif op == "BUY_SEED" and item in CROPS:
                     quoted[player_id] = ("BUY_SEED", item, CROPS[item]["seed"], ostate)
                 elif op == "BUY_ANIMAL" and item in ANIMALS:

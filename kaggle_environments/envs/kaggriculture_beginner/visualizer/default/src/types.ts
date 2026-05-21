@@ -76,6 +76,8 @@ export interface CellRefs {
   agentSlot: HTMLElement;
   agentImg: HTMLImageElement;
   agentSprite: string;
+  yieldEl: HTMLElement;
+  yieldText: string;
 }
 
 export interface SeedSlotRefs {

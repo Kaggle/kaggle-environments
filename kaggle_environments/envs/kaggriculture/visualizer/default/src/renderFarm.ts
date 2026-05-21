@@ -19,7 +19,7 @@ import {
   type TownPublic,
   type ViewModel,
 } from './types';
-import { BG_URLS, clearChildren, plantSprite, spriteSrc, titleCase } from './utils';
+import { BG_URLS, clearChildren, plantSprite, spriteSrc, marketSpriteSrc, titleCase } from './utils';
 
 export type { BoardSize, LayoutRefs } from './types';
 
@@ -34,7 +34,7 @@ function marketList(): string {
   return MARKET_ITEMS.map(
     ({ sprite, key }) => `
     <div class="market-item" data-item="${key}">
-      <img class="market-item-icon" src="${spriteSrc(sprite)}" alt="${sprite}" />
+      <img class="market-item-icon" src="${marketSpriteSrc(sprite)}" alt="${sprite}" />
       <div class="market-price-row">
         <span class="market-coin-stack">
           <img class="market-coin" src="${spriteSrc('coin')}" alt="coins" />
@@ -329,9 +329,11 @@ function objectPlan(tile: RawTile, day: number): { key: string; html: string } {
     const sprite = plantSprite(cropLower, stage);
     const fertilized = (tile.fertilized_until_day ?? -1) >= day;
     const label = `${titleCase(tile.crop)} (${stage}${fertilized ? ', fertilized' : ''})`;
+    const yieldShown = stage === 'ready' ? tile.yield_units : 0;
+    const yieldHtml = yieldShown > 0 ? `<span class="cell-yield">${yieldShown}</span>` : '';
     return {
-      key: `plant:${cropLower}:${stage}:${fertilized ? 1 : 0}`,
-      html: `<img class="cell-sprite" src="${spriteSrc(sprite)}" alt="${sprite}" title="${label}" />`,
+      key: `plant:${cropLower}:${stage}:${fertilized ? 1 : 0}:y${yieldShown}`,
+      html: `<img class="cell-sprite" src="${spriteSrc(sprite)}" alt="${sprite}" title="${label}" />${yieldHtml}`,
     };
   }
   if (tile.kind === 'WEED') {
@@ -352,7 +354,9 @@ function objectPlan(tile: RawTile, day: number): { key: string; html: string } {
         `<img class="cell-sprite cell-animal" src="${spriteSrc(animal)}" alt="${animal}" title="${titleCase(tile.animal)}" />`
       );
     }
-    return { key: `${structure}:${animal}`, html: parts.join('') };
+    const yieldShown = tile.animal ? (tile.yield_units ?? 0) : 0;
+    if (yieldShown > 0) parts.push(`<span class="cell-yield">${yieldShown}</span>`);
+    return { key: `${structure}:${animal}:y${yieldShown}`, html: parts.join('') };
   }
   return { key: '', html: '' };
 }
@@ -466,7 +470,7 @@ function renderShed(refs: PlayerRefs, priv: PrivateState | undefined): void {
     const iconKey = isSeed ? `seed:${item}` : `item:${item}`;
     if (slot.lastIconKey !== iconKey) {
       slot.lastIconKey = iconKey;
-      slot.icon.innerHTML = `<img class="item-icon-img" src="${spriteSrc(sprite)}" alt="${alt}" title="${label}" />`;
+      slot.icon.innerHTML = `<img class="item-icon-img" src="${marketSpriteSrc(sprite)}" alt="${alt}" title="${label}" />`;
     }
     const qtyStr = String(qty);
     if (slot.lastCount !== qtyStr) {

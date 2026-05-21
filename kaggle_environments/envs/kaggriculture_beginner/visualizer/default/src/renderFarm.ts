@@ -1,4 +1,5 @@
 import {
+  CROP_FIRST_YIELD_DAY,
   CROP_SPRITE,
   CROPS,
   type BoardSize,
@@ -28,6 +29,7 @@ function farmCell(row: number, col: number): string {
       </div>
       <div class="cell-object"></div>
       <div class="cell-agent"></div>
+      <span class="cell-yield"></span>
     </div>
   `;
 }
@@ -132,6 +134,8 @@ function collectPlayerRefs(panel: HTMLElement, board: BoardSize): PlayerRefs {
       agentSlot,
       agentImg,
       agentSprite: '',
+      yieldEl: el.querySelector<HTMLElement>('.cell-yield')!,
+      yieldText: '',
     };
   });
   const seeds = {} as Record<Crop, SeedSlotRefs>;
@@ -184,6 +188,12 @@ function setObjectSprite(ref: CellRefs, sprite: string): void {
   ref.objectImg.style.display = '';
 }
 
+function setYieldText(ref: CellRefs, text: string): void {
+  if (ref.yieldText === text) return;
+  ref.yieldText = text;
+  ref.yieldEl.textContent = text;
+}
+
 function setAgentSprite(ref: CellRefs, sprite: string): void {
   if (ref.agentSprite === sprite) return;
   ref.agentSprite = sprite;
@@ -209,8 +219,12 @@ function renderFarm(refs: PlayerRefs, playerNum: number, farm: Farm, day: number
       if (tile) {
         const ageDays = day - tile.planted_day;
         setObjectSprite(cellRef, plantSprite(tile.crop, ageDays));
+        const firstYield = CROP_FIRST_YIELD_DAY[tile.crop];
+        const ready = ageDays >= firstYield && tile.yield_units > 0;
+        setYieldText(cellRef, ready ? String(tile.yield_units) : '');
       } else {
         setObjectSprite(cellRef, '');
+        setYieldText(cellRef, '');
       }
     }
   }
