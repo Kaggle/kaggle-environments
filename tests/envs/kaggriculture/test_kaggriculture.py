@@ -164,6 +164,39 @@ def test_pickup_does_not_pull_from_seed_pool():
     assert private["inventories"][0].get("CARROT", 0) == 0
 
 
+def test_drop_action_dumps_inventory_when_shed_adjacent():
+    farm = _new_farm(10, 100)
+    private = _new_private()
+    # Farmer spawns at (4, 4) which is shed-adjacent.
+    private["inventories"][0] = {"WHEAT": 3, "CARROT": 2}
+    _apply_unit_action(farm, private, 0, ["DROP"], 10, 0, 24)
+    assert private["shed"]["WHEAT"] == 3
+    assert private["shed"]["CARROT"] == 2
+    assert private["inventories"][0] == {}
+
+
+def test_drop_action_noop_when_not_shed_adjacent():
+    farm = _new_farm(10, 100)
+    private = _new_private()
+    private["inventories"][0] = {"WHEAT": 3}
+    # Step west off the shed-adjacent spawn.
+    _apply_unit_action(farm, private, 0, ["WEST"], 10, 0, 24)
+    _apply_unit_action(farm, private, 0, ["DROP"], 10, 0, 24)
+    assert private["inventories"][0] == {"WHEAT": 3}
+    assert private["shed"].get("WHEAT", 0) == 0
+
+
+def test_drop_action_discards_overflow_past_shed_capacity():
+    farm = _new_farm(10, 100)
+    private = _new_private()
+    private["shed"]["WHEAT"] = 98
+    private["inventories"][0] = {"WHEAT": 5, "CARROT": 4}
+    _apply_unit_action(farm, private, 0, ["DROP"], 10, 0, 24, shed_capacity=100)
+    # Shed fills to capacity, overflow lost.
+    assert sum(private["shed"].values()) == 100
+    assert private["inventories"][0] == {}
+
+
 def test_drop_inventories_respects_shed_capacity():
     private = _new_private()
     # Pre-fill shed near capacity (capacity 100).
