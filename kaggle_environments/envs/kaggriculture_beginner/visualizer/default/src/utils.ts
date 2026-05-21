@@ -9,6 +9,11 @@ import grass_bg from './assets/sprites/grass_bg.svg';
 import melon_full from './assets/sprites/melon_full.png';
 import melon_ready from './assets/sprites/melon_ready.png';
 import midgrowth from './assets/sprites/midgrowth.png';
+import seed_carrot from './assets/sprites/seed_carrot.png';
+import seed_melon from './assets/sprites/seed_melon.png';
+import seed_strawberry from './assets/sprites/seed_strawberry.png';
+import seed_tomato from './assets/sprites/seed_tomato.png';
+import seed_wheat from './assets/sprites/seed_wheat.png';
 import soil_dry from './assets/sprites/soil_dry.png';
 import soil_watered from './assets/sprites/soil_watered.png';
 import sprout from './assets/sprites/sprout.png';
@@ -28,6 +33,11 @@ const SPRITE_URLS: Record<string, string> = {
   melon_full,
   melon_ready,
   midgrowth,
+  seed_carrot,
+  seed_melon,
+  seed_strawberry,
+  seed_tomato,
+  seed_wheat,
   soil_dry,
   soil_watered,
   sprout,

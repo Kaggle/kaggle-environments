@@ -1,7 +1,7 @@
 import {
   CROP_FIRST_YIELD_DAY,
-  CROP_SPRITE,
   CROPS,
+  SEED_SPRITE,
   type BoardSize,
   type CellRefs,
   type Crop,
@@ -51,7 +51,7 @@ function seedRow(): string {
     ${CROPS.map(
       (crop) => `
       <div class="seed-slot" data-crop="${crop}">
-        <img class="seed-icon" src="${spriteSrc(CROP_SPRITE[crop])}" alt="${crop}" />
+        <img class="seed-icon" src="${spriteSrc(SEED_SPRITE[crop])}" alt="${crop}" />
         <span class="seed-count">0</span>
       </div>
     `
