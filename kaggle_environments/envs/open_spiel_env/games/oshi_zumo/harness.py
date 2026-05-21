@@ -54,19 +54,19 @@ Round:             {move_number}
 
 Your past bids:        {my_history}
 
-You are Player {player_label}. Choose your bid for this round.
-You MUST pick one of the legal bids: {legal_bids}.
+You are Player {player_label}. Choose your bid for this round (an integer
+at least {min_bid} and at most your current coin total).
 
 Respond with your reasoning followed by your final bid in a JSON block:
 
 ```json
 {{
-  "bid": <integer from the legal list>
+  "bid": <integer>
 }}
 ```
 
-Failure to output your final answer in the specified format, or selecting a
-bid that is not in the legal list, will result in a loss.
+Failure to output your final answer in the specified format, or selecting an
+illegal bid, will result in a loss.
 """
 
 
@@ -75,8 +75,8 @@ RETHINK_SUFFIX = """
 Your previous response was:
 {previous_response}
 
-You suggested bid "{previous_action}" but it is NOT in the legal bid list.
-Reconsider and pick one of the legal bids exactly.
+You suggested bid "{previous_action}" but it is not a legal bid.
+Reconsider your coin total and the minimum bid, then pick a legal integer bid.
 """
 
 
@@ -201,14 +201,6 @@ def generate_prompt(
     min_bid = int(params.get("min_bid", 0))
     horizon = int(params.get("horizon", 0))
 
-    legal_action_strings = observation.get("legalActionStrings") or []
-    if not legal_action_strings:
-        legal_action_strings = list(get_legal_moves(observation).values())
-    legal_bids = sorted(
-        {b for b in (_bid_from_action_string(s) for s in legal_action_strings) if b is not None}
-    )
-    legal_bids_str = ", ".join(str(b) for b in legal_bids) or "(none)"
-
     my_bids = [_bid_from_action_string(s) for s in move_history]
     my_history_str = (
         ", ".join(str(b) for b in my_bids if b is not None)
@@ -228,7 +220,6 @@ def generate_prompt(
         move_number=move_number,
         my_history=my_history_str,
         player_label=player_id,
-        legal_bids=legal_bids_str,
     )
 
     if previous_response is not None:

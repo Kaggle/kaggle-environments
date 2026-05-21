@@ -107,12 +107,6 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("Player 1", prompt)
         self.assertIn("'x'", prompt)
 
-    def test_legal_moves_listed(self):
-        obs = _make_observation(self.state, self.game, player_id=0)
-        prompt = generate_prompt(obs, [])
-        for legal in obs["legalActionStrings"]:
-            self.assertIn(legal, prompt)
-
     def test_board_ascii_includes_files_and_ranks(self):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [])
@@ -136,7 +130,7 @@ class GeneratePromptTest(absltest.TestCase):
         )
         self.assertIn("Your previous response was", prompt)
         self.assertIn("z9z9", prompt)
-        self.assertIn("NOT in the legal move list", prompt)
+        self.assertIn("not a legal move", prompt)
 
 
 # ---------------------------------------------------------------------------
