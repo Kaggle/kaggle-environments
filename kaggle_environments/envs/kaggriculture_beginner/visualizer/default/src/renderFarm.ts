@@ -1,7 +1,7 @@
 import {
   CROP_FIRST_YIELD_DAY,
-  CROP_SPRITE,
   CROPS,
+  SEED_SPRITE,
   type BoardSize,
   type CellRefs,
   type Crop,
@@ -13,8 +13,11 @@ import {
 } from './types';
 import { BG_URLS, makeHiddenImg, plantSprite, spriteSrc } from './utils';
 
-const grassBg = `background-image:url(${BG_URLS.grass})`;
-const woodBg = `background-image:url(${BG_URLS.wood})`;
+// Quote characters in inlined data: URIs must be percent-encoded so the
+// unquoted CSS url() value stays valid when embedded in an HTML style attribute.
+const encUrl = (u: string) => u.replace(/'/g, '%27').replace(/"/g, '%22');
+const grassBg = `background-image:url(${encUrl(BG_URLS.grass)})`;
+const woodBg = `background-image:url(${encUrl(BG_URLS.wood)})`;
 
 export type { BoardSize, LayoutRefs } from './types';
 
@@ -48,7 +51,7 @@ function seedRow(): string {
     ${CROPS.map(
       (crop) => `
       <div class="seed-slot" data-crop="${crop}">
-        <img class="seed-icon" src="${spriteSrc(CROP_SPRITE[crop])}" alt="${crop}" />
+        <img class="seed-icon" src="${spriteSrc(SEED_SPRITE[crop])}" alt="${crop}" />
         <span class="seed-count">0</span>
       </div>
     `

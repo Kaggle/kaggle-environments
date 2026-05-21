@@ -171,6 +171,10 @@ body {
   z-index: 4;
 }
 
+.cell-yield:empty {
+  display: none;
+}
+
 .seed-area {
   background-color: #e8d2a6;
   background-repeat: repeat;

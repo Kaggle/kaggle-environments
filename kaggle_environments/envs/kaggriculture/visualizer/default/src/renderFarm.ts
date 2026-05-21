@@ -23,9 +23,12 @@ import { BG_URLS, clearChildren, plantSprite, spriteSrc, marketSpriteSrc, titleC
 
 export type { BoardSize, LayoutRefs } from './types';
 
-const BG_GRASS = `background-image:url(${BG_URLS.grass})`;
-const BG_WOOD = `background-image:url(${BG_URLS.wood})`;
-const BG_COBBLE = `background-image:url(${BG_URLS.cobble});background-size:100% 100%;image-rendering:pixelated;`;
+// Quote characters in inlined data: URIs must be percent-encoded so the
+// unquoted CSS url() value stays valid when embedded in an HTML style attribute.
+const encUrl = (u: string) => u.replace(/'/g, '%27').replace(/"/g, '%22');
+const BG_GRASS = `background-image:url(${encUrl(BG_URLS.grass)})`;
+const BG_WOOD = `background-image:url(${encUrl(BG_URLS.wood)})`;
+const BG_COBBLE = `background-image:url(${encUrl(BG_URLS.cobble)});background-size:100% 100%;image-rendering:pixelated;`;
 
 function marketList(): string {
   return MARKET_ITEMS.map(
@@ -467,7 +470,10 @@ function renderShed(refs: PlayerRefs, priv: PrivateState | undefined): void {
     const iconKey = isSeed ? `seed:${item}` : `item:${item}`;
     if (slot.lastIconKey !== iconKey) {
       slot.lastIconKey = iconKey;
-      slot.icon.innerHTML = `<img class="item-icon-img" src="${marketSpriteSrc(sprite)}" alt="${alt}" title="${label}" />`;
+      const cropOverlay = isSeed
+        ? `<img class="item-seed-crop" src="${marketSpriteSrc(item.toLowerCase())}" alt="" aria-hidden="true" />`
+        : '';
+      slot.icon.innerHTML = `<img class="item-icon-img" src="${marketSpriteSrc(sprite)}" alt="${alt}" title="${label}" />${cropOverlay}`;
     }
     const qtyStr = String(qty);
     if (slot.lastCount !== qtyStr) {
