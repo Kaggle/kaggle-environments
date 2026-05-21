@@ -23,9 +23,12 @@ import { BG_URLS, clearChildren, plantSprite, spriteSrc, titleCase } from './uti
 
 export type { BoardSize, LayoutRefs } from './types';
 
-const BG_GRASS = `background-image:url(${BG_URLS.grass})`;
-const BG_WOOD = `background-image:url(${BG_URLS.wood})`;
-const BG_COBBLE = `background-image:url(${BG_URLS.cobble});background-size:100% 100%;image-rendering:pixelated;`;
+// Quote characters in inlined data: URIs must be percent-encoded so the
+// unquoted CSS url() value stays valid when embedded in an HTML style attribute.
+const encUrl = (u: string) => u.replace(/'/g, '%27').replace(/"/g, '%22');
+const BG_GRASS = `background-image:url(${encUrl(BG_URLS.grass)})`;
+const BG_WOOD = `background-image:url(${encUrl(BG_URLS.wood)})`;
+const BG_COBBLE = `background-image:url(${encUrl(BG_URLS.cobble)});background-size:100% 100%;image-rendering:pixelated;`;
 
 function marketList(): string {
   return MARKET_ITEMS.map(
