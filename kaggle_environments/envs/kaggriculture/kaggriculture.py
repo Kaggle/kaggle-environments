@@ -82,7 +82,7 @@ LAND_PRICES = [1000, 2000, 4000]
 
 # n-th hire of the day -> cost = FARM_HAND_COST_MULT * fib(n), where
 # fib starts 1, 1, 2, 3, 5, 8, 13, ... Configurable via `farmHandCostMult`.
-FARM_HAND_COST_MULT = 10
+FARM_HAND_COST_MULT = 1
 
 SHOPS = {
     "BAKERY":         ["EGG", "WHEAT"],
@@ -244,7 +244,7 @@ def _initialize(state, env):
     env.info["seed"] = seed
 
     board_size = int(get(configuration, "boardSize", 10))
-    starting_money = int(get(configuration, "startingMoney", 150))
+    starting_money = int(get(configuration, "startingMoney", 3000))
 
     farms = [_new_farm(board_size, starting_money) for _ in range(num_agents)]
     privates = [_new_private() for _ in range(num_agents)]
@@ -708,8 +708,8 @@ def _town_consume(env, state, step):
     market = obs0.market
     town = obs0.town
     cfg = env.configuration
-    shop_interval = max(1, int(get(cfg, "townShopSellInterval", 2)))
-    center_interval = max(1, int(get(cfg, "townCenterSellInterval", 6)))
+    shop_interval = max(1, int(get(cfg, "townShopSellInterval", 4)))
+    center_interval = max(1, int(get(cfg, "townCenterSellInterval", 12)))
     turns_per_day = max(1, int(get(cfg, "turnsPerDay", 24)))
     day = step // turns_per_day
 

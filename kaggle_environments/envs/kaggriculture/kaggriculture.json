@@ -16,7 +16,7 @@
     "startingMoney": {
       "description": "Money each player starts with.",
       "type": "integer",
-      "default": 2000,
+      "default": 3000,
       "minimum": 0
     },
     "maxMarketOrdersPerTurn": {
@@ -52,13 +52,13 @@
     "townShopSellInterval": {
       "description": "Number of turns between successive consumption ticks by every unlocked town shop. Each shop pulls one of each of its products per tick (single-product shops pull 2x). Total demand grows monotonically as more shops are unlocked.",
       "type": "integer",
-      "default": 2,
+      "default": 4,
       "minimum": 1
     },
     "townCenterSellInterval": {
       "description": "Number of turns between successive consumption ticks by the town center (one of every product per tick).",
       "type": "integer",
-      "default": 6,
+      "default": 12,
       "minimum": 1
     },
     "seed": {
@@ -69,7 +69,7 @@
     "farmHandCostMult": {
       "description": "Multiplier applied to the Fibonacci hire-cost sequence (1, 1, 2, 3, 5, 8, 13, ...). The n-th hire of the day costs this value times fib(n).",
       "type": "integer",
-      "default": 10,
+      "default": 1,
       "minimum": 0
     },
     "marketParams": {
