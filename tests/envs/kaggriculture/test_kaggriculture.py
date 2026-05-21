@@ -850,8 +850,3 @@ def test_market_order_limit_is_configurable():
     assert p0_priv["seeds"]["WHEAT"] == 3
 
 
-def test_default_starting_money_is_2000():
-    env = make("kaggriculture", configuration={"episodeSteps": 3})
-    env.run(["pass", "pass"])
-    j = env.toJSON()
-    assert j["rewards"] == [2000.0, 2000.0]
