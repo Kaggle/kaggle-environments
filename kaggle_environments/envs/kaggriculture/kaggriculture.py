@@ -332,6 +332,21 @@ def _apply_unit_action(farm, private, idx, action, board_size, day, turns_per_da
     if tile == "LOCKED":
         return
 
+    if op == "DROP":
+        if not _is_shed_adjacent((fx, fy), board_size):
+            return
+        shed = private["shed"]
+        for item, n in list(inv.items()):
+            if n <= 0:
+                del inv[item]
+                continue
+            room = max(0, shed_capacity - sum(shed.values()))
+            take = min(n, room)
+            if take > 0:
+                shed[item] = shed.get(item, 0) + take
+            del inv[item]
+        return
+
     if op == "PICKUP":
         if not _is_shed_adjacent((fx, fy), board_size):
             return

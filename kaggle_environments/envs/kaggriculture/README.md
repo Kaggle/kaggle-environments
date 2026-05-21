@@ -39,6 +39,7 @@ Each Farmer / Farm Hand can be given an action every turn. Farmer/Farm Hand CAN 
 Picks up an item from the shed (must be orthogonally adjacent) into the inventory
 
 - PICKUP `<item>` `[n]` — move up to `n` of `<item>` (default 1) from the shed into the active farmer/hand's inventory. Any item present in the shed is valid (animals, fertilizer, harvested produce, etc.). Seeds live in a separate slot and are never picked up — `PLANT` consumes them directly.
+- DROP — orthogonally adjacent to the shed, dump the active farmer/hand's entire current inventory into the shed. Overflow past `shedCapacity` is discarded. No-op if not shed-adjacent.
 
 #### Plants
 

@@ -60,7 +60,7 @@ Your agent is a function that receives an observation and returns an action dict
 
 Farmer / hand ops:
 - Movement: `"NORTH"`, `"SOUTH"`, `"EAST"`, `"WEST"`, `"PASS"`
-- Shed / inventory: `"PICKUP" <item> [n]` (from shed), `"PLACE" <item> [n]` (places an animal on a matching structure when standing on it, or drops items into the shed when adjacent to it)
+- Shed / inventory: `"PICKUP" <item> [n]` (from shed), `"PLACE" <item> [n]` (places an animal on a matching structure when standing on it, or drops items into the shed when adjacent to it), `"DROP"` (when shed-adjacent, dumps entire inventory into shed; overflow past `shedCapacity` discarded)
 - Plants: `"PLANT" <crop>`, `"WATER"`, `"HARVEST"`, `"FERTILIZE"`
 - Animals: `"BUILD_COOP"`, `"BUILD_PASTURE"`, `"FEED"`, `"COLLECT_FERTILIZER"`, `"CARE"`
 - Terrain: `"DIG"` (removes a plant, weed, coop, or pasture from the current tile)
