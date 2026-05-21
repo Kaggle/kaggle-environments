@@ -1,5 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
 
+/* ---------------------------------------------------------------------------
+ * Layout
+ * ------------------------------------------------------------------------- */
+
 html,
 body,
 #app {
@@ -41,15 +45,17 @@ body,
   flex-shrink: 0;
 }
 
-.header .player {
+/* Doubled `.player.player` selector raises specificity to 0,3,0 so the
+   kaggle core's `.game-renderer-isolation` reset can't expand the pill to
+   fill the flex row. */
+.header .player.player {
   display: inline-flex;
+  flex: none;
+  width: max-content;
   flex-direction: row;
   align-items: center;
-  width: auto;
-  height: auto;
   padding: 4px 12px;
   background-color: white;
-  background: white;
   transition: scale 300ms, background-color 300ms;
   white-space: nowrap;
 }
@@ -98,58 +104,31 @@ body,
   padding: 2px 10px;
 }
 
-.hand {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  flex: 0 1 auto;
-  min-height: 0;
-  padding: 4px;
-}
+/* ---------------------------------------------------------------------------
+ * Cards
+ *
+ * The kaggle-environments core wraps the visualizer in `.game-renderer-isolation`
+ * which forces `box-sizing: content-box` via `.game-renderer-isolation *`
+ * (specificity 0,1,1). That beats a plain `.card` rule and silently inflates
+ * every card by its padding + border. The doubled `.card.card` selector below
+ * raises specificity to 0,2,0 so border-box sticks.
+ * ------------------------------------------------------------------------- */
 
-.center-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  flex-shrink: 0;
-  padding: 6px 0;
-}
-
-.pile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: #444343;
-}
-
-.pile-stack {
-  position: relative;
-  width: 64px;
-  height: 90px;
-}
-
-.card {
+.card,
+.card.card {
   position: relative;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  box-sizing: border-box;
   width: 56px;
   height: 80px;
+  padding: 4px 6px;
+  margin-left: -16px;
   border: 1px dashed #3c3b37;
   border-radius: 6px;
   background-color: white;
-  padding: 4px 6px;
-  margin-left: -16px;
-  box-sizing: border-box;
   font-family: 'Inter', sans-serif;
   font-weight: 700;
   color: #050001;
@@ -162,54 +141,30 @@ body,
   margin-left: 0;
 }
 
-.card.compact {
-  width: 44px;
-  height: 64px;
-  padding: 3px 4px;
-  margin-left: -12px;
-  font-size: 0.78rem;
-}
-
-.card.compact:first-child {
-  margin-left: 0;
-}
-
 .card .corner {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  font-size: 1.05rem;
-  line-height: 1;
-}
-
-.card.compact .corner {
-  font-size: 0.85rem;
-}
-
-.card .corner.bottom {
-  align-items: flex-end;
-  transform: rotate(180deg);
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  line-height: 1.05;
+  gap: 2px;
 }
 
 .card .suit {
-  font-size: 1rem;
+  font-size: 1.15rem;
   line-height: 1;
-}
-
-.card.compact .suit {
-  font-size: 0.78rem;
 }
 
 .card.face-down {
   background-color: #fbf7e8;
-  background-image:
-    repeating-linear-gradient(
-      45deg,
-      #d9d3bf 0,
-      #d9d3bf 2px,
-      transparent 2px,
-      transparent 6px
-    );
+  background-image: repeating-linear-gradient(
+    45deg,
+    #d9d3bf 0,
+    #d9d3bf 2px,
+    transparent 2px,
+    transparent 6px
+  );
 }
 
 .card.face-down .corner,
@@ -236,6 +191,79 @@ body,
   opacity: 0.55;
 }
 
+/* ---------------------------------------------------------------------------
+ * Opponent's overlapping face-down hand row
+ * ------------------------------------------------------------------------- */
+
+.hand {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Centre row: stock + upcard + (right-aligned) discard mini-grid
+ *
+ * The row width matches the hand-grid outer width
+ * (13 cards * 44px + 12 gaps * 4px + 2 * 6px padding = 632px) so the
+ * absolutely-positioned discard's right edge lines up with the right edge of
+ * the player hand grids above and below.
+ * ------------------------------------------------------------------------- */
+
+.center-row {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 18px;
+  flex-shrink: 0;
+  padding: 6px 0;
+  width: 632px;
+  margin: 0 auto;
+}
+
+.center-row > .pile--discard {
+  position: absolute;
+  right: 0;
+  bottom: 6px;
+  margin: 0;
+}
+
+.pile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  width: 72px;
+  flex: none;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #444343;
+}
+
+.pile-label,
+.pile > div:last-child {
+  white-space: nowrap;
+  text-align: center;
+}
+
+.pile--discard {
+  width: auto;
+}
+
+.pile-stack {
+  position: relative;
+  box-sizing: border-box;
+  width: 64px;
+  height: 90px;
+  margin: 0;
+  flex: none;
+}
+
 .pile-stack .card {
   position: absolute;
   margin-left: 0;
@@ -247,18 +275,39 @@ body,
   left: 0;
   top: 6px;
 }
+
 .pile-stack .card:nth-child(2) {
   left: 4px;
   top: 3px;
 }
+
 .pile-stack .card:nth-child(3) {
   left: 8px;
   top: 0;
 }
 
-.pile-empty {
+/* Card-shaped slot used when the upcard or stock pile is empty — keeps a
+   visible 56x80 dashed outline in place of the missing card. */
+.pile-stack .card-slot--pile {
+  position: absolute;
+  left: 0;
+  top: 6px;
+  box-sizing: border-box;
   width: 56px;
   height: 80px;
+  margin: 0;
+  border: 1px dashed #9a9684;
+  border-radius: 6px;
+  background: transparent;
+}
+
+/* Empty card slot inside a .pile (used by knock-card pile in Oklahoma mode). */
+.pile > .pile-empty {
+  box-sizing: border-box;
+  width: 56px;
+  height: 80px;
+  margin: 0;
+  flex: none;
   border: 1px dashed #9a9684;
   border-radius: 6px;
   background-color: transparent;
@@ -269,6 +318,151 @@ body,
   color: #9a9684;
   font-style: italic;
 }
+
+.pile > .card {
+  margin: 0;
+  flex: none;
+}
+
+/* ---------------------------------------------------------------------------
+ * Player hand: 4x13 grid (rows = suits, cols = ranks)
+ *
+ * Empty cells render a `.card-slot` of identical dimensions to a card so
+ * swapping slot <-> card produces zero layout shift between steps.
+ * ------------------------------------------------------------------------- */
+
+.hand-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  align-self: center;
+}
+
+.hand-grid__row {
+  display: grid;
+  grid-template-columns: repeat(13, 44px);
+  gap: 4px;
+  align-items: center;
+}
+
+.hand-grid .card,
+.hand-grid .card-slot {
+  box-sizing: border-box;
+  width: 44px;
+  height: 62px;
+  margin: 0;
+  padding: 0;
+  border: 1px dashed #3c3b37;
+  border-radius: 6px;
+  transition: none;
+  transform: none;
+  animation: none;
+  flex: none;
+}
+
+.hand-grid .card-slot {
+  background: transparent;
+  border-color: rgba(60, 59, 55, 0.18);
+}
+
+.hand-grid .card .corner {
+  font-size: 0.95rem;
+  padding: 0;
+  gap: 1px;
+}
+
+.hand-grid .card .suit {
+  font-size: 0.9rem;
+}
+
+.hand-grid .card.highlight {
+  /* Stable outline only — no translate that pops the row. */
+  outline: 2.5px solid #f5b400;
+  outline-offset: -1px;
+  transform: none;
+  z-index: 2;
+}
+
+.card-slot {
+  box-sizing: border-box;
+  width: 44px;
+  height: 62px;
+  border: 1px dashed rgba(60, 59, 55, 0.25);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* ---------------------------------------------------------------------------
+ * Discard pile: mini 4x13 grid showing every discarded card
+ * ------------------------------------------------------------------------- */
+
+.discard-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  box-sizing: border-box;
+  border: 1px dashed rgba(60, 59, 55, 0.18);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.discard-grid__row {
+  display: grid;
+  grid-template-columns: repeat(13, 14px);
+  gap: 1px;
+}
+
+.discard-cell {
+  box-sizing: border-box;
+  width: 14px;
+  height: 18px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.55rem;
+  font-weight: 700;
+  line-height: 1;
+  background: transparent;
+}
+
+.discard-cell.red,
+.discard-cell.black {
+  background: white;
+  border-color: #d8d4c4;
+}
+
+.discard-cell.red {
+  color: #c0392b;
+}
+
+.discard-cell.black {
+  color: #1a1a1a;
+}
+
+.discard-cell.top {
+  outline: 1.5px solid #f5b400;
+  outline-offset: -1px;
+  z-index: 1;
+}
+
+.discard-cell .dc-rank,
+.discard-cell .dc-suit {
+  display: block;
+  line-height: 1;
+}
+
+.discard-cell .dc-suit {
+  font-size: 0.55rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * Status bar
+ * ------------------------------------------------------------------------- */
 
 .status-container {
   display: flex;
@@ -301,8 +495,13 @@ body,
   font-weight: 700;
 }
 
+/* ---------------------------------------------------------------------------
+ * Narrow-container fallback (used for very small embedded views)
+ * ------------------------------------------------------------------------- */
+
 @container (max-width: 520px) {
-  .card {
+  .card,
+  .card.card {
     width: 44px;
     height: 64px;
     margin-left: -12px;
@@ -318,8 +517,20 @@ body,
     width: 52px;
     height: 72px;
   }
-  .pile-empty {
+  .pile > .pile-empty {
     width: 44px;
     height: 64px;
+  }
+}
+
+@media (max-width: 900px) {
+  .hand-grid__row {
+    grid-template-columns: repeat(13, 32px);
+    gap: 3px;
+  }
+  .hand-grid .card,
+  .card-slot {
+    width: 32px;
+    height: 46px;
   }
 }

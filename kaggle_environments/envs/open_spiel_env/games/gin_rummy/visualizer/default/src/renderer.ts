@@ -29,6 +29,14 @@ const RANK_DISPLAY: Record<string, string> = {
   K: 'K',
 };
 
+// Grid layout: rows = suits (♠♥♦♣), cols = ranks (A..K). Used by both the
+// player hand grid and the discard mini-grid so cards line up by suit/rank.
+const GRID_SUITS = ['s', 'h', 'd', 'c'] as const;
+const GRID_RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K'] as const;
+
+const ALL_RANKS: readonly string[] = ['A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K'];
+const ALL_SUITS: readonly string[] = ['s', 'c', 'd', 'h'];
+
 function rankOf(card: string): string {
   const r = card[0];
   return RANK_DISPLAY[r] ?? r;
@@ -36,32 +44,6 @@ function rankOf(card: string): string {
 
 function suitOf(card: string): string {
   return card[1];
-}
-
-const RANK_ORDER: Record<string, number> = {
-  A: 1,
-  '2': 2,
-  '3': 3,
-  '4': 4,
-  '5': 5,
-  '6': 6,
-  '7': 7,
-  '8': 8,
-  '9': 9,
-  T: 10,
-  J: 11,
-  Q: 12,
-  K: 13,
-};
-const SUIT_ORDER: Record<string, number> = { s: 0, h: 1, d: 2, c: 3 };
-
-function sortHand(hand: string[]): string[] {
-  return [...hand].sort((a, b) => {
-    const sa = SUIT_ORDER[suitOf(a)] ?? 9;
-    const sb = SUIT_ORDER[suitOf(b)] ?? 9;
-    if (sa !== sb) return sa - sb;
-    return (RANK_ORDER[a[0]] ?? 99) - (RANK_ORDER[b[0]] ?? 99);
-  });
 }
 
 function parseObservation(step: any, playerIdx: number): GinRummyObservation | null {
@@ -74,22 +56,9 @@ function parseObservation(step: any, playerIdx: number): GinRummyObservation | n
   }
 }
 
-function findInitialUpcard(steps: GinRummyStep[]): string | null {
-  // In Oklahoma the initial upcard is the knock card; its rank-value sets the
-  // deadwood limit. Look only at the FirstUpcard phase since the upcard slot
-  // can be empty once play continues.
-  for (const s of steps) {
-    const obs = mergedObservation(s.rawStep);
-    if (!obs) continue;
-    if (obs.phase === 'FirstUpcard') return obs.upcard;
-    return obs.upcard ?? null;
-  }
-  return null;
-}
-
 function mergedObservation(step: any): GinRummyObservation | null {
-  // Player 0's observation has player 0's hand visible; player 1's observation
-  // has player 1's hand visible. Merge so the spectator view shows both.
+  // Each player's observation only reveals their own hand; merge so the
+  // spectator view shows both hands at once.
   const o0 = parseObservation(step, 0);
   const o1 = parseObservation(step, 1);
   const base = o0 ?? o1;
@@ -106,12 +75,19 @@ function mergedObservation(step: any): GinRummyObservation | null {
   return merged;
 }
 
+function findInitialUpcard(steps: GinRummyStep[]): string | null {
+  // In Oklahoma the initial upcard sets the deadwood limit for knocking.
+  for (const s of steps) {
+    const obs = mergedObservation(s.rawStep);
+    if (!obs) continue;
+    if (obs.phase === 'FirstUpcard') return obs.upcard;
+    return obs.upcard ?? null;
+  }
+  return null;
+}
+
 function getPlayerName(replay: any, idx: number): string {
-  const info = replay?.info?.TeamNames?.[idx];
-  if (info) return info;
-  const fromAgent = replay?.agents?.[idx]?.name;
-  if (fromAgent) return fromAgent;
-  return idx === 0 ? 'Player 1' : 'Player 2';
+  return replay?.info?.TeamNames?.[idx] ?? replay?.agents?.[idx]?.name ?? (idx === 0 ? 'Player 1' : 'Player 2');
 }
 
 function buildCard(
@@ -124,8 +100,7 @@ function buildCard(
   if (options.faceDown || !card) {
     classes.push('face-down');
   } else {
-    const suit = suitOf(card);
-    classes.push(SUIT_COLOR[suit]);
+    classes.push(SUIT_COLOR[suitOf(card)]);
   }
   if (options.highlight) classes.push('highlight');
   if (options.dim) classes.push('dim');
@@ -135,10 +110,6 @@ function buildCard(
     const glyph = SUIT_GLYPH[suitOf(card)] ?? '?';
     el.innerHTML = `
       <div class="corner top">
-        <span>${rank}</span>
-        <span class="suit">${glyph}</span>
-      </div>
-      <div class="corner bottom">
         <span>${rank}</span>
         <span class="suit">${glyph}</span>
       </div>
@@ -153,14 +124,9 @@ function actionLabel(submission: number, hand: string[] | null): string {
   if (submission === 54) return 'Pass';
   if (submission === 55) return 'Knock';
   if (submission >= 0 && submission < 52) {
-    // Single card action: drawn-card index 0..51 maps to a specific card.
-    // We don't know the exact card from the action alone in all phases;
-    // best effort: derive card string from action index using OpenSpiel's
-    // canonical ordering: rank-major within suit (s, c, d, h).
-    const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K'];
-    const suits = ['s', 'c', 'd', 'h'];
-    const suit = suits[Math.floor(submission / 13)];
-    const rank = ranks[submission % 13];
+    // OpenSpiel canonical ordering: rank-major within suit (s, c, d, h).
+    const suit = ALL_SUITS[Math.floor(submission / 13)];
+    const rank = ALL_RANKS[submission % 13];
     const card = `${rank}${suit}`;
     if (hand && hand.includes(card)) return `Discard ${rank}${SUIT_GLYPH[suit]}`;
     return `${rank}${SUIT_GLYPH[suit]}`;
@@ -180,8 +146,43 @@ function findLastAction(step: any): { actor: number; submission: number } | null
 
 function phaseLabel(phase: string | null): string {
   if (!phase) return '';
-  // Make camel-case phases more readable.
   return phase.replace(/([a-z])([A-Z])/g, '$1 $2');
+}
+
+function buildHandGrid(hand: string[], highlightCard: string | null): HTMLDivElement {
+  // 4x13 grid (rows = suits, cols = ranks). Empty cells render a card-slot
+  // placeholder so swapping a slot for a card produces zero layout shift.
+  const handSet = new Set(hand);
+  const grid = document.createElement('div');
+  grid.className = 'hand-grid';
+  for (const suit of GRID_SUITS) {
+    const row = document.createElement('div');
+    row.className = 'hand-grid__row';
+    for (const rank of GRID_RANKS) {
+      const card = `${rank}${suit}`;
+      if (handSet.has(card)) {
+        row.appendChild(buildCard(card, { highlight: !!highlightCard && card === highlightCard }));
+      } else {
+        const slot = document.createElement('div');
+        slot.className = 'card-slot';
+        row.appendChild(slot);
+      }
+    }
+    grid.appendChild(row);
+  }
+  return grid;
+}
+
+function buildFaceDownHand(handLength: number): HTMLDivElement {
+  // Opponent hand placeholder: a flat overlapping row of face-down cards.
+  // We can't lay these out by suit/rank because the opponent's hand is hidden.
+  const el = document.createElement('div');
+  el.className = 'hand';
+  const count = handLength || 10;
+  for (let i = 0; i < count; i++) {
+    el.appendChild(buildCard(null, { faceDown: true }));
+  }
+  return el;
 }
 
 function renderPlayerRow(
@@ -207,22 +208,134 @@ function renderPlayerRow(
     <span class="deadwood sketched-border">Cards: ${hand.length}</span>
   `;
   container.appendChild(meta);
+  container.appendChild(showFaceDown ? buildFaceDownHand(hand.length) : buildHandGrid(hand, highlightCard));
+}
 
-  const handEl = document.createElement('div');
-  handEl.className = 'hand';
-  const sorted = showFaceDown ? hand : sortHand(hand);
-  // If hand empty and showFaceDown, render placeholder face-down cards.
-  const cardsToRender = sorted.length ? sorted : showFaceDown ? new Array(10).fill('XX') : [];
-  for (const card of cardsToRender) {
-    const isHighlight = !!highlightCard && card === highlightCard && !showFaceDown;
-    handEl.appendChild(
-      buildCard(card === 'XX' ? null : card, {
-        faceDown: showFaceDown,
-        highlight: isHighlight,
-      })
-    );
+function buildPile(visual: HTMLElement, label: string, modifier?: string): HTMLDivElement {
+  const pile = document.createElement('div');
+  pile.className = modifier ? `pile ${modifier}` : 'pile';
+  pile.appendChild(visual);
+  const lbl = document.createElement('div');
+  lbl.className = 'pile-label';
+  lbl.textContent = label;
+  pile.appendChild(lbl);
+  return pile;
+}
+
+function buildPileSlot(): HTMLDivElement {
+  const slot = document.createElement('div');
+  slot.className = 'card-slot--pile';
+  return slot;
+}
+
+function buildStockPile(stockSize: number): HTMLDivElement {
+  const stack = document.createElement('div');
+  stack.className = 'pile-stack';
+  if (stockSize === 0) {
+    stack.appendChild(buildPileSlot());
+  } else {
+    // Decorative offset stack of up to 3 face-down cards.
+    for (let i = 0; i < Math.min(stockSize, 3); i++) {
+      stack.appendChild(buildCard(null, { faceDown: true }));
+    }
   }
-  container.appendChild(handEl);
+  return buildPile(stack, `Stock (${stockSize})`);
+}
+
+function buildUpcardPile(upcard: string | null): HTMLDivElement {
+  // Wrap in a pile-stack so the empty and non-empty states have the same
+  // 64x90 footprint as the Stock pile; when empty, render a dashed
+  // card-shaped slot so the slot stays visible.
+  const stack = document.createElement('div');
+  stack.className = 'pile-stack';
+  stack.appendChild(upcard ? buildCard(upcard) : buildPileSlot());
+  return buildPile(stack, 'Upcard');
+}
+
+function buildKnockCardPile(initialUpcard: string | null, knockLimit: number | null): HTMLDivElement {
+  let visual: HTMLElement;
+  if (initialUpcard) {
+    visual = buildCard(initialUpcard);
+  } else {
+    visual = document.createElement('div');
+    visual.className = 'pile-empty';
+    visual.textContent = '?';
+  }
+  const label = knockLimit !== null ? `Knock Card (≤${knockLimit})` : 'Knock Card';
+  return buildPile(visual, label);
+}
+
+function buildDiscardPile(discardPile: string[]): HTMLDivElement {
+  // Mini 4x13 grid showing every discarded card; top card outlined.
+  const topCard = discardPile.length ? discardPile[discardPile.length - 1] : null;
+  const discardSet = new Set(discardPile);
+  const grid = document.createElement('div');
+  grid.className = 'discard-grid';
+  for (const suit of GRID_SUITS) {
+    const row = document.createElement('div');
+    row.className = 'discard-grid__row';
+    for (const rank of GRID_RANKS) {
+      const code = `${rank}${suit}`;
+      const cell = document.createElement('div');
+      cell.className = 'discard-cell';
+      if (discardSet.has(code)) {
+        cell.classList.add(SUIT_COLOR[suit]);
+        if (code === topCard) cell.classList.add('top');
+        cell.innerHTML =
+          `<span class="dc-rank">${RANK_DISPLAY[rank] ?? rank}</span>` +
+          `<span class="dc-suit">${SUIT_GLYPH[suit] ?? ''}</span>`;
+      }
+      row.appendChild(cell);
+    }
+    grid.appendChild(row);
+  }
+  return buildPile(grid, `Discards (${discardPile.length})`, 'pile--discard');
+}
+
+function buildStatus(
+  observation: GinRummyObservation,
+  lastAction: { actor: number; submission: number } | null,
+  playerNames: string[],
+  activeIdx: number,
+  winnerIdx: number,
+  isTerminal: boolean
+): string {
+  const parts: string[] = [];
+  if (observation.phase) {
+    parts.push(`<span class="phase-pill">${phaseLabel(observation.phase)}</span>`);
+  }
+  if (observation.knock_card !== null) {
+    parts.push(`<span class="annotation">knock card: ${observation.knock_card}</span>`);
+  }
+  if (lastAction) {
+    const { actor, submission } = lastAction;
+    const color = actor === 0 ? PLAYER_0_COLOR : PLAYER_1_COLOR;
+    const hand = observation.hands[String(actor) as '0' | '1'] ?? [];
+    const lbl = actionLabel(submission, hand);
+    parts.push(
+      `<span class="annotation">last move:</span> ` +
+        `<span style="color:${color};font-weight:700;">${playerNames[actor]} \u2192 ${lbl}</span>`
+    );
+  } else if (!isTerminal && activeIdx >= 0) {
+    const color = activeIdx === 0 ? PLAYER_0_COLOR : PLAYER_1_COLOR;
+    parts.push(`<span>Turn: <span style="color:${color};font-weight:700;">${playerNames[activeIdx]}</span></span>`);
+  }
+  if (isTerminal) {
+    let html: string;
+    if (winnerIdx === 0) {
+      html = `<span style="color:${PLAYER_0_COLOR};font-weight:700;">${playerNames[0]} wins</span>`;
+    } else if (winnerIdx === 1) {
+      html = `<span style="color:${PLAYER_1_COLOR};font-weight:700;">${playerNames[1]} wins</span>`;
+    } else {
+      html = `<span>Game over: ${observation.winner ?? 'draw'}</span>`;
+    }
+    const ret = observation.returns;
+    if (ret && ret.length === 2) {
+      html += ` <span class="annotation">(score ${ret[0]} : ${ret[1]})</span>`;
+    }
+    parts.push(html);
+  }
+  return parts.join(' ');
 }
 
 export function renderer(options: RendererOptions<GinRummyStep[]>) {
@@ -259,7 +372,6 @@ export function renderer(options: RendererOptions<GinRummyStep[]>) {
   const activeIdx = isTerminal ? -1 : observation.current_player;
   const winnerIdx = typeof observation.winner === 'number' ? observation.winner : -1;
 
-  // Header
   header.innerHTML = `
     <span class="player sketched-border ${activeIdx === 0 ? 'active' : ''}" style="color: ${PLAYER_0_COLOR};">
       ${playerNames[0]}
@@ -270,29 +382,18 @@ export function renderer(options: RendererOptions<GinRummyStep[]>) {
     </span>
   `;
 
-  // Detect the action that produced this state (if any).
+  // Highlight the just-discarded card inside the actor's hand. The status bar
+  // already names the move, so we don't highlight stock/upcard/discard piles.
   const lastAction = findLastAction(currentStep);
-  let highlightDiscard: string | null = null;
-  let highlightTakenUpcard = false;
-  let highlightDrawStock = false;
   let highlightCardP0: string | null = null;
   let highlightCardP1: string | null = null;
-  if (lastAction) {
-    const { actor, submission } = lastAction;
-    if (submission === 52) highlightTakenUpcard = true;
-    else if (submission === 53) highlightDrawStock = true;
-    else if (submission >= 0 && submission < 52) {
-      // Single-card action: top card of discard pile is the just-discarded card
-      // (in Discard / Knock phases). Highlight it as the move.
-      const discard = observation.discard_pile;
-      if (discard.length) highlightDiscard = discard[discard.length - 1];
-      // If knock, highlight that card in the actor's hand as well.
-      if (actor === 0) highlightCardP0 = discard.length ? discard[discard.length - 1] : null;
-      if (actor === 1) highlightCardP1 = discard.length ? discard[discard.length - 1] : null;
-    }
+  if (lastAction && lastAction.submission >= 0 && lastAction.submission < 52) {
+    const dp = observation.discard_pile;
+    const top = dp.length ? dp[dp.length - 1] : null;
+    if (lastAction.actor === 0) highlightCardP0 = top;
+    if (lastAction.actor === 1) highlightCardP1 = top;
   }
 
-  // Top: player 1
   renderPlayerRow(
     topRow,
     playerNames[1],
@@ -305,112 +406,15 @@ export function renderer(options: RendererOptions<GinRummyStep[]>) {
     highlightCardP1
   );
 
-  // Center: [knock card] | stock | discard | (recent action info)
   centerRow.innerHTML = '';
-
-  // Knock card (Oklahoma rules only): the initial upcard determines the
-  // deadwood limit for knocking, so surface it persistently in the table.
   const oklahoma = !!replay?.configuration?.openSpielGameParameters?.oklahoma;
   if (oklahoma) {
-    const knockCardPile = document.createElement('div');
-    knockCardPile.className = 'pile';
-    const initialUpcard = findInitialUpcard(steps);
-    if (initialUpcard) {
-      knockCardPile.appendChild(buildCard(initialUpcard));
-    } else {
-      const empty = document.createElement('div');
-      empty.className = 'pile-empty';
-      empty.textContent = '?';
-      knockCardPile.appendChild(empty);
-    }
-    const lbl = document.createElement('div');
-    const limit = observation.knock_card;
-    lbl.textContent = limit !== null ? `Knock Card (≤${limit})` : 'Knock Card';
-    knockCardPile.appendChild(lbl);
-    centerRow.appendChild(knockCardPile);
+    centerRow.appendChild(buildKnockCardPile(findInitialUpcard(steps), observation.knock_card));
   }
+  centerRow.appendChild(buildStockPile(observation.stock_size));
+  centerRow.appendChild(buildUpcardPile(observation.upcard));
+  centerRow.appendChild(buildDiscardPile(observation.discard_pile));
 
-  // Stock pile (face-down stack)
-  const stockPile = document.createElement('div');
-  stockPile.className = 'pile';
-  const stockStack = document.createElement('div');
-  stockStack.className = 'pile-stack';
-  const stockCardCount = Math.min(observation.stock_size, 3);
-  if (stockCardCount === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'pile-empty';
-    empty.textContent = 'empty';
-    stockPile.appendChild(empty);
-  } else {
-    for (let i = 0; i < stockCardCount; i++) {
-      stockStack.appendChild(
-        buildCard(null, { faceDown: true, highlight: i === stockCardCount - 1 && highlightDrawStock })
-      );
-    }
-    stockPile.appendChild(stockStack);
-  }
-  const stockLabel = document.createElement('div');
-  stockLabel.textContent = `Stock (${observation.stock_size})`;
-  stockPile.appendChild(stockLabel);
-  centerRow.appendChild(stockPile);
-
-  // Upcard / discard top -- in OpenSpiel gin_rummy, the upcard is the visible
-  // top of the discard pile during draw phases; once drawn or after a discard,
-  // the discard pile's last card is the visible top. We render the upcard slot
-  // separately when present (Draw phase) and the rest of the pile beneath.
-  const upcardPile = document.createElement('div');
-  upcardPile.className = 'pile';
-  if (observation.upcard) {
-    upcardPile.appendChild(
-      buildCard(observation.upcard, {
-        highlight: highlightTakenUpcard || (highlightDiscard !== null && highlightDiscard === observation.upcard),
-      })
-    );
-    const lbl = document.createElement('div');
-    lbl.textContent = 'Upcard';
-    upcardPile.appendChild(lbl);
-  } else {
-    const empty = document.createElement('div');
-    empty.className = 'pile-empty';
-    empty.textContent = 'no upcard';
-    upcardPile.appendChild(empty);
-    const lbl = document.createElement('div');
-    lbl.textContent = 'Upcard';
-    upcardPile.appendChild(lbl);
-  }
-  centerRow.appendChild(upcardPile);
-
-  // Discard pile beneath the upcard slot. The OpenSpiel discard_pile and
-  // upcard are disjoint (the upcard is reported on its own line and is not
-  // included in the discard pile).
-  const discardPile = document.createElement('div');
-  discardPile.className = 'pile';
-  const discardStack = document.createElement('div');
-  discardStack.className = 'pile-stack';
-  const dp = observation.discard_pile;
-  const visible = dp.slice(-3);
-  if (visible.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'pile-empty';
-    empty.textContent = 'empty';
-    discardPile.appendChild(empty);
-  } else {
-    visible.forEach((card, i) => {
-      const isTop = i === visible.length - 1;
-      discardStack.appendChild(
-        buildCard(card, {
-          highlight: isTop && highlightDiscard !== null && card === highlightDiscard,
-        })
-      );
-    });
-    discardPile.appendChild(discardStack);
-  }
-  const dpLabel = document.createElement('div');
-  dpLabel.textContent = `Discard (${dp.length})`;
-  discardPile.appendChild(dpLabel);
-  centerRow.appendChild(discardPile);
-
-  // Bottom: player 0
   renderPlayerRow(
     bottomRow,
     playerNames[0],
@@ -423,45 +427,5 @@ export function renderer(options: RendererOptions<GinRummyStep[]>) {
     highlightCardP0
   );
 
-  // Status: phase, last action, terminal result
-  const parts: string[] = [];
-  if (observation.phase) {
-    parts.push(`<span class="phase-pill">${phaseLabel(observation.phase)}</span>`);
-  }
-  if (observation.knock_card !== null) {
-    parts.push(`<span class="annotation">knock card: ${observation.knock_card}</span>`);
-  }
-  if (lastAction) {
-    const { actor, submission } = lastAction;
-    const moverColor = actor === 0 ? PLAYER_0_COLOR : PLAYER_1_COLOR;
-    const moverHand = observation.hands[String(actor) as '0' | '1'] ?? [];
-    const lbl = actionLabel(submission, moverHand);
-    parts.push(
-      `<span class="annotation">last move:</span> <span style="color:${moverColor};font-weight:700;">${playerNames[actor]} \u2192 ${lbl}</span>`
-    );
-  } else if (!isTerminal) {
-    const turnColor = activeIdx === 0 ? PLAYER_0_COLOR : PLAYER_1_COLOR;
-    const turnName = activeIdx >= 0 ? playerNames[activeIdx] : '';
-    if (turnName) {
-      parts.push(`<span>Turn: <span style="color:${turnColor};font-weight:700;">${turnName}</span></span>`);
-    }
-  }
-
-  if (isTerminal) {
-    let resultHTML = '';
-    if (winnerIdx === 0) {
-      resultHTML = `<span style="color:${PLAYER_0_COLOR};font-weight:700;">${playerNames[0]} wins</span>`;
-    } else if (winnerIdx === 1) {
-      resultHTML = `<span style="color:${PLAYER_1_COLOR};font-weight:700;">${playerNames[1]} wins</span>`;
-    } else {
-      resultHTML = `<span>Game over: ${observation.winner ?? 'draw'}</span>`;
-    }
-    const ret = observation.returns;
-    if (ret && ret.length === 2) {
-      resultHTML += ` <span class="annotation">(score ${ret[0]} : ${ret[1]})</span>`;
-    }
-    parts.push(resultHTML);
-  }
-
-  statusContainer.innerHTML = parts.join(' ');
+  statusContainer.innerHTML = buildStatus(observation, lastAction, playerNames, activeIdx, winnerIdx, isTerminal);
 }
