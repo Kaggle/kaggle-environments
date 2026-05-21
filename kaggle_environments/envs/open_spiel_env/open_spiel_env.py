@@ -7,7 +7,6 @@ import logging
 import os
 import pathlib
 import random
-import re
 import sys
 import warnings
 from typing import Any, Callable
@@ -17,10 +16,9 @@ import pokerkit  # noqa: F401
 import pyspiel
 from open_spiel.python.games import pokerkit_wrapper  # noqa: F401
 
-from kaggle_environments.envs.open_spiel_env.games.snake import snake_game  # noqa: F401
-from kaggle_environments.envs.open_spiel_env.games.coin_game_arena import coin_game_arena_game  # noqa: F401
-
 from kaggle_environments import core, utils
+from kaggle_environments.envs.open_spiel_env.games.coin_game_arena import coin_game_arena_game  # noqa: F401
+from kaggle_environments.envs.open_spiel_env.games.snake import snake_game  # noqa: F401
 
 ERROR = "ERROR"
 DONE = "DONE"
@@ -973,6 +971,7 @@ GAMES_LIST = [
     "othello",
     "repeated_game(stage_game=matrix_pd(),num_repetitions=100)",
     "tic_tac_toe",
+    "ultimate_tic_tac_toe",
     "snake",
     "y",
     DEFAULT_UNIVERSAL_POKER_GAME_STRING,
