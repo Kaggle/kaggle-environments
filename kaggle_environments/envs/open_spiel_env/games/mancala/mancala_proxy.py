@@ -8,8 +8,8 @@ OpenSpiel's mancala uses a 14-cell board laid out as::
 
 where index 0 is player 1's store and index 7 is player 0's store. The
 default ``observation_string`` is ASCII art with hyphen separators -- the
-proxy parses it into a clean dict so agents can read pit counts, scores,
-and turn info directly.
+proxy parses it into a clean dict so agents and the visualizer can read pit
+counts, scores, and turn info directly.
 """
 
 import json
