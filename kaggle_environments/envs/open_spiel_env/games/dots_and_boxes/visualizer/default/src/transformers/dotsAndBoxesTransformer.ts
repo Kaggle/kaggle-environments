@@ -63,6 +63,16 @@ export interface DotsAndBoxesStep {
   winner: string | null;
 }
 
+function humanizeActionString(raw: string | null | undefined): string {
+  if (!raw) return '';
+  // OpenSpiel format: "P1(h,1,6)" / "P2(v,5,2)"
+  const match = raw.match(/^P[12]\(([hv]),(\d+),(\d+)\)$/);
+  if (!match) return raw;
+  const [, orientation, row, col] = match;
+  const kind = orientation === 'h' ? 'horizontal line' : 'vertical line';
+  return `${kind} at row ${row}, col ${col}`;
+}
+
 function parseThoughts(action?: DotsAndBoxesAction): string {
   // Prefer the Go-harness ``main_response_and_thoughts`` payload when
   // generate_returns is populated; fall through to ``action.thoughts`` if
@@ -117,7 +127,7 @@ export const dotsAndBoxesTransformer = (environment: any): DotsAndBoxesStep[] =>
         name: teamNames[i] ?? (i === 0 ? 'Player 1' : 'Player 2'),
         thumbnail: '',
         isTurn,
-        actionDisplayText: p.action?.actionString ?? '',
+        actionDisplayText: humanizeActionString(p.action?.actionString),
         thoughts: parseThoughts(p.action),
         reward: p.reward ?? 0,
         generateReturns: p.action?.generate_returns ?? null,
