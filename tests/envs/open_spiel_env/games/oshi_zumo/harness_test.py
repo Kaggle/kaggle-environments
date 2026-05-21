@@ -114,13 +114,6 @@ class GeneratePromptTest(absltest.TestCase):
         # Initial state is centered with all 12 coins each.
         self.assertIn("12", prompt)
 
-    def test_legal_bids_listed(self):
-        obs = _make_observation(self.state, self.game, player_id=0)
-        prompt = generate_prompt(obs, [])
-        # Initial bids 0..12 are all legal.
-        for n in range(13):
-            self.assertIn(str(n), prompt)
-
     def test_player_label_swap(self):
         obs0 = _make_observation(self.state, self.game, player_id=0)
         obs1 = _make_observation(self.state, self.game, player_id=1)
@@ -157,7 +150,7 @@ class GeneratePromptTest(absltest.TestCase):
         )
         self.assertIn("Your previous response was", prompt)
         self.assertIn("99", prompt)
-        self.assertIn("NOT in the legal bid list", prompt)
+        self.assertIn("not a legal bid", prompt)
 
 
 # ---------------------------------------------------------------------------

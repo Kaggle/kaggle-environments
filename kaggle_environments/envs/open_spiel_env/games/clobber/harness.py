@@ -54,18 +54,19 @@ You are Player {player_label} ('{my_piece}').
 Move number: {move_number}
 Last move played: {last_move}
 
-You MUST pick one of the legal moves: {legal_moves}.
+Choose your move. It must move one of your pieces onto an orthogonally
+adjacent square that holds an opponent's piece.
 
 Respond with your reasoning followed by your final move in a JSON block:
 
 ```json
 {{
-  "move": "<one of the legal moves>"
+  "move": "<from><to>, e.g. a1b1"
 }}
 ```
 
-Failure to output your final answer in the specified format, or selecting a
-move that is not in the legal list, will result in a loss.
+Failure to output your final answer in the specified format, or selecting an
+illegal move, will result in a loss.
 """
 
 
@@ -74,8 +75,8 @@ RETHINK_SUFFIX = """
 Your previous response was:
 {previous_response}
 
-You suggested move "{previous_action}" but it is NOT in the legal move list.
-Reconsider and pick one of the legal moves exactly.
+You suggested move "{previous_action}" but it is not a legal move.
+Reconsider the board and pick a legal move.
 """
 
 
@@ -178,11 +179,6 @@ def generate_prompt(
     my_piece = "o" if player_id == 0 else "x"
     last_file = chr(ord("a") + max(0, columns - 1))
 
-    legal_action_strings = observation.get("legalActionStrings") or []
-    if not legal_action_strings:
-        legal_action_strings = list(get_legal_moves(observation).values())
-    legal_moves_str = ", ".join(sorted(legal_action_strings)) or "(none)"
-
     prompt = CLOBBER_PROMPT_TEMPLATE.format(
         rows=rows,
         columns=columns,
@@ -192,7 +188,6 @@ def generate_prompt(
         my_piece=my_piece,
         move_number=move_number,
         last_move=last_move,
-        legal_moves=legal_moves_str,
     )
 
     if previous_response is not None:

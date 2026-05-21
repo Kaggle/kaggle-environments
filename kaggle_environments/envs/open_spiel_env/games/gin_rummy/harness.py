@@ -160,8 +160,8 @@ def _instruction_for_phase(phase: str | None, legal_strings: Sequence[str]) -> s
     if "Pass" in legals and "Draw upcard" not in legals:
         return _PHASE_INSTRUCTION["Layoff"]
     return (
-        "Choose one of the legal actions listed below. Your move MUST be "
-        "exactly one of those strings."
+        "Choose a legal action for this phase. Use an exact OpenSpiel "
+        "action string."
     )
 
 
@@ -194,23 +194,20 @@ Move history (oldest -> newest):
 
 {phase_instruction}
 
-Legal moves you may play:
-{legal_moves}
-
 It is your turn. Think briefly about the position, then choose your move.
-The move MUST be exactly one of the legal moves listed above (use the exact
-string, e.g. 'Draw upcard', 'Knock', '7h', 'As2s3s').
+Use the exact OpenSpiel action string (e.g. 'Draw upcard', 'Knock', '7h',
+'As2s3s').
 
 Respond with your reasoning followed by your final answer in a JSON block:
 
 ```json
 {{
-  "move": "<one of the legal moves above>"
+  "move": "<exact OpenSpiel action string>"
 }}
 ```
 
-Failure to output your final answer in the specified format, or selecting a
-move that is not in the legal list, will result in a loss.
+Failure to output your final answer in the specified format, or selecting an
+illegal move, will result in a loss.
 """
 
 
@@ -219,8 +216,8 @@ RETHINK_SUFFIX = """
 Your previous response was:
 {previous_response}
 
-You suggested move "{previous_action}" but it is NOT in the legal moves list.
-Reconsider and pick a move that appears verbatim in the legal moves above.
+You suggested move "{previous_action}" but it is not a legal move.
+Reconsider the position and pick a legal action for this phase.
 """
 
 
@@ -282,7 +279,6 @@ def generate_prompt(
         deadwood=deadwood if deadwood is not None else "?",
         move_history=_format_history(move_history),
         phase_instruction=_instruction_for_phase(phase, legal_strings),
-        legal_moves=", ".join(legal_strings) if legal_strings else "(none)",
     )
 
     if previous_response is not None:
