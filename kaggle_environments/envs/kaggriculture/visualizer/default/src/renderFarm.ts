@@ -470,7 +470,10 @@ function renderShed(refs: PlayerRefs, priv: PrivateState | undefined): void {
     const iconKey = isSeed ? `seed:${item}` : `item:${item}`;
     if (slot.lastIconKey !== iconKey) {
       slot.lastIconKey = iconKey;
-      slot.icon.innerHTML = `<img class="item-icon-img" src="${marketSpriteSrc(sprite)}" alt="${alt}" title="${label}" />`;
+      const cropOverlay = isSeed
+        ? `<img class="item-seed-crop" src="${marketSpriteSrc(item.toLowerCase())}" alt="" aria-hidden="true" />`
+        : '';
+      slot.icon.innerHTML = `<img class="item-icon-img" src="${marketSpriteSrc(sprite)}" alt="${alt}" title="${label}" />${cropOverlay}`;
     }
     const qtyStr = String(qty);
     if (slot.lastCount !== qtyStr) {

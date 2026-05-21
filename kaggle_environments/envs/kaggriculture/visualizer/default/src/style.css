@@ -271,13 +271,25 @@ body {
   display: block;
 }
 
+/* Crop badge superimposed on seed packets so the seed type is identifiable. */
+.item-seed-crop {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 45%;
+  height: 45%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
 .item-count {
   position: absolute;
   right: 1px;
-  bottom: 0;
+  top: 0;
   font-size: 0.65rem;
   font-weight: 700;
   color: #050001;
+  text-shadow: 0 0 2px #ffffff, 0 0 2px #ffffff;
 }
 
 /* ---- Town panel ---- */
