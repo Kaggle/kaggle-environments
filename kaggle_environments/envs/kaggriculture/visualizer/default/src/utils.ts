@@ -16,6 +16,8 @@ import farmers_market from './assets/sprites/farmers_market.png';
 import farmhand_1 from './assets/sprites/farmhand_1.png';
 import farmhand_2 from './assets/sprites/farmhand_2.png';
 import farmhand_3 from './assets/sprites/farmhand_3.png';
+import fence_horizontal from './assets/sprites/fence_horizontal.png';
+import fence_vertical from './assets/sprites/fence_vertical.png';
 import fertilizer from './assets/sprites/fertilizer.png';
 import goose from './assets/sprites/goose.png';
 import grass_bg from './assets/sprites/grass_bg.svg';
@@ -77,6 +79,8 @@ const SPRITE_URLS: Record<string, string> = {
   farmhand_1,
   farmhand_2,
   farmhand_3,
+  fence_horizontal,
+  fence_vertical,
   fertilizer,
   goose,
   ice_cream_shop,

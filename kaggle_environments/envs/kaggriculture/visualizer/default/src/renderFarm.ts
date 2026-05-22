@@ -49,10 +49,23 @@ function marketList(): string {
   ).join('');
 }
 
-function farmCell(row: number, col: number): string {
+function farmCell(row: number, col: number, rows: number, cols: number): string {
   const segR = Math.floor(row / SEGMENT);
   const segC = Math.floor(col / SEGMENT);
   const segId = segR * 2 + segC;
+  const fences: string[] = [];
+  if (row === 0) {
+    fences.push(`<img class="cell-fence cell-fence-top" src="${spriteSrc('fence_horizontal')}" alt="" />`);
+  }
+  if (row === rows - 1) {
+    fences.push(`<img class="cell-fence cell-fence-bottom" src="${spriteSrc('fence_horizontal')}" alt="" />`);
+  }
+  if (col === 0) {
+    fences.push(`<img class="cell-fence cell-fence-left" src="${spriteSrc('fence_vertical')}" alt="" />`);
+  }
+  if (col === cols - 1) {
+    fences.push(`<img class="cell-fence cell-fence-right" src="${spriteSrc('fence_vertical')}" alt="" />`);
+  }
   return `
     <div class="cell" data-row="${row}" data-col="${col}" data-segment="${segId}">
       <div class="cell-base">
@@ -61,6 +74,7 @@ function farmCell(row: number, col: number): string {
       <div class="cell-overlay"></div>
       <div class="cell-object"></div>
       <div class="cell-agent"></div>
+      ${fences.join('')}
     </div>
   `;
 }
@@ -69,7 +83,7 @@ function farmGrid(rows: number, cols: number): string {
   const cells: string[] = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      cells.push(farmCell(r, c));
+      cells.push(farmCell(r, c, rows, cols));
     }
   }
   return `<div class="farm-grid" style="grid-template-columns: repeat(${cols}, 1fr);">

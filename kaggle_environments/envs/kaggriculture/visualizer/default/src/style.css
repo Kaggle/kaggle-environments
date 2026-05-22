@@ -118,7 +118,6 @@ body {
 .farm-area {
   background-color: #efe7ce;
   padding: 6px;
-  border: 1px dashed #3c3b37;
 }
 
 .farm-grid {
@@ -179,6 +178,32 @@ body {
 .cell-overlay { z-index: 2; }
 .cell-object  { z-index: 3; }
 .cell-agent   { z-index: 4; }
+
+.cell-fence {
+  position: absolute;
+  pointer-events: none;
+  image-rendering: pixelated;
+  z-index: 5;
+  object-fit: contain;
+}
+.cell-fence-top,
+.cell-fence-bottom {
+  left: -1px;
+  right: -1px;
+  width: calc(100% + 2px);
+  height: auto;
+}
+.cell-fence-top    { top: 0;    transform: translateY(-50%); }
+.cell-fence-bottom { bottom: 0; transform: translateY(50%); }
+.cell-fence-left,
+.cell-fence-right {
+  top: -1px;
+  bottom: -1px;
+  height: calc(100% + 2px);
+  width: auto;
+}
+.cell-fence-left  { left: 0;  transform: translateX(-50%); }
+.cell-fence-right { right: 0; transform: translateX(50%); }
 
 .cell-sprite {
   position: absolute;
@@ -547,7 +572,6 @@ body {
     width: min(100%, 34vh);
     aspect-ratio: 1;
     background-color: #efe7ce;
-    border: 1px dashed #3c3b37;
     padding: 4px;
     box-sizing: border-box;
   }
