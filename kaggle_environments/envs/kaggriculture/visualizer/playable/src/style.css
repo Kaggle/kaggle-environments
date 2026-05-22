@@ -27,13 +27,15 @@ input, select {
   font-size: 14px;
 }
 .app { width: 100vw; height: 100vh; display: flex; flex-direction: column; }
-.scaffold {
-  margin: auto;
-  padding: 32px;
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
   background: #14201e;
-  border-radius: 8px;
-  max-width: 480px;
-  text-align: center;
+  border-bottom: 1px solid #2a402a;
+  flex: 0 0 auto;
 }
-.scaffold h1 { margin: 0 0 12px; }
-.scaffold p { margin: 0; color: #aab0aa; }
+.toolbar-status { font-size: 13px; color: #c0d0c0; }
+.placeholder { margin: auto; color: #aab0aa; }
+.farm-view-root { flex: 1 1 auto; min-height: 0; overflow: auto; }
