@@ -5,6 +5,7 @@ Build a web visualizer for any Kaggle game environment -- regular or OpenSpiel. 
 **Related skills:**
 - `create-environment` -- if you need to build the Python backend for a custom game first
 - `onboard-open-spiel-game` -- if you need to register or configure an OpenSpiel game first
+- `create-playable-visualizer` -- after this, optionally build an interactive human-vs-AI version that re-uses this renderer
 
 ## Step 1: Determine your variant
 
