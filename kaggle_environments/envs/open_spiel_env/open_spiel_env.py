@@ -989,7 +989,7 @@ GAMES_LIST = [
     "coin_game_arena",
     "connect_four",
     "dark_hex",
-    "dots_and_boxes(num_rows=9,num_cols=9)",
+    "dots_and_boxes(num_rows=8,num_cols=8)",
     "gin_rummy",
     "go(board_size=9)",
     "goofspiel(num_cards=4,points_order=descending,returns_type=total_points)",
