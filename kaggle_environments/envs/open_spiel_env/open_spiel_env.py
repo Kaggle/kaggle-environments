@@ -164,9 +164,7 @@ CONFIGURATION_SPEC_TEMPLATE = {
         "default": False,
     },
     "savePrompt": {
-        "description": (
-            "If disabled, skip logging LLM prompts in the replay file."
-        ),
+        "description": ("If disabled, skip logging LLM prompts in the replay file."),
         "type": "boolean",
         "default": True,
     },
@@ -667,9 +665,7 @@ def interpreter(
             info_dict["actionApplied"] = simul_actions_applied[player_id]
             info_dict["timeTaken"] = simul_move_durations[player_id]
             info_dict["agentSelfReportedStatus"] = (
-                kaggle_state[player_id]["action"].get("status")
-                if kaggle_state[player_id]["action"]
-                else "unknown"
+                kaggle_state[player_id]["action"].get("status") if kaggle_state[player_id]["action"] else "unknown"
             )
         elif acting_agent == player_id:
             info_dict["actionSubmitted"] = action_submitted
@@ -799,11 +795,46 @@ def _get_html_renderer_content(
 
 
 _RANDOM_THOUGHT_WORDS = (
-    "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta",
-    "iota", "kappa", "lambda", "mu", "nu", "xi", "omicron", "pi",
-    "rho", "sigma", "tau", "upsilon", "phi", "chi", "psi", "omega",
-    "ponder", "muse", "wonder", "consider", "reflect", "imagine", "explore", "drift",
-    "spark", "ripple", "echo", "shadow", "horizon", "lantern", "cascade", "ember",
+    "alpha",
+    "beta",
+    "gamma",
+    "delta",
+    "epsilon",
+    "zeta",
+    "eta",
+    "theta",
+    "iota",
+    "kappa",
+    "lambda",
+    "mu",
+    "nu",
+    "xi",
+    "omicron",
+    "pi",
+    "rho",
+    "sigma",
+    "tau",
+    "upsilon",
+    "phi",
+    "chi",
+    "psi",
+    "omega",
+    "ponder",
+    "muse",
+    "wonder",
+    "consider",
+    "reflect",
+    "imagine",
+    "explore",
+    "drift",
+    "spark",
+    "ripple",
+    "echo",
+    "shadow",
+    "horizon",
+    "lantern",
+    "cascade",
+    "ember",
 )
 
 
@@ -962,6 +993,7 @@ GAMES_LIST = [
     "gin_rummy",
     "go(board_size=9)",
     "goofspiel(num_cards=4,points_order=descending,returns_type=total_points)",
+    "havannah(board_size=8)",
     "hearts",
     "hex",
     "lines_of_action",
