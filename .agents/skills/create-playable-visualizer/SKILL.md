@@ -297,6 +297,62 @@ export function App() {
 
 **Done when:** polished end-to-end UX from setup → match → restart.
 
+### Stage 9 — Integration smoke tests
+
+Add a tiny vitest + Testing Library suite that just proves the UI mounts and a game can be started. The point is to catch outright breakage (missing exports, worker URL typos, throw-on-mount regressions), not to test gameplay — engine correctness already has fixtures in Stage 3.
+
+Add the deps and a jsdom environment:
+```json
+// package.json devDependencies
+"@testing-library/react": "^16.0.0",
+"@testing-library/user-event": "^14.5.0",
+"jsdom": "^25.0.0"
+```
+```typescript
+// vitest.config.ts (or test block in vite.config.ts)
+test: { environment: 'jsdom', globals: true }
+```
+
+Two tests are enough:
+
+```typescript
+// src/ui/__tests__/App.test.tsx
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { App } from '../../App';
+
+test('renders the setup screen', () => {
+  render(<App />);
+  expect(screen.getByRole('button', { name: /start game/i })).toBeInTheDocument();
+});
+
+test('starts a game when Start is clicked', async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  await user.click(screen.getByRole('button', { name: /start game/i }));
+  // Either the HUD's Reset button or the action panel's Submit shows up once
+  // the worker has init'd and React has rendered GameScreen.
+  expect(await screen.findByRole('button', { name: /reset|submit/i })).toBeInTheDocument();
+});
+```
+
+Workers need a stub in jsdom — the simplest path is to mock `WorkerClient` so the second test doesn't actually spawn a worker:
+
+```typescript
+vi.mock('../../worker/workerClient', () => ({
+  WorkerClient: class {
+    init = async () => ({ /* minimal valid GameState */ });
+    step = async () => ({ /* ... */ });
+    reset = async () => ({ /* ... */ });
+    terminate = () => {};
+  },
+}));
+```
+
+Keep the fake `GameState` minimal — just enough fields for `GameScreen` and its children to render without throwing. If a real worker round-trip is important, leave that for the engine fixtures; this suite is pure UI smoke.
+
+**Done when:** `pnpm test` runs both UI tests plus the engine/agent fixtures and exits green.
+
 ## Polish lessons learned
 
 Worth applying up front rather than after a review pass.
@@ -308,17 +364,15 @@ Worth applying up front rather than after a review pass.
    ```
    The Vite bundler resolves them; no workspace dependency needed.
 
-2. **No CSS `container-type`.** It breaks inline playback controls in this codebase. Use `@media` queries instead. (This is recorded in project memory; don't relearn it.)
+2. **No CSS `container-type`.** It breaks inline playback controls in this codebase. Use `@media` queries instead.
 
 3. **Contrast in the action panel.** The side panel typically sits on a non-white themed background. Default browser text colors disappear — explicitly set `color`, brighten input borders, and use `font-weight: 600` for labels.
 
 4. **Solid borders on form controls, decorative borders on cards.** Dashed `<select>` borders look broken; any sketched/dashed motif is reserved for decorative cards and modals.
 
-5. **Don't put the game title in the HUD** if the inner visualizer already shows it. Redundant chrome eats vertical space.
+5. **AI-vs-AI mode is the fastest path to spotting interpreter bugs.** Hide the action panel and surface a `Step` button. You'll typically catch action-shape mismatches and AI errors in the first handful of turns.
 
-6. **AI-vs-AI mode is the fastest path to spotting interpreter bugs.** Hide the action panel and surface a `Step` button. You'll typically catch action-shape mismatches and AI errors in the first handful of turns.
-
-7. **Keep `package.json` lean.** React + Vite + vitest, no `@kaggle-environments/core`, no MUI. The playable bundle should not pull in the replay framework's dependencies.
+6. **Keep `package.json` lean.** React + Vite + vitest, no `@kaggle-environments/core`, no MUI. The playable bundle should not pull in the replay framework's dependencies.
 
 ## Checklist
 
@@ -338,7 +392,8 @@ Worth applying up front rather than after a review pass.
 - [ ] Setup + game-over share the same theme as the inner GameView (bg, sprite, font, border)
 - [ ] Solid borders on `<select>`/`<input>`; decorative dashed/sketched borders reserved for cards
 - [ ] No CSS `container-type` anywhere
-- [ ] `pnpm test` passes (vitest fixtures + agent rollouts)
+- [ ] UI smoke tests: setup screen renders + clicking Start advances to game screen
+- [ ] `pnpm test` passes (vitest fixtures + agent rollouts + UI smoke tests)
 - [ ] `pnpm build` produces output in `dist/`
 - [ ] `pnpm format` passes
 
