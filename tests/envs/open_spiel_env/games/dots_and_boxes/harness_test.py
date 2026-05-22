@@ -150,27 +150,22 @@ class GeneratePromptTest(absltest.TestCase):
         prompt = generate_prompt(obs, [])
         self.assertIn("Previous move: (none yet)", prompt)
 
-    def test_legal_moves_list_rendered(self):
+    def test_move_history_rendered(self):
+        obs = _make_observation(self.state, self.game, player_id=0)
+        prompt = generate_prompt(obs, ["h 0 0", "v 0 0"])
+        self.assertIn("h 0 0, v 0 0", prompt)
+
+    def test_move_history_none_when_empty(self):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [])
-        self.assertIn("Legal moves you can play", prompt)
-        self.assertIn("horizontal: h 0 0", prompt)
-        self.assertIn("vertical: v 0 0", prompt)
-
-    def test_legal_moves_list_excludes_played_edge(self):
-        self.state.apply_action(0)  # P1(h,0,0)
-        obs = _make_observation(self.state, self.game, player_id=1)
-        prompt = generate_prompt(obs, [])
-        legal_section = prompt.split("Legal moves you can play")[1]
-        self.assertNotIn("h 0 0,", legal_section)
-        self.assertNotIn("h 0 0\n", legal_section)
+        self.assertIn("Moves you have played so far: None", prompt)
 
     def test_rethink_suffix(self):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [], previous_response="I'll play x 9 9", previous_action="x 9 9")
         self.assertIn("Your previous response was", prompt)
         self.assertIn("x 9 9", prompt)
-        self.assertIn("not in the legal moves", prompt)
+        self.assertIn("not a legal move", prompt)
 
     def test_no_rethink_on_first_attempt(self):
         obs = _make_observation(self.state, self.game, player_id=0)

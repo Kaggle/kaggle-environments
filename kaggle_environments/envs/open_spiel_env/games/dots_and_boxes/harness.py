@@ -73,12 +73,10 @@ Score: Player 1 = {p1_score}, Player 2 = {p2_score}. Boxes remaining:
 
 You are Player {player_label}.
 {last_move_label}: {last_move}
+Moves you have played so far: {move_history}
 
-Legal moves you can play right now:
-{legal_moves}
-
-Action notation: ``<h|v> <row> <col>`` (e.g. ``h 0 1`` or ``v 2 0``). You
-must pick one of the legal moves listed above.
+Action notation: ``<h|v> <row> <col>`` (e.g. ``h 0 1`` or ``v 2 0``). Only
+open edges (shown as ``.`` on the board) are legal.
 
 Respond with your reasoning followed by your final move in a JSON block:
 
@@ -98,8 +96,8 @@ RETHINK_SUFFIX = """
 Your previous response was:
 {previous_response}
 
-You suggested move "{previous_action}" but it is not in the legal moves
-list above. Reconsider and pick one of the listed legal moves.
+You suggested move "{previous_action}" but it is not a legal move.
+Reconsider and pick a legal move (an open edge shown as ``.`` on the board).
 """
 
 
@@ -172,26 +170,6 @@ def _format_board_ascii(state: Mapping[str, Any]) -> str:
 def _boxes_remaining(state: Mapping[str, Any]) -> int:
     boxes = state.get("boxes") or []
     return sum(1 for row in boxes for cell in row if not cell)
-
-
-def _format_legal_moves(legal_action_strings: Sequence[str]) -> str:
-    """Render the legal action list as a grouped, sorted shorthand string."""
-    horizontal: list[tuple[int, int]] = []
-    vertical: list[tuple[int, int]] = []
-    for action_string in legal_action_strings:
-        m = _OPENSPIEL_LEGAL_RE.search(action_string or "")
-        if not m:
-            continue
-        coord = (int(m.group(2)), int(m.group(3)))
-        (horizontal if m.group(1).lower() == "h" else vertical).append(coord)
-    horizontal.sort()
-    vertical.sort()
-    lines: list[str] = []
-    if horizontal:
-        lines.append("  horizontal: " + ", ".join(f"h {r} {c}" for r, c in horizontal))
-    if vertical:
-        lines.append("  vertical: " + ", ".join(f"v {r} {c}" for r, c in vertical))
-    return "\n".join(lines) if lines else "  (none)"
 
 
 def _normalize_move(raw: str) -> str | None:
@@ -295,7 +273,7 @@ def generate_prompt(
         last_move = "(none yet)"
         last_move_label = "Previous move"
 
-    legal_moves = _format_legal_moves(list(get_legal_moves(observation).values()))
+    move_history_str = ", ".join(move_history) if move_history else "None"
 
     prompt = DOTS_AND_BOXES_PROMPT_TEMPLATE.format(
         num_rows=num_rows,
@@ -311,7 +289,7 @@ def generate_prompt(
         player_label=player_label,
         last_move_label=last_move_label,
         last_move=last_move,
-        legal_moves=legal_moves,
+        move_history=move_history_str,
     )
 
     if previous_response is not None:
