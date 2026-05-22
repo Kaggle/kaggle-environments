@@ -45,8 +45,6 @@ import wheat_full from './assets/sprites/wheat_full.png';
 import wood_bg from './assets/sprites/wood_bg.svg';
 import wool from './assets/sprites/wool.png';
 import yarn_store from './assets/sprites/yarn_store.png';
-import fence_horizontal from './assets/sprites/fence_horizontal.png';
-import fence_vertical from './assets/sprites/fence_vertical.png';
 
 import market_carrot from './assets/sprites/market_carrot.png';
 import market_melon from './assets/sprites/market_melon.png';
@@ -115,8 +113,6 @@ const SPRITE_URLS: Record<string, string> = {
   wool,
   yarn_store,
   yarn: yarn_store,
-  fence_horizontal,
-  fence_vertical,
 
   // New illustrative market sprites
   market_carrot,

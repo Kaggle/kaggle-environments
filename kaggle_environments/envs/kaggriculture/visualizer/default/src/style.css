@@ -116,47 +116,9 @@ body {
 
 /* ---- Farm grid ---- */
 .farm-area {
-  background-color: transparent;
-  padding: 0;
-}
-
-/* Fence wrapper layout */
-.farm-fence-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-}
-
-.fence-row {
-  display: grid;
-  gap: 0;
-}
-
-.fence-h {
-  width: 100%;
-  height: auto;
-  display: block;
-  object-fit: fill;
-}
-
-.fence-middle {
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
-}
-
-.fence-col {
-  display: grid;
-  gap: 0;
-  width: clamp(14px, 3vw, 28px);
-  flex-shrink: 0;
-}
-
-.fence-v {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: fill;
+  background-color: #efe7ce;
+  padding: 6px;
+  border: 1px dashed #3c3b37;
 }
 
 .farm-grid {
@@ -164,8 +126,7 @@ body {
   display: grid;
   gap: 1px;
   aspect-ratio: 1;
-  flex: 1 1 auto;
-  min-width: 0;
+  width: 100%;
 }
 
 .shed-overlay {
@@ -570,16 +531,13 @@ body {
     background: transparent;
     border: none;
   }
-  .farm-fence-wrapper {
-    width: min(100%, 34vh);
-  }
   .farm-grid {
+    width: min(100%, 34vh);
     aspect-ratio: 1;
     background-color: #efe7ce;
+    border: 1px dashed #3c3b37;
+    padding: 4px;
     box-sizing: border-box;
-  }
-  .fence-col {
-    width: clamp(10px, 2vw, 20px);
   }
 
   /* Show + position the dialog overlay when the JS controller un-hides it. */
