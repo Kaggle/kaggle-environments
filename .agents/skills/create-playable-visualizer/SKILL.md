@@ -231,7 +231,7 @@ new Worker(new URL('./gameWorker.ts', import.meta.url), { type: 'module' });
 
 `ui/useGameWorker.ts` is a React hook keyed on a `SetupResult` reference. Changing `setup` tears down the worker and re-inits. Returns `{ state, busy, error, stepGame, reset }`.
 
-**Done when:** an AI-vs-AI game runs to completion off the main thread.
+**Done when:** an AI-vs-AI game runs to completion off the main thread. (AI-vs-AI here is a debugging scaffold — see Stage 7 — not a shipped feature.)
 
 ### Stage 6 — Read-only game view
 
@@ -248,7 +248,7 @@ If default builds any derived state from a window of replay steps (e.g. rolling 
 
 This is a hard dependency on the default visualizer's internal API surface. If default refactors, the playable build breaks at compile time, which is what you want — fix in lockstep. Expect to export a few previously-internal helpers from default (the shell builder, the per-frame render function) as named exports the first time you do this; that's normal.
 
-**Done when:** an AI-vs-AI game is watchable inside the playable app with identical visuals to the replay visualizer.
+**Done when:** an AI-vs-AI rollout (still using the temporary Step button from Stage 5) is watchable inside the playable app with identical visuals to the replay visualizer.
 
 ### Stage 7 — Action input UI
 
@@ -258,11 +258,11 @@ This is a hard dependency on the default visualizer's internal API surface. If d
 - Repeated sections (multiple units to command, a queue of orders, etc.) need an explicit add/remove UI and have to stay reconciled with whatever the live `GameState` says is currently available — use a `useEffect` keyed on the live count to grow/shrink the local draft array.
 - On submit: bundle the drafts into a `PlayerAction`, call `onSubmit`, reset local drafts to defaults.
 
-For AI-vs-AI games (no human slot), replace the panel with a single `Step` button.
-
 **Second-heaviest stage.** Take care with the action contract — invalid actions silently fall through to the default no-op, which is hard to debug. Mirror the Python interpreter's action shape exactly; if the source uses positional tuples like `['VERB', ARG1, ARG2]`, the TS types and the UI's serializer must produce that exact shape (right casing, right arity, right argument types).
 
-**Done when:** a human can play a full game against AI opponents.
+**Tear down the AI-vs-AI scaffolding once a human can play.** The temporary "no human slot → single Step button" path from Stage 5 was a debugging crutch for verifying the engine + worker + renderer end-to-end before any input UI existed. Once the action panel works, an all-AI lineup adds nothing for the user — they can already watch any matchup via the read-only replay visualizer. Remove the AI-vs-AI branch in `ActionPanel`/`GameScreen`, drop the Step button, and require at least one human slot in `SetupScreen` validation. Leftover Step-button code rots quickly and confuses readers about what the playable build is for.
+
+**Done when:** a human can play a full game against AI opponents, and no AI-vs-AI-only code paths remain.
 
 ### Stage 8 — Setup + HUD + game over
 
@@ -370,7 +370,7 @@ Worth applying up front rather than after a review pass.
 
 4. **Solid borders on form controls, decorative borders on cards.** Dashed `<select>` borders look broken; any sketched/dashed motif is reserved for decorative cards and modals.
 
-5. **AI-vs-AI mode is the fastest path to spotting interpreter bugs.** Hide the action panel and surface a `Step` button. You'll typically catch action-shape mismatches and AI errors in the first handful of turns.
+5. **AI-vs-AI mode is a debugging scaffold, not a shipped feature.** During Stages 5–6, expose a temporary "no human slot → single Step button" path so you can drive the engine + worker + renderer end-to-end before the action UI exists; it catches action-shape mismatches and AI errors in the first handful of turns. **Delete it as part of Stage 7** once a human can play — users who want to watch AI vs AI already have the read-only replay visualizer, and the leftover branch rots fast.
 
 6. **Keep `package.json` lean.** React + Vite + vitest, no `@kaggle-environments/core`, no MUI. The playable bundle should not pull in the replay framework's dependencies.
 
@@ -388,7 +388,8 @@ Worth applying up front rather than after a review pass.
 - [ ] ActionPanel reconciles repeated sections to the live `GameState` via `useEffect` and resets after submit
 - [ ] SetupScreen exposes an episode-length picker so end-game can be reached in a short test
 - [ ] HUD is minimal (no duplicate state the inner GameView already shows)
-- [ ] Game-over modal handles single winner, tie, human-vs-AI, AI-vs-AI cases
+- [ ] Game-over modal handles single winner, tie, and human-vs-AI cases
+- [ ] Stage 5/6 AI-vs-AI debug path (Step button, no-human-slot branch) removed in Stage 7; SetupScreen requires ≥ 1 human
 - [ ] Setup + game-over share the same theme as the inner GameView (bg, sprite, font, border)
 - [ ] Solid borders on `<select>`/`<input>`; decorative dashed/sketched borders reserved for cards
 - [ ] No CSS `container-type` anywhere
