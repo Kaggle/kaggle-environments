@@ -126,6 +126,8 @@ body,
 }
 
 .board-column canvas {
+  /* Override .viewer canvas { position: absolute; ... } from web/core. */
+  position: relative;
   display: block;
   background: transparent;
 }
