@@ -118,16 +118,37 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("Player 1 = 0", prompt)
         self.assertIn("Player 2 = 0", prompt)
 
-    def test_last_move_rendered_after_play(self):
+    def test_last_move_rendered_after_opponent_play(self):
         self.state.apply_action(0)  # P1(h,0,0)
         obs1 = _make_observation(self.state, self.game, player_id=1)
         prompt = generate_prompt(obs1, [])
-        self.assertIn("Last move played: P1 h 0 0", prompt)
+        self.assertIn("Opponent's last move: h 0 0", prompt)
+
+    def test_last_move_labeled_as_own_after_box_completion(self):
+        # Drive the game so the same player completes the fourth edge of
+        # box (0,0), triggering a bonus turn — last_action.player should
+        # equal the current player.
+        def play(orient: str, row: int, col: int) -> None:
+            for action in self.state.legal_actions():
+                m = self.state.action_to_string(self.state.current_player(), action)
+                if f"({orient},{row},{col})" in m:
+                    self.state.apply_action(action)
+                    return
+            raise AssertionError(f"No legal action for {orient} {row} {col}")
+
+        play("h", 0, 0)  # P1
+        play("h", 0, 1)  # P2
+        play("v", 0, 0)  # P1
+        play("v", 0, 1)  # P2
+        play("h", 1, 0)  # P1 closes box (0,0); bonus turn
+        obs = _make_observation(self.state, self.game, player_id=int(self.state.current_player()))
+        prompt = generate_prompt(obs, [])
+        self.assertIn("Your previous move", prompt)
 
     def test_last_move_none_at_start(self):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [])
-        self.assertIn("Last move played: (none yet)", prompt)
+        self.assertIn("Previous move: (none yet)", prompt)
 
     def test_move_history_rendered(self):
         obs = _make_observation(self.state, self.game, player_id=0)
