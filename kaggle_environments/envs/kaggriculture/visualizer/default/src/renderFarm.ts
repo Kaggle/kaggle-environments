@@ -69,11 +69,32 @@ function farmGrid(rows: number, cols: number): string {
       cells.push(farmCell(r, c));
     }
   }
-  return `<div class="farm-grid" style="grid-template-columns: repeat(${cols}, 1fr);">
-    ${cells.join('')}
-    <div class="shed-overlay">
-      <img class="shed-sprite" src="${spriteSrc('shed')}" alt="shed" />
+
+  // Build fence borders: horizontal fences along top/bottom, vertical posts along left/right
+  const topFence = Array.from(
+    { length: cols },
+    () => `<img class="fence-h" src="${spriteSrc('fence_horizontal')}" alt="fence" />`
+  ).join('');
+  const bottomFence = topFence;
+  const leftFence = Array.from(
+    { length: rows },
+    () => `<img class="fence-v" src="${spriteSrc('fence_vertical')}" alt="fence" />`
+  ).join('');
+  const rightFence = leftFence;
+
+  return `<div class="farm-fence-wrapper">
+    <div class="fence-row fence-top" style="grid-template-columns: repeat(${cols}, 1fr);">${topFence}</div>
+    <div class="fence-middle">
+      <div class="fence-col fence-left" style="grid-template-rows: repeat(${rows}, 1fr);">${leftFence}</div>
+      <div class="farm-grid" style="grid-template-columns: repeat(${cols}, 1fr);">
+        ${cells.join('')}
+        <div class="shed-overlay">
+          <img class="shed-sprite" src="${spriteSrc('shed')}" alt="shed" />
+        </div>
+      </div>
+      <div class="fence-col fence-right" style="grid-template-rows: repeat(${rows}, 1fr);">${rightFence}</div>
     </div>
+    <div class="fence-row fence-bottom" style="grid-template-columns: repeat(${cols}, 1fr);">${bottomFence}</div>
   </div>`;
 }
 

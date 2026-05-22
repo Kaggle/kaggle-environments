@@ -1,15 +1,14 @@
 import { useMemo } from 'react';
 import { resolveConfig } from './engine/state';
+import { ActionPanel } from './ui/ActionPanel';
 import { FarmView } from './ui/FarmView';
 import { useGameWorker, type SetupResult } from './ui/useGameWorker';
 import type { SlotConfig } from './worker/protocol';
 
-const PLAYER_NAMES = ['Starter', 'Random'];
+const HUMAN_PLAYER_ID = 0;
+const PLAYER_NAMES = ['You', 'Starter AI'];
 
-const SLOTS: SlotConfig[] = [
-  { kind: 'ai', agentId: 'starter' },
-  { kind: 'ai', agentId: 'random' },
-];
+const SLOTS: SlotConfig[] = [{ kind: 'human' }, { kind: 'ai', agentId: 'starter' }];
 
 export function App() {
   const setup = useMemo<SetupResult>(
@@ -26,9 +25,6 @@ export function App() {
   return (
     <div className="app">
       <div className="toolbar">
-        <button type="button" onClick={() => stepGame({})} disabled={busy || !state || state.done}>
-          Step
-        </button>
         <button type="button" onClick={() => reset()} disabled={busy}>
           Reset
         </button>
@@ -38,11 +34,23 @@ export function App() {
           {error ? ` — error: ${error}` : ''}
         </span>
       </div>
-      {state ? (
-        <FarmView state={state} config={setup.config} playerNames={PLAYER_NAMES} />
-      ) : (
-        <div className="placeholder">Initializing engine…</div>
-      )}
+      <div className="game-body">
+        <div className="game-main">
+          {state ? (
+            <FarmView state={state} config={setup.config} playerNames={PLAYER_NAMES} />
+          ) : (
+            <div className="placeholder">Initializing engine…</div>
+          )}
+        </div>
+        {state && (
+          <ActionPanel
+            state={state}
+            player={HUMAN_PLAYER_ID}
+            busy={busy}
+            onSubmit={(action) => void stepGame({ [HUMAN_PLAYER_ID]: action })}
+          />
+        )}
+      </div>
     </div>
   );
 }

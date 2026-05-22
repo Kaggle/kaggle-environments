@@ -39,3 +39,29 @@ input, select {
 .toolbar-status { font-size: 13px; color: #c0d0c0; }
 .placeholder { margin: auto; color: #aab0aa; }
 .farm-view-root { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.game-body { flex: 1 1 auto; min-height: 0; display: flex; }
+.game-main { flex: 1 1 auto; min-width: 0; display: flex; }
+.action-panel {
+  flex: 0 0 320px;
+  padding: 12px;
+  background: #14201e;
+  border-left: 1px solid #2a402a;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.action-panel h3 { margin: 0 0 4px; font-size: 14px; }
+.action-row { display: flex; align-items: center; gap: 6px; }
+.action-label { font-size: 12px; min-width: 60px; color: #aab0aa; }
+.action-row select, .action-row input { font-size: 12px; padding: 2px 6px; }
+.action-section { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+.action-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #aab0aa;
+}
+.submit-turn { margin-top: 8px; font-weight: bold; }
+.action-hints { font-size: 11px; color: #7a857a; margin-top: 4px; }
