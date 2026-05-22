@@ -20,9 +20,11 @@ Dynamics are SEQUENTIAL — exactly one player is active per step.
 ``episode_length`` is the number of moves PER BOARD; the episode runs
 for ``2 * episode_length`` total steps so each board gets the same
 number of moves as it would have under the prior simultaneous design.
-Setup (preferences, player and coin placement) is baked deterministically
-into the initial state via the ``seed`` parameter so paired AA-vs-BB
-matches can use identical boards.
+
+Both teams' boards are seeded identically from the ``seed`` parameter:
+same player and coin placement, and same per-seat preference assignment
+(team A seat ``s`` and team B seat ``s`` share a preferred colour). This
+makes any AA-vs-BB matchup a fair head-to-head on the same puzzle.
 """
 
 from __future__ import annotations
@@ -183,24 +185,27 @@ class CoinGameArenaState(pyspiel.State):
     # --- Setup -------------------------------------------------------------
 
     def _setup(self) -> None:
-        rng = random.Random(self._game.seed)
+        # Both teams play on identical boards (same player & coin
+        # placement, same per-seat preferences) so AA-vs-BB matchups are
+        # fair comparisons. We achieve this by re-seeding the RNG with
+        # the same seed before generating each team's setup.
         rows = self._game.rows
         cols = self._game.cols
         colors = self._game.coin_colors
         coins_per_color = self._game.num_coins_per_color
 
-        # Assign per-player preferences. Each board's two players get
-        # distinct preferences drawn from the first len(team) colors of
-        # the universe (matching upstream coin_game conventions: player i
-        # prefers a unique colour, extras are bad coins).
         for team in range(_NUM_TEAMS):
+            rng = random.Random(self._game.seed)
+
+            # Per-seat preference shuffle: seat 0 and seat 1 each get a
+            # distinct coin colour. Same shuffle on both teams means
+            # team A seat s and team B seat s share a preference.
             shuffled = list(colors[:_PLAYERS_PER_TEAM])
             rng.shuffle(shuffled)
             for seat, pid in enumerate(_team_player_ids(team)):
                 self._preferences[pid] = shuffled[seat]
 
-        # Build each board: place 2 players + coins on disjoint cells.
-        for team in range(_NUM_TEAMS):
+            # Place 2 players + coins on disjoint cells.
             cells = [(r, c) for r in range(rows) for c in range(cols)]
             rng.shuffle(cells)
             player_positions = [cells.pop() for _ in range(_PLAYERS_PER_TEAM)]
