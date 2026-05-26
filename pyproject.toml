@@ -11,7 +11,7 @@ dependencies = [
     "gymnax==0.0.8",
     "jax",
     "jsonschema >= 3.0.1",
-    "litellm == 1.86.1",
+    "litellm >= 1.86.1",
     "numpy >= 2.0",
     "open_spiel >= 1.6.14",
     "pettingzoo == 1.24.0",
