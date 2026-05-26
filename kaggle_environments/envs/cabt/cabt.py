@@ -193,9 +193,16 @@ def renderer(state, env):
 
 
 def html_renderer():
-    jspath = os.path.abspath(os.path.join(os.path.dirname(__file__), "cabt.js"))
-    with open(jspath, encoding="utf-8") as f:
-        return f.read()
+    dir_path = os.path.dirname(__file__)
+    htmlpath = os.path.join(dir_path, "visualizer", "default", "dist", "index.html")
+    if os.path.exists(htmlpath):
+        with open(htmlpath, encoding="utf-8") as f:
+            return f.read()
+    jspath = os.path.abspath(os.path.join(dir_path, "cabt.js"))
+    if os.path.exists(jspath):
+        with open(jspath, encoding="utf-8") as f:
+            return f.read()
+    return ""
 
 
 jsonpath = os.path.abspath(os.path.join(os.path.dirname(__file__), "cabt.json"))
