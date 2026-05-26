@@ -19,6 +19,8 @@ import farmhand_3 from './assets/sprites/farmhand_3.png';
 import fence_horizontal from './assets/sprites/fence_horizontal.png';
 import fence_vertical from './assets/sprites/fence_vertical.png';
 import fertilizer from './assets/sprites/fertilizer.png';
+import flowers_horizontal from './assets/sprites/flowers_horizontal.png';
+import flowers_vertical from './assets/sprites/flowers_vertical.png';
 import goose from './assets/sprites/goose.png';
 import grass_bg from './assets/sprites/grass_bg.svg';
 import ice_cream_shop from './assets/sprites/ice_cream_shop.png';
@@ -42,6 +44,7 @@ import strawberry_ready from './assets/sprites/strawberry_ready.png';
 import tomato_full from './assets/sprites/tomato_full.png';
 import tomato_ready from './assets/sprites/tomato_ready.png';
 import town_center from './assets/sprites/town_center.png';
+import town_sign from './assets/sprites/town_sign.png';
 import weed from './assets/sprites/weed.png';
 import wheat_full from './assets/sprites/wheat_full.png';
 import wood_bg from './assets/sprites/wood_bg.svg';
@@ -82,6 +85,8 @@ const SPRITE_URLS: Record<string, string> = {
   fence_horizontal,
   fence_vertical,
   fertilizer,
+  flowers_horizontal,
+  flowers_vertical,
   goose,
   ice_cream_shop,
   icecream: ice_cream_shop,
@@ -111,6 +116,7 @@ const SPRITE_URLS: Record<string, string> = {
   tomato: tomato_full,
   tomato_ready,
   town_center,
+  town_sign,
   weed,
   wheat_full,
   wheat: wheat_full,

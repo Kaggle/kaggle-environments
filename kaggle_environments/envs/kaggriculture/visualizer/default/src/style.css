@@ -40,16 +40,41 @@ body {
   color: #050001;
 }
 
-/* ---- Main 3-column layout ---- */
+/* ---- Main 3-column layout ----
+   Top row: two farm fields flanking the town. Bottom row: each player's
+   combined name/shed box alongside the market — all three boxes share the
+   same row height. */
 .kaggriculture-main {
   display: grid;
   grid-template-columns: minmax(280px, 1.4fr) minmax(260px, 1fr) minmax(280px, 1.4fr);
-  gap: 16px;
-  align-items: start;
+  grid-template-rows: 1fr auto;
+  grid-template-areas:
+    "p1-field town    p2-field"
+    "p1-combo market  p2-combo";
+  row-gap: 24px;
+  column-gap: 16px;
+  align-items: stretch;
 }
+
+.farm-panel,
+.town-panel {
+  display: contents;
+}
+
+.farm-panel[data-player="1"] .farm-area   { grid-area: p1-field; }
+.farm-panel[data-player="1"] .player-box  { grid-area: p1-combo; }
+.farm-panel[data-player="2"] .farm-area   { grid-area: p2-field; }
+.farm-panel[data-player="2"] .player-box  { grid-area: p2-combo; }
+.town-grid    { grid-area: town; }
+.market-panel { grid-area: market; }
 
 /* Hide mobile-only header buttons on desktop. */
 .header-toggle {
+  display: none;
+}
+
+/* Mobile-only title bar; shown via the @media block below. */
+.mobile-title-bar {
   display: none;
 }
 
@@ -59,23 +84,25 @@ body {
 }
 
 /* ---- Farm panel ---- */
-.farm-panel {
+.player-box {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  min-width: 0;
+  gap: 8px;
+  padding: 8px 10px;
+  background-color: #e8d2a6;
+  background-repeat: repeat;
+  background-size: 120px 80px;
+  box-sizing: border-box;
+  align-self: start;
 }
 
 .farm-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
-  background-color: #e8d2a6;
-  background-repeat: repeat;
-  background-size: 120px 80px;
+  gap: 8px;
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: clamp(0.7rem, 1.25vw, 1.05rem);
 }
 
 .farm-header-left {
@@ -116,8 +143,7 @@ body {
 
 /* ---- Farm grid ---- */
 .farm-area {
-  background-color: #efe7ce;
-  padding: 6px;
+  padding: 0;
 }
 
 .farm-grid {
@@ -258,17 +284,17 @@ body {
 
 /* ---- Shed / inventory ---- */
 .shed-area {
+  box-sizing: border-box;
+}
+
+/* When the shed is popped into the mobile dialog overlay, restore its own
+   wooden background since it lost the .player-box wrapper. */
+.simple-dialog-body > .shed-area {
   background-color: #e8d2a6;
   background-repeat: repeat;
   background-size: 120px 80px;
   padding: 8px 10px;
-  box-sizing: border-box;
-}
-
-.shed-header {
-  font-weight: 700;
-  font-size: 0.95rem;
-  margin-bottom: 6px;
+  border: 1px dashed #3c3b37;
 }
 
 .inventory-grid {
@@ -318,13 +344,6 @@ body {
 }
 
 /* ---- Town panel ---- */
-.town-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-width: 0;
-}
-
 .town-header {
   display: flex;
   flex-direction: column;
@@ -348,37 +367,90 @@ body {
 }
 
 .town-grid {
+  position: relative;
   display: grid;
   gap: 0;
-  width: 80%;
-  margin-top: auto;
-  margin-left: auto;
-  margin-right: auto;
+  width: 100%;
+  align-content: center;
+  box-sizing: border-box;
+  border-radius: 20px;
+  overflow: hidden;
 }
 
 .town-slot {
   position: relative;
   aspect-ratio: 1;
-}
-
-.town-slot--shop,
-.town-slot--center {
-  background-size: 100% 100%;
-  image-rendering: pixelated;
-}
-
-.town-slot--center {
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
+.town-slot--shop,
+.town-slot--center,
+.town-slot--sign {
+  image-rendering: pixelated;
+}
+
 .town-sprite {
-  width: 100%;
-  height: 100%;
+  width: 78%;
+  height: 78%;
   object-fit: contain;
   display: block;
   image-rendering: pixelated;
+}
+
+.town-flower {
+  position: absolute;
+  pointer-events: none;
+  image-rendering: pixelated;
+  z-index: 5;
+  background-repeat: repeat;
+}
+.town-flower-top,
+.town-flower-bottom {
+  left: 0;
+  right: 0;
+  height: 48px;
+  /* Natural tile width at 48px tall is ~73px; slight horizontal compression
+     closes the gap between the sprite's transparent side margins. */
+  background-size: 68px 100%;
+}
+.town-flower-top    { top: 0; }
+.town-flower-bottom { bottom: 0; transform: translateY(50%); }
+.town-flower-left,
+.town-flower-right {
+  top: 0;
+  bottom: 0;
+  width: 48px;
+  overflow: hidden;
+  background-image: none;
+}
+.town-flower-left  { left: 0; }
+.town-flower-right { right: 0; }
+
+/* The vertical strips reuse the horizontal flower sprite via a rotated
+   pseudo-element, since CSS can't rotate a background-image directly. */
+.town-flower-left::before,
+.town-flower-right::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: 200vh;
+  height: 48px;
+  background-image: var(--flower-bg);
+  background-repeat: repeat-x;
+  background-size: 68px 100%;
+  image-rendering: pixelated;
+}
+.town-flower-left::before {
+  left: 0;
+  transform-origin: bottom left;
+  transform: translateX(48px) rotate(-90deg);
+}
+.town-flower-right::before {
+  right: 0;
+  transform-origin: bottom right;
+  transform: translateX(-48px) rotate(90deg);
 }
 
 /* ---- Market ---- */
@@ -388,18 +460,53 @@ body {
   background-size: 120px 80px;
   padding: 8px 10px;
   box-sizing: border-box;
+  margin-bottom: 16px;
 }
 
 .market-header {
   font-weight: 700;
   margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  text-align: center;
+  font-size: clamp(0.65rem, 1.05vw, 1rem);
+}
+
+.market-header-sep {
+  display: inline-block;
+  line-height: 1;
+}
+
+.market-header-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Inside the mobile market dialog, the date/turn already live in the title
+   bar above — hide the duplicate copy that travels with the panel. */
+.simple-dialog-body .market-header-clock {
+  display: none;
+}
+
+.market-header .day-value,
+.market-header .turn-value,
+.market-header .day-total,
+.market-header .turn-total {
+  display: inline-block;
+  min-width: 2ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .market-list {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
-  font-size: 0.95rem;
+  font-size: clamp(0.7rem, 1vw, 0.95rem);
   color: #050001;
 }
 
@@ -508,7 +615,49 @@ body {
     display: none;
   }
 
-  .town-panel .town-header { grid-area: title-bar; }
+  .mobile-title-bar {
+    grid-area: title-bar;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px 10px;
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+  /* Tighter at short heights so the title bar doesn't push the farms out. */
+  @media (max-height: 640px) {
+    .mobile-title-bar {
+      padding: 4px 8px;
+      font-size: 0.7rem;
+      gap: 4px 8px;
+    }
+    .mobile-title-bar .header-toggle {
+      padding: 2px 6px;
+      font-size: 0.7rem;
+    }
+  }
+
+  /* Shrink yield badges so they don't dominate the tiny mobile cells. */
+  .cell-yield {
+    width: 0.75rem;
+    height: 0.75rem;
+    font-size: 0.5rem;
+    border-width: 1px;
+  }
+  .mobile-title-bar-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .mobile-title-bar-toggles {
+    display: flex;
+    gap: 6px;
+  }
+
   .farm-panel[data-player="1"] .farm-header { grid-area: p1-header; }
   .farm-panel[data-player="1"] .farm-area   { grid-area: p1-field; }
   .farm-panel[data-player="2"] .farm-header { grid-area: p2-header; }
@@ -571,8 +720,7 @@ body {
   .farm-grid {
     width: min(100%, 34vh);
     aspect-ratio: 1;
-    background-color: #efe7ce;
-    padding: 4px;
+    padding: 0;
     box-sizing: border-box;
   }
 
