@@ -190,6 +190,12 @@ with open(jsonpath) as f:
 
 
 def html_renderer():
+    htmlpath = path.join(dirpath, "visualizer", "default", "dist", "index.html")
+    if path.exists(htmlpath):
+        with open(htmlpath, encoding="utf-8") as f:
+            return f.read()
     jspath = path.abspath(path.join(dirpath, "connectx.js"))
-    with open(jspath, encoding="utf-8") as f:
-        return f.read()
+    if path.exists(jspath):
+        with open(jspath, encoding="utf-8") as f:
+            return f.read()
+    return ""

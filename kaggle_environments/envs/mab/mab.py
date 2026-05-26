@@ -138,9 +138,15 @@ with open(json_path) as json_file:
 
 
 def html_renderer():
+    html_path = path.join(dir_path, "visualizer", "default", "dist", "index.html")
+    if path.exists(html_path):
+        with open(html_path, encoding="utf-8") as f:
+            return f.read()
     js_path = path.abspath(path.join(dir_path, "mab.js"))
-    with open(js_path, encoding="utf-8") as js_file:
-        return js_file.read()
+    if path.exists(js_path):
+        with open(js_path, encoding="utf-8") as js_file:
+            return js_file.read()
+    return ""
 
 
 agents = all_agents

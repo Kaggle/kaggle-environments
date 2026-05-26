@@ -42,6 +42,29 @@ if [ "$VERSION_EXISTS" = "true" ]; then
   echo "⏩ Version $VERSION_FROM_PYPROJECT already exists on PyPI. Skipping publish."
 else
   echo "🚀 Version $VERSION_FROM_PYPROJECT not found on PyPI. Publishing..."
+
+  # Prune visualizer trees to keep only `dist/index.html` (the self-contained
+  # bundle produced by vite-plugin-singlefile). flit_core's wheel builder does
+  # not apply [tool.flit.sdist] excludes, so we have to physically remove
+  # node_modules / src / e2e / etc. before `flit publish` or they end up in
+  # the wheel. The `build-all-visualizers` step must run before this.
+  echo "Pruning visualizer trees to dist/index.html only..."
+  find kaggle_environments -type d -name visualizer | while read -r viz_dir; do
+    find "$viz_dir" -mindepth 1 -maxdepth 1 -type d | while read -r variant; do
+      keep="$variant/dist/index.html"
+      if [ -f "$keep" ]; then
+        tmp=$(mktemp)
+        cp "$keep" "$tmp"
+        rm -rf "$variant"
+        mkdir -p "$variant/dist"
+        mv "$tmp" "$keep"
+      else
+        echo "  ⚠️  No dist/index.html for $variant — removing entirely."
+        rm -rf "$variant"
+      fi
+    done
+  done
+
   pip install flit --quiet
   export FLIT_USERNAME=__token__
   export FLIT_PASSWORD=$PYPI_TOKEN
