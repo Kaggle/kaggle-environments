@@ -234,7 +234,23 @@ class AntForagingArenaState(pyspiel.State):
             return []
         if player != self._current_player_id():
             return []
-        return [a.value for a in Action]
+        # Mirror upstream ant_foraging: STAY is always legal; directions
+        # are only legal when they keep the ant on the board.
+        seat = _seat_of(player, self._players_per_team)
+        team = _team_of(player, self._players_per_team)
+        board = self._boards[team]
+        r, c = board["ant_positions"][seat]
+        # Read grid_size from the board itself so this also works on
+        # states reconstructed via pyspiel.deserialize_game_and_state
+        # (where ``self._game`` may not retain Python attributes).
+        grid_size = len(board["grid"])
+        actions = [Action.STAY.value]
+        for action in (Action.UP, Action.DOWN, Action.LEFT, Action.RIGHT):
+            dr, dc = _ACTION_DELTAS[action]
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < grid_size and 0 <= nc < grid_size:
+                actions.append(action.value)
+        return sorted(actions)
 
     def _apply_action(self, action_value):
         if self._is_terminal:
@@ -267,7 +283,8 @@ class AntForagingArenaState(pyspiel.State):
         r, c = board["ant_positions"][seat]
         dr, dc = _ACTION_DELTAS[action]
         nr, nc = r + dr, c + dc
-        # Out-of-bounds moves stay put (mirrors upstream ant_foraging).
+        # _legal_actions filters off-board moves, so this is defensive
+        # only (e.g. callers that bypass legal_actions).
         if not (0 <= nr < grid_size and 0 <= nc < grid_size):
             nr, nc = r, c
         board["ant_positions"][seat] = (nr, nc)
