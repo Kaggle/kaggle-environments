@@ -39,15 +39,16 @@ def _is_cluemaster(turn: int) -> bool:
 
 
 def _inject_multi_game_context(observation: Mapping[str, Any]) -> str:
-    """Status block shown only when more than one game will be played.
+    """Status block shown only on the second and later games.
 
-    Returns an empty string in the single-game case so that prompt is unchanged.
+    On the first game (single-game session or game 0 of a multi-game session)
+    the score is trivially 0–0 and nothing useful would be added, so the
+    single-game prompt remains unchanged.
     """
-    games_per_episode = observation.get("games_per_episode", 1)
-    if games_per_episode <= 1:
+    current_game = observation.get("current_game", 0)
+    if current_game == 0:
         return ""
 
-    current_game = observation.get("current_game", 0)
     blue_wins = observation.get("blue_wins", 0)
     yellow_wins = observation.get("yellow_wins", 0)
     return (

@@ -91,10 +91,6 @@
     "current_game": {
       "description": "The index of the current game within the episode (0-indexed).",
       "type": "integer"
-    },
-    "games_per_episode": {
-      "description": "Total number of games to be played in this episode.",
-      "type": "integer"
     }
   },
   "action": {
