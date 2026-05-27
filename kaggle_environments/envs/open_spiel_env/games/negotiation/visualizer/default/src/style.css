@@ -1,0 +1,343 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.renderer-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background-color: #f5f1e2;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+  box-sizing: border-box;
+  padding: 12px;
+  gap: 10px;
+  color: #050001;
+  container-type: inline-size;
+}
+
+.sketched-border {
+  border: 1px dashed #3c3b37;
+}
+
+/* --- Header (player cards + turn badge) --- */
+.neg-header {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  gap: 14px;
+  width: 100%;
+  max-width: 720px;
+  flex-shrink: 0;
+}
+
+.neg-player-card {
+  flex: 1 1 0;
+  padding: 8px 12px;
+  background-color: white;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition:
+    scale 300ms,
+    background-color 300ms;
+}
+
+.neg-player-card.active {
+  background-color: #bdeeff;
+  scale: 1.03;
+}
+
+.neg-player-card.accepted {
+  background-color: #d8f5c8;
+}
+
+.neg-player-name {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.neg-player-name .neg-player-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.neg-glyph {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.neg-player-card.p0 .neg-glyph {
+  background-color: #1f4f8b;
+}
+
+.neg-player-card.p1 .neg-glyph {
+  background-color: #9a3324;
+}
+
+.neg-player-card .neg-score {
+  font-family: 'Mynerve', cursive;
+  color: #444343;
+  font-size: 0.95rem;
+}
+
+.neg-util-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  color: #444343;
+}
+
+.neg-util-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  background-color: #f5f1e2;
+  border: 1px dashed #3c3b37;
+}
+
+.neg-util-chip.hidden {
+  font-style: italic;
+  color: #888;
+}
+
+.neg-util-swatch {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.neg-turn-badge {
+  align-self: center;
+  font-family: 'Mynerve', cursive;
+  color: #444343;
+  font-size: 1rem;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+/* --- Item pool --- */
+.neg-pool {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 720px;
+  background-color: white;
+  padding: 8px 12px;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.neg-pool-title {
+  font-weight: 600;
+  font-size: 0.85rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.neg-pool-title .neg-pool-sub {
+  font-family: 'Mynerve', cursive;
+  font-weight: 400;
+  color: #444343;
+}
+
+.neg-pool-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.neg-pool-row .neg-pool-label {
+  width: 80px;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.neg-pool-items {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.neg-pool-item {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid #3c3b37;
+  display: inline-block;
+}
+
+.neg-pool-row .neg-pool-count {
+  font-family: 'Mynerve', cursive;
+  font-size: 0.95rem;
+  color: #444343;
+  min-width: 28px;
+  text-align: right;
+}
+
+/* --- Conversation log --- */
+.neg-log {
+  flex: 1 1 0;
+  width: 100%;
+  max-width: 720px;
+  min-height: 0;
+  overflow-y: auto;
+  background-color: white;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neg-log-empty {
+  font-family: 'Mynerve', cursive;
+  color: #888;
+  font-size: 0.95rem;
+  text-align: center;
+  padding: 12px 0;
+}
+
+.neg-msg {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.neg-msg.from-p0 {
+  justify-content: flex-start;
+}
+
+.neg-msg.from-p1 {
+  justify-content: flex-end;
+}
+
+.neg-bubble {
+  padding: 6px 10px;
+  background-color: #f5f1e2;
+  border: 1px dashed #3c3b37;
+  max-width: 78%;
+  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.neg-bubble.accept {
+  background-color: #d8f5c8;
+  font-weight: 700;
+}
+
+.neg-bubble.latest {
+  background-color: #bdeeff;
+}
+
+.neg-bubble-who {
+  font-weight: 700;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.neg-bubble-split {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.neg-split-side {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.neg-split-arrow {
+  font-family: 'Mynerve', cursive;
+  color: #444343;
+  font-size: 0.95rem;
+}
+
+.neg-mini-item {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid #3c3b37;
+  display: inline-block;
+}
+
+.neg-mini-count {
+  font-family: 'Mynerve', cursive;
+  font-size: 0.85rem;
+  color: #444343;
+}
+
+.neg-utterance {
+  font-family: 'Mynerve', cursive;
+  font-size: 0.85rem;
+  color: #444343;
+}
+
+/* --- Status footer --- */
+.neg-status {
+  width: 100%;
+  max-width: 720px;
+  background-color: white;
+  padding: 8px 14px;
+  text-align: center;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.neg-status .neg-status-sub {
+  font-family: 'Mynerve', cursive;
+  color: #444343;
+  font-size: 0.9rem;
+}
+
+@container (max-width: 680px) {
+  .neg-player-card {
+    padding: 6px 8px;
+  }
+  .neg-player-name {
+    font-size: 0.85rem;
+  }
+  .neg-util-row {
+    font-size: 0.72rem;
+  }
+  .neg-pool-row .neg-pool-label {
+    width: 64px;
+    font-size: 0.78rem;
+  }
+  .neg-pool-item {
+    width: 14px;
+    height: 14px;
+  }
+}

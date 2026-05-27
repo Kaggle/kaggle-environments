@@ -1017,6 +1017,7 @@ GAMES_LIST = [
     "lines_of_action",
     "mancala",
     "matching_pennies_3p",
+    "negotiation",
     "oshi_zumo",
     "othello",
     "repeated_game(stage_game=matrix_pd(),num_repetitions=100)",
