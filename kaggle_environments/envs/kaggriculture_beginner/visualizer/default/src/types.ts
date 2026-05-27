@@ -103,9 +103,9 @@ export interface PlayerRefs {
 }
 
 export interface LayoutRefs {
-  dayValue: HTMLElement;
+  dayValues: HTMLElement[];
   lastDay: number;
-  turnValue: HTMLElement;
+  turnValues: HTMLElement[];
   lastTurn: number;
   players: PlayerRefs[];
 }

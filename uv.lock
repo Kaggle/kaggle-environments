@@ -1359,7 +1359,7 @@ requires-dist = [
     { name = "jsonschema", specifier = ">=3.0.1" },
     { name = "litellm", specifier = ">=1.86.1" },
     { name = "numpy", specifier = ">=2.0" },
-    { name = "open-spiel", specifier = ">=1.6.14" },
+    { name = "open-spiel", specifier = ">=1.6.15" },
     { name = "pettingzoo", specifier = "==1.24.0" },
     { name = "pokerkit", specifier = "==0.6.3" },
     { name = "pydantic", specifier = ">=2.11.4" },
