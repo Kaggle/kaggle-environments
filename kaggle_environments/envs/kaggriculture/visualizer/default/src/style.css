@@ -821,7 +821,8 @@ body {
     height: 100%;
     padding: 8px;
     gap: 6px;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
     /* keep default `safe center` so the main is centered vertically when
        its content (capped farms + headers) is shorter than the container */
   }
