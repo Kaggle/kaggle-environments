@@ -47,11 +47,12 @@ body {
 .kaggriculture-main {
   display: grid;
   grid-template-columns: minmax(280px, 1.4fr) minmax(260px, 1fr) minmax(280px, 1.4fr);
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto 1fr auto auto;
   grid-template-areas:
     "bush     bush    bush"
     "p1-field town    p2-field"
-    "p1-combo market  p2-combo";
+    "p1-combo market  p2-combo"
+    "bush-bot bush-bot bush-bot";
   row-gap: 24px;
   /* Scales the farm/town gap down on narrow desktop widths so the town
      doesn't feel cramped against the farms while still giving plenty of
@@ -65,7 +66,8 @@ body {
   display: contents;
 }
 
-.bush-border-top { grid-area: bush; }
+.bush-border-top    { grid-area: bush; }
+.bush-border-bottom { grid-area: bush-bot; }
 
 .bush-border {
   position: relative;
@@ -73,7 +75,12 @@ body {
      farm cells and the town's flower border, which both render at z:5
      inside their own stacking contexts. */
   z-index: 0;
-  width: 100%;
+  /* Break out of .kaggriculture-container's 16px side padding so the bush
+     strip runs all the way to the screen edges, matching the fence overhang
+     on the outermost farm columns. */
+  width: calc(100% + 32px);
+  margin-left: -16px;
+  margin-right: -16px;
   height: 96px;
   background-repeat: repeat-x;
   /* `auto 100%` keeps the sprite at a fixed pixel height so it tiles across
@@ -83,10 +90,75 @@ body {
   pointer-events: none;
   border-radius: 20px;
   overflow: hidden;
-  /* Pull the next row up far enough that the bottom ~half of the bush
-     overlaps the top edge of the farms + town, eating through the grid's
-     row-gap and into the field/town frame. */
-  margin-bottom: -56px;
+}
+
+/* Pull the next/previous row toward the bush so the bottom ~half of the
+   strip overlaps the field/town/player-box edge, eating through the grid's
+   row-gap and into the adjacent frame. */
+.bush-border-top    { margin-bottom: -56px; }
+.bush-border-bottom { margin-top: -56px; transform: scaleY(-1); }
+
+/* Vertical strips hugging the outer edges of each player's column. Placed as
+   grid items spanning both the field row and the combo (player-box) row, then
+   translated outward so they sit alongside (not inside) the farm + shed. The
+   horizontal sprite is reused via a rotated pseudo-element (CSS can't rotate
+   a background-image directly), mirroring the trick used by .town-flower-left. */
+.bush-border-left,
+.bush-border-right {
+  position: relative;
+  grid-row: 2 / 4;
+  align-self: stretch;
+  width: 96px;
+  /* Override the base `.bush-border` height (used by the top/bottom strips)
+     so align-self: stretch can size us to the spanned rows. */
+  height: auto;
+  /* Reset the base class's negative horizontal margins (those reach the
+     screen edges; we want column-edge placement here). */
+  margin: 0;
+  overflow: hidden;
+  background-image: none;
+  border-radius: 20px;
+  z-index: 0;
+  pointer-events: none;
+}
+/* translateX moves the strip just outside its grid column, leaving 56px of
+   overlap onto the column so the bush eats into the farm/shed edge the same
+   way the top/bottom strips eat into the field's top/bottom edges. */
+.bush-border-left {
+  grid-column: 1;
+  justify-self: start;
+  transform: translateX(calc(-100% + 56px));
+}
+.bush-border-right {
+  grid-column: 3;
+  justify-self: end;
+  transform: translateX(calc(100% - 56px));
+}
+
+.bush-border-left::before,
+.bush-border-right::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  /* Pre-rotation: long horizontal strip 96px tall. After rotating 90°, its
+     length becomes vertical (200vh covers any plausible container height)
+     and its 96px height becomes the visible strip width. */
+  width: 200vh;
+  height: 96px;
+  background-image: var(--bush-bg);
+  background-repeat: repeat-x;
+  background-size: auto 100%;
+  image-rendering: pixelated;
+}
+.bush-border-left::before {
+  left: 0;
+  transform-origin: bottom left;
+  transform: translateX(96px) rotate(-90deg);
+}
+.bush-border-right::before {
+  right: 0;
+  transform-origin: bottom right;
+  transform: translateX(-96px) rotate(90deg);
 }
 
 .farm-panel[data-player="1"] .farm-area   { grid-area: p1-field; }
@@ -121,9 +193,10 @@ body {
   background-repeat: repeat;
   background-size: 120px 80px;
   box-sizing: border-box;
-  /* Hug content vertically so a tall market panel doesn't stretch the shed
-     into a giant empty area on narrow desktop widths. */
-  align-self: start;
+  /* Sit above the bush-border bottom strip, which uses negative margin to
+     reach up into this row. */
+  position: relative;
+  z-index: 1;
 }
 
 .farm-header {
@@ -318,6 +391,13 @@ body {
 /* ---- Shed / inventory ---- */
 .shed-area {
   box-sizing: border-box;
+  /* Fill the remaining vertical space in .player-box (which now stretches
+     to match the market panel's row height) so the inventory grid below
+     can distribute the surplus as gap. */
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 /* When the shed is popped into the mobile dialog overlay, restore its own
@@ -334,6 +414,13 @@ body {
   display: grid;
   grid-template-columns: repeat(9, 1fr);
   gap: 4px;
+  /* Fill shed-area's full height and spread any surplus vertical space
+     evenly between the rows (and the top/bottom edges) so the gap grows
+     with the panel rather than leaving dead space at the bottom. Slots
+     stay square via .inventory-slot { aspect-ratio: 1 }. */
+  flex: 1 1 auto;
+  min-height: 0;
+  align-content: space-evenly;
 }
 
 .inventory-slot {
@@ -566,6 +653,8 @@ body {
   background-size: 120px 80px;
   padding: 8px 10px;
   box-sizing: border-box;
+  position: relative;
+  z-index: 1;
 }
 
 .market-header {
@@ -717,7 +806,9 @@ body {
     display: contents;
   }
 
-  .bush-border {
+  .bush-border,
+  .bush-border-left,
+  .bush-border-right {
     display: none;
   }
 

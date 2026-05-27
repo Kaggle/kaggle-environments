@@ -119,8 +119,10 @@ function escapeHtml(s: string): string {
 }
 
 function farmPanel(player: 1 | 2, rows: number, cols: number, name: string): string {
+  const sideClass = player === 1 ? 'bush-border-left' : 'bush-border-right';
   return `
     <section class="farm-panel" data-player="${player}">
+      <div class="bush-border ${sideClass}" style="--bush-bg:url(${encUrl(spriteSrc('bush_border_horizontal'))})"></div>
       <div class="farm-area">
         ${farmGrid(rows, cols)}
       </div>
@@ -221,6 +223,7 @@ export function buildShell(root: HTMLElement, board: BoardSize, playerNames: str
         ${farmPanel(1, board.rows, board.cols, playerNames[0] ?? 'Player 1')}
         ${townPanel()}
         ${farmPanel(2, board.rows, board.cols, playerNames[1] ?? 'Player 2')}
+        <div class="bush-border bush-border-bottom" style="background-image:url(${encUrl(spriteSrc('bush_border_horizontal'))})"></div>
       </main>
       <div class="simple-dialog" hidden>
         <div class="simple-dialog-titlebar">
