@@ -167,6 +167,44 @@ def test_multi_game_cumulative_rewards():
     # Sum of all 4 agent rewards should be 2 * (blue_wins + yellow_wins) = 6
     assert sum(rewards) == 6
 
+def test_multi_game_memory_consistent_across_agents():
+    # All 4 agents should see the same memory fields after multi-game runs;
+    # the per-game reset must update every agent, not only state[0].
+    env = make("word_association", configuration={"games_per_episode": 3, "seed": 7})
+    env.run(["random", "random", "random", "random"])
+
+    obs0 = env.state[0].observation
+    for i in range(1, 4):
+        oi = env.state[i].observation
+        assert oi.current_game == obs0.current_game, f"agent {i} current_game mismatch"
+        assert len(oi.history) == len(obs0.history), f"agent {i} history length mismatch"
+        assert len(oi.current_game_turns) == len(obs0.current_game_turns), (
+            f"agent {i} current_game_turns length mismatch"
+        )
+        assert oi.blue_wins == obs0.blue_wins
+        assert oi.yellow_wins == obs0.yellow_wins
+
+
+def test_multi_game_per_game_seed_uniqueness():
+    # Different games within one episode must use different word boards.
+    env = make("word_association", configuration={"games_per_episode": 2, "seed": 7})
+    env.reset()
+    words_game1 = list(env.state[0].observation.words)
+    env.run(["random", "random", "random", "random"])
+    words_game2 = list(env.state[0].observation.words)
+    assert words_game1 != words_game2
+
+    # First game must use the provided seed directly (matches a solo run).
+    solo = make("word_association", configuration={"games_per_episode": 1, "seed": 7})
+    solo.reset()
+    assert list(solo.state[0].observation.words) == words_game1
+
+    # Full episode is deterministic across runs.
+    env2 = make("word_association", configuration={"games_per_episode": 2, "seed": 7})
+    env2.run(["random", "random", "random", "random"])
+    assert list(env2.state[0].observation.words) == words_game2
+
+
 if __name__ == "__main__":
     test_word_association_completes()
     test_random_start_counts()
@@ -176,4 +214,6 @@ if __name__ == "__main__":
     test_clue_validation()
     test_space_hyphen_validation()
     test_multi_game_cumulative_rewards()
+    test_multi_game_memory_consistent_across_agents()
+    test_multi_game_per_game_seed_uniqueness()
     print("All Word Association rule tests passed!")

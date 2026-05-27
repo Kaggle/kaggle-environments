@@ -296,15 +296,19 @@ def interpreter(state, env):
                     s.observation.yellow_wins += 1
             
             window_size = env.configuration.get("memory_window_size", 0)
-            save_game_to_history(obs, winner, window_size)
-            
+            # Per-game memory lives on every agent's observation (track_turn
+            # writes to all four), so save/reset must touch all of them — not
+            # just state[0] — or subsequent prompts will leak prior-game turns.
+            for s in state:
+                save_game_to_history(s.observation, winner, window_size)
+
             if obs.current_game + 1 < games_per_episode:
-                # Continue to next game
-                obs.current_game += 1
-                obs.current_game_turns = []
-                obs._last_clue = ""
-                obs._last_revealed = [False] * len(obs.revealed)
-                
+                for s in state:
+                    s.observation.current_game += 1
+                    s.observation.current_game_turns = []
+                    s.observation._last_clue = ""
+                    s.observation._last_revealed = [False] * len(s.observation.revealed)
+
                 # Reset board (re-init)
                 initialize_game(state, env.configuration)
                 
