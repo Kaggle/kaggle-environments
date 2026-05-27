@@ -1,14 +1,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
 
-html, body, #app {
-  width: 100%;
-  min-height: 100%;
-  margin: 0;
-  padding: 0;
-}
-
 body {
   font-family: 'Inter', sans-serif;
+}
+
+/* The shared player.css declares `.viewer { flex-grow: 1 }` but leaves the
+   default `min-height: auto`, which lets the viewer expand to fit its content's
+   intrinsic minimum -- and our farm grids have `aspect-ratio: 1` on a wide
+   column, giving them a large intrinsic height. Without min-height: 0 the
+   viewer pushes past .player's height and the inline playback controls below
+   end up below the viewport. */
+.viewer {
+  min-height: 0;
 }
 
 .sketched-border {
@@ -20,7 +23,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 16px;
+  padding: 0px 16px;
   box-sizing: border-box;
   gap: 12px;
   justify-content: safe center;
@@ -40,16 +43,149 @@ body {
   color: #050001;
 }
 
-/* ---- Main 3-column layout ---- */
+/* ---- Main 3-column layout ----
+   Top row: two farm fields flanking the town. Bottom row: each player's
+   combined name/shed box alongside the market — all three boxes share the
+   same row height. */
 .kaggriculture-main {
   display: grid;
+  width: 100%;
+  max-width: 2200px;
+  margin: 0 auto;
   grid-template-columns: minmax(280px, 1.4fr) minmax(260px, 1fr) minmax(280px, 1.4fr);
-  gap: 16px;
-  align-items: start;
+  grid-template-rows: auto 1fr auto auto;
+  grid-template-areas:
+    "bush     bush    bush"
+    "p1-field town    p2-field"
+    "p1-combo market  p2-combo"
+    "bush-bot bush-bot bush-bot";
+  row-gap: 24px;
+  /* Scales the farm/town gap down on narrow desktop widths so the town
+     doesn't feel cramped against the farms while still giving plenty of
+     breathing room (and side-fence clearance) on wider screens. */
+  column-gap: clamp(16px, 2vw, 32px);
+  align-items: stretch;
 }
+
+.farm-panel,
+.town-panel {
+  display: contents;
+}
+
+.bush-border-top    { grid-area: bush; }
+.bush-border-bottom { grid-area: bush-bot; }
+
+.bush-border {
+  position: relative;
+  /* Negative z-index keeps the bush beneath the fence overhang on top-row
+     farm cells and the town's flower border, which both render at z:5
+     inside their own stacking contexts. */
+  z-index: 0;
+  /* Break out of .kaggriculture-container's 16px side padding plus an extra
+     16px on each side so the bush strip extends past the screen edges, giving
+     the rounded outer corners room to curl off-screen. */
+  width: calc(100% + 64px);
+  margin-left: -32px;
+  margin-right: -32px;
+  height: 96px;
+  background-repeat: repeat-x;
+  /* `auto 100%` keeps the sprite at a fixed pixel height so it tiles across
+     the row instead of stretching to fit the container width. */
+  background-size: auto 100%;
+  image-rendering: pixelated;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Pull the next/previous row toward the bush so the bottom ~half of the
+   strip overlaps the field/town/player-box edge, eating through the grid's
+   row-gap and into the adjacent frame.
+   Round only the outer corners (away from the main content) so the inner
+   edge butts cleanly against the farms. .bush-border-bottom uses scaleY(-1),
+   so its visually-bottom corners are the pre-transform top corners. */
+.bush-border-top    { margin-bottom: -56px; border-radius: 48px 48px 0 0; }
+.bush-border-bottom { margin-top: -56px; transform: scaleY(-1); border-radius: 48px 48px 0 0; }
+
+/* Vertical strips hugging the outer edges of each player's column. Placed as
+   grid items spanning both the field row and the combo (player-box) row, then
+   translated outward so they sit alongside (not inside) the farm + shed. The
+   horizontal sprite is reused via a rotated pseudo-element (CSS can't rotate
+   a background-image directly), mirroring the trick used by .town-flower-left. */
+.bush-border-left,
+.bush-border-right {
+  position: relative;
+  grid-row: 2 / 4;
+  align-self: stretch;
+  width: 96px;
+  /* Override the base `.bush-border` height (used by the top/bottom strips)
+     so align-self: stretch can size us to the spanned rows. */
+  height: auto;
+  /* Reset the base class's negative horizontal margins (those reach the
+     screen edges; we want column-edge placement here). */
+  margin: 0;
+  overflow: hidden;
+  background-image: none;
+  z-index: 0;
+  pointer-events: none;
+}
+/* translateX moves the strip just outside its grid column, leaving 56px of
+   overlap onto the column so the bush eats into the farm/shed edge the same
+   way the top/bottom strips eat into the field's top/bottom edges.
+   Round only the outer (far-from-center) corners so the inner edge butts
+   cleanly against the farm. */
+.bush-border-left {
+  grid-column: 1;
+  justify-self: start;
+  transform: translateX(calc(-100% + 56px));
+  border-radius: 48px 0 0 48px;
+}
+.bush-border-right {
+  grid-column: 3;
+  justify-self: end;
+  transform: translateX(calc(100% - 56px));
+  border-radius: 0 48px 48px 0;
+}
+
+.bush-border-left::before,
+.bush-border-right::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  /* Pre-rotation: long horizontal strip 96px tall. After rotating 90°, its
+     length becomes vertical (200vh covers any plausible container height)
+     and its 96px height becomes the visible strip width. */
+  width: 200vh;
+  height: 96px;
+  background-image: var(--bush-bg);
+  background-repeat: repeat-x;
+  background-size: auto 100%;
+  image-rendering: pixelated;
+}
+.bush-border-left::before {
+  left: 0;
+  transform-origin: bottom left;
+  transform: translateX(96px) rotate(-90deg);
+}
+.bush-border-right::before {
+  right: 0;
+  transform-origin: bottom right;
+  transform: translateX(-96px) rotate(90deg);
+}
+
+.farm-panel[data-player="1"] .farm-area   { grid-area: p1-field; }
+.farm-panel[data-player="1"] .player-box  { grid-area: p1-combo; }
+.farm-panel[data-player="2"] .farm-area   { grid-area: p2-field; }
+.farm-panel[data-player="2"] .player-box  { grid-area: p2-combo; }
+.town-wrap    { grid-area: town; position: relative; align-self: stretch; }
+.market-panel { grid-area: market; }
 
 /* Hide mobile-only header buttons on desktop. */
 .header-toggle {
+  display: none;
+}
+
+/* Mobile-only title bar; shown via the @media block below. */
+.mobile-title-bar {
   display: none;
 }
 
@@ -59,23 +195,28 @@ body {
 }
 
 /* ---- Farm panel ---- */
-.farm-panel {
+.player-box {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  min-width: 0;
+  gap: 8px;
+  padding: 8px 10px;
+  background-color: #e8d2a6;
+  background-repeat: repeat;
+  background-size: 120px 80px;
+  box-sizing: border-box;
+  /* Sit above the bush-border bottom strip, which uses negative margin to
+     reach up into this row. */
+  position: relative;
+  z-index: 1;
 }
 
 .farm-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
-  background-color: #e8d2a6;
-  background-repeat: repeat;
-  background-size: 120px 80px;
+  gap: 8px;
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: clamp(0.7rem, 1.25vw, 1.05rem);
 }
 
 .farm-header-left {
@@ -116,9 +257,7 @@ body {
 
 /* ---- Farm grid ---- */
 .farm-area {
-  background-color: #efe7ce;
-  padding: 6px;
-  border: 1px dashed #3c3b37;
+  padding: 0;
 }
 
 .farm-grid {
@@ -180,6 +319,35 @@ body {
 .cell-object  { z-index: 3; }
 .cell-agent   { z-index: 4; }
 
+.cell-fence {
+  position: absolute;
+  pointer-events: none;
+  image-rendering: pixelated;
+  z-index: 5;
+  object-fit: contain;
+}
+.cell-fence-top,
+.cell-fence-bottom {
+  left: -1px;
+  right: -1px;
+  width: calc(100% + 2px);
+  height: auto;
+}
+.cell-fence-top    { top: 0;    transform: translateY(-50%); }
+.cell-fence-bottom { bottom: 0; transform: translateY(50%); }
+.cell-fence-left,
+.cell-fence-right {
+  top: -1px;
+  bottom: -1px;
+  height: calc(100% + 2px);
+  width: auto;
+}
+/* Push the side fences further outward (most of the sprite sits in the
+   column gap rather than across the cell) so they stop covering the yield
+   badge on the outermost tiles. */
+.cell-fence-left  { left: 0;  transform: translateX(-65%); }
+.cell-fence-right { right: 0; transform: translateX(65%); }
+
 .cell-sprite {
   position: absolute;
   inset: 0;
@@ -233,23 +401,37 @@ body {
 
 /* ---- Shed / inventory ---- */
 .shed-area {
+  box-sizing: border-box;
+  /* Fill the remaining vertical space in .player-box (which now stretches
+     to match the market panel's row height) so the inventory grid below
+     can distribute the surplus as gap. */
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* When the shed is popped into the mobile dialog overlay, restore its own
+   wooden background since it lost the .player-box wrapper. */
+.simple-dialog-body > .shed-area {
   background-color: #e8d2a6;
   background-repeat: repeat;
   background-size: 120px 80px;
   padding: 8px 10px;
-  box-sizing: border-box;
-}
-
-.shed-header {
-  font-weight: 700;
-  font-size: 0.95rem;
-  margin-bottom: 6px;
+  border: 1px dashed #3c3b37;
 }
 
 .inventory-grid {
   display: grid;
-  grid-template-columns: repeat(10, 1fr);
+  grid-template-columns: repeat(9, 1fr);
   gap: 4px;
+  /* Fill shed-area's full height and spread any surplus vertical space
+     evenly between the rows (and the top/bottom edges) so the gap grows
+     with the panel rather than leaving dead space at the bottom. Slots
+     stay square via .inventory-slot { aspect-ratio: 1 }. */
+  flex: 1 1 auto;
+  min-height: 0;
+  align-content: space-evenly;
 }
 
 .inventory-slot {
@@ -293,13 +475,6 @@ body {
 }
 
 /* ---- Town panel ---- */
-.town-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-width: 0;
-}
-
 .town-header {
   display: flex;
   flex-direction: column;
@@ -323,37 +498,196 @@ body {
 }
 
 .town-grid {
+  position: relative;
   display: grid;
   gap: 0;
-  width: 80%;
-  margin-top: auto;
-  margin-left: auto;
-  margin-right: auto;
+  width: 100%;
+  height: 100%;
+  align-content: center;
+  box-sizing: border-box;
+  border-radius: 20px;
+  overflow: hidden;
 }
 
 .town-slot {
   position: relative;
   aspect-ratio: 1;
-}
-
-.town-slot--shop,
-.town-slot--center {
-  background-size: 100% 100%;
-  image-rendering: pixelated;
-}
-
-.town-slot--center {
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
+.town-slot--shop,
+.town-slot--center,
+.town-slot--sign {
+  image-rendering: pixelated;
+}
+
 .town-sprite {
-  width: 100%;
-  height: 100%;
+  width: 78%;
+  height: 78%;
   object-fit: contain;
   display: block;
   image-rendering: pixelated;
+}
+
+/* The sign lives in slot 4 but should visually hang halfway across the
+   slot 4/7 boundary, so absolute-position it on the bottom edge and
+   translate it down by half its height. */
+.town-slot--sign .town-sprite {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translate(-50%, 50%);
+  z-index: 6;
+}
+
+/* Tiny geese that idle on the middle column tiles. left/top are set inline
+   by renderGeese as percentages relative to .town-grid; transform handles
+   centering (and the horizontal flip when the bird turns around). The
+   transition smooths the position hop that happens every few turns. */
+.town-goose {
+  position: absolute;
+  width: 14%;
+  height: auto;
+  z-index: 7;
+  pointer-events: none;
+  image-rendering: pixelated;
+  /* --flip is read by both the static transform and the hop keyframes so
+     individual geese can face either direction without the animation
+     stripping the scaleX. */
+  --flip: 1;
+  transform: translate(-50%, -50%) scaleX(var(--flip));
+}
+/* Flip the middle goose so the flock isn't all facing the same way. */
+.town-goose[data-goose="1"] { --flip: -1; }
+
+/* renderGeese adds .hopping to one bird per interval so it bounces in place
+   a few times. The keyframes preserve centering + flip and add a small
+   vertical bob on top. */
+@keyframes town-goose-hop {
+  0%, 100% { transform: translate(-50%, -50%) scaleX(var(--flip)); }
+  50%      { transform: translate(-50%, calc(-50% - 8%)) scaleX(var(--flip)); }
+}
+.town-goose.hopping {
+  animation: town-goose-hop 0.35s ease-in-out 3;
+}
+
+.town-flower {
+  position: absolute;
+  pointer-events: none;
+  image-rendering: pixelated;
+  z-index: 5;
+  background-repeat: repeat;
+}
+.town-flower-top,
+.town-flower-bottom {
+  left: -12px;
+  right: -12px;
+  height: 48px;
+  /* Natural tile width at 48px tall is ~73px; slight horizontal compression
+     closes the gap between the sprite's transparent side margins. */
+  background-size: 68px 100%;
+  overflow: hidden;
+}
+.town-flower-top    { top: 0; border-radius: 20px 20px 0 0; }
+.town-flower-bottom { bottom: 0; transform: translateY(50%); border-radius: 0 0 20px 20px; }
+.town-flower-left,
+.town-flower-right {
+  top: 0;
+  bottom: 0;
+  width: 48px;
+  overflow: hidden;
+  background-image: none;
+}
+.town-flower-left  { left: -12px; border-radius: 20px 0 0 20px; }
+.town-flower-right { right: -12px; border-radius: 0 20px 20px 0; }
+
+/* The vertical strips reuse the horizontal flower sprite via a rotated
+   pseudo-element, since CSS can't rotate a background-image directly. */
+.town-flower-left::before,
+.town-flower-right::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: 200vh;
+  height: 48px;
+  background-image: var(--flower-bg);
+  background-repeat: repeat-x;
+  background-size: 68px 100%;
+  image-rendering: pixelated;
+}
+.town-flower-left::before {
+  left: 0;
+  transform-origin: bottom left;
+  transform: translateX(48px) rotate(-90deg);
+}
+.town-flower-right::before {
+  right: 0;
+  transform-origin: bottom right;
+  transform: translateX(-48px) rotate(90deg);
+}
+
+/* Inner flower border that wraps the 1x2 grass region (sign + empty grass)
+   in the middle column. .town-inner-box is an absolutely positioned child
+   of the sign slot, sized 100% wide x 200% tall so it covers the sign slot
+   AND the empty grass slot directly below it. Anchoring to a real slot's
+   dimensions (rather than grid-percentages) keeps the box exact even when
+   the grid row heights stretch. Its own border-radius + overflow:hidden
+   produce rounded corners just like town-grid does for the outer border. */
+.town-inner-box {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 200%;
+  overflow: hidden;
+  border-radius: 20px;
+  pointer-events: none;
+}
+
+.town-flower-inner-top,
+.town-flower-inner-bottom {
+  left: 0;
+  right: 0;
+  height: 48px;
+  background-size: 68px 100%;
+}
+.town-flower-inner-top    { top: 0; }
+.town-flower-inner-bottom { bottom: 0; transform: translateY(50%); }
+
+.town-flower-inner-left,
+.town-flower-inner-right {
+  top: 0;
+  bottom: 0;
+  width: 48px;
+  overflow: hidden;
+  background-image: none;
+}
+.town-flower-inner-left  { left: 0; }
+.town-flower-inner-right { right: 0; }
+
+.town-flower-inner-left::before,
+.town-flower-inner-right::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: 200vh;
+  height: 48px;
+  background-image: var(--flower-bg);
+  background-repeat: repeat-x;
+  background-size: 68px 100%;
+  image-rendering: pixelated;
+}
+.town-flower-inner-left::before {
+  left: 0;
+  transform-origin: bottom left;
+  transform: translateX(48px) rotate(-90deg);
+}
+.town-flower-inner-right::before {
+  right: 0;
+  transform-origin: bottom right;
+  transform: translateX(-48px) rotate(90deg);
 }
 
 /* ---- Market ---- */
@@ -363,18 +697,54 @@ body {
   background-size: 120px 80px;
   padding: 8px 10px;
   box-sizing: border-box;
+  position: relative;
+  z-index: 1;
 }
 
 .market-header {
   font-weight: 700;
   margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  text-align: center;
+  font-size: clamp(0.65rem, 1.05vw, 1rem);
+}
+
+.market-header-sep {
+  display: inline-block;
+  line-height: 1;
+}
+
+.market-header-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Inside the mobile market dialog, the date/turn already live in the title
+   bar above — hide the duplicate copy that travels with the panel. */
+.simple-dialog-body .market-header-clock {
+  display: none;
+}
+
+.market-header .day-value,
+.market-header .turn-value,
+.market-header .day-total,
+.market-header .turn-total {
+  display: inline-block;
+  min-width: 2ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .market-list {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
-  font-size: 0.95rem;
+  font-size: clamp(0.7rem, 1vw, 0.95rem);
   color: #050001;
 }
 
@@ -451,7 +821,8 @@ body {
     height: 100%;
     padding: 8px;
     gap: 6px;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
     /* keep default `safe center` so the main is centered vertically when
        its content (capped farms + headers) is shorter than the container */
   }
@@ -467,7 +838,11 @@ body {
       "p1-field"
       "p2-field"
       "p2-header";
-    gap: 6px;
+    /* Bigger row-gap so the fence sprites (which protrude ~half their
+       height past .farm-area via translateY) don't crash into the player
+       headers above/below. Column-gap is irrelevant in a single column. */
+    row-gap: 18px;
+    column-gap: 6px;
     align-items: stretch;
   }
 
@@ -476,18 +851,72 @@ body {
     display: contents;
   }
 
-  /* Hide everything that's now dialog-only by default. */
-  .shed-area,
-  .market-panel,
-  .town-grid {
+  .bush-border,
+  .bush-border-left,
+  .bush-border-right {
     display: none;
   }
 
-  .town-panel .town-header { grid-area: title-bar; }
-  .farm-panel[data-player="1"] .farm-header { grid-area: p1-header; }
-  .farm-panel[data-player="1"] .farm-area   { grid-area: p1-field; }
-  .farm-panel[data-player="2"] .farm-header { grid-area: p2-header; }
-  .farm-panel[data-player="2"] .farm-area   { grid-area: p2-field; }
+  /* Hide everything that's now dialog-only by default. */
+  .shed-area,
+  .market-panel,
+  .town-wrap {
+    display: none;
+  }
+
+  .mobile-title-bar {
+    grid-area: title-bar;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px 10px;
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+  /* Tighter at short heights so the title bar doesn't push the farms out. */
+  @media (max-height: 640px) {
+    .mobile-title-bar {
+      padding: 4px 8px;
+      font-size: 0.7rem;
+      gap: 4px 8px;
+    }
+    .mobile-title-bar .header-toggle {
+      padding: 2px 6px;
+      font-size: 0.7rem;
+    }
+  }
+
+  /* Shrink yield badges so they don't dominate the tiny mobile cells. */
+  .cell-yield {
+    width: 0.75rem;
+    height: 0.75rem;
+    font-size: 0.5rem;
+    border-width: 1px;
+  }
+  .mobile-title-bar-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .mobile-title-bar-toggles {
+    display: flex;
+    gap: 6px;
+  }
+
+  /* On mobile, .player-box contains only the header (shed-area is hidden),
+     so place the whole box in the header row. The desktop rule maps
+     .player-box to p1-combo/p2-combo, which don't exist in this mobile grid;
+     without this override, the boxes get auto-placed and the named header
+     rows stay empty. Targeting .farm-header directly doesn't work because
+     it isn't a direct grid item of .kaggriculture-main. */
+  .farm-panel[data-player="1"] .player-box { grid-area: p1-header; }
+  .farm-panel[data-player="1"] .farm-area  { grid-area: p1-field; }
+  .farm-panel[data-player="2"] .player-box { grid-area: p2-header; }
+  .farm-panel[data-player="2"] .farm-area  { grid-area: p2-field; }
 
   .town-header {
     flex-direction: row;
@@ -546,9 +975,7 @@ body {
   .farm-grid {
     width: min(100%, 34vh);
     aspect-ratio: 1;
-    background-color: #efe7ce;
-    border: 1px dashed #3c3b37;
-    padding: 4px;
+    padding: 0;
     box-sizing: border-box;
   }
 
@@ -597,8 +1024,9 @@ body {
   .simple-dialog-body {
     width: 100%;
   }
-  .simple-dialog-body .town-grid {
-    display: grid;
+  .simple-dialog-body .town-wrap {
+    display: block;
+    position: relative;
     width: 80%;
     margin: 0 auto;
   }

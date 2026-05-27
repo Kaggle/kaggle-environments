@@ -1,11 +1,21 @@
 export const SEGMENT = 5;
-export const INVENTORY_SLOTS = 20;
+// 18 slots laid out as a 9x2 grid. The shed + seeds together max out at 17
+// distinct item types (12 shed entries + 5 seed types), so one slot is
+// always empty.
+export const INVENTORY_SLOTS = 18;
 
-// 3x3 grid: town center pinned dead-center; the 8 surrounding cells are
-// exactly the 8 shops in SHOPS (one unlocked per 3 in-game days).
+// 3x4 grid: top row holds the bakery, town center, and pizza shop. The
+// town sign sits on bare grass at row 2 middle, with a grass-empty slot
+// below it and a brick-empty slot at the bottom of the middle column.
+// The remaining 6 shops line the left and right columns. Shops unlock
+// one per 3 in-game days.
 export const TOWN_GRID_COLS = 3;
-export const TOWN_GRID_ROWS = 3;
-export const TOWN_CENTER_INDEX = Math.floor((TOWN_GRID_COLS * TOWN_GRID_ROWS) / 2);
+export const TOWN_GRID_ROWS = 4;
+export const TOWN_CENTER_INDEX = 1;
+export const TOWN_SIGN_INDEX = 4;
+
+// Empty slots that get a brick backing instead of bare grass.
+export const TOWN_EMPTY_BRICK_INDICES: ReadonlySet<number> = new Set([10]);
 
 // segId = segR*2 + segC, where segR/segC come from row/col / SEGMENT.
 // (0,0)=NW, (0,1)=NE, (1,0)=SW, (1,1)=SE.
@@ -16,17 +26,18 @@ export const QUADRANT_BY_SEGMENT: Record<number, string> = {
   3: 'SE',
 };
 
-// Shop slot index (0..8 in the 3x3 grid, skipping the center=4) ->
-// { interpreter shop key, sprite name, display label for tooltips }.
+// Shop slot index in the 3x4 grid (skipping center=1, sign=4, grass-empty
+// cell 7, and brick-empty cell 10) -> { interpreter shop key, sprite name,
+// label }.
 export const SURROUNDING_BUILDINGS: Record<number, { shop: string; sprite: string; label: string }> = {
   0: { shop: 'BAKERY', sprite: 'bakery', label: 'Bakery' },
-  1: { shop: 'PIZZA_SHOP', sprite: 'pizza', label: 'Pizza Shop' },
-  2: { shop: 'BRUNCH_SPOT', sprite: 'brunch', label: 'Brunch Spot' },
-  3: { shop: 'YARN_STORE', sprite: 'yarn', label: 'Yarn Store' },
-  5: { shop: 'ICE_CREAM_SHOP', sprite: 'icecream', label: 'Ice Cream Shop' },
-  6: { shop: 'PET_CAFE', sprite: 'petcafe', label: 'Pet Cafe' },
-  7: { shop: 'SMOOTHIE_SHOP', sprite: 'smoothie', label: 'Smoothie Shop' },
-  8: { shop: 'FARMERS_MARKET', sprite: 'farmersmarket', label: "Farmers' Market" },
+  2: { shop: 'PIZZA_SHOP', sprite: 'pizza', label: 'Pizza Shop' },
+  3: { shop: 'BRUNCH_SPOT', sprite: 'brunch', label: 'Brunch Spot' },
+  5: { shop: 'YARN_STORE', sprite: 'yarn', label: 'Yarn Store' },
+  6: { shop: 'ICE_CREAM_SHOP', sprite: 'icecream', label: 'Ice Cream Shop' },
+  8: { shop: 'PET_CAFE', sprite: 'petcafe', label: 'Pet Cafe' },
+  9: { shop: 'SMOOTHIE_SHOP', sprite: 'smoothie', label: 'Smoothie Shop' },
+  11: { shop: 'FARMERS_MARKET', sprite: 'farmersmarket', label: "Farmers' Market" },
 };
 
 // Visible market items. `key` is the interpreter's PRODUCTS key; `sprite` is the asset name.
@@ -148,13 +159,14 @@ export interface DialogRefs {
 }
 
 export interface LayoutRefs {
-  dayValue: HTMLElement;
-  turnValue: HTMLElement;
+  dayValues: HTMLElement[];
+  turnValues: HTMLElement[];
   marketItems: Record<
     string,
     { item: HTMLElement; price: HTMLElement; sparkPath: SVGPathElement; lastSparkKey?: string }
   >;
   shopSlots: HTMLElement[];
+  townGeese: HTMLImageElement[];
   players: PlayerRefs[];
   dialog: DialogRefs;
 }

@@ -3,9 +3,9 @@ import { MARKET_ITEMS, READY_SPRITE_TYPES, type PrivateState, type ViewModel } f
 
 import bakery from './assets/sprites/bakery.png';
 import brunch_spot from './assets/sprites/brunch_spot.png';
+import bush_border_horizontal from './assets/sprites/bush_border_horizontal.png';
 import carrot_full from './assets/sprites/carrot_full.png';
 import carrot_ready from './assets/sprites/carrot_ready.png';
-import cobblestone_cell from './assets/sprites/cobblestone_cell.png';
 import coin from './assets/sprites/coin.png';
 import coop from './assets/sprites/coop.png';
 import cow from './assets/sprites/cow.png';
@@ -16,8 +16,13 @@ import farmers_market from './assets/sprites/farmers_market.png';
 import farmhand_1 from './assets/sprites/farmhand_1.png';
 import farmhand_2 from './assets/sprites/farmhand_2.png';
 import farmhand_3 from './assets/sprites/farmhand_3.png';
+import fence_horizontal from './assets/sprites/fence_horizontal.png';
+import fence_vertical from './assets/sprites/fence_vertical.png';
 import fertilizer from './assets/sprites/fertilizer.png';
+import flowers_horizontal from './assets/sprites/flowers_horizontal.png';
+import flowers_vertical from './assets/sprites/flowers_vertical.png';
 import goose from './assets/sprites/goose.png';
+import brick_bg from './assets/sprites/brick_bg.svg';
 import grass_bg from './assets/sprites/grass_bg.svg';
 import ice_cream_shop from './assets/sprites/ice_cream_shop.png';
 import locked_cell from './assets/sprites/locked_cell.png';
@@ -40,6 +45,7 @@ import strawberry_ready from './assets/sprites/strawberry_ready.png';
 import tomato_full from './assets/sprites/tomato_full.png';
 import tomato_ready from './assets/sprites/tomato_ready.png';
 import town_center from './assets/sprites/town_center.png';
+import town_sign from './assets/sprites/town_sign.png';
 import weed from './assets/sprites/weed.png';
 import wheat_full from './assets/sprites/wheat_full.png';
 import wood_bg from './assets/sprites/wood_bg.svg';
@@ -62,10 +68,10 @@ const SPRITE_URLS: Record<string, string> = {
   bakery,
   brunch_spot,
   brunch: brunch_spot,
+  bush_border_horizontal,
   carrot_full,
   carrot: carrot_full,
   carrot_ready,
-  cobblestone_cell,
   coin,
   coop,
   cow,
@@ -77,7 +83,11 @@ const SPRITE_URLS: Record<string, string> = {
   farmhand_1,
   farmhand_2,
   farmhand_3,
+  fence_horizontal,
+  fence_vertical,
   fertilizer,
+  flowers_horizontal,
+  flowers_vertical,
   goose,
   ice_cream_shop,
   icecream: ice_cream_shop,
@@ -107,6 +117,7 @@ const SPRITE_URLS: Record<string, string> = {
   tomato: tomato_full,
   tomato_ready,
   town_center,
+  town_sign,
   weed,
   wheat_full,
   wheat: wheat_full,
@@ -128,7 +139,7 @@ const SPRITE_URLS: Record<string, string> = {
 export const BG_URLS = {
   grass: grass_bg,
   wood: wood_bg,
-  cobble: cobblestone_cell,
+  brick: brick_bg,
 };
 
 export function spriteSrc(name: string): string {
