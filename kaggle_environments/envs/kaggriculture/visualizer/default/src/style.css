@@ -1,14 +1,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
 
-html, body, #app {
-  width: 100%;
-  min-height: 100%;
-  margin: 0;
-  padding: 0;
-}
-
 body {
   font-family: 'Inter', sans-serif;
+}
+
+/* The shared player.css declares `.viewer { flex-grow: 1 }` but leaves the
+   default `min-height: auto`, which lets the viewer expand to fit its content's
+   intrinsic minimum -- and our farm grids have `aspect-ratio: 1` on a wide
+   column, giving them a large intrinsic height. Without min-height: 0 the
+   viewer pushes past .player's height and the inline playback controls below
+   end up below the viewport. */
+.viewer {
+  min-height: 0;
 }
 
 .sketched-border {
@@ -20,7 +23,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 16px;
+  padding: 0px 16px;
   box-sizing: border-box;
   gap: 12px;
   justify-content: safe center;
@@ -46,6 +49,9 @@ body {
    same row height. */
 .kaggriculture-main {
   display: grid;
+  width: 100%;
+  max-width: 2200px;
+  margin: 0 auto;
   grid-template-columns: minmax(280px, 1.4fr) minmax(260px, 1fr) minmax(280px, 1.4fr);
   grid-template-rows: auto 1fr auto auto;
   grid-template-areas:
@@ -75,12 +81,12 @@ body {
      farm cells and the town's flower border, which both render at z:5
      inside their own stacking contexts. */
   z-index: 0;
-  /* Break out of .kaggriculture-container's 16px side padding so the bush
-     strip runs all the way to the screen edges, matching the fence overhang
-     on the outermost farm columns. */
-  width: calc(100% + 32px);
-  margin-left: -16px;
-  margin-right: -16px;
+  /* Break out of .kaggriculture-container's 16px side padding plus an extra
+     16px on each side so the bush strip extends past the screen edges, giving
+     the rounded outer corners room to curl off-screen. */
+  width: calc(100% + 64px);
+  margin-left: -32px;
+  margin-right: -32px;
   height: 96px;
   background-repeat: repeat-x;
   /* `auto 100%` keeps the sprite at a fixed pixel height so it tiles across
@@ -88,15 +94,17 @@ body {
   background-size: auto 100%;
   image-rendering: pixelated;
   pointer-events: none;
-  border-radius: 20px;
   overflow: hidden;
 }
 
 /* Pull the next/previous row toward the bush so the bottom ~half of the
    strip overlaps the field/town/player-box edge, eating through the grid's
-   row-gap and into the adjacent frame. */
-.bush-border-top    { margin-bottom: -56px; }
-.bush-border-bottom { margin-top: -56px; transform: scaleY(-1); }
+   row-gap and into the adjacent frame.
+   Round only the outer corners (away from the main content) so the inner
+   edge butts cleanly against the farms. .bush-border-bottom uses scaleY(-1),
+   so its visually-bottom corners are the pre-transform top corners. */
+.bush-border-top    { margin-bottom: -56px; border-radius: 48px 48px 0 0; }
+.bush-border-bottom { margin-top: -56px; transform: scaleY(-1); border-radius: 48px 48px 0 0; }
 
 /* Vertical strips hugging the outer edges of each player's column. Placed as
    grid items spanning both the field row and the combo (player-box) row, then
@@ -117,22 +125,25 @@ body {
   margin: 0;
   overflow: hidden;
   background-image: none;
-  border-radius: 20px;
   z-index: 0;
   pointer-events: none;
 }
 /* translateX moves the strip just outside its grid column, leaving 56px of
    overlap onto the column so the bush eats into the farm/shed edge the same
-   way the top/bottom strips eat into the field's top/bottom edges. */
+   way the top/bottom strips eat into the field's top/bottom edges.
+   Round only the outer (far-from-center) corners so the inner edge butts
+   cleanly against the farm. */
 .bush-border-left {
   grid-column: 1;
   justify-self: start;
   transform: translateX(calc(-100% + 56px));
+  border-radius: 48px 0 0 48px;
 }
 .bush-border-right {
   grid-column: 3;
   justify-self: end;
   transform: translateX(calc(100% - 56px));
+  border-radius: 0 48px 48px 0;
 }
 
 .bush-border-left::before,
