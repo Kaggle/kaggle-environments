@@ -6,7 +6,7 @@ export const INVENTORY_SLOTS = 18;
 
 // 3x4 grid: top row holds the bakery, town center, and pizza shop. The
 // town sign sits on bare grass at row 2 middle, with a grass-empty slot
-// below it and a cobble-empty slot at the bottom of the middle column.
+// below it and a brick-empty slot at the bottom of the middle column.
 // The remaining 6 shops line the left and right columns. Shops unlock
 // one per 3 in-game days.
 export const TOWN_GRID_COLS = 3;
@@ -14,8 +14,8 @@ export const TOWN_GRID_ROWS = 4;
 export const TOWN_CENTER_INDEX = 1;
 export const TOWN_SIGN_INDEX = 4;
 
-// Empty slots that get a cobblestone backing instead of bare grass.
-export const TOWN_EMPTY_COBBLE_INDICES: ReadonlySet<number> = new Set([10]);
+// Empty slots that get a brick backing instead of bare grass.
+export const TOWN_EMPTY_BRICK_INDICES: ReadonlySet<number> = new Set([10]);
 
 // segId = segR*2 + segC, where segR/segC come from row/col / SEGMENT.
 // (0,0)=NW, (0,1)=NE, (1,0)=SW, (1,1)=SE.
@@ -27,7 +27,7 @@ export const QUADRANT_BY_SEGMENT: Record<number, string> = {
 };
 
 // Shop slot index in the 3x4 grid (skipping center=1, sign=4, grass-empty
-// cell 7, and cobble-empty cell 10) -> { interpreter shop key, sprite name,
+// cell 7, and brick-empty cell 10) -> { interpreter shop key, sprite name,
 // label }.
 export const SURROUNDING_BUILDINGS: Record<number, { shop: string; sprite: string; label: string }> = {
   0: { shop: 'BAKERY', sprite: 'bakery', label: 'Bakery' },

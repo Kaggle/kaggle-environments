@@ -6,7 +6,6 @@ import brunch_spot from './assets/sprites/brunch_spot.png';
 import bush_border_horizontal from './assets/sprites/bush_border_horizontal.png';
 import carrot_full from './assets/sprites/carrot_full.png';
 import carrot_ready from './assets/sprites/carrot_ready.png';
-import cobblestone_cell from './assets/sprites/cobblestone_cell.png';
 import coin from './assets/sprites/coin.png';
 import coop from './assets/sprites/coop.png';
 import cow from './assets/sprites/cow.png';
@@ -23,6 +22,7 @@ import fertilizer from './assets/sprites/fertilizer.png';
 import flowers_horizontal from './assets/sprites/flowers_horizontal.png';
 import flowers_vertical from './assets/sprites/flowers_vertical.png';
 import goose from './assets/sprites/goose.png';
+import brick_bg from './assets/sprites/brick_bg.svg';
 import grass_bg from './assets/sprites/grass_bg.svg';
 import ice_cream_shop from './assets/sprites/ice_cream_shop.png';
 import locked_cell from './assets/sprites/locked_cell.png';
@@ -72,7 +72,6 @@ const SPRITE_URLS: Record<string, string> = {
   carrot_full,
   carrot: carrot_full,
   carrot_ready,
-  cobblestone_cell,
   coin,
   coop,
   cow,
@@ -140,7 +139,7 @@ const SPRITE_URLS: Record<string, string> = {
 export const BG_URLS = {
   grass: grass_bg,
   wood: wood_bg,
-  cobble: cobblestone_cell,
+  brick: brick_bg,
 };
 
 export function spriteSrc(name: string): string {

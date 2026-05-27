@@ -6,7 +6,7 @@ import {
   SEGMENT,
   SURROUNDING_BUILDINGS,
   TOWN_CENTER_INDEX,
-  TOWN_EMPTY_COBBLE_INDICES,
+  TOWN_EMPTY_BRICK_INDICES,
   TOWN_GRID_COLS,
   TOWN_GRID_ROWS,
   TOWN_SIGN_INDEX,
@@ -30,7 +30,7 @@ export type { BoardSize, LayoutRefs } from './types';
 const encUrl = (u: string) => u.replace(/'/g, '%27').replace(/"/g, '%22');
 const BG_GRASS = `background-image:url(${encUrl(BG_URLS.grass)})`;
 const BG_WOOD = `background-image:url(${encUrl(BG_URLS.wood)})`;
-const BG_COBBLE_SLOT = `background-image:url(${encUrl(BG_URLS.cobble)});background-repeat:repeat;background-size:100% auto;image-rendering:pixelated;`;
+const BG_BRICK_SLOT = `background-image:url(${encUrl(BG_URLS.brick)});background-repeat:repeat;background-size:100% auto;`;
 
 function marketList(): string {
   return MARKET_ITEMS.map(
@@ -158,7 +158,7 @@ function townPanel(): string {
         <div class="town-flower town-flower-right" style="--flower-bg:url(${encUrl(spriteSrc('flowers_horizontal'))})"></div>
         ${Array.from({ length: TOWN_GRID_COLS * TOWN_GRID_ROWS }, (_, i) => {
           if (i === TOWN_CENTER_INDEX) {
-            return `<div class="town-slot town-slot--center" data-slot="${i}" style="${BG_COBBLE_SLOT}">
+            return `<div class="town-slot town-slot--center" data-slot="${i}" style="${BG_BRICK_SLOT}">
                       <img class="town-sprite" src="${spriteSrc('town_center')}" alt="Town Center" title="Town Center" />
                     </div>`;
           }
@@ -176,10 +176,10 @@ function townPanel(): string {
           const building = SURROUNDING_BUILDINGS[i];
           if (building) {
             // renderTown injects the shop sprite once the shop unlocks.
-            return `<div class="town-slot town-slot--shop" data-slot="${i}" data-building="${building.shop}" style="${BG_COBBLE_SLOT}"></div>`;
+            return `<div class="town-slot town-slot--shop" data-slot="${i}" data-building="${building.shop}" style="${BG_BRICK_SLOT}"></div>`;
           }
-          if (TOWN_EMPTY_COBBLE_INDICES.has(i)) {
-            return `<div class="town-slot" data-slot="${i}" style="${BG_COBBLE_SLOT}"></div>`;
+          if (TOWN_EMPTY_BRICK_INDICES.has(i)) {
+            return `<div class="town-slot" data-slot="${i}" style="${BG_BRICK_SLOT}"></div>`;
           }
           return `<div class="town-slot" data-slot="${i}"></div>`;
         }).join('')}
