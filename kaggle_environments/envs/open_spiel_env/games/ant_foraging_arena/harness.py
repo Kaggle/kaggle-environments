@@ -113,18 +113,20 @@ def _normalize(move: str) -> str:
 
 
 def _extract_move_from_json(response: str) -> str | None:
-    match = _JSON_BLOCK_RE.search(response)
-    if match:
+    # Prefer the LAST JSON block — the prompt asks the model to put its
+    # final answer at the end, after any reasoning that may itself
+    # contain JSON snippets.
+    for match in reversed(_JSON_BLOCK_RE.findall(response)):
         try:
-            data = json.loads(match.group(1))
+            data = json.loads(match)
             move = str(data.get("move", "")).strip()
             if move:
                 return move
         except json.JSONDecodeError:
-            pass
-    bare = _BARE_JSON_RE.search(response)
-    if bare:
-        return bare.group(1).strip()
+            continue
+    bare_matches = list(_BARE_JSON_RE.finditer(response))
+    if bare_matches:
+        return bare_matches[-1].group(1).strip()
     return None
 
 
@@ -265,7 +267,10 @@ def parse_response(
         if matched is not None:
             return ParseResult(legal_action=matched, raw_action=raw)
 
-    for m in _MOVE_RE.finditer(response):
+    # Scan from the end: the prompt asks the model to put its final
+    # answer at the end of the response, so the last direction word is
+    # the right one to pick when the JSON parse failed.
+    for m in reversed(list(_MOVE_RE.finditer(response))):
         candidate = m.group(0)
         matched = _match_move_to_legal(candidate, legal_action_strings)
         if matched is not None:
