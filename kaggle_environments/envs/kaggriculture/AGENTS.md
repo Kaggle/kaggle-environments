@@ -9,8 +9,8 @@ For full game rules, the crop / animal / shop tables, the price function, and tu
 Kaggriculture is a two-player farming sim. Each player manages a farm and competes to earn the most coins by buying seeds and livestock, planting, watering, harvesting, raising animals, hiring help, and trading on a dynamic market over a fixed season.
 
 - **Farm** — each player has a `boardSize` × `boardSize` grid (default 10 × 10) divided into four 5 × 5 quadrants. Only the NW quadrant is unlocked at the start; the other three (`NE`, `SW`, `SE`) can be bought via `BUY_LAND` for $1k / $2k / $4k respectively
-- **Starting bank** — `startingMoney` defaults to $2000
-- **Farmer & farm hands** — one main farmer per player, plus up to N hired hands per day. Hire cost is `farmHandCostMult * fib(n)` where `n` is the number of hires already made today; with the default `farmHandCostMult = 10` that's `10, 10, 20, 30, 50, 80, 130, 210, ...` and resets at the start of each day. Each unit independently acts every turn
+- **Starting bank** — `startingMoney` defaults to $3000
+- **Farmer & farm hands** — one main farmer per player, plus up to N hired hands per day. Hire cost is `farmHandCostMult * fib(n)` where `n` is the number of hires already made today; with the default `farmHandCostMult = 1` that's `1, 1, 2, 3, 5, 8, 13, 21, ...` and resets at the start of each day. Each unit independently acts every turn
 - **Crops** — Wheat, Carrot, Tomato (ongoing), Strawberry (ongoing), Melon. Each has its own seed cost, growth time, yield curve, and base sale price (see the Object Types table in [README.md](README.md))
 - **Watering bonus** — for one-time crops, watering during the bonus window (starting at `ceil(max_yield_day / 2)`) adds 1 unit per day to harvestable yield. `FERTILIZE` doubles that bonus for 3 days. For ongoing crops, scheduled production yields 1 by default, doubled to 2 if both fertilized and watered that day
 - **Animals** — Goose (eggs, requires coop), Cow (milk, requires pasture), Sheep (wool, requires pasture). Must be fed wheat daily; `CARE` banks a yield bonus paid out on the next scheduled production; `COLLECT_FERTILIZER` gathers 1 fertilizer/animal/day
@@ -19,7 +19,7 @@ Kaggriculture is a two-player farming sim. Each player manages a farm and compet
 - **Weeds** — every empty unlocked tile has a `weedSpawnChance` (default 0.005) of spawning a weed at end-of-day; clear with `DIG`
 - **Shed** — non-seed inventory cap of 100 items. Items beyond the cap at end-of-day drop are discarded. Seeds live in their own slot (no cap, never picked up by `PICKUP` — `PLANT` consumes them directly)
 - **Market** — fixed prices for seeds, animals, and `BUY_PRODUCT` orders; sale prices for harvested produce vary dynamically with market inventory (linear when inventory is low, log-decreasing when high). Fertilizer can only be bought, not sold. Each turn, at most `maxMarketOrdersPerTurn` (default 10) orders are processed per player; extras are silently dropped
-- **Town** — town center always demands product (1 of each non-fertilizer product every `townCenterSellInterval` turns, default 6, scaling to 2× after day 10 and 4× after day 20). Additional shops unlock every `townShopUnlockInterval` days (default 3, random selection from the remaining pool); each unlocked shop consumes one of every product it demands every `townShopSellInterval` turns (default 2, single-product shops consume 2×) — see the Town Buildings table in [README.md](README.md)
+- **Town** — town center always demands product (1 of each non-fertilizer product every `townCenterSellInterval` turns, default 12, scaling to 2× after day 10 and 4× after day 20). Additional shops unlock every `townShopUnlockInterval` days (default 3, random selection from the remaining pool); each unlocked shop consumes one of every product it demands every `townShopSellInterval` turns (default 4, single-product shops consume 2×) — see the Town Buildings table in [README.md](README.md)
 - **Season length** — 24 turns per day × 30 days = 720 turns by default
 - **Win condition** — most coins in the bank at the end of the season; ties are possible
 
@@ -60,7 +60,7 @@ Your agent is a function that receives an observation and returns an action dict
 
 Farmer / hand ops:
 - Movement: `"NORTH"`, `"SOUTH"`, `"EAST"`, `"WEST"`, `"PASS"`
-- Shed / inventory: `"PICKUP" <item> [n]` (from shed), `"PLACE" <item> [n]` (places an animal on a matching structure when standing on it, or drops items into the shed when adjacent to it)
+- Shed / inventory: `"PICKUP" <item> [n]` (from shed), `"PLACE" <item> [n]` (places an animal on a matching structure when standing on it, or drops items into the shed when adjacent to it), `"DROP"` (when shed-adjacent, dumps entire inventory into shed; overflow past `shedCapacity` discarded)
 - Plants: `"PLANT" <crop>`, `"WATER"`, `"HARVEST"`, `"FERTILIZE"`
 - Animals: `"BUILD_COOP"`, `"BUILD_PASTURE"`, `"FEED"`, `"COLLECT_FERTILIZER"`, `"CARE"`
 - Terrain: `"DIG"` (removes a plant, weed, coop, or pasture from the current tile)

@@ -852,57 +852,6 @@ wheels = [
 ]
 
 [[package]]
-name = "grpcio"
-version = "1.76.0"
-source = { registry = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/simple/" }
-dependencies = [
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0.tar.gz", hash = "sha256:7be78388d6da1a25c0d5ec506523db58b18be22d9c37d8d3a32c08be4987bd73" }
-wheels = [
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp311-cp311-linux_armv7l.whl", hash = "sha256:2e1743fbd7f5fa713a1b0a8ac8ebabf0ec980b5d8809ec358d488e273b9cf02a" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp311-cp311-macosx_11_0_universal2.whl", hash = "sha256:a8c2cf1209497cf659a667d7dea88985e834c24b7c3b605e6254cbb5076d985c" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:08caea849a9d3c71a542827d6df9d5a69067b0a1efbea8a855633ff5d9571465" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp311-cp311-manylinux2014_i686.manylinux_2_17_i686.whl", hash = "sha256:f0e34c2079d47ae9f6188211db9e777c619a21d4faba6977774e8fa43b085e48" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:8843114c0cfce61b40ad48df65abcfc00d4dba82eae8718fab5352390848c5da" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp311-cp311-musllinux_1_2_aarch64.whl", hash = "sha256:8eddfb4d203a237da6f3cc8a540dad0517d274b5a1e9e636fd8d2c79b5c1d397" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp311-cp311-musllinux_1_2_i686.whl", hash = "sha256:32483fe2aab2c3794101c2a159070584e5db11d0aa091b2c0ea9c4fc43d0d749" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:dcfe41187da8992c5f40aa8c5ec086fa3672834d2be57a32384c08d5a05b4c00" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp311-cp311-win32.whl", hash = "sha256:2107b0c024d1b35f4083f11245c0e23846ae64d02f40b2b226684840260ed054" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp311-cp311-win_amd64.whl", hash = "sha256:522175aba7af9113c48ec10cc471b9b9bd4f6ceb36aeb4544a8e2c80ed9d252d" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp312-cp312-linux_armv7l.whl", hash = "sha256:81fd9652b37b36f16138611c7e884eb82e0cec137c40d3ef7c3f9b3ed00f6ed8" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp312-cp312-macosx_11_0_universal2.whl", hash = "sha256:04bbe1bfe3a68bbfd4e52402ab7d4eb59d72d02647ae2042204326cf4bbad280" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:d388087771c837cdb6515539f43b9d4bf0b0f23593a24054ac16f7a960be16f4" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp312-cp312-manylinux2014_i686.manylinux_2_17_i686.whl", hash = "sha256:9f8f757bebaaea112c00dba718fc0d3260052ce714e25804a03f93f5d1c6cc11" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:980a846182ce88c4f2f7e2c22c56aefd515daeb36149d1c897f83cf57999e0b6" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:f92f88e6c033db65a5ae3d97905c8fea9c725b63e28d5a75cb73b49bda5024d8" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp312-cp312-musllinux_1_2_i686.whl", hash = "sha256:4baf3cbe2f0be3289eb68ac8ae771156971848bb8aaff60bad42005539431980" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:615ba64c208aaceb5ec83bfdce7728b80bfeb8be97562944836a7a0a9647d882" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp312-cp312-win32.whl", hash = "sha256:45d59a649a82df5718fd9527ce775fd66d1af35e6d31abdcdc906a49c6822958" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp312-cp312-win_amd64.whl", hash = "sha256:c088e7a90b6017307f423efbb9d1ba97a22aa2170876223f9709e9d1de0b5347" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp313-cp313-linux_armv7l.whl", hash = "sha256:26ef06c73eb53267c2b319f43e6634c7556ea37672029241a056629af27c10e2" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp313-cp313-macosx_11_0_universal2.whl", hash = "sha256:45e0111e73f43f735d70786557dc38141185072d7ff8dc1829d6a77ac1471468" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:83d57312a58dcfe2a3a0f9d1389b299438909a02db60e2f2ea2ae2d8034909d3" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp313-cp313-manylinux2014_i686.manylinux_2_17_i686.whl", hash = "sha256:3e2a27c89eb9ac3d81ec8835e12414d73536c6e620355d65102503064a4ed6eb" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:61f69297cba3950a524f61c7c8ee12e55c486cb5f7db47ff9dcee33da6f0d3ae" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:6a15c17af8839b6801d554263c546c69c4d7718ad4321e3166175b37eaacca77" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp313-cp313-musllinux_1_2_i686.whl", hash = "sha256:25a18e9810fbc7e7f03ec2516addc116a957f8cbb8cbc95ccc80faa072743d03" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:931091142fd8cc14edccc0845a79248bc155425eee9a98b2db2ea4f00a235a42" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp313-cp313-win32.whl", hash = "sha256:5e8571632780e08526f118f74170ad8d50fb0a48c23a746bef2a6ebade3abd6f" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp313-cp313-win_amd64.whl", hash = "sha256:f9f7bd5faab55f47231ad8dba7787866b69f5e93bc306e3915606779bbfb4ba8" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp314-cp314-linux_armv7l.whl", hash = "sha256:ff8a59ea85a1f2191a0ffcc61298c571bc566332f82e5f5be1b83c9d8e668a62" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp314-cp314-macosx_11_0_universal2.whl", hash = "sha256:06c3d6b076e7b593905d04fdba6a0525711b3466f43b3400266f04ff735de0cd" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:fd5ef5932f6475c436c4a55e4336ebbe47bd3272be04964a03d316bbf4afbcbc" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp314-cp314-manylinux2014_i686.manylinux_2_17_i686.whl", hash = "sha256:b331680e46239e090f5b3cead313cc772f6caa7d0fc8de349337563125361a4a" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:2229ae655ec4e8999599469559e97630185fdd53ae1e8997d147b7c9b2b72cba" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:490fa6d203992c47c7b9e4a9d39003a0c2bcc1c9aa3c058730884bbbb0ee9f09" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp314-cp314-musllinux_1_2_i686.whl", hash = "sha256:479496325ce554792dba6548fae3df31a72cef7bad71ca2e12b0e58f9b336bfc" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:1c9b93f79f48b03ada57ea24725d83a30284a012ec27eab2cf7e50a550cbbbcc" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp314-cp314-win32.whl", hash = "sha256:747fa73efa9b8b1488a95d0ba1039c8e2dca0f741612d80415b1e1c560febf4e" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/grpcio/grpcio-1.76.0-cp314-cp314-win_amd64.whl", hash = "sha256:922fa70ba549fce362d2e2871ab542082d66e2aaf0c19480ea453905b01f384e" },
-]
-
-[[package]]
 name = "gym"
 version = "0.26.2"
 source = { registry = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/simple/" }
@@ -1408,9 +1357,9 @@ requires-dist = [
     { name = "gymnax", specifier = "==0.0.8" },
     { name = "jax" },
     { name = "jsonschema", specifier = ">=3.0.1" },
-    { name = "litellm", specifier = "<=1.82.4" },
+    { name = "litellm", specifier = ">=1.86.1" },
     { name = "numpy", specifier = ">=2.0" },
-    { name = "open-spiel", specifier = ">=1.6.13" },
+    { name = "open-spiel", specifier = ">=1.6.15" },
     { name = "pettingzoo", specifier = "==1.24.0" },
     { name = "pokerkit", specifier = "==0.6.3" },
     { name = "pydantic", specifier = ">=2.11.4" },
@@ -1615,13 +1564,12 @@ sdist = { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-p
 
 [[package]]
 name = "litellm"
-version = "1.80.15"
+version = "1.86.1"
 source = { registry = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/simple/" }
 dependencies = [
     { name = "aiohttp" },
     { name = "click" },
     { name = "fastuuid" },
-    { name = "grpcio" },
     { name = "httpx" },
     { name = "importlib-metadata" },
     { name = "jinja2" },
@@ -1632,9 +1580,9 @@ dependencies = [
     { name = "tiktoken" },
     { name = "tokenizers" },
 ]
-sdist = { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/litellm/litellm-1.80.15.tar.gz", hash = "sha256:759d09f33c9c6028c58dcdf71781b17b833ee926525714e09a408602be27f54e" }
+sdist = { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/litellm/litellm-1.86.1.tar.gz", hash = "sha256:616100384073f2ddec1a5391b34c806c7c99e6af4511741434809caa46075e13" }
 wheels = [
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/litellm/litellm-1.80.15-py3-none-any.whl", hash = "sha256:f354e49456985a235b9ed99df1c19d686d30501f96e68882dcc5b29b1e7c59d9" },
+    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/litellm/litellm-1.86.1-py3-none-any.whl", hash = "sha256:54e52372d326c642e9cc76d39afffb9b22387cbff3694c5e2758c9f860bca2e9" },
 ]
 
 [[package]]
@@ -2179,7 +2127,7 @@ wheels = [
 
 [[package]]
 name = "open-spiel"
-version = "1.6.13"
+version = "1.6.15"
 source = { registry = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/simple/" }
 dependencies = [
     { name = "absl-py" },
@@ -2188,29 +2136,29 @@ dependencies = [
     { name = "numpy" },
     { name = "scipy" },
 ]
-sdist = { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.13.tar.gz", hash = "sha256:5d7ea172e2edae5bfa7b26d084278ba4b872ae17c11ba3de9c9346fb7dd30813" }
+sdist = { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.15.tar.gz", hash = "sha256:dbc51e3491c80b83e9eca7927f874334944fadd6a3e5c07ea650fa4b19d961ef" }
 wheels = [
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.13-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:e06b40814d9676c706f97f82011acad83038348f73cf3a580a0f6a248c1091e8" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.13-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:dc28159b98592508f8bb329abbceb6326e92645adf98352a279ce82a71bd5697" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.13-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:dd97c77809700e8a2ff64279b1285e007e88dfd88a828cec2878e58931b61f92" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.13-cp311-cp311-win_amd64.whl", hash = "sha256:cfabe00ec4e09b4fc923cffcb4abbd22fc7248a7e3fb44e7b98212530053e6dd" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.13-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:9b83c8e2b4fa8a175b9d14ef007f0df82421eb84483040e9ee63a496da27a989" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.13-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:6086ab01df7e4bc0ff061c31bee1ddf6a614fe307e0d2532142ad61cd75784fc" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.13-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:bf3f5c121f405cab65bf49268ba9d2eabb0e8111c2c0701c1a57f1aee2da1483" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.13-cp312-cp312-win_amd64.whl", hash = "sha256:fe02a144bcf76576c6faf97fbec53e09f14f09c3a9f5e05206c6eb6a5fe073c2" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.13-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:472ade7d8f0bdf4101ccaf3ad8ea16a680ebae21797fc781fd8e5c60ebf921db" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.13-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:8b90a2c0126702c1e25f8a04d472ba94b1ab96993447ecaac2d9727d243f2f67" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.13-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:90ed74cb98c36ecae693e98e4aa974058eff69f07222d99f1b9b1578a75b3464" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.13-cp313-cp313-win_amd64.whl", hash = "sha256:0146f31fa2f93cd9f5f95a363eed6a4cdada5cb375662961f5ed728e0ae0327f" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.13-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:3407cf03513bc93bb0e06a2cb1feac791bdbcd4cc73bf90e77cfe72c3d06b761" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.13-cp314-cp314-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:2465a09816befe021265ed0f2c1433bc19842ecfc86cd1b51bb82fe992016b18" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.13-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:ed074560e223042ea8bd684385b114622cf5c4c2d41c5429209e6d5b86cfd636" },
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.13-cp314-cp314-win_amd64.whl", hash = "sha256:2fd621ae28b16abac112e6b2c2a60a598a176170d3fa56c1b36663ce30890f92" },
+    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.15-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:1ce31ae07f81dc69eb004f3d6c51dab77ff385c56456e5434531550202010a85" },
+    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.15-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:2242ff5a35b3434f7dfcde01661618cd5dbc0b7cad335190fa70be4b088a5862" },
+    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.15-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:d3363d4c6a5eaaff894c8978997a256bf982a8db308d4002cb8bc303c26421df" },
+    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.15-cp311-cp311-win_amd64.whl", hash = "sha256:f2d4be432906791b539d7b627ce351838f10c73693baaf3d1da229f865585fd7" },
+    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.15-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:3ef1e0b362d06386645db16c685ba9c2a28bfa4b56df2c530e585232b0063e02" },
+    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.15-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:475ed977038b20131d71c14059f35f82504285d3fe17426a1725790464ac281c" },
+    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.15-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:7b2814bf39f2ab9302723af1f3934c842cefa9371ec77b1ebf8400fb917df793" },
+    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.15-cp312-cp312-win_amd64.whl", hash = "sha256:4033c2d207c4afdde5608bf5fd71430653f021aa293b57ba063592c7b89d3173" },
+    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.15-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:2db18704af983cdf56728abf0ebdd4cf3534dad3b83126d5ec8edf0734bb19f2" },
+    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.15-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:b2a243bd6c73e50bad8dc1a607c2aa955b818fa09bb99b11dc07fbbc34925828" },
+    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.15-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:3cfddf13aea04ebc30f7e1ebef5382b2268de8145358e57f71afcacd42864c09" },
+    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.15-cp313-cp313-win_amd64.whl", hash = "sha256:e672ace5ea358b86b7a6b4dbe4d21c834ec81fa64f238bf5e9bb63f9de929b95" },
+    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.15-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:802b579048a68bbe96d458ee12633bb48a4a2f8c08c67891a8db6f3f087d23a9" },
+    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.15-cp314-cp314-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:f4c9b2047f818fbd90343b10912f1ea68f8b6aa3d675d66ac7d839076d483f2a" },
+    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.15-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:51e77d3a73595ac880a2381701db97359b7c62c3fad267f315e66fd197e883cf" },
+    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/open-spiel/open_spiel-1.6.15-cp314-cp314-win_amd64.whl", hash = "sha256:eb50d007432077a40fcf85ef30b4da15b1de09b59fde88961e3858d06e62834f" },
 ]
 
 [[package]]
 name = "openai"
-version = "2.15.0"
+version = "2.38.0"
 source = { registry = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/simple/" }
 dependencies = [
     { name = "anyio" },
@@ -2222,9 +2170,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/openai/openai-2.15.0.tar.gz", hash = "sha256:42eb8cbb407d84770633f31bf727d4ffb4138711c670565a41663d9439174fba" }
+sdist = { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/openai/openai-2.38.0.tar.gz", hash = "sha256:798694c6cf74145541fda94325b6f8f72d8e1fd0262cc137c8d728177a6a4ce3" }
 wheels = [
-    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/openai/openai-2.15.0-py3-none-any.whl", hash = "sha256:6ae23b932cd7230f7244e52954daa6602716d6b9bf235401a107af731baea6c3" },
+    { url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/openai/openai-2.38.0-py3-none-any.whl", hash = "sha256:ec6661c57b2dcc47414a767e6e3335c7ed3d19c9696999283a3c82e95c756a3c" },
 ]
 
 [[package]]

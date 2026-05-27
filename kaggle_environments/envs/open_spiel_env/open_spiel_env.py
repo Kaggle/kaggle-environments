@@ -7,7 +7,6 @@ import logging
 import os
 import pathlib
 import random
-import re
 import sys
 import warnings
 from typing import Any, Callable
@@ -15,12 +14,14 @@ from typing import Any, Callable
 import numpy as np
 import pokerkit  # noqa: F401
 import pyspiel
-from open_spiel.python.games import pokerkit_wrapper  # noqa: F401
-
-from kaggle_environments.envs.open_spiel_env.games.snake import snake_game  # noqa: F401
-from kaggle_environments.envs.open_spiel_env.games.coin_game_arena import coin_game_arena_game  # noqa: F401
+from open_spiel.python.games import (
+    ant_foraging,  # noqa: F401
+    pokerkit_wrapper,  # noqa: F401
+)
 
 from kaggle_environments import core, utils
+from kaggle_environments.envs.open_spiel_env.games.coin_game_arena import coin_game_arena_game  # noqa: F401
+from kaggle_environments.envs.open_spiel_env.games.snake import snake_game  # noqa: F401
 
 ERROR = "ERROR"
 DONE = "DONE"
@@ -166,9 +167,7 @@ CONFIGURATION_SPEC_TEMPLATE = {
         "default": False,
     },
     "savePrompt": {
-        "description": (
-            "If disabled, skip logging LLM prompts in the replay file."
-        ),
+        "description": ("If disabled, skip logging LLM prompts in the replay file."),
         "type": "boolean",
         "default": True,
     },
@@ -669,9 +668,7 @@ def interpreter(
             info_dict["actionApplied"] = simul_actions_applied[player_id]
             info_dict["timeTaken"] = simul_move_durations[player_id]
             info_dict["agentSelfReportedStatus"] = (
-                kaggle_state[player_id]["action"].get("status")
-                if kaggle_state[player_id]["action"]
-                else "unknown"
+                kaggle_state[player_id]["action"].get("status") if kaggle_state[player_id]["action"] else "unknown"
             )
         elif acting_agent == player_id:
             info_dict["actionSubmitted"] = action_submitted
@@ -780,7 +777,25 @@ function renderer(context) {
 def _get_html_renderer_content(
     open_spiel_short_name: str, base_path_for_custom_renderers: pathlib.Path, default_renderer_func: Callable[[], str]
 ) -> str:
-    """Tries to load a custom JS renderer for the game, falls back to default."""
+    """Tries to load a custom HTML/JS renderer for the game, falls back to default."""
+    # Prefer the built Vite visualizer at games/<name>/visualizer/default/dist/index.html
+    dist_index_path = pathlib.Path(
+        base_path_for_custom_renderers,
+        open_spiel_short_name,
+        "visualizer",
+        "default",
+        "dist",
+        "index.html",
+    )
+    if dist_index_path.is_file():
+        try:
+            with open(dist_index_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            _log.debug(f"Using built HTML visualizer for {open_spiel_short_name} from {dist_index_path}")
+            return content
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            _log.debug(e)
+    # Fallback to legacy single-file JS renderer at games/<name>/<name>.js
     custom_renderer_js_path = pathlib.Path(
         base_path_for_custom_renderers,
         open_spiel_short_name,
@@ -801,11 +816,46 @@ def _get_html_renderer_content(
 
 
 _RANDOM_THOUGHT_WORDS = (
-    "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta",
-    "iota", "kappa", "lambda", "mu", "nu", "xi", "omicron", "pi",
-    "rho", "sigma", "tau", "upsilon", "phi", "chi", "psi", "omega",
-    "ponder", "muse", "wonder", "consider", "reflect", "imagine", "explore", "drift",
-    "spark", "ripple", "echo", "shadow", "horizon", "lantern", "cascade", "ember",
+    "alpha",
+    "beta",
+    "gamma",
+    "delta",
+    "epsilon",
+    "zeta",
+    "eta",
+    "theta",
+    "iota",
+    "kappa",
+    "lambda",
+    "mu",
+    "nu",
+    "xi",
+    "omicron",
+    "pi",
+    "rho",
+    "sigma",
+    "tau",
+    "upsilon",
+    "phi",
+    "chi",
+    "psi",
+    "omega",
+    "ponder",
+    "muse",
+    "wonder",
+    "consider",
+    "reflect",
+    "imagine",
+    "explore",
+    "drift",
+    "spark",
+    "ripple",
+    "echo",
+    "shadow",
+    "horizon",
+    "lantern",
+    "cascade",
+    "ember",
 )
 
 
@@ -953,6 +1003,7 @@ DEFAULT_REPEATED_POKERKIT_GAME_STRING = (
 GAMES_LIST = [
     "amazons",
     "backgammon",
+    "python_ant_foraging",
     "checkers",
     "chess",
     "clobber",
@@ -960,19 +1011,22 @@ GAMES_LIST = [
     "coin_game_arena",
     "connect_four",
     "dark_hex",
-    "dots_and_boxes",
+    "dots_and_boxes(num_rows=8,num_cols=8)",
     "gin_rummy",
     "go(board_size=9)",
     "goofspiel(num_cards=4,points_order=descending,returns_type=total_points)",
+    "havannah(board_size=8)",
     "hearts",
     "hex",
     "lines_of_action",
     "mancala",
     "matching_pennies_3p",
+    "negotiation",
     "oshi_zumo",
     "othello",
     "repeated_game(stage_game=matrix_pd(),num_repetitions=100)",
     "tic_tac_toe",
+    "ultimate_tic_tac_toe",
     "snake",
     "y",
     DEFAULT_UNIVERSAL_POKER_GAME_STRING,

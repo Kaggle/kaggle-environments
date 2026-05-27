@@ -17,6 +17,14 @@ export const CROP_SPRITE: Record<Crop, string> = {
   MELON: 'melon',
 };
 
+export const SEED_SPRITE: Record<Crop, string> = {
+  WHEAT: 'seed_wheat',
+  CARROT: 'seed_carrot',
+  TOMATO: 'seed_tomato',
+  STRAWBERRY: 'seed_strawberry',
+  MELON: 'seed_melon',
+};
+
 export const READY_SPRITE_TYPES = new Set<Crop>(['CARROT', 'TOMATO', 'STRAWBERRY', 'MELON']);
 
 export const PNG_SPRITES: Record<string, string> = {
@@ -95,9 +103,9 @@ export interface PlayerRefs {
 }
 
 export interface LayoutRefs {
-  dayValue: HTMLElement;
+  dayValues: HTMLElement[];
   lastDay: number;
-  turnValue: HTMLElement;
+  turnValues: HTMLElement[];
   lastTurn: number;
   players: PlayerRefs[];
 }

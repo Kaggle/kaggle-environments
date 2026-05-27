@@ -6,8 +6,10 @@ import {
   SEGMENT,
   SURROUNDING_BUILDINGS,
   TOWN_CENTER_INDEX,
+  TOWN_EMPTY_BRICK_INDICES,
   TOWN_GRID_COLS,
   TOWN_GRID_ROWS,
+  TOWN_SIGN_INDEX,
   type BoardSize,
   type CellRefs,
   type FarmPublic,
@@ -23,9 +25,25 @@ import { BG_URLS, clearChildren, plantSprite, spriteSrc, marketSpriteSrc, titleC
 
 export type { BoardSize, LayoutRefs } from './types';
 
-const BG_GRASS = `background-image:url(${BG_URLS.grass})`;
-const BG_WOOD = `background-image:url(${BG_URLS.wood})`;
-const BG_COBBLE = `background-image:url(${BG_URLS.cobble});background-size:100% 100%;image-rendering:pixelated;`;
+// Quote characters in inlined data: URIs must be percent-encoded so the
+// unquoted CSS url() value stays valid when embedded in an HTML style attribute.
+const encUrl = (u: string) => u.replace(/'/g, '%27').replace(/"/g, '%22');
+const BG_GRASS = `background-image:url(${encUrl(BG_URLS.grass)})`;
+const BG_WOOD = `background-image:url(${encUrl(BG_URLS.wood)})`;
+const BG_BRICK_SLOT = `background-image:url(${encUrl(BG_URLS.brick)});background-repeat:repeat;background-size:100% auto;`;
+
+// All three geese sit on the empty grass tile directly beneath the town
+// sign. Positions are in % of the .town-grid box; they cluster around the
+// tile's center (col 1 of 3 = ~50% x, row 2 of 4 = ~62.5% y).
+const TOWN_GEESE_MAX = 3;
+const TOWN_GEESE_POSITIONS: { x: number; y: number }[] = [
+  { x: 42, y: 60 },
+  { x: 50, y: 67 },
+  { x: 58, y: 60 },
+];
+// Every N in-game turns, one randomly chosen goose hops in place. The window
+// index drives both the cadence and the (deterministic) pick.
+const TOWN_GEESE_HOP_INTERVAL = 15;
 
 function marketList(): string {
   return MARKET_ITEMS.map(
@@ -46,10 +64,23 @@ function marketList(): string {
   ).join('');
 }
 
-function farmCell(row: number, col: number): string {
+function farmCell(row: number, col: number, rows: number, cols: number): string {
   const segR = Math.floor(row / SEGMENT);
   const segC = Math.floor(col / SEGMENT);
   const segId = segR * 2 + segC;
+  const fences: string[] = [];
+  if (row === 0) {
+    fences.push(`<img class="cell-fence cell-fence-top" src="${spriteSrc('fence_horizontal')}" alt="" />`);
+  }
+  if (row === rows - 1) {
+    fences.push(`<img class="cell-fence cell-fence-bottom" src="${spriteSrc('fence_horizontal')}" alt="" />`);
+  }
+  if (col === 0) {
+    fences.push(`<img class="cell-fence cell-fence-left" src="${spriteSrc('fence_vertical')}" alt="" />`);
+  }
+  if (col === cols - 1) {
+    fences.push(`<img class="cell-fence cell-fence-right" src="${spriteSrc('fence_vertical')}" alt="" />`);
+  }
   return `
     <div class="cell" data-row="${row}" data-col="${col}" data-segment="${segId}">
       <div class="cell-base">
@@ -58,6 +89,7 @@ function farmCell(row: number, col: number): string {
       <div class="cell-overlay"></div>
       <div class="cell-object"></div>
       <div class="cell-agent"></div>
+      ${fences.join('')}
     </div>
   `;
 }
@@ -66,7 +98,7 @@ function farmGrid(rows: number, cols: number): string {
   const cells: string[] = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      cells.push(farmCell(r, c));
+      cells.push(farmCell(r, c, rows, cols));
     }
   }
   return `<div class="farm-grid" style="grid-template-columns: repeat(${cols}, 1fr);">
@@ -100,27 +132,30 @@ function escapeHtml(s: string): string {
 }
 
 function farmPanel(player: 1 | 2, rows: number, cols: number, name: string): string {
+  const sideClass = player === 1 ? 'bush-border-left' : 'bush-border-right';
   return `
     <section class="farm-panel" data-player="${player}">
-      <header class="farm-header sketched-border" style="${BG_WOOD}">
-        <div class="farm-header-left">
-          <span class="player-name">
-            <img class="player-name-icon" src="${spriteSrc(`farmer_p${player}`)}" alt="farmer p${player}" />
-            <span>${escapeHtml(name)}</span>
-          </span>
-          <button type="button" class="header-toggle shed-toggle" data-dialog="shed-${player}">View Shed</button>
-        </div>
-        <span class="player-balance">
-          <img class="balance-icon" src="${spriteSrc('coin')}" alt="coins" />
-          <span class="balance-amount">0</span>
-        </span>
-      </header>
+      <div class="bush-border ${sideClass}" style="--bush-bg:url(${encUrl(spriteSrc('bush_border_horizontal'))})"></div>
       <div class="farm-area">
         ${farmGrid(rows, cols)}
       </div>
-      <div class="shed-area sketched-border" style="${BG_WOOD}">
-        <div class="shed-header">Shed</div>
-        ${inventoryGrid()}
+      <div class="player-box sketched-border" style="${BG_WOOD}">
+        <header class="farm-header">
+          <div class="farm-header-left">
+            <span class="player-name">
+              <img class="player-name-icon" src="${spriteSrc(`farmer_p${player}`)}" alt="farmer p${player}" />
+              <span>${escapeHtml(name)}</span>
+            </span>
+            <button type="button" class="header-toggle shed-toggle" data-dialog="shed-${player}">Shed</button>
+          </div>
+          <span class="player-balance">
+            <img class="balance-icon" src="${spriteSrc('coin')}" alt="coins" />
+            <span class="balance-amount">0</span>
+          </span>
+        </header>
+        <div class="shed-area">
+          ${inventoryGrid()}
+        </div>
       </div>
     </section>
   `;
@@ -129,38 +164,72 @@ function farmPanel(player: 1 | 2, rows: number, cols: number, name: string): str
 function townPanel(): string {
   return `
     <section class="town-panel">
-      <header class="town-header sketched-border" style="${BG_WOOD}">
-        <div class="town-title">Kaggriculture</div>
-        <div class="town-subheader">
-          <span>Day <span class="day-value">1</span> / <span class="day-total">30</span></span>
-          <span>Turn <span class="turn-value">1</span> / <span class="turn-total">24</span></span>
-        </div>
-        <div class="town-header-toggles">
-          <button type="button" class="header-toggle market-toggle" data-dialog="market">View Market</button>
-          <button type="button" class="header-toggle town-toggle" data-dialog="town">View Town</button>
-        </div>
-      </header>
-      <div class="market-panel sketched-border" style="${BG_WOOD}">
-        <div class="market-header">Market Prices</div>
-        <div class="market-list">${marketList()}</div>
-      </div>
-      <div class="town-grid" style="grid-template-columns: repeat(${TOWN_GRID_COLS}, 1fr);">
+      <div class="town-wrap">
+        <div class="town-flower town-flower-top" style="background-image:url(${encUrl(spriteSrc('flowers_horizontal'))})"></div>
+        <div class="town-flower town-flower-bottom" style="background-image:url(${encUrl(spriteSrc('flowers_horizontal'))})"></div>
+        <div class="town-flower town-flower-left" style="--flower-bg:url(${encUrl(spriteSrc('flowers_horizontal'))})"></div>
+        <div class="town-flower town-flower-right" style="--flower-bg:url(${encUrl(spriteSrc('flowers_horizontal'))})"></div>
+        <div class="town-grid" style="grid-template-columns: repeat(${TOWN_GRID_COLS}, 1fr);">
         ${Array.from({ length: TOWN_GRID_COLS * TOWN_GRID_ROWS }, (_, i) => {
           if (i === TOWN_CENTER_INDEX) {
-            return `<div class="town-slot town-slot--center" data-slot="${i}" style="${BG_COBBLE}">
+            return `<div class="town-slot town-slot--center" data-slot="${i}" style="${BG_BRICK_SLOT}">
                       <img class="town-sprite" src="${spriteSrc('town_center')}" alt="Town Center" title="Town Center" />
+                    </div>`;
+          }
+          if (i === TOWN_SIGN_INDEX) {
+            return `<div class="town-slot town-slot--sign" data-slot="${i}">
+                      <div class="town-inner-box">
+                        <div class="town-flower town-flower-inner-top" style="background-image:url(${encUrl(spriteSrc('flowers_horizontal'))})"></div>
+                        <div class="town-flower town-flower-inner-bottom" style="background-image:url(${encUrl(spriteSrc('flowers_horizontal'))})"></div>
+                        <div class="town-flower town-flower-inner-left" style="--flower-bg:url(${encUrl(spriteSrc('flowers_horizontal'))})"></div>
+                        <div class="town-flower town-flower-inner-right" style="--flower-bg:url(${encUrl(spriteSrc('flowers_horizontal'))})"></div>
+                      </div>
+                      <img class="town-sprite" src="${spriteSrc('town_sign')}" alt="" title="Welcome to Kaggriculture!" />
                     </div>`;
           }
           const building = SURROUNDING_BUILDINGS[i];
           if (building) {
-            // Cobble background is always present; renderTown only injects the
-            // shop sprite once the shop unlocks.
-            return `<div class="town-slot town-slot--shop" data-slot="${i}" data-building="${building.shop}" style="${BG_COBBLE}"></div>`;
+            // renderTown injects the shop sprite once the shop unlocks.
+            return `<div class="town-slot town-slot--shop" data-slot="${i}" data-building="${building.shop}" style="${BG_BRICK_SLOT}"></div>`;
           }
-          return `<div class="town-slot" data-slot="${i}" style="${BG_COBBLE}"></div>`;
+          if (TOWN_EMPTY_BRICK_INDICES.has(i)) {
+            return `<div class="town-slot" data-slot="${i}" style="${BG_BRICK_SLOT}"></div>`;
+          }
+          return `<div class="town-slot" data-slot="${i}"></div>`;
         }).join('')}
+        ${Array.from(
+          { length: TOWN_GEESE_MAX },
+          (_, i) => `<img class="town-goose" data-goose="${i}" src="${spriteSrc('goose')}" alt="" hidden />`
+        ).join('')}
+        </div>
+      </div>
+      <div class="market-panel sketched-border" style="${BG_WOOD}">
+        <div class="market-header">
+          <span class="market-header-clock">
+            Day <span class="day-value">1</span> / <span class="day-total">30</span>
+            <span class="market-header-sep">·</span>
+            Turn <span class="turn-value">1</span> / <span class="turn-total">24</span>
+          </span>
+        </div>
+        <div class="market-list">${marketList()}</div>
       </div>
     </section>
+  `;
+}
+
+function mobileTitleBar(): string {
+  return `
+    <header class="mobile-title-bar sketched-border" style="${BG_WOOD}">
+      <div class="mobile-title-bar-info">
+        Day <span class="day-value">1</span> / <span class="day-total">30</span>
+        <span class="market-header-sep">·</span>
+        Turn <span class="turn-value">1</span> / <span class="turn-total">24</span>
+      </div>
+      <div class="mobile-title-bar-toggles">
+        <button type="button" class="header-toggle market-toggle" data-dialog="market">Market</button>
+        <button type="button" class="header-toggle town-toggle" data-dialog="town">Town</button>
+      </div>
+    </header>
   `;
 }
 
@@ -168,9 +237,12 @@ export function buildShell(root: HTMLElement, board: BoardSize, playerNames: str
   root.innerHTML = `
     <div class="kaggriculture-container" style="${BG_GRASS}">
       <main class="kaggriculture-main">
+        ${mobileTitleBar()}
+        <div class="bush-border bush-border-top" style="background-image:url(${encUrl(spriteSrc('bush_border_horizontal'))})"></div>
         ${farmPanel(1, board.rows, board.cols, playerNames[0] ?? 'Player 1')}
         ${townPanel()}
         ${farmPanel(2, board.rows, board.cols, playerNames[1] ?? 'Player 2')}
+        <div class="bush-border bush-border-bottom" style="background-image:url(${encUrl(spriteSrc('bush_border_horizontal'))})"></div>
       </main>
       <div class="simple-dialog" hidden>
         <div class="simple-dialog-titlebar">
@@ -228,10 +300,11 @@ export function collectRefs(root: HTMLElement, board: BoardSize): LayoutRefs {
     closeBtn: overlay.querySelector<HTMLElement>('.simple-dialog-close')!,
   };
   const refs: LayoutRefs = {
-    dayValue: root.querySelector<HTMLElement>('.day-value')!,
-    turnValue: root.querySelector<HTMLElement>('.turn-value')!,
+    dayValues: Array.from(root.querySelectorAll<HTMLElement>('.day-value')),
+    turnValues: Array.from(root.querySelectorAll<HTMLElement>('.turn-value')),
     marketItems,
     shopSlots: Array.from(root.querySelectorAll<HTMLElement>('.town-slot--shop')),
+    townGeese: Array.from(root.querySelectorAll<HTMLImageElement>('.town-goose')),
     players: [1, 2].map((p) =>
       collectPlayerRefs(root.querySelector<HTMLElement>(`.farm-panel[data-player="${p}"]`)!, board)
     ),
@@ -467,7 +540,10 @@ function renderShed(refs: PlayerRefs, priv: PrivateState | undefined): void {
     const iconKey = isSeed ? `seed:${item}` : `item:${item}`;
     if (slot.lastIconKey !== iconKey) {
       slot.lastIconKey = iconKey;
-      slot.icon.innerHTML = `<img class="item-icon-img" src="${marketSpriteSrc(sprite)}" alt="${alt}" title="${label}" />`;
+      const cropOverlay = isSeed
+        ? `<img class="item-seed-crop" src="${marketSpriteSrc(item.toLowerCase())}" alt="" aria-hidden="true" />`
+        : '';
+      slot.icon.innerHTML = `<img class="item-icon-img" src="${marketSpriteSrc(sprite)}" alt="${alt}" title="${label}" />${cropOverlay}`;
     }
     const qtyStr = String(qty);
     if (slot.lastCount !== qtyStr) {
@@ -545,31 +621,77 @@ function renderTown(refs: LayoutRefs, town: TownPublic): void {
     const shop = slot.dataset.building ?? '';
     const isActive = active.has(shop);
     const meta = buildingByShop.get(shop);
+    const existing = slot.querySelector<HTMLImageElement>('.town-sprite');
     if (isActive && meta) {
-      if (!slot.firstElementChild) {
-        slot.innerHTML = `<img class="town-sprite" src="${spriteSrc(meta.sprite)}" alt="${meta.label}" title="${meta.label}" />`;
+      if (!existing) {
+        const img = document.createElement('img');
+        img.className = 'town-sprite';
+        img.src = spriteSrc(meta.sprite);
+        img.alt = meta.label;
+        img.title = meta.label;
+        // Insert before flower overlays so flowers stay on top.
+        slot.insertBefore(img, slot.firstChild);
       }
-    } else if (slot.firstElementChild) {
-      clearChildren(slot);
+    } else if (existing) {
+      existing.remove();
     }
   }
+}
+
+function renderGeese(refs: LayoutRefs, day: number, hour: number): void {
+  const globalTurn = (day ?? 0) * 24 + (hour ?? 0);
+  const windowIdx = Math.floor(globalTurn / TOWN_GEESE_HOP_INTERVAL);
+  // Deterministic pseudo-random pick: prime multiplier shuffles the window
+  // index so consecutive windows rarely hit the same goose.
+  const hopperIdx = (((windowIdx * 7919) % TOWN_GEESE_MAX) + TOWN_GEESE_MAX) % TOWN_GEESE_MAX;
+  const windowKey = String(windowIdx);
+  refs.townGeese.forEach((goose, i) => {
+    goose.hidden = false;
+    const pos = TOWN_GEESE_POSITIONS[i];
+    goose.style.left = `${pos.x}%`;
+    goose.style.top = `${pos.y}%`;
+    if (i === hopperIdx) {
+      // Re-trigger the CSS animation only when the window changes, so
+      // re-renders within the same window don't restart mid-hop.
+      if (goose.dataset.hopWindow !== windowKey) {
+        goose.classList.remove('hopping');
+        // Force a reflow so the animation actually restarts when we re-add
+        // the class on the same frame.
+        void goose.offsetWidth;
+        goose.classList.add('hopping');
+        goose.dataset.hopWindow = windowKey;
+      }
+    } else if (goose.classList.contains('hopping')) {
+      goose.classList.remove('hopping');
+      delete goose.dataset.hopWindow;
+    }
+  });
 }
 
 function renderHeader(refs: LayoutRefs, view: ViewModel, cfg: any): void {
   const turnsPerDay = Number(cfg?.turnsPerDay) || 24;
   const totalDays = Math.max(1, Math.floor((Number(cfg?.episodeSteps) || 30 * turnsPerDay) / turnsPerDay));
-  refs.dayValue.textContent = String((view.day ?? 0) + 1);
-  refs.turnValue.textContent = String((view.hour ?? 0) + 1);
-  const dayTotal = refs.dayValue.parentElement?.querySelector<HTMLElement>('.day-total');
-  const turnTotal = refs.turnValue.parentElement?.querySelector<HTMLElement>('.turn-total');
-  if (dayTotal) dayTotal.textContent = String(totalDays);
-  if (turnTotal) turnTotal.textContent = String(turnsPerDay);
+  const dayText = String((view.day ?? 0) + 1);
+  const turnText = String((view.hour ?? 0) + 1);
+  const dayTotalText = String(totalDays);
+  const turnTotalText = String(turnsPerDay);
+  for (const el of refs.dayValues) {
+    el.textContent = dayText;
+    const total = el.parentElement?.querySelector<HTMLElement>('.day-total');
+    if (total) total.textContent = dayTotalText;
+  }
+  for (const el of refs.turnValues) {
+    el.textContent = turnText;
+    const total = el.parentElement?.querySelector<HTMLElement>('.turn-total');
+    if (total) total.textContent = turnTotalText;
+  }
 }
 
 export function renderObservation(refs: LayoutRefs, view: ViewModel, cfg: any): void {
   renderHeader(refs, view, cfg);
   renderMarket(refs, view.market, view.priceHistory);
   renderTown(refs, view.town);
+  renderGeese(refs, view.day, view.hour);
   const farms = view.farms ?? [];
   farms.forEach((farm, i) => {
     const playerRefs = refs.players[i];

@@ -1,7 +1,7 @@
 import {
   CROP_FIRST_YIELD_DAY,
-  CROP_SPRITE,
   CROPS,
+  SEED_SPRITE,
   type BoardSize,
   type CellRefs,
   type Crop,
@@ -13,8 +13,11 @@ import {
 } from './types';
 import { BG_URLS, makeHiddenImg, plantSprite, spriteSrc } from './utils';
 
-const grassBg = `background-image:url(${BG_URLS.grass})`;
-const woodBg = `background-image:url(${BG_URLS.wood})`;
+// Quote characters in inlined data: URIs must be percent-encoded so the
+// unquoted CSS url() value stays valid when embedded in an HTML style attribute.
+const encUrl = (u: string) => u.replace(/'/g, '%27').replace(/"/g, '%22');
+const grassBg = `background-image:url(${encUrl(BG_URLS.grass)})`;
+const woodBg = `background-image:url(${encUrl(BG_URLS.wood)})`;
 
 export type { BoardSize, LayoutRefs } from './types';
 
@@ -48,7 +51,7 @@ function seedRow(): string {
     ${CROPS.map(
       (crop) => `
       <div class="seed-slot" data-crop="${crop}">
-        <img class="seed-icon" src="${spriteSrc(CROP_SPRITE[crop])}" alt="${crop}" />
+        <img class="seed-icon" src="${spriteSrc(SEED_SPRITE[crop])}" alt="${crop}" />
         <span class="seed-count">0</span>
       </div>
     `
@@ -66,10 +69,13 @@ function farmPanel(player: 1 | 2, rows: number, cols: number, name: string): str
   return `
     <section class="farm-panel" data-player="${player}">
       <header class="farm-header sketched-border" style="${woodBg}">
-        <span class="player-name">
-          <img class="player-name-icon" src="${spriteSrc(`farmer_p${player}`)}" alt="farmer p${player}" />
-          <span class="player-name-text">${escapeHtml(name)}</span>
-        </span>
+        <div class="farm-header-left">
+          <span class="player-name">
+            <img class="player-name-icon" src="${spriteSrc(`farmer_p${player}`)}" alt="farmer p${player}" />
+            <span class="player-name-text">${escapeHtml(name)}</span>
+          </span>
+          <button type="button" class="header-toggle seeds-toggle" data-dialog="seeds-${player}">Seeds</button>
+        </div>
         <span class="player-balance">
           <img class="balance-icon" src="${spriteSrc('coin')}" alt="coins" />
           <span class="balance-amount">0</span>
@@ -89,7 +95,7 @@ function farmPanel(player: 1 | 2, rows: number, cols: number, name: string): str
 function statusPanel(): string {
   return `
     <section class="status-panel sketched-border" style="${woodBg}">
-      <div class="status-title">Kaggriculture (Beginner)</div>
+      <div class="status-title">Kaggriculture</div>
       <div class="status-counters">
         <span class="day-counter">Day <span class="day-value">0</span></span>
         <span class="turn-counter">Turn <span class="turn-value">0</span></span>
@@ -98,14 +104,34 @@ function statusPanel(): string {
   `;
 }
 
+function mobileTitleBar(): string {
+  return `
+    <header class="mobile-title-bar sketched-border" style="${woodBg}">
+      <div class="mobile-title-bar-info">
+        Day <span class="day-value">0</span>
+        <span class="title-sep">·</span>
+        Turn <span class="turn-value">0</span>
+      </div>
+    </header>
+  `;
+}
+
 export function buildSkeleton(root: HTMLElement, board: BoardSize, playerNames: [string, string]): void {
   root.innerHTML = `
-    <div class="demo-container" style="${grassBg}">
-      <main class="demo-main">
+    <div class="kaggriculture-container" style="${grassBg}">
+      <main class="kaggriculture-main">
+        ${mobileTitleBar()}
         ${farmPanel(1, board.rows, board.cols, playerNames[0])}
         ${statusPanel()}
         ${farmPanel(2, board.rows, board.cols, playerNames[1])}
       </main>
+      <div class="simple-dialog" hidden>
+        <div class="simple-dialog-titlebar">
+          <span class="simple-dialog-title"></span>
+          <button type="button" class="simple-dialog-close" aria-label="Close">×</button>
+        </div>
+        <div class="simple-dialog-body"></div>
+      </div>
     </div>
   `;
 }
@@ -154,15 +180,78 @@ function collectPlayerRefs(panel: HTMLElement, board: BoardSize): PlayerRefs {
 }
 
 export function collectRefs(root: HTMLElement, board: BoardSize): LayoutRefs {
-  return {
-    dayValue: root.querySelector<HTMLElement>('.day-value')!,
+  const refs: LayoutRefs = {
+    dayValues: Array.from(root.querySelectorAll<HTMLElement>('.day-value')),
     lastDay: Number.NaN,
-    turnValue: root.querySelector<HTMLElement>('.turn-value')!,
+    turnValues: Array.from(root.querySelectorAll<HTMLElement>('.turn-value')),
     lastTurn: Number.NaN,
     players: [1, 2].map((p) =>
       collectPlayerRefs(root.querySelector<HTMLElement>(`.farm-panel[data-player="${p}"]`)!, board)
     ),
   };
+  wireDialogs(root);
+  return refs;
+}
+
+interface DialogTarget {
+  title: string;
+  panel: HTMLElement;
+}
+
+function wireDialogs(root: HTMLElement): void {
+  const overlay = root.querySelector<HTMLElement>('.simple-dialog');
+  if (!overlay) return;
+  const titleEl = overlay.querySelector<HTMLElement>('.simple-dialog-title')!;
+  const body = overlay.querySelector<HTMLElement>('.simple-dialog-body')!;
+  const closeBtn = overlay.querySelector<HTMLElement>('.simple-dialog-close')!;
+
+  const targets = new Map<string, DialogTarget>();
+  const p1Seeds = root.querySelector<HTMLElement>('.farm-panel[data-player="1"] .seed-area');
+  const p2Seeds = root.querySelector<HTMLElement>('.farm-panel[data-player="2"] .seed-area');
+  if (p1Seeds) targets.set('seeds-1', { title: 'Player 1 Seeds', panel: p1Seeds });
+  if (p2Seeds) targets.set('seeds-2', { title: 'Player 2 Seeds', panel: p2Seeds });
+
+  const homes = new Map<HTMLElement, { parent: HTMLElement; next: ChildNode | null }>();
+  for (const { panel } of targets.values()) {
+    homes.set(panel, { parent: panel.parentElement!, next: panel.nextSibling });
+  }
+
+  let currentKey: string | null = null;
+  const close = () => {
+    if (!currentKey) return;
+    const target = targets.get(currentKey);
+    if (target) {
+      const home = homes.get(target.panel);
+      if (home) home.parent.insertBefore(target.panel, home.next);
+    }
+    overlay.hidden = true;
+    currentKey = null;
+  };
+  const open = (key: string) => {
+    if (currentKey === key) {
+      close();
+      return;
+    }
+    if (currentKey) close();
+    const target = targets.get(key);
+    if (!target) return;
+    titleEl.textContent = target.title;
+    body.appendChild(target.panel);
+    overlay.hidden = false;
+    currentKey = key;
+  };
+
+  root.querySelectorAll<HTMLElement>('.header-toggle[data-dialog]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const key = btn.dataset.dialog;
+      if (key) open(key);
+    });
+  });
+  closeBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    close();
+  });
 }
 
 function setBaseSprite(ref: CellRefs, sprite: string): void {
@@ -261,12 +350,14 @@ function renderHeader(refs: LayoutRefs, obs: Observation): void {
   const day = obs.day ?? 0;
   if (refs.lastDay !== day) {
     refs.lastDay = day;
-    refs.dayValue.textContent = String(day);
+    const text = String(day);
+    for (const el of refs.dayValues) el.textContent = text;
   }
   const turn = obs.hour ?? 0;
   if (refs.lastTurn !== turn) {
     refs.lastTurn = turn;
-    refs.turnValue.textContent = String(turn);
+    const text = String(turn);
+    for (const el of refs.turnValues) el.textContent = text;
   }
 }
 

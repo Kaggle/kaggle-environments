@@ -1,0 +1,91 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+
+html, body, #app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.renderer-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background-color: #f5f1e2;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+  box-sizing: border-box;
+  padding: 12px;
+  color: #050001;
+  gap: 10px;
+  container-type: inline-size;
+}
+
+.header {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  width: 100%;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.ant-player {
+  padding: 6px 14px;
+  background-color: white;
+  font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 110px;
+  border: 1px dashed #3c3b37;
+  transition: background-color 200ms, scale 200ms;
+}
+
+.ant-player.active {
+  background-color: #bdeeff;
+  scale: 1.08;
+}
+
+.ant-player .ant-player-name { font-size: 0.95rem; }
+.ant-player .ant-player-sub { font-size: 0.75rem; color: #444343; font-weight: 500; }
+
+.score-pill {
+  align-self: center;
+  padding: 4px 12px;
+  background-color: white;
+  border: 1px dashed #3c3b37;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.board-wrap {
+  flex: 1 1 0;
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.board-wrap canvas {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.status-container {
+  width: 100%;
+  text-align: center;
+  font-size: 0.9rem;
+  padding: 6px 10px;
+  border: 1px dashed #3c3b37;
+  background-color: white;
+  flex-shrink: 0;
+  min-height: 18px;
+}

@@ -86,17 +86,30 @@ class ObservationTest(absltest.TestCase):
         # Distinct preferences (each player on a board has their own colour).
         self.assertNotEqual(obs0["your_preference"], obs1["your_preference"])
 
-    def test_opponent_team_board_differs(self):
-        # Setup is randomized per board, so seeing only one of them is
-        # genuinely less info than seeing both.
+    def test_both_teams_share_identical_board_setup(self):
+        # Both teams start on identical boards (same player & coin
+        # placement) so AA-vs-BB matches are a fair head-to-head.
         s = _new_state(seed=4)
         obs0 = json.loads(s.observation_string(0))
         obs2 = json.loads(s.observation_string(2))
-        # The two boards are independently laid out.
-        self.assertNotEqual(
-            obs0["board"]["player_positions"],
-            obs2["board"]["player_positions"],
-        )
+        # Same coin layout (after stripping the player ids the renderer
+        # writes onto the grid, which differ by team).
+        def _coins_only(grid):
+            return [["." if cell.isdigit() else cell for cell in row] for row in grid]
+        self.assertEqual(_coins_only(obs0["board"]["board"]), _coins_only(obs2["board"]["board"]))
+        # Same per-seat player placement (team A seat s == team B seat s).
+        team_a_positions = [obs0["board"]["player_positions"][str(pid)] for pid in (0, 1)]
+        team_b_positions = [obs2["board"]["player_positions"][str(pid)] for pid in (2, 3)]
+        self.assertEqual(team_a_positions, team_b_positions)
+
+    def test_paired_seats_share_preference(self):
+        # Team A seat s and team B seat s must prefer the same colour
+        # so each seat plays the same "role" on both boards.
+        s = _new_state(seed=4)
+        obs_all = json.loads(str(s))  # full reveal via __str__
+        prefs = obs_all["preferences"]
+        self.assertEqual(prefs["0"], prefs["2"])  # seat 0 on each team
+        self.assertEqual(prefs["1"], prefs["3"])  # seat 1 on each team
 
 
 class TurnHistoryTest(absltest.TestCase):

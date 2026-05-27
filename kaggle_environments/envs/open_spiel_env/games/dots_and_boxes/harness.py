@@ -72,7 +72,7 @@ Score: Player 1 = {p1_score}, Player 2 = {p2_score}. Boxes remaining:
 {boxes_remaining}.
 
 You are Player {player_label}.
-Last move played: {last_move}
+{last_move_label}: {last_move}
 Moves you have played so far: {move_history}
 
 Action notation: ``<h|v> <row> <col>`` (e.g. ``h 0 1`` or ``v 2 0``). Only
@@ -261,12 +261,17 @@ def generate_prompt(
     last_action = state.get("last_action")
     if last_action:
         last_move = (
-            f"P{last_action.get('player', '?')} "
             f"{last_action.get('orientation', '?')} "
             f"{last_action.get('row', '?')} {last_action.get('col', '?')}"
         )
+        last_move_label = (
+            "Your previous move (you completed a box, so it is your turn again)"
+            if str(last_action.get("player")) == str(player_label)
+            else "Opponent's last move"
+        )
     else:
         last_move = "(none yet)"
+        last_move_label = "Previous move"
 
     move_history_str = ", ".join(move_history) if move_history else "None"
 
@@ -282,6 +287,7 @@ def generate_prompt(
         p2_score=scores[1] if len(scores) > 1 else 0,
         boxes_remaining=_boxes_remaining(state),
         player_label=player_label,
+        last_move_label=last_move_label,
         last_move=last_move,
         move_history=move_history_str,
     )

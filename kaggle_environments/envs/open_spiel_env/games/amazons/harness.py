@@ -125,8 +125,8 @@ def _board_dims(state: Mapping[str, Any]) -> tuple[int, int]:
 
 _PHASE_INSTRUCTION = {
     "from": (
-        "Choose which of your amazons to move. Each legal move below names a "
-        "square that currently holds one of your amazons."
+        "Choose which of your amazons to move (one of your pieces on the "
+        "board)."
     ),
     "to": (
         "You picked up an amazon. Choose where to move it. Amazons move like "
@@ -159,22 +159,19 @@ Move history (last {history_max}):
 
 {phase_instruction}
 
-Legal moves you may play (algebraic, column letter + row number):
-{legal_moves}
-
 It is your turn. Think briefly about the position, then choose your move.
-The move MUST be exactly one of the legal squares listed above.
+Use algebraic notation: column letter + row number, e.g. ``a1`` or ``j10``.
 
 Respond with your reasoning followed by your final answer in a JSON block:
 
 ```json
 {{
-  "move": "<square from the legal list, e.g. a1>"
+  "move": "<square in algebraic notation, e.g. a1>"
 }}
 ```
 
-Failure to output your final answer in the specified format, or selecting a
-square that is not in the legal list, will result in a loss.
+Failure to output your final answer in the specified format, or selecting an
+illegal square, will result in a loss.
 """
 
 
@@ -183,8 +180,8 @@ RETHINK_SUFFIX = """
 Your previous response was:
 {previous_response}
 
-You suggested move "{previous_action}" but it is NOT in the legal list above.
-Reconsider and pick a square that appears verbatim in the legal moves list.
+You suggested move "{previous_action}" but it is not a legal move.
+Reconsider the position and pick a legal square.
 """
 
 
@@ -243,9 +240,6 @@ def generate_prompt(
     player_name = "Black" if current == "x" else "White"
     player_glyph = "X" if current == "x" else "O"
 
-    legal_moves = get_legal_moves(observation)
-    legal_strings = list(legal_moves.values())
-
     prompt = AMAZONS_PROMPT_TEMPLATE.format(
         num_rows=num_rows,
         num_cols=num_cols,
@@ -256,7 +250,6 @@ def generate_prompt(
         history_max=_HISTORY_MAX,
         move_history=_format_history(move_history),
         phase_instruction=_PHASE_INSTRUCTION.get(phase, _PHASE_INSTRUCTION["from"]),
-        legal_moves=", ".join(legal_strings) if legal_strings else "(none)",
     )
 
     if previous_response is not None:
