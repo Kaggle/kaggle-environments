@@ -5,24 +5,29 @@ html, body, #app {
   height: 100%;
   margin: 0;
   padding: 0;
+  overflow: hidden;
 }
 
 body {
   font-family: 'Inter', sans-serif;
 }
 
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 .sketched-border {
   border: 1px dashed #3c3b37;
 }
 
-.demo-container {
+.kaggriculture-container {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 100%;
   padding: 16px;
   box-sizing: border-box;
   gap: 12px;
-  container-type: inline-size;
   justify-content: center;
   background-color: #aacf8a;
   background-repeat: repeat;
@@ -31,22 +36,35 @@ body {
   font-family: 'Inter', sans-serif;
 }
 
-.demo-container,
-.demo-container * {
+.kaggriculture-container,
+.kaggriculture-container * {
   color: #050001;
 }
 
-.demo-main {
+.kaggriculture-main {
   display: grid;
-  grid-template-columns: minmax(280px, 1.4fr) minmax(220px, 0.8fr) minmax(280px, 1.4fr);
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    "status status"
+    "p1     p2";
   gap: 16px;
   align-items: start;
 }
 
-@container (max-width: 900px) {
-  .demo-main {
-    grid-template-columns: 1fr;
-  }
+.kaggriculture-main > .status-panel { grid-area: status; }
+.kaggriculture-main > .farm-panel[data-player="1"] { grid-area: p1; }
+.kaggriculture-main > .farm-panel[data-player="2"] { grid-area: p2; }
+
+/* Mobile-only chrome; revealed via the @media block below. */
+.mobile-title-bar {
+  display: none;
+}
+.header-toggle {
+  display: none;
+}
+.simple-dialog {
+  display: none;
 }
 
 .farm-panel {
@@ -66,6 +84,13 @@ body {
   background-size: 120px 80px;
   font-weight: 700;
   font-size: 1.05rem;
+}
+
+.farm-header-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
 .player-name {
@@ -168,7 +193,7 @@ body {
   color: #050001;
   font-variant-numeric: tabular-nums;
   pointer-events: none;
-  z-index: 4;
+  z-index: 6;
 }
 
 .cell-yield:empty {
@@ -180,6 +205,7 @@ body {
   background-repeat: repeat;
   background-size: 120px 80px;
   padding: 8px 10px;
+  box-sizing: border-box;
 }
 
 .seed-header {
@@ -203,6 +229,8 @@ body {
   background-color: #c9a978;
   border: 1px dashed #8b6f44;
   padding: 4px;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .seed-icon {
@@ -222,29 +250,188 @@ body {
   background-color: #e8d2a6;
   background-repeat: repeat;
   background-size: 120px 80px;
-  padding: 12px;
+  padding: 10px 16px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  justify-content: space-between;
   align-items: center;
-  gap: 10px;
+  gap: 16px;
 }
 
 .status-title {
-  font-family: 'Mynerve', cursive;
-  font-size: 1.3rem;
+  font-size: 1.1rem;
   font-weight: 700;
-  text-align: center;
 }
 
 .status-counters {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 6px;
+  gap: 16px;
 }
 
 .day-counter,
 .turn-counter {
-  font-family: 'Mynerve', cursive;
-  font-size: 1.1rem;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Breakpoint mirrors the advanced visualizer (MUI `tablet` = 840px). Below
+   840px we switch to a single-screen layout: a compact title bar plus the two
+   farms; seeds and status are hidden and surfaced via header buttons that open
+   the .simple-dialog overlay. */
+@media (max-width: 839.95px) {
+  .kaggriculture-container {
+    height: 100%;
+    padding: 8px;
+    gap: 6px;
+    overflow: hidden;
+  }
+
+  .kaggriculture-main {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(5, auto);
+    grid-template-areas:
+      "title-bar"
+      "p1-header"
+      "p1-field"
+      "p2-field"
+      "p2-header";
+    gap: 6px;
+    align-items: stretch;
+  }
+
+  .farm-panel {
+    display: contents;
+  }
+
+  .seed-area,
+  .status-panel {
+    display: none;
+  }
+
+  .mobile-title-bar {
+    grid-area: title-bar;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 6px 10px;
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+  .mobile-title-bar-info {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  @media (max-height: 640px) {
+    .mobile-title-bar {
+      padding: 4px 8px;
+      font-size: 0.75rem;
+      gap: 4px 8px;
+    }
+  }
+
+  /* Shrink yield badges so they don't dominate the tiny mobile cells. */
+  .cell-yield {
+    width: 0.75rem;
+    height: 0.75rem;
+    font-size: 0.5rem;
+    border-width: 1px;
+  }
+
+  .farm-panel[data-player="1"] .farm-header { grid-area: p1-header; }
+  .farm-panel[data-player="1"] .farm-area   { grid-area: p1-field; }
+  .farm-panel[data-player="2"] .farm-header { grid-area: p2-header; }
+  .farm-panel[data-player="2"] .farm-area   { grid-area: p2-field; }
+
+  .farm-header {
+    padding: 4px 8px;
+    font-size: 0.95rem;
+    gap: 6px;
+  }
+
+  .header-toggle {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border: 1px dashed #3c3b37;
+    background: #efe7ce;
+    color: #050001;
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .header-toggle:active {
+    background: #d8c89f;
+  }
+
+  /* Center the square farm grid within the row; the border/background hug it. */
+  .farm-area {
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    background: transparent;
+    border: none;
+  }
+  .farm-grid {
+    width: min(100%, 34vh);
+    aspect-ratio: 1;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  /* Dialog overlay (revealed when JS un-hides it). */
+  .simple-dialog:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    inset: 8px;
+    z-index: 20;
+    background: #efe7ce;
+    border: 1px dashed #3c3b37;
+    padding: 8px;
+    overflow: hidden;
+    box-sizing: border-box;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  }
+  .simple-dialog-titlebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 6px 8px;
+    font-weight: 700;
+  }
+  .simple-dialog-close {
+    appearance: none;
+    border: none;
+    background: transparent;
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+    color: #050001;
+    padding: 0 4px;
+  }
+  .simple-dialog-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
+    min-width: 0;
+  }
+  .simple-dialog-body .seed-area {
+    display: block;
+    max-width: 100%;
+  }
+  /* 5 crops wrap into 2 columns (3 + 2) so slots have room to breathe. */
+  .simple-dialog-body .seed-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
