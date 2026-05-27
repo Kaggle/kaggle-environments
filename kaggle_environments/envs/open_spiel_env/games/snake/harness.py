@@ -33,11 +33,15 @@ dies if its new head:
   - leaves the grid,
   - lands on any snake's post-move body (including its own), or
   - collides head-to-head with another snake (both die).
-A snake that moves onto the food ("*") grows by one and earns one point;
-a new food cell then appears on a random empty square. Snakes that do
-NOT eat lose their tail on the same turn. The game ends when at most one
-snake is alive (in a multi-player game) or after {max_turns} turns; the
-last snake standing wins, otherwise the highest score wins.
+A snake that moves onto a food cell ("*") grows by one and earns one
+point. Food spawns in 180°-rotationally-symmetric pairs (one cell and
+its mirror through the board center), so both starting positions are
+equidistant from the nearest food. Every {food_respawn_interval} turns
+a fresh pair is spawned and any uneaten food is removed — there is no
+respawn when food is eaten. Snakes that do NOT eat lose their tail on
+the same turn. The game ends when at most one snake is alive (in a
+multi-player game) or after {max_turns} turns; the last snake standing
+wins, otherwise the highest score wins.
 
 Coordinates are ``[row, column]`` with ``row=0`` at the top and
 ``column=0`` on the left. The board uses these characters:
@@ -50,6 +54,7 @@ The current game state is:
 
 You are player {player_id}. Your snake is at {your_body}{alive_note}.
 Your score: {your_score}. Food at: {food_str}.
+Next food respawn in {turns_until_respawn} turn(s).
 
 Moves you have played so far:
 {move_history}
@@ -174,8 +179,18 @@ def generate_prompt(
     alive = bool(your_snake.get("alive", True)) if your_snake else True
     alive_note = "" if alive else " (DEAD — you are out of the game)"
 
-    food = parsed.get("food")
-    food_str = f"{food}" if food else "(no food on board)"
+    foods = parsed.get("foods")
+    if foods is None:
+        # Back-compat: older proxies emitted a single "food" key.
+        single = parsed.get("food")
+        foods = [single] if single else []
+    food_str = ", ".join(str(f) for f in foods) if foods else "(no food on board)"
+
+    food_respawn_interval = int(parsed.get("food_respawn_interval") or 10)
+    turn = int(parsed.get("turn", 0))
+    turns_until_respawn = parsed.get("turns_until_respawn")
+    if turns_until_respawn is None and food_respawn_interval > 0:
+        turns_until_respawn = food_respawn_interval - (turn % food_respawn_interval)
 
     move_history_str = " ".join(move_history) if move_history else "None"
 
@@ -184,6 +199,8 @@ def generate_prompt(
         cols=cols,
         num_players=num_players,
         max_turns=max_turns,
+        food_respawn_interval=food_respawn_interval,
+        turns_until_respawn=turns_until_respawn,
         your_letter=your_letter,
         your_body_char=your_body_char,
         your_head_char=your_head_char,

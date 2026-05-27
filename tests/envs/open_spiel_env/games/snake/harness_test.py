@@ -93,7 +93,10 @@ class GeneratePromptTest(absltest.TestCase):
                 "num_rows": 10,
                 "num_columns": 10,
                 "num_players": 2,
+                "foods": [[3, 4], [6, 5]],
                 "food": [3, 4],
+                "food_respawn_interval": 10,
+                "turns_until_respawn": 7,
                 "snakes": [
                     {"player": 0, "body": [[1, 1]], "alive": True, "score": 0},
                     {"player": 1, "body": [[8, 8]], "alive": True, "score": 0},
@@ -101,7 +104,7 @@ class GeneratePromptTest(absltest.TestCase):
                 "scores": [0, 0],
                 "is_alive": [True, True],
                 "current_player": player_id,
-                "turn": 0,
+                "turn": 3,
                 "is_terminal": False,
                 "winner": None,
             }
@@ -126,6 +129,7 @@ class GeneratePromptTest(absltest.TestCase):
     def test_prompt_includes_food_location(self):
         prompt = generate_prompt(self._obs(), [])
         self.assertIn("[3, 4]", prompt)
+        self.assertIn("[6, 5]", prompt)
 
     def test_prompt_includes_own_snake_body(self):
         prompt = generate_prompt(self._obs(player_id=1), [])
