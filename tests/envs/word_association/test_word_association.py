@@ -185,6 +185,33 @@ def test_multi_game_memory_consistent_across_agents():
         assert oi.yellow_wins == obs0.yellow_wins
 
 
+def test_multi_game_guessers_dont_see_unmasked_roles_at_transition():
+    # After each per-episode game transition, guessers (agents 1 and 3) must
+    # see roles masked as "Unknown" — initialize_game writes full roles to
+    # every agent, so update_visibility must run before the snapshot is returned.
+    env = make("word_association", configuration={"games_per_episode": 5, "seed": 0})
+    env.reset()
+    prev_cg = env.state[0].observation.current_game
+    saw_transition = False
+    while not env.done:
+        env.step([None if env.state[i].status != "ACTIVE"
+                  else ({"clue": "ANIMAL", "number": 1} if i in (0, 2) else 0)
+                  for i in range(4)])
+        cg = env.state[0].observation.current_game
+        if cg != prev_cg:
+            saw_transition = True
+            for guesser in (1, 3):
+                roles = env.state[guesser].observation.roles
+                non_unknown = sum(1 for r in roles if r != "Unknown")
+                # All squares start unrevealed, so guessers should see 0 real roles.
+                assert non_unknown == 0, (
+                    f"guesser {guesser} saw {non_unknown} unmasked roles "
+                    f"at game-{cg} start"
+                )
+            prev_cg = cg
+    assert saw_transition, "test never observed a game transition"
+
+
 def test_multi_game_per_game_seed_uniqueness():
     # Different games within one episode must use different word boards.
     env = make("word_association", configuration={"games_per_episode": 2, "seed": 7})
@@ -215,5 +242,6 @@ if __name__ == "__main__":
     test_space_hyphen_validation()
     test_multi_game_cumulative_rewards()
     test_multi_game_memory_consistent_across_agents()
+    test_multi_game_guessers_dont_see_unmasked_roles_at_transition()
     test_multi_game_per_game_seed_uniqueness()
     print("All Word Association rule tests passed!")

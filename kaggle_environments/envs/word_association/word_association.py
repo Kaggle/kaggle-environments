@@ -311,9 +311,13 @@ def interpreter(state, env):
 
                 # Reset board (re-init)
                 initialize_game(state, env.configuration)
-                
+
+                # initialize_game writes full roles to every agent; mask them
+                # again for the guessers before the new game's snapshot is
+                # returned, mirroring the first-game init path.
+                update_visibility(state)
+
                 # Reset agent statuses based on new current_turn
-                active_agent = state[0].observation.current_turn
                 for i in range(4):
                     state[i].status = "ACTIVE" if i == state[0].observation.current_turn else "INACTIVE"
                     
