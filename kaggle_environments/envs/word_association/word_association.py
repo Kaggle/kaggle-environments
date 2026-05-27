@@ -16,9 +16,20 @@ def initialize_game(state, config):
     with open(words_path, "r") as f:
         all_words = [line.strip().upper() for line in f.readlines() if line.strip()]
         
-    # Setup deterministic random generator if seed is provided
+    # Setup deterministic random generator if seed is provided.
+    # When games_per_episode > 1, derive a fresh per-game seed from the base
+    # seed so each game uses different words while the full sequence stays
+    # reproducible from the original seed alone.
     seed = config.get("seed")
-    rng = random.Random(seed) if seed is not None else random
+    current_game = state[0].observation.get("current_game", 0)
+    if seed is not None:
+        master_rng = random.Random(seed)
+        game_seed = 0
+        for _ in range(current_game + 1):
+            game_seed = master_rng.randrange(2**32)
+        rng = random.Random(game_seed)
+    else:
+        rng = random
         
     sampled_words = rng.sample(all_words, board_size)
     
