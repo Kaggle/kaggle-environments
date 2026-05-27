@@ -6,6 +6,7 @@ import {
   SEGMENT,
   SURROUNDING_BUILDINGS,
   TOWN_CENTER_INDEX,
+  TOWN_EMPTY_COBBLE_INDICES,
   TOWN_GRID_COLS,
   TOWN_GRID_ROWS,
   TOWN_SIGN_INDEX,
@@ -160,14 +161,23 @@ function townPanel(): string {
                     </div>`;
           }
           if (i === TOWN_SIGN_INDEX) {
-            return `<div class="town-slot town-slot--sign" data-slot="${i}" style="${BG_COBBLE_SLOT}">
-                      <img class="town-sprite" src="${spriteSrc('town_sign')}" alt="Town Sign" title="Town Sign" />
+            return `<div class="town-slot town-slot--sign" data-slot="${i}">
+                      <div class="town-inner-box">
+                        <div class="town-flower town-flower-inner-top" style="background-image:url(${encUrl(spriteSrc('flowers_horizontal'))})"></div>
+                        <div class="town-flower town-flower-inner-bottom" style="background-image:url(${encUrl(spriteSrc('flowers_horizontal'))})"></div>
+                        <div class="town-flower town-flower-inner-left" style="--flower-bg:url(${encUrl(spriteSrc('flowers_horizontal'))})"></div>
+                        <div class="town-flower town-flower-inner-right" style="--flower-bg:url(${encUrl(spriteSrc('flowers_horizontal'))})"></div>
+                      </div>
+                      <img class="town-sprite" src="${spriteSrc('town_sign')}" alt="" title="Welcome to Kaggriculture!" />
                     </div>`;
           }
           const building = SURROUNDING_BUILDINGS[i];
           if (building) {
             // renderTown injects the shop sprite once the shop unlocks.
             return `<div class="town-slot town-slot--shop" data-slot="${i}" data-building="${building.shop}" style="${BG_COBBLE_SLOT}"></div>`;
+          }
+          if (TOWN_EMPTY_COBBLE_INDICES.has(i)) {
+            return `<div class="town-slot" data-slot="${i}" style="${BG_COBBLE_SLOT}"></div>`;
           }
           return `<div class="town-slot" data-slot="${i}"></div>`;
         }).join('')}

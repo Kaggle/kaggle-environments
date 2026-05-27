@@ -52,7 +52,10 @@ body {
     "p1-field town    p2-field"
     "p1-combo market  p2-combo";
   row-gap: 24px;
-  column-gap: 16px;
+  /* Scales the farm/town gap down on narrow desktop widths so the town
+     doesn't feel cramped against the farms while still giving plenty of
+     breathing room (and side-fence clearance) on wider screens. */
+  column-gap: clamp(16px, 2vw, 32px);
   align-items: stretch;
 }
 
@@ -93,6 +96,8 @@ body {
   background-repeat: repeat;
   background-size: 120px 80px;
   box-sizing: border-box;
+  /* Hug content vertically so a tall market panel doesn't stretch the shed
+     into a giant empty area on narrow desktop widths. */
   align-self: start;
 }
 
@@ -228,8 +233,11 @@ body {
   height: calc(100% + 2px);
   width: auto;
 }
-.cell-fence-left  { left: 0;  transform: translateX(-50%); }
-.cell-fence-right { right: 0; transform: translateX(50%); }
+/* Push the side fences further outward (most of the sprite sits in the
+   column gap rather than across the cell) so they stop covering the yield
+   badge on the outermost tiles. */
+.cell-fence-left  { left: 0;  transform: translateX(-65%); }
+.cell-fence-right { right: 0; transform: translateX(65%); }
 
 .cell-sprite {
   position: absolute;
@@ -299,7 +307,7 @@ body {
 
 .inventory-grid {
   display: grid;
-  grid-template-columns: repeat(10, 1fr);
+  grid-template-columns: repeat(9, 1fr);
   gap: 4px;
 }
 
@@ -399,6 +407,17 @@ body {
   image-rendering: pixelated;
 }
 
+/* The sign lives in slot 4 but should visually hang halfway across the
+   slot 4/7 boundary, so absolute-position it on the bottom edge and
+   translate it down by half its height. */
+.town-slot--sign .town-sprite {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translate(-50%, 50%);
+  z-index: 6;
+}
+
 .town-flower {
   position: absolute;
   pointer-events: none;
@@ -453,6 +472,68 @@ body {
   transform: translateX(-48px) rotate(90deg);
 }
 
+/* Inner flower border that wraps the 1x2 grass region (sign + empty grass)
+   in the middle column. .town-inner-box is an absolutely positioned child
+   of the sign slot, sized 100% wide x 200% tall so it covers the sign slot
+   AND the empty grass slot directly below it. Anchoring to a real slot's
+   dimensions (rather than grid-percentages) keeps the box exact even when
+   the grid row heights stretch. Its own border-radius + overflow:hidden
+   produce rounded corners just like town-grid does for the outer border. */
+.town-inner-box {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 200%;
+  overflow: hidden;
+  border-radius: 20px;
+  pointer-events: none;
+}
+
+.town-flower-inner-top,
+.town-flower-inner-bottom {
+  left: 0;
+  right: 0;
+  height: 48px;
+  background-size: 68px 100%;
+}
+.town-flower-inner-top    { top: 0; }
+.town-flower-inner-bottom { bottom: 0; transform: translateY(50%); }
+
+.town-flower-inner-left,
+.town-flower-inner-right {
+  top: 0;
+  bottom: 0;
+  width: 48px;
+  overflow: hidden;
+  background-image: none;
+}
+.town-flower-inner-left  { left: 0; }
+.town-flower-inner-right { right: 0; }
+
+.town-flower-inner-left::before,
+.town-flower-inner-right::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: 200vh;
+  height: 48px;
+  background-image: var(--flower-bg);
+  background-repeat: repeat-x;
+  background-size: 68px 100%;
+  image-rendering: pixelated;
+}
+.town-flower-inner-left::before {
+  left: 0;
+  transform-origin: bottom left;
+  transform: translateX(48px) rotate(-90deg);
+}
+.town-flower-inner-right::before {
+  right: 0;
+  transform-origin: bottom right;
+  transform: translateX(-48px) rotate(90deg);
+}
+
 /* ---- Market ---- */
 .market-panel {
   background-color: #e8d2a6;
@@ -460,7 +541,6 @@ body {
   background-size: 120px 80px;
   padding: 8px 10px;
   box-sizing: border-box;
-  margin-bottom: 16px;
 }
 
 .market-header {
@@ -599,7 +679,11 @@ body {
       "p1-field"
       "p2-field"
       "p2-header";
-    gap: 6px;
+    /* Bigger row-gap so the fence sprites (which protrude ~half their
+       height past .farm-area via translateY) don't crash into the player
+       headers above/below. Column-gap is irrelevant in a single column. */
+    row-gap: 18px;
+    column-gap: 6px;
     align-items: stretch;
   }
 
@@ -658,10 +742,16 @@ body {
     gap: 6px;
   }
 
-  .farm-panel[data-player="1"] .farm-header { grid-area: p1-header; }
-  .farm-panel[data-player="1"] .farm-area   { grid-area: p1-field; }
-  .farm-panel[data-player="2"] .farm-header { grid-area: p2-header; }
-  .farm-panel[data-player="2"] .farm-area   { grid-area: p2-field; }
+  /* On mobile, .player-box contains only the header (shed-area is hidden),
+     so place the whole box in the header row. The desktop rule maps
+     .player-box to p1-combo/p2-combo, which don't exist in this mobile grid;
+     without this override, the boxes get auto-placed and the named header
+     rows stay empty. Targeting .farm-header directly doesn't work because
+     it isn't a direct grid item of .kaggriculture-main. */
+  .farm-panel[data-player="1"] .player-box { grid-area: p1-header; }
+  .farm-panel[data-player="1"] .farm-area  { grid-area: p1-field; }
+  .farm-panel[data-player="2"] .player-box { grid-area: p2-header; }
+  .farm-panel[data-player="2"] .farm-area  { grid-area: p2-field; }
 
   .town-header {
     flex-direction: row;

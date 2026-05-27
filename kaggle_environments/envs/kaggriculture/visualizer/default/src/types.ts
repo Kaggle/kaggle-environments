@@ -1,14 +1,21 @@
 export const SEGMENT = 5;
-export const INVENTORY_SLOTS = 20;
+// 18 slots laid out as a 9x2 grid. The shed + seeds together max out at 17
+// distinct item types (12 shed entries + 5 seed types), so one slot is
+// always empty.
+export const INVENTORY_SLOTS = 18;
 
-// 3x4 grid: top row holds the town center (left), town sign (middle), and the
-// first shop (right). The middle column below the sign stays empty except for
-// the bottom slot, which holds the bakery to terminate the path. The remaining
-// 7 shops line the left and right columns. Shops unlock one per 3 in-game days.
+// 3x4 grid: top row holds the bakery, town center, and pizza shop. The
+// town sign sits on bare grass at row 2 middle, with a grass-empty slot
+// below it and a cobble-empty slot at the bottom of the middle column.
+// The remaining 6 shops line the left and right columns. Shops unlock
+// one per 3 in-game days.
 export const TOWN_GRID_COLS = 3;
 export const TOWN_GRID_ROWS = 4;
-export const TOWN_CENTER_INDEX = 0;
-export const TOWN_SIGN_INDEX = 1;
+export const TOWN_CENTER_INDEX = 1;
+export const TOWN_SIGN_INDEX = 4;
+
+// Empty slots that get a cobblestone backing instead of bare grass.
+export const TOWN_EMPTY_COBBLE_INDICES: ReadonlySet<number> = new Set([10]);
 
 // segId = segR*2 + segC, where segR/segC come from row/col / SEGMENT.
 // (0,0)=NW, (0,1)=NE, (1,0)=SW, (1,1)=SE.
@@ -19,16 +26,17 @@ export const QUADRANT_BY_SEGMENT: Record<number, string> = {
   3: 'SE',
 };
 
-// Shop slot index in the 3x4 grid (skipping center=0, sign=1, and the empty
-// inner cells 4 and 7) -> { interpreter shop key, sprite name, label }.
+// Shop slot index in the 3x4 grid (skipping center=1, sign=4, grass-empty
+// cell 7, and cobble-empty cell 10) -> { interpreter shop key, sprite name,
+// label }.
 export const SURROUNDING_BUILDINGS: Record<number, { shop: string; sprite: string; label: string }> = {
+  0: { shop: 'BAKERY', sprite: 'bakery', label: 'Bakery' },
   2: { shop: 'PIZZA_SHOP', sprite: 'pizza', label: 'Pizza Shop' },
   3: { shop: 'BRUNCH_SPOT', sprite: 'brunch', label: 'Brunch Spot' },
   5: { shop: 'YARN_STORE', sprite: 'yarn', label: 'Yarn Store' },
   6: { shop: 'ICE_CREAM_SHOP', sprite: 'icecream', label: 'Ice Cream Shop' },
   8: { shop: 'PET_CAFE', sprite: 'petcafe', label: 'Pet Cafe' },
   9: { shop: 'SMOOTHIE_SHOP', sprite: 'smoothie', label: 'Smoothie Shop' },
-  10: { shop: 'BAKERY', sprite: 'bakery', label: 'Bakery' },
   11: { shop: 'FARMERS_MARKET', sprite: 'farmersmarket', label: "Farmers' Market" },
 };
 
