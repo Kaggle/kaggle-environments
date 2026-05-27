@@ -14,7 +14,10 @@ from typing import Any, Callable
 import numpy as np
 import pokerkit  # noqa: F401
 import pyspiel
-from open_spiel.python.games import pokerkit_wrapper  # noqa: F401
+from open_spiel.python.games import (
+    ant_foraging,  # noqa: F401
+    pokerkit_wrapper,  # noqa: F401
+)
 
 from kaggle_environments import core, utils
 from kaggle_environments.envs.open_spiel_env.games.coin_game_arena import coin_game_arena_game  # noqa: F401
@@ -1000,6 +1003,7 @@ DEFAULT_REPEATED_POKERKIT_GAME_STRING = (
 GAMES_LIST = [
     "amazons",
     "backgammon",
+    "python_ant_foraging",
     "checkers",
     "chess",
     "clobber",
