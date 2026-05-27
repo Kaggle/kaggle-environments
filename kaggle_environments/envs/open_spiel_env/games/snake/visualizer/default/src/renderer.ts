@@ -12,7 +12,8 @@ type SnakeObservation = {
   num_rows: number;
   num_columns: number;
   num_players: number;
-  food: [number, number] | null;
+  foods?: [number, number][];
+  food?: [number, number] | null;
   snakes: {
     player: number;
     body: [number, number][];
@@ -81,8 +82,8 @@ function drawBoard(ctx: CanvasRenderingContext2D, width: number, height: number,
   }
 
   // Food.
-  if (obs.food) {
-    const [fr, fc] = obs.food;
+  const foods: [number, number][] = obs.foods ?? (obs.food ? [obs.food] : []);
+  for (const [fr, fc] of foods) {
     const cx = xOff + fc * cellSize + cellSize / 2;
     const cy = yOff + fr * cellSize + cellSize / 2;
     ctx.fillStyle = FOOD_COLOR;

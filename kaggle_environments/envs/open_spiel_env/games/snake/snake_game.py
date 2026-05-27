@@ -12,6 +12,7 @@ _MIN_PLAYERS = 1
 _MAX_PLAYERS = 4
 _NUM_ROWS = 10
 _NUM_COLS = 10
+_FOOD_RESPAWN_INTERVAL = 10
 _GAME_TYPE = pyspiel.GameType(
     short_name="snake",
     long_name="Snake",
@@ -30,6 +31,7 @@ _GAME_TYPE = pyspiel.GameType(
         "rows": _NUM_ROWS,
         "columns": _NUM_COLS,
         "players": _NUM_PLAYERS,
+        "food_respawn_interval": _FOOD_RESPAWN_INTERVAL,
     },
 )
 
@@ -58,6 +60,11 @@ class SnakeGame(pyspiel.Game):
         self.rows = params.get("rows", _NUM_ROWS) if params else _NUM_ROWS
         self.cols = params.get("columns", _NUM_COLS) if params else _NUM_COLS
         self._num_players = params.get("players", _NUM_PLAYERS) if params else _NUM_PLAYERS
+        self.food_respawn_interval = (
+            params.get("food_respawn_interval", _FOOD_RESPAWN_INTERVAL)
+            if params
+            else _FOOD_RESPAWN_INTERVAL
+        )
 
         # Update game info with dynamic player count
         game_info = pyspiel.GameInfo(
@@ -91,6 +98,7 @@ class SnakeState(pyspiel.State):
         self.rows = game.rows
         self.cols = game.cols
         self.num_players = game._num_players
+        self.food_respawn_interval = game.food_respawn_interval
         self._is_terminal = False
         self._game_over_reason = None
 
@@ -115,32 +123,51 @@ class SnakeState(pyspiel.State):
             start_r, start_c = start_positions[i % len(start_positions)]
             self.snakes.append([(start_r, start_c)])
 
-        self.food = None
-        self._place_food()
+        self.foods: List[Tuple[int, int]] = []
+        self._place_foods()
         self._steps = 0
         self._next_player = 0
         self._move_buffer = [None] * self.num_players
 
-    def _place_food(self):
-        """Places food in a random empty location."""
-        available_positions = []
+    def _place_foods(self):
+        """Places a 180°-rotationally-symmetric pair of food on empty cells.
+
+        Distance from snake i's start to its nearest food is equal across
+        snakes (when starts are themselves symmetric, e.g. the default 2-
+        and 4-player layouts). Any previously uneaten food is cleared first.
+        """
+        self.foods = []
+
+        occupied = set()
+        for snake in self.snakes:
+            for cell in snake:
+                occupied.add(cell)
+
+        # Iterate the half-board so each (cell, partner) pair is considered
+        # once. Exclude the board center (where cell == partner) so we
+        # always place two distinct foods.
+        candidates = []
         for r in range(self.rows):
             for c in range(self.cols):
-                occupied = False
-                for snake in self.snakes:
-                    if (r, c) in snake:
-                        occupied = True
-                        break
-                if not occupied:
-                    available_positions.append((r, c))
+                partner = (self.rows - 1 - r, self.cols - 1 - c)
+                if (r, c) >= partner:
+                    continue
+                if (r, c) in occupied or partner in occupied:
+                    continue
+                candidates.append(((r, c), partner))
 
-        if not available_positions:
-            # If board is full, game over.
-            self._is_terminal = True
-            self._game_over_reason = "Won (Board Full)"
+        if not candidates:
+            # Board too full to place a symmetric pair. Only flag terminal
+            # if literally no empty cell exists at all (matches the prior
+            # "Board Full" semantics).
+            total_cells = self.rows * self.cols
+            if len(occupied) >= total_cells:
+                self._is_terminal = True
+                self._game_over_reason = "Won (Board Full)"
             return
 
-        self.food = random.choice(available_positions)
+        a, b = random.choice(candidates)
+        self.foods = [a, b]
 
     def current_player(self):
         """Returns id of the next player to move."""
@@ -203,14 +230,13 @@ class SnakeState(pyspiel.State):
 
         # Determine which snakes eat food (simultaneous arrival allowed)
         eating = [False] * self.num_players
-        food_eaten = False
+        foods_set = set(self.foods)
 
         for i, head in enumerate(new_heads):
             if head is None:
                 continue
-            if head == self.food:
+            if head in foods_set:
                 eating[i] = True
-                food_eaten = True
 
         # Move snakes (tentatively)
         # If not eating, remove tail.
@@ -297,12 +323,17 @@ class SnakeState(pyspiel.State):
                 self.snakes[i] = next_snakes[i]
                 if eating[i]:
                     self.scores[i] += 1.0
+                    # Remove the eaten food cell (the snake's new head).
+                    head_cell = self.snakes[i][0]
+                    if head_cell in self.foods:
+                        self.foods.remove(head_cell)
             else:
                 self.snakes[i] = []  # Remove dead snakes
 
-        # Handle food
-        if food_eaten:
-            self._place_food()
+        # Timed food respawn: every food_respawn_interval turns, clear any
+        # uneaten food and place a fresh symmetric pair.
+        if self.food_respawn_interval > 0 and self._steps % self.food_respawn_interval == 0:
+            self._place_foods()
 
         # Check termination
         # Game ends if 0 or 1 player alive (if started with >1)
@@ -337,8 +368,8 @@ class SnakeState(pyspiel.State):
         """String representation of the state."""
         board = np.full((self.rows, self.cols), ".")
 
-        if self.food:
-            board[self.food] = "*"
+        for food in self.foods:
+            board[food] = "*"
 
         for i, snake in enumerate(self.snakes):
             if not self.is_alive[i]:
@@ -392,8 +423,7 @@ class SnakeObserver:
         obs.fill(0)
 
         # Food
-        if state.food:
-            fr, fc = state.food
+        for fr, fc in state.foods:
             obs[0, fr, fc] = 1.0
 
         for i in range(self.num_players):
