@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import checker from 'vite-plugin-checker';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import cssInjectedByJsPlugin from 'vite-plugin-css-injected-by-js';
+import { viteSingleFile } from 'vite-plugin-singlefile';
 
 // Support custom port via environment variable (used by Playwright tests)
 const port = process.env.VITE_PORT ? parseInt(process.env.VITE_PORT, 10) : 5173;
@@ -38,6 +39,10 @@ export default defineConfig({
     process.env.NODE_ENV !== 'production' && checker({ typescript: true }),
     // Inject CSS into JS bundle in production builds (matches dev behavior)
     cssInjectedByJsPlugin(),
+    // Inline all JS/CSS into a single self-contained dist/index.html so it can
+    // be served from an iframe srcdoc (Kaggle notebook html_renderer path) and
+    // shipped inside the PyPI wheel without needing a co-located assets dir.
+    viteSingleFile(),
     {
       name: 'custom-header-plugin',
       configureServer(server) {

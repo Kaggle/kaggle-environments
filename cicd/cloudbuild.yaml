@@ -67,12 +67,16 @@ steps:
         pnpm build-ci
     waitFor: ["build-cpu-image"]
 
-  # Step 5: Publish to PyPI (after tests pass)
+  # Step 5: Publish to PyPI (after tests pass and visualizers are built)
+  # Waits for build-all-visualizers so each env's
+  # `visualizer/<variant>/dist/index.html` exists on disk before the publish
+  # script prunes the trees and runs `flit publish`. Without this, the wheel
+  # would race the visualizer build and ship without the bundled visualizer.
   - id: "publish-to-pypi"
     name: "python:3.11-slim"
     entrypoint: "bash"
     args: ["docker/cicd-publish-to-pypi.sh"]
-    waitFor: ["run-tests"]
+    waitFor: ["run-tests", "build-all-visualizers"]
     secretEnv: ["PYPI_TOKEN"]
 
   # Step 6: Deploy visualizers to GCS (after visualizers built)
