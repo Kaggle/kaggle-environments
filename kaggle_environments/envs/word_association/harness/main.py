@@ -52,8 +52,9 @@ def _inject_multi_game_context(observation: Mapping[str, Any]) -> str:
     blue_wins = observation.get("blue_wins", 0)
     yellow_wins = observation.get("yellow_wins", 0)
     return (
-        f"This is game {current_game + 1}. Your team's goal is to win the "
-        f"most games. Current score: BLUE {blue_wins} – YELLOW {yellow_wins}.\n\n"
+        f"This is game {current_game + 1}. The team with the most game wins "
+        f"overall is the winner. Current score: BLUE {blue_wins} – "
+        f"YELLOW {yellow_wins}.\n\n"
     )
 
 

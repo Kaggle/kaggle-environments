@@ -195,7 +195,7 @@ def test_first_game_prompt_has_no_multi_game_status():
         obs = env.state[0].observation
         prompt = generate_prompt(obs, [])
         assert "Current score" not in prompt, f"unexpected status block for cfg={cfg}"
-        assert "win the most games" not in prompt, f"unexpected status block for cfg={cfg}"
+        assert "most game wins overall" not in prompt, f"unexpected status block for cfg={cfg}"
 
 
 def test_subsequent_game_prompt_has_status_block():
@@ -215,7 +215,7 @@ def test_subsequent_game_prompt_has_status_block():
     obs = env.state[0].observation
     prompt = generate_prompt(obs, [])
     assert f"This is game {obs.current_game + 1}." in prompt
-    assert "Your team's goal is to win the most games." in prompt
+    assert "The team with the most game wins overall is the winner." in prompt
     assert f"Current score: BLUE {obs.blue_wins} – YELLOW {obs.yellow_wins}." in prompt
     # Total games count must not be leaked into the prompt.
     assert "of 5" not in prompt
