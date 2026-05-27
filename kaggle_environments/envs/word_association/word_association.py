@@ -23,11 +23,14 @@ def initialize_game(state, config):
     seed = config.get("seed")
     current_game = state[0].observation.get("current_game", 0)
     if seed is not None:
-        master_rng = random.Random(seed)
-        game_seed = 0
-        for _ in range(current_game + 1):
-            game_seed = master_rng.randrange(2**32)
-        rng = random.Random(game_seed)
+        if current_game == 0:
+            rng = random.Random(seed)
+        else:
+            master_rng = random.Random(seed)
+            game_seed = 0
+            for _ in range(current_game):
+                game_seed = master_rng.randrange(2**32)
+            rng = random.Random(game_seed)
     else:
         rng = random
         
