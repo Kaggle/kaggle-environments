@@ -29,7 +29,7 @@
   "scripts": {
     "build": "tsc && vite build",
     "dev": "vite",
-    "dev-with-replay": "cross-env VITE_REPLAY_FILE=./replays/test-replay.json vite",
+    "dev-with-replay": "sh -c 'VITE_REPLAY_FILE=./replays/${1:-test-replay.json} vite' --",
     "dev:watch": "tsc --build --watch",
     "test": "vitest run",
     "test:watch": "vitest"

@@ -47,7 +47,7 @@ For OpenSpiel games, also create an empty `games/<name>/__init__.py` if one does
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev-with-replay": "cross-env VITE_REPLAY_FILE=./replays/test-replay.json vite",
+    "dev-with-replay": "sh -c 'VITE_REPLAY_FILE=./replays/${1:-test-replay.json} vite' --",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
