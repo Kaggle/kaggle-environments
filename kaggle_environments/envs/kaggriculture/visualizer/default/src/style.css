@@ -165,7 +165,7 @@ body {
 .farm-panel[data-player="1"] .player-box  { grid-area: p1-combo; }
 .farm-panel[data-player="2"] .farm-area   { grid-area: p2-field; }
 .farm-panel[data-player="2"] .player-box  { grid-area: p2-combo; }
-.town-grid    { grid-area: town; }
+.town-wrap    { grid-area: town; position: relative; align-self: stretch; }
 .market-panel { grid-area: market; }
 
 /* Hide mobile-only header buttons on desktop. */
@@ -491,6 +491,7 @@ body {
   display: grid;
   gap: 0;
   width: 100%;
+  height: 100%;
   align-content: center;
   box-sizing: border-box;
   border-radius: 20px;
@@ -555,7 +556,7 @@ body {
    vertical bob on top. */
 @keyframes town-goose-hop {
   0%, 100% { transform: translate(-50%, -50%) scaleX(var(--flip)); }
-  50%      { transform: translate(-50%, calc(-50% - 12%)) scaleX(var(--flip)); }
+  50%      { transform: translate(-50%, calc(-50% - 8%)) scaleX(var(--flip)); }
 }
 .town-goose.hopping {
   animation: town-goose-hop 0.35s ease-in-out 3;
@@ -570,15 +571,16 @@ body {
 }
 .town-flower-top,
 .town-flower-bottom {
-  left: 0;
-  right: 0;
+  left: -12px;
+  right: -12px;
   height: 48px;
   /* Natural tile width at 48px tall is ~73px; slight horizontal compression
      closes the gap between the sprite's transparent side margins. */
   background-size: 68px 100%;
+  overflow: hidden;
 }
-.town-flower-top    { top: 0; }
-.town-flower-bottom { bottom: 0; transform: translateY(50%); }
+.town-flower-top    { top: 0; border-radius: 20px 20px 0 0; }
+.town-flower-bottom { bottom: 0; transform: translateY(50%); border-radius: 0 0 20px 20px; }
 .town-flower-left,
 .town-flower-right {
   top: 0;
@@ -587,8 +589,8 @@ body {
   overflow: hidden;
   background-image: none;
 }
-.town-flower-left  { left: 0; }
-.town-flower-right { right: 0; }
+.town-flower-left  { left: -12px; border-radius: 20px 0 0 20px; }
+.town-flower-right { right: -12px; border-radius: 0 20px 20px 0; }
 
 /* The vertical strips reuse the horizontal flower sprite via a rotated
    pseudo-element, since CSS can't rotate a background-image directly. */
@@ -846,7 +848,7 @@ body {
   /* Hide everything that's now dialog-only by default. */
   .shed-area,
   .market-panel,
-  .town-grid {
+  .town-wrap {
     display: none;
   }
 
@@ -1010,8 +1012,9 @@ body {
   .simple-dialog-body {
     width: 100%;
   }
-  .simple-dialog-body .town-grid {
-    display: grid;
+  .simple-dialog-body .town-wrap {
+    display: block;
+    position: relative;
     width: 80%;
     margin: 0 auto;
   }

@@ -164,11 +164,12 @@ function farmPanel(player: 1 | 2, rows: number, cols: number, name: string): str
 function townPanel(): string {
   return `
     <section class="town-panel">
-      <div class="town-grid" style="grid-template-columns: repeat(${TOWN_GRID_COLS}, 1fr);">
+      <div class="town-wrap">
         <div class="town-flower town-flower-top" style="background-image:url(${encUrl(spriteSrc('flowers_horizontal'))})"></div>
         <div class="town-flower town-flower-bottom" style="background-image:url(${encUrl(spriteSrc('flowers_horizontal'))})"></div>
         <div class="town-flower town-flower-left" style="--flower-bg:url(${encUrl(spriteSrc('flowers_horizontal'))})"></div>
         <div class="town-flower town-flower-right" style="--flower-bg:url(${encUrl(spriteSrc('flowers_horizontal'))})"></div>
+        <div class="town-grid" style="grid-template-columns: repeat(${TOWN_GRID_COLS}, 1fr);">
         ${Array.from({ length: TOWN_GRID_COLS * TOWN_GRID_ROWS }, (_, i) => {
           if (i === TOWN_CENTER_INDEX) {
             return `<div class="town-slot town-slot--center" data-slot="${i}" style="${BG_BRICK_SLOT}">
@@ -200,6 +201,7 @@ function townPanel(): string {
           { length: TOWN_GEESE_MAX },
           (_, i) => `<img class="town-goose" data-goose="${i}" src="${spriteSrc('goose')}" alt="" hidden />`
         ).join('')}
+        </div>
       </div>
       <div class="market-panel sketched-border" style="${BG_WOOD}">
         <div class="market-header">
