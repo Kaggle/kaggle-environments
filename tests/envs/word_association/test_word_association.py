@@ -185,6 +185,43 @@ def test_multi_game_memory_consistent_across_agents():
         assert oi.yellow_wins == obs0.yellow_wins
 
 
+def test_first_game_prompt_has_no_multi_game_status():
+    # On the first game (single-game session or game 0 of a multi-game
+    # session) the status block should not render — there is nothing useful
+    # to report and the single-game prompt should be unchanged.
+    from kaggle_environments.envs.word_association.harness.main import generate_prompt
+    for cfg in ({}, {"games_per_episode": 5, "seed": 0}):
+        env = make("word_association", configuration=cfg)
+        obs = env.state[0].observation
+        prompt = generate_prompt(obs, [])
+        assert "Current score" not in prompt, f"unexpected status block for cfg={cfg}"
+        assert "most game wins overall" not in prompt, f"unexpected status block for cfg={cfg}"
+
+
+def test_subsequent_game_prompt_has_status_block():
+    # After the first game completes, the status line should appear with the
+    # current game number and score — but never the total number of games.
+    from kaggle_environments.envs.word_association.harness.main import generate_prompt
+    env = make("word_association", configuration={"games_per_episode": 5, "seed": 0})
+    env.reset()
+    while env.state[0].observation.current_game == 0 and not env.done:
+        env.step([
+            None if env.state[i].status != "ACTIVE"
+            else ({"clue": "ANIMAL", "number": 1} if i in (0, 2) else 0)
+            for i in range(4)
+        ])
+    assert env.state[0].observation.current_game >= 1
+
+    obs = env.state[0].observation
+    prompt = generate_prompt(obs, [])
+    assert f"This is game {obs.current_game + 1}." in prompt
+    assert "The team with the most game wins overall is the winner." in prompt
+    assert f"Current score: BLUE {obs.blue_wins} – YELLOW {obs.yellow_wins}." in prompt
+    # Total games count must not be leaked into the prompt.
+    assert "of 5" not in prompt
+    assert "5 games" not in prompt
+
+
 def test_multi_game_guessers_dont_see_unmasked_roles_at_transition():
     # After each per-episode game transition, guessers (agents 1 and 3) must
     # see roles masked as "Unknown" — initialize_game writes full roles to
@@ -242,6 +279,8 @@ if __name__ == "__main__":
     test_space_hyphen_validation()
     test_multi_game_cumulative_rewards()
     test_multi_game_memory_consistent_across_agents()
+    test_first_game_prompt_has_no_multi_game_status()
+    test_subsequent_game_prompt_has_status_block()
     test_multi_game_guessers_dont_see_unmasked_roles_at_transition()
     test_multi_game_per_game_seed_uniqueness()
     print("All Word Association rule tests passed!")

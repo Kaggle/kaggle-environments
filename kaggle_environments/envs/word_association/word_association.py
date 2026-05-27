@@ -60,7 +60,7 @@ def initialize_game(state, config):
         agent_state.observation.clue = ""
         agent_state.observation.guesses_remaining = 0
         agent_state.observation.clue_number = 0
-        
+
         initialize_memory(agent_state.observation, board_size)
 
 def update_visibility(state):
