@@ -166,6 +166,7 @@ export interface LayoutRefs {
     { item: HTMLElement; price: HTMLElement; sparkPath: SVGPathElement; lastSparkKey?: string }
   >;
   shopSlots: HTMLElement[];
+  townGeese: HTMLImageElement[];
   players: PlayerRefs[];
   dialog: DialogRefs;
 }

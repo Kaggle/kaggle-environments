@@ -32,6 +32,19 @@ const BG_GRASS = `background-image:url(${encUrl(BG_URLS.grass)})`;
 const BG_WOOD = `background-image:url(${encUrl(BG_URLS.wood)})`;
 const BG_BRICK_SLOT = `background-image:url(${encUrl(BG_URLS.brick)});background-repeat:repeat;background-size:100% auto;`;
 
+// All three geese sit on the empty grass tile directly beneath the town
+// sign. Positions are in % of the .town-grid box; they cluster around the
+// tile's center (col 1 of 3 = ~50% x, row 2 of 4 = ~62.5% y).
+const TOWN_GEESE_MAX = 3;
+const TOWN_GEESE_POSITIONS: { x: number; y: number }[] = [
+  { x: 42, y: 60 },
+  { x: 50, y: 67 },
+  { x: 58, y: 60 },
+];
+// Every N in-game turns, one randomly chosen goose hops in place. The window
+// index drives both the cadence and the (deterministic) pick.
+const TOWN_GEESE_HOP_INTERVAL = 15;
+
 function marketList(): string {
   return MARKET_ITEMS.map(
     ({ sprite, key }) => `
@@ -183,6 +196,10 @@ function townPanel(): string {
           }
           return `<div class="town-slot" data-slot="${i}"></div>`;
         }).join('')}
+        ${Array.from(
+          { length: TOWN_GEESE_MAX },
+          (_, i) => `<img class="town-goose" data-goose="${i}" src="${spriteSrc('goose')}" alt="" hidden />`
+        ).join('')}
       </div>
       <div class="market-panel sketched-border" style="${BG_WOOD}">
         <div class="market-header">
@@ -285,6 +302,7 @@ export function collectRefs(root: HTMLElement, board: BoardSize): LayoutRefs {
     turnValues: Array.from(root.querySelectorAll<HTMLElement>('.turn-value')),
     marketItems,
     shopSlots: Array.from(root.querySelectorAll<HTMLElement>('.town-slot--shop')),
+    townGeese: Array.from(root.querySelectorAll<HTMLImageElement>('.town-goose')),
     players: [1, 2].map((p) =>
       collectPlayerRefs(root.querySelector<HTMLElement>(`.farm-panel[data-player="${p}"]`)!, board)
     ),
@@ -618,6 +636,36 @@ function renderTown(refs: LayoutRefs, town: TownPublic): void {
   }
 }
 
+function renderGeese(refs: LayoutRefs, day: number, hour: number): void {
+  const globalTurn = (day ?? 0) * 24 + (hour ?? 0);
+  const windowIdx = Math.floor(globalTurn / TOWN_GEESE_HOP_INTERVAL);
+  // Deterministic pseudo-random pick: prime multiplier shuffles the window
+  // index so consecutive windows rarely hit the same goose.
+  const hopperIdx = (((windowIdx * 7919) % TOWN_GEESE_MAX) + TOWN_GEESE_MAX) % TOWN_GEESE_MAX;
+  const windowKey = String(windowIdx);
+  refs.townGeese.forEach((goose, i) => {
+    goose.hidden = false;
+    const pos = TOWN_GEESE_POSITIONS[i];
+    goose.style.left = `${pos.x}%`;
+    goose.style.top = `${pos.y}%`;
+    if (i === hopperIdx) {
+      // Re-trigger the CSS animation only when the window changes, so
+      // re-renders within the same window don't restart mid-hop.
+      if (goose.dataset.hopWindow !== windowKey) {
+        goose.classList.remove('hopping');
+        // Force a reflow so the animation actually restarts when we re-add
+        // the class on the same frame.
+        void goose.offsetWidth;
+        goose.classList.add('hopping');
+        goose.dataset.hopWindow = windowKey;
+      }
+    } else if (goose.classList.contains('hopping')) {
+      goose.classList.remove('hopping');
+      delete goose.dataset.hopWindow;
+    }
+  });
+}
+
 function renderHeader(refs: LayoutRefs, view: ViewModel, cfg: any): void {
   const turnsPerDay = Number(cfg?.turnsPerDay) || 24;
   const totalDays = Math.max(1, Math.floor((Number(cfg?.episodeSteps) || 30 * turnsPerDay) / turnsPerDay));
@@ -641,6 +689,7 @@ export function renderObservation(refs: LayoutRefs, view: ViewModel, cfg: any): 
   renderHeader(refs, view, cfg);
   renderMarket(refs, view.market, view.priceHistory);
   renderTown(refs, view.town);
+  renderGeese(refs, view.day, view.hour);
   const farms = view.farms ?? [];
   farms.forEach((farm, i) => {
     const playerRefs = refs.players[i];

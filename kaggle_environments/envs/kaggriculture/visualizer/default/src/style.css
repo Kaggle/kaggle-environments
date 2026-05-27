@@ -530,6 +530,37 @@ body {
   z-index: 6;
 }
 
+/* Tiny geese that idle on the middle column tiles. left/top are set inline
+   by renderGeese as percentages relative to .town-grid; transform handles
+   centering (and the horizontal flip when the bird turns around). The
+   transition smooths the position hop that happens every few turns. */
+.town-goose {
+  position: absolute;
+  width: 14%;
+  height: auto;
+  z-index: 7;
+  pointer-events: none;
+  image-rendering: pixelated;
+  /* --flip is read by both the static transform and the hop keyframes so
+     individual geese can face either direction without the animation
+     stripping the scaleX. */
+  --flip: 1;
+  transform: translate(-50%, -50%) scaleX(var(--flip));
+}
+/* Flip the middle goose so the flock isn't all facing the same way. */
+.town-goose[data-goose="1"] { --flip: -1; }
+
+/* renderGeese adds .hopping to one bird per interval so it bounces in place
+   a few times. The keyframes preserve centering + flip and add a small
+   vertical bob on top. */
+@keyframes town-goose-hop {
+  0%, 100% { transform: translate(-50%, -50%) scaleX(var(--flip)); }
+  50%      { transform: translate(-50%, calc(-50% - 12%)) scaleX(var(--flip)); }
+}
+.town-goose.hopping {
+  animation: town-goose-hop 0.35s ease-in-out 3;
+}
+
 .town-flower {
   position: absolute;
   pointer-events: none;
