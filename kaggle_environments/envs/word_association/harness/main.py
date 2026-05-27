@@ -38,6 +38,24 @@ def _is_cluemaster(turn: int) -> bool:
     return turn in (0, 2)
 
 
+def _inject_multi_game_context(observation: Mapping[str, Any]) -> str:
+    """Status block shown only when more than one game will be played.
+
+    Returns an empty string in the single-game case so that prompt is unchanged.
+    """
+    games_per_episode = observation.get("games_per_episode", 1)
+    if games_per_episode <= 1:
+        return ""
+
+    current_game = observation.get("current_game", 0)
+    blue_wins = observation.get("blue_wins", 0)
+    yellow_wins = observation.get("yellow_wins", 0)
+    return (
+        f"This is game {current_game + 1}. Your team's goal is to win the "
+        f"most games. Current score: BLUE {blue_wins} – YELLOW {yellow_wins}.\n\n"
+    )
+
+
 def _inject_memory_context(observation: Mapping[str, Any]) -> str:
     """Build memory-context string from observation history fields.
 
@@ -50,7 +68,11 @@ def _inject_memory_context(observation: Mapping[str, Any]) -> str:
     if history:
         parts.append("\nHere is the history of past games in this session:\n")
         parts.append(json.dumps(history, indent=2))
-        parts.append("\n\n")
+        parts.append(
+            "\n\nNote: The board is reshuffled each game — the same word may "
+            "appear with a different role (blue/yellow/neutral/trap) than it "
+            "had in any past game.\n\n",
+        )
 
     current_game_turns = observation.get("current_game_turns")
     if current_game_turns:
@@ -248,10 +270,12 @@ def generate_prompt(
     """Build the LLM prompt for the current turn."""
     turn = observation.get("current_turn", 0)
     team = _get_team(turn)
+    multi_game_context = _inject_multi_game_context(observation)
     memory_context = _inject_memory_context(observation)
 
     if _is_cluemaster(turn):
         prompt = f"You are the {team} Cluemaster in Word Association.\n\n"
+        prompt += multi_game_context
         prompt += (
             f"Your goal is to get your team to guess all your {team} words "
             "while avoiding the opposite team's words and the trap word.\n"
@@ -292,6 +316,7 @@ def generate_prompt(
         )
     else:
         prompt = f"You are the {team} Guesser in Word Association.\n\n"
+        prompt += multi_game_context
         prompt += (
             "Your goal is to correctly guess your team's words based on the "
             "Cluemaster's clues while avoiding the opposite team's words and "

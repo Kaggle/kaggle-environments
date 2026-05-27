@@ -185,6 +185,32 @@ def test_multi_game_memory_consistent_across_agents():
         assert oi.yellow_wins == obs0.yellow_wins
 
 
+def test_single_game_prompt_has_no_multi_game_status():
+    # Single-game prompts must not contain the multi-game status block.
+    from kaggle_environments.envs.word_association.harness.main import generate_prompt
+    env = make("word_association")
+    obs = env.state[0].observation
+    prompt = generate_prompt(obs, [])
+    assert "game 1 of" not in prompt
+    assert "Current score" not in prompt
+    assert "win the most games" not in prompt
+
+
+def test_multi_game_prompt_has_status_block():
+    # Multi-game prompts must include the status line with current game and
+    # score — but NOT the total number of games in the episode.
+    from kaggle_environments.envs.word_association.harness.main import generate_prompt
+    env = make("word_association", configuration={"games_per_episode": 5, "seed": 0})
+    obs = env.state[0].observation
+    prompt = generate_prompt(obs, [])
+    assert "This is game 1." in prompt
+    assert "Your team's goal is to win the most games." in prompt
+    assert "Current score: BLUE 0 – YELLOW 0." in prompt
+    # Total games count must not be leaked into the prompt.
+    assert "of 5" not in prompt
+    assert "5 games" not in prompt
+
+
 def test_multi_game_guessers_dont_see_unmasked_roles_at_transition():
     # After each per-episode game transition, guessers (agents 1 and 3) must
     # see roles masked as "Unknown" — initialize_game writes full roles to
@@ -242,6 +268,8 @@ if __name__ == "__main__":
     test_space_hyphen_validation()
     test_multi_game_cumulative_rewards()
     test_multi_game_memory_consistent_across_agents()
+    test_single_game_prompt_has_no_multi_game_status()
+    test_multi_game_prompt_has_status_block()
     test_multi_game_guessers_dont_see_unmasked_roles_at_transition()
     test_multi_game_per_game_seed_uniqueness()
     print("All Word Association rule tests passed!")

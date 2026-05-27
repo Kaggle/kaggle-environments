@@ -52,6 +52,8 @@ def initialize_game(state, config):
     
     revealed = [False] * board_size
     
+    games_per_episode = config.get("games_per_episode", 1)
+
     for agent_state in state:
         agent_state.observation.words = sampled_words
         agent_state.observation.roles = roles[:]
@@ -60,7 +62,8 @@ def initialize_game(state, config):
         agent_state.observation.clue = ""
         agent_state.observation.guesses_remaining = 0
         agent_state.observation.clue_number = 0
-        
+        agent_state.observation.games_per_episode = games_per_episode
+
         initialize_memory(agent_state.observation, board_size)
 
 def update_visibility(state):
