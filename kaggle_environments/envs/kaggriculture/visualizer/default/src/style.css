@@ -47,8 +47,9 @@ body {
 .kaggriculture-main {
   display: grid;
   grid-template-columns: minmax(280px, 1.4fr) minmax(260px, 1fr) minmax(280px, 1.4fr);
-  grid-template-rows: 1fr auto;
+  grid-template-rows: auto 1fr auto;
   grid-template-areas:
+    "bush     bush    bush"
     "p1-field town    p2-field"
     "p1-combo market  p2-combo";
   row-gap: 24px;
@@ -62,6 +63,30 @@ body {
 .farm-panel,
 .town-panel {
   display: contents;
+}
+
+.bush-border-top { grid-area: bush; }
+
+.bush-border {
+  position: relative;
+  /* Negative z-index keeps the bush beneath the fence overhang on top-row
+     farm cells and the town's flower border, which both render at z:5
+     inside their own stacking contexts. */
+  z-index: 0;
+  width: 100%;
+  height: 96px;
+  background-repeat: repeat-x;
+  /* `auto 100%` keeps the sprite at a fixed pixel height so it tiles across
+     the row instead of stretching to fit the container width. */
+  background-size: auto 100%;
+  image-rendering: pixelated;
+  pointer-events: none;
+  border-radius: 20px;
+  overflow: hidden;
+  /* Pull the next row up far enough that the bottom ~half of the bush
+     overlaps the top edge of the farms + town, eating through the grid's
+     row-gap and into the field/town frame. */
+  margin-bottom: -56px;
 }
 
 .farm-panel[data-player="1"] .farm-area   { grid-area: p1-field; }
@@ -690,6 +715,10 @@ body {
   .farm-panel,
   .town-panel {
     display: contents;
+  }
+
+  .bush-border {
+    display: none;
   }
 
   /* Hide everything that's now dialog-only by default. */

@@ -3,6 +3,7 @@ import { MARKET_ITEMS, READY_SPRITE_TYPES, type PrivateState, type ViewModel } f
 
 import bakery from './assets/sprites/bakery.png';
 import brunch_spot from './assets/sprites/brunch_spot.png';
+import bush_border_horizontal from './assets/sprites/bush_border_horizontal.png';
 import carrot_full from './assets/sprites/carrot_full.png';
 import carrot_ready from './assets/sprites/carrot_ready.png';
 import cobblestone_cell from './assets/sprites/cobblestone_cell.png';
@@ -67,6 +68,7 @@ const SPRITE_URLS: Record<string, string> = {
   bakery,
   brunch_spot,
   brunch: brunch_spot,
+  bush_border_horizontal,
   carrot_full,
   carrot: carrot_full,
   carrot_ready,

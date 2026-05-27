@@ -217,6 +217,7 @@ export function buildShell(root: HTMLElement, board: BoardSize, playerNames: str
     <div class="kaggriculture-container" style="${BG_GRASS}">
       <main class="kaggriculture-main">
         ${mobileTitleBar()}
+        <div class="bush-border bush-border-top" style="background-image:url(${encUrl(spriteSrc('bush_border_horizontal'))})"></div>
         ${farmPanel(1, board.rows, board.cols, playerNames[0] ?? 'Player 1')}
         ${townPanel()}
         ${farmPanel(2, board.rows, board.cols, playerNames[1] ?? 'Player 2')}
