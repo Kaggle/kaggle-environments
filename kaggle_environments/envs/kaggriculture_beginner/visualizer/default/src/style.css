@@ -5,17 +5,22 @@ html, body, #app {
   height: 100%;
   margin: 0;
   padding: 0;
+  overflow: hidden;
 }
 
 body {
   font-family: 'Inter', sans-serif;
 }
 
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 .sketched-border {
   border: 1px dashed #3c3b37;
 }
 
-.demo-container {
+.kaggriculture-container {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -31,17 +36,25 @@ body {
   font-family: 'Inter', sans-serif;
 }
 
-.demo-container,
-.demo-container * {
+.kaggriculture-container,
+.kaggriculture-container * {
   color: #050001;
 }
 
-.demo-main {
+.kaggriculture-main {
   display: grid;
-  grid-template-columns: minmax(280px, 1.4fr) minmax(220px, 0.8fr) minmax(280px, 1.4fr);
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    "status status"
+    "p1     p2";
   gap: 16px;
   align-items: start;
 }
+
+.kaggriculture-main > .status-panel { grid-area: status; }
+.kaggriculture-main > .farm-panel[data-player="1"] { grid-area: p1; }
+.kaggriculture-main > .farm-panel[data-player="2"] { grid-area: p2; }
 
 /* Mobile-only chrome; revealed via the @media block below. */
 .mobile-title-bar {
@@ -192,6 +205,7 @@ body {
   background-repeat: repeat;
   background-size: 120px 80px;
   padding: 8px 10px;
+  box-sizing: border-box;
 }
 
 .seed-header {
@@ -215,6 +229,8 @@ body {
   background-color: #c9a978;
   border: 1px dashed #8b6f44;
   padding: 4px;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .seed-icon {
@@ -234,24 +250,24 @@ body {
   background-color: #e8d2a6;
   background-repeat: repeat;
   background-size: 120px 80px;
-  padding: 12px;
+  padding: 10px 16px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  justify-content: space-between;
   align-items: center;
-  gap: 10px;
+  gap: 16px;
 }
 
 .status-title {
   font-size: 1.1rem;
   font-weight: 700;
-  text-align: center;
 }
 
 .status-counters {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 6px;
+  gap: 16px;
 }
 
 .day-counter,
@@ -265,14 +281,14 @@ body {
    farms; seeds and status are hidden and surfaced via header buttons that open
    the .simple-dialog overlay. */
 @media (max-width: 839.95px) {
-  .demo-container {
+  .kaggriculture-container {
     height: 100%;
     padding: 8px;
     gap: 6px;
     overflow: hidden;
   }
 
-  .demo-main {
+  .kaggriculture-main {
     grid-template-columns: 1fr;
     grid-template-rows: repeat(5, auto);
     grid-template-areas:
@@ -405,11 +421,17 @@ body {
   }
   .simple-dialog-body {
     flex: 1 1 auto;
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
     min-height: 0;
+    min-width: 0;
   }
   .simple-dialog-body .seed-area {
     display: block;
-    width: 100%;
+    max-width: 100%;
+  }
+  /* 5 crops wrap into 2 columns (3 + 2) so slots have room to breathe. */
+  .simple-dialog-body .seed-row {
+    grid-template-columns: repeat(2, 1fr);
   }
 }

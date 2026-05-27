@@ -95,7 +95,7 @@ function farmPanel(player: 1 | 2, rows: number, cols: number, name: string): str
 function statusPanel(): string {
   return `
     <section class="status-panel sketched-border" style="${woodBg}">
-      <div class="status-title">Kaggriculture (Beginner)</div>
+      <div class="status-title">Kaggriculture</div>
       <div class="status-counters">
         <span class="day-counter">Day <span class="day-value">0</span></span>
         <span class="turn-counter">Turn <span class="turn-value">0</span></span>
@@ -118,8 +118,8 @@ function mobileTitleBar(): string {
 
 export function buildSkeleton(root: HTMLElement, board: BoardSize, playerNames: [string, string]): void {
   root.innerHTML = `
-    <div class="demo-container" style="${grassBg}">
-      <main class="demo-main">
+    <div class="kaggriculture-container" style="${grassBg}">
+      <main class="kaggriculture-main">
         ${mobileTitleBar()}
         ${farmPanel(1, board.rows, board.cols, playerNames[0])}
         ${statusPanel()}
