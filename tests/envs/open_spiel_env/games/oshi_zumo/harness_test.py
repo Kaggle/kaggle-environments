@@ -62,9 +62,13 @@ class ParseResponseTest(absltest.TestCase):
         )
         self.assertEqual(result.legal_action, "[P0]Bid: 3")
 
-    def test_parse_fallback_integer_in_text(self):
+    def test_parse_no_integer_substring_fallback(self):
+        # The largest legal bid equals the player's current coin total, which
+        # the prompt prints and the model nearly always echoes. A bare-integer
+        # fallback would silently convert any truncated response into an all-in
+        # bid. We require an explicit JSON or action-string mention instead.
         result = parse_response("After thinking I bid 2.", self.legal)
-        self.assertEqual(result.legal_action, "[P0]Bid: 2")
+        self.assertIsNone(result.legal_action)
 
     def test_parse_illegal_bid_returns_raw(self):
         result = parse_response('```json\n{"bid": 99}\n```', self.legal)
@@ -80,15 +84,27 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response('```json\n{"bid": 0}\n```', self.legal)
         self.assertIsInstance(result, ParseResult)
 
-    def test_parse_prefers_largest_legal_match(self):
-        """A response containing '12' should NOT pick '1' or '2' — but if
-        only single-digit bids are legal, it must pick the largest match."""
-        legal = ["[P0]Bid: 1", "[P0]Bid: 2"]
-        result = parse_response("after deliberation I'll bid 2.", legal)
-        self.assertEqual(result.legal_action, "[P0]Bid: 2")
-        # The substring '12' inside a larger number should not match either bid.
-        result2 = parse_response("the score was 121-99.", legal)
-        self.assertIsNone(result2.legal_action)
+    def test_parse_rethink_takes_last_json_block(self):
+        # On rethink the model writes one answer, reconsiders, writes another.
+        # Take the last block, not the first.
+        response = (
+            '```json\n{"bid": 0}\n```\n'
+            'Wait, actually:\n'
+            '```json\n{"bid": 3}\n```'
+        )
+        result = parse_response(response, self.legal)
+        self.assertEqual(result.legal_action, "[P0]Bid: 3")
+
+    def test_parse_rethink_takes_last_bare_json(self):
+        response = '{"bid": 1} ... reconsidering ... {"bid": 3}'
+        result = parse_response(response, self.legal)
+        self.assertEqual(result.legal_action, "[P0]Bid: 3")
+
+    def test_parse_action_string_takes_last_occurrence(self):
+        # Model cites past round before declaring this round's choice.
+        response = "Last round was [P0]Bid: 2, this round [P0]Bid: 3 looks good."
+        result = parse_response(response, self.legal)
+        self.assertEqual(result.legal_action, "[P0]Bid: 3")
 
 
 # ---------------------------------------------------------------------------
@@ -133,10 +149,25 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("Your coins:        10", p1_prompt)
         self.assertIn("Opponent coins:    8", p1_prompt)
 
+    def test_per_player_edge_indices(self):
+        # Engine: wrestler_pos==0 -> P1 wins, wrestler_pos==field_size-1 -> P0 wins.
+        # So P0's WIN edge is index 8 (= 2*size+2 with size=3); P1's is 0.
+        obs0 = _make_observation(self.state, self.game, player_id=0)
+        obs1 = _make_observation(self.state, self.game, player_id=1)
+        p0_prompt = generate_prompt(obs0, [])
+        p1_prompt = generate_prompt(obs1, [])
+        self.assertIn("pushed off index 8 (the opponent's edge)", p0_prompt)
+        self.assertIn("pushed off index 0 (your edge)", p0_prompt)
+        self.assertIn("pushed off index 0 (the opponent's edge)", p1_prompt)
+        self.assertIn("pushed off index 8 (your edge)", p1_prompt)
+        # And the old buggy "lower is your goal" line must not reappear.
+        self.assertNotIn("lower is your goal", p0_prompt)
+        self.assertNotIn("lower is your goal", p1_prompt)
+
     def test_my_history_rendered(self):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, ["[P0]Bid: 4", "[P0]Bid: 2"])
-        self.assertIn("Your past bids:        4, 2", prompt)
+        self.assertIn("Your past bids:    4, 2", prompt)
 
     def test_no_history_fallback(self):
         obs = _make_observation(self.state, self.game, player_id=0)

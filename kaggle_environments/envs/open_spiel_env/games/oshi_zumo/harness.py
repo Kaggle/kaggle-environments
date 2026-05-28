@@ -36,26 +36,33 @@ Rules: Two wrestlers (you and the opponent) start with the same number of
 coins and try to push a token off either edge of a 1D field of length
 {field_size}. Each round both players SIMULTANEOUSLY choose an integer bid
 of at least {min_bid} coins, up to their current coin total. The higher
-bidder pushes the token one square toward the opponent's edge; equal bids
-leave it stationary. Both bids are deducted regardless of who won. The
-game ends when (a) the token is pushed off an edge — that side loses, or
-(b) both players run out of coins, or (c) the {horizon}-round horizon is
-reached. At the end, the side the token sits on loses; exactly center is
-a draw.
+bidder pushes the token one cell toward the opponent's edge; equal bids
+leave it stationary. Both bids are deducted regardless of who won.
+
+The game ends when (a) the token is pushed off either edge — the player
+whose edge it falls off LOSES, or (b) both players run out of coins, or
+(c) the {horizon}-round horizon is reached. If the game ends by (b) or
+(c), the player whose half of the field the token is currently on LOSES;
+if the token is exactly at the center, it is a draw.
 
 Field (W is the token, # are the off-edge cells):
   {field}
   index: {index_row}
 
-Token position:    {wrestler_position} (center is {center}; lower is your goal, higher is the opponent's)
+You are Player {player_label}.
+  - You WIN if the token is pushed off index {opp_edge_index} (the opponent's edge).
+  - You LOSE if the token is pushed off index {your_edge_index} (your edge).
+  - To push the token toward index {opp_edge_index}, you need to OUT-BID the opponent.
+
+Token position:    {wrestler_position} (center is {center})
 Your coins:        {my_coins}
 Opponent coins:    {opp_coins}
 Round:             {move_number}
 
-Your past bids:        {my_history}
+Your past bids:    {my_history}
 
-You are Player {player_label}. Choose your bid for this round (an integer
-at least {min_bid} and at most your current coin total).
+Choose your bid for this round (an integer at least {min_bid} and at
+most your current coin total).
 
 Respond with your reasoning followed by your final bid in a JSON block:
 
@@ -120,19 +127,21 @@ def _format_field_index_row(field_size: int) -> str:
 
 
 def _extract_bid_from_json(response: str) -> str | None:
-    """Pull the bid from a ```json``` block or a bare ``{"bid": N}``."""
-    match = _JSON_BLOCK_RE.search(response)
-    if match:
+    """Pull the bid from a ```json``` block or a bare ``{"bid": N}``.
+
+    Iterates in reverse so that when the model writes one answer, reconsiders,
+    and writes another, we take the last (final) answer rather than the
+    rejected first one.
+    """
+    for match in reversed(list(_JSON_BLOCK_RE.finditer(response))):
         try:
             data = json.loads(match.group(1))
-            bid = data.get("bid")
-            if bid is None:
-                return None
-            return str(bid).strip()
         except json.JSONDecodeError:
-            pass
-    bare = _BARE_JSON_RE.search(response)
-    if bare:
+            continue
+        bid = data.get("bid")
+        if bid is not None:
+            return str(bid).strip()
+    for bare in reversed(list(_BARE_JSON_RE.finditer(response))):
         return bare.group(1).strip()
     return None
 
@@ -182,9 +191,9 @@ def generate_prompt(
     """Build the LLM prompt for the current oshi-zumo state.
 
     ``move_history`` contains the agent's own past bids (one entry per round
-    it acted in). The opponent's past coin counts are encoded as a hidden
-    suffix on each entry so the prompt can show the opponent's bid history
-    too, since core_harness doesn't track per-round game state.
+    it acted in). The opponent's per-round bid history is not available to
+    the harness (core_harness only forwards this agent's own action history);
+    only the opponent's current coin total appears in the prompt.
     """
     state = _parse_observation_payload(observation)
     player_id = observation.get("playerId", 0)
@@ -200,6 +209,11 @@ def generate_prompt(
     move_number = state.get("move_number", 0)
     min_bid = int(params.get("min_bid", 0))
     horizon = int(params.get("horizon", 0))
+
+    # Engine: wrestler_pos == 0 -> P1 wins; wrestler_pos == field_size-1 -> P0 wins.
+    # So P0's losing edge is index 0 and winning edge is field_size-1; vice versa for P1.
+    your_edge_index = 0 if player_id == 0 else max(field_size - 1, 0)
+    opp_edge_index = max(field_size - 1, 0) if player_id == 0 else 0
 
     my_bids = [_bid_from_action_string(s) for s in move_history]
     my_history_str = (
@@ -220,6 +234,8 @@ def generate_prompt(
         move_number=move_number,
         my_history=my_history_str,
         player_label=player_id,
+        your_edge_index=your_edge_index,
+        opp_edge_index=opp_edge_index,
     )
 
     if previous_response is not None:
@@ -236,9 +252,14 @@ def parse_response(
 ) -> ParseResult:
     """Extract a legal bid from the LLM response.
 
-    Tries a ``json`` block first, then a bare ``{"bid": N}``, then falls
-    back to scanning for any legal ``[Pk]Bid: N`` substring or a standalone
-    integer that matches a legal bid.
+    Tries a ``json`` block first (last block wins on rethink), then a bare
+    ``{"bid": N}``, then falls back to scanning for a legal ``[Pk]Bid: N``
+    substring (last occurrence wins).
+
+    We intentionally do NOT fall back to a bare-integer scan: the largest
+    legal bid for this game is always the player's current coin total, which
+    the model echoes in nearly every response — that fallback silently
+    converts truncated/unparseable responses into all-in bids.
     """
     raw = _extract_bid_from_json(response)
     if raw is not None:
@@ -246,17 +267,12 @@ def parse_response(
         if matched is not None:
             return ParseResult(legal_action=matched, raw_action=raw)
 
+    last_pos, last_legal = -1, None
     for legal in legal_action_strings:
-        if legal in response:
-            return ParseResult(legal_action=legal, raw_action=raw or legal)
-
-    legal_bids = {
-        _bid_from_action_string(s): s for s in legal_action_strings
-    }
-    legal_bids.pop(None, None)
-    for n in sorted(legal_bids.keys(), reverse=True):
-        pattern = r"(?<!\d)" + re.escape(str(n)) + r"(?!\d)"
-        if re.search(pattern, response):
-            return ParseResult(legal_action=legal_bids[n], raw_action=raw or str(n))
+        idx = response.rfind(legal)
+        if idx > last_pos:
+            last_pos, last_legal = idx, legal
+    if last_legal is not None:
+        return ParseResult(legal_action=last_legal, raw_action=raw or last_legal)
 
     return ParseResult(legal_action=None, raw_action=raw)
