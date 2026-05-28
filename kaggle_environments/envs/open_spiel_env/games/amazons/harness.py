@@ -39,7 +39,7 @@ _JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
 _BARE_JSON_RE = re.compile(r"\{[^{}]*\"move\"\s*:\s*\"([^\"]+)\"[^{}]*\}", re.DOTALL)
 # Matches algebraic cell names like "a1", "z26". The legal-action set bounds
 # what counts as a real cell; this regex just needs to extract candidates.
-_CELL_RE = re.compile(r"\b([a-zA-Z])\s*([1-9][0-9]?)\b")
+_CELL_RE = re.compile(r"\b([a-zA-Z])[ \t]*([1-9][0-9]?)\b")
 
 
 # --- Coordinate helpers -----------------------------------------------------
@@ -307,7 +307,7 @@ def parse_response(
         if canonical is not None and canonical in legal_set:
             return ParseResult(legal_action=canonical, raw_action=raw)
 
-    for match in _CELL_RE.finditer(response):
+    for match in reversed(list(_CELL_RE.finditer(response))):
         canonical = _normalize_cell(match.group(0))
         if canonical is not None and canonical in legal_set:
             return ParseResult(legal_action=canonical, raw_action=raw or canonical)

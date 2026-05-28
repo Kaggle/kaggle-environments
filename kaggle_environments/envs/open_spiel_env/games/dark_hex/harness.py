@@ -21,7 +21,7 @@ from kaggle_environments.core_harness import ParseResult
 
 _JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
 _BARE_JSON_RE = re.compile(r"\{[^{}]*\"move\"\s*:\s*\"([^\"]+)\"[^{}]*\}", re.DOTALL)
-_COORD_RE = re.compile(r"\b([a-z])\s*([0-9]+)\b", re.IGNORECASE)
+_COORD_RE = re.compile(r"\b([a-z])[ \t]*([0-9]+)\b", re.IGNORECASE)
 
 
 # --- Prompt -----------------------------------------------------------------
@@ -40,12 +40,14 @@ Rules:
       (a "collision" -- the move is wasted but the cell becomes visible)
   Cells shown as '.' are UNKNOWN to you: they may be empty, or they may hide
   an opponent stone you have not yet bumped into.
-- On each turn you nominate any cell that is not already known to be yours.
-  If the cell is empty, your stone is placed there and it becomes the
-  opponent's turn. If the cell is already occupied by an opponent stone, no
-  stone is placed -- the cell is revealed to you and it REMAINS YOUR TURN
-  (you will move again). The opponent learns nothing from your collision.
-  Use collisions deliberately as a probing/scouting tool.
+- On each turn you nominate a cell whose contents are not already known to
+  you (i.e. a cell shown as '.'). If the cell turns out to be empty, your
+  stone is placed there and it becomes the opponent's turn. If the cell
+  turns out to hold an opponent stone, no stone is placed -- the cell is
+  revealed to you and it REMAINS YOUR TURN (you will move again). The
+  opponent learns nothing from your collision. Use collisions deliberately
+  as a probing/scouting tool. Once a cell is known to you (yours, or a
+  revealed opponent stone), it is no longer a legal nomination.
 
 Your current view of the board ({player_code} = your stones,
 opponent symbol shown only on revealed cells, '.' = unknown):
@@ -56,11 +58,10 @@ Move history (your nominated moves only -- you do not see the opponent's):
 {move_history}
 
 {last_move_line}
-It is your turn. You may nominate any cell that you do not already know to
-contain one of your own stones (including unknown cells -- a collision there
-reveals an opponent stone and keeps your turn). Think about which cell most
-advances your connection across {connect_goal} (or which probe most reduces
-your uncertainty), then choose a move.
+It is your turn. You may nominate any cell whose contents are not already
+known to you (any '.' cell). Think about which cell most advances your
+connection across {connect_goal} (or which probe most reduces your
+uncertainty), then choose a move.
 
 Respond with your reasoning followed by your final move in a JSON block:
 
@@ -249,7 +250,9 @@ def parse_response(
             return ParseResult(legal_action=matched, raw_action=raw)
 
     # Fallback: scan the prose for any "<letter><digits>" coordinate token.
-    for match in _COORD_RE.finditer(response):
+    # Iterate in reverse so the *last* coordinate mentioned wins -- models
+    # typically enumerate rejected options before stating the final move.
+    for match in reversed(list(_COORD_RE.finditer(response))):
         candidate = f"{match.group(1).lower()}{match.group(2)}"
         matched = _match_move_to_legal(candidate, legal_action_strings)
         if matched is not None:

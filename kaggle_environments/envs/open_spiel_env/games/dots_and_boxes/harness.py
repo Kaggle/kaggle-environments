@@ -316,7 +316,7 @@ def parse_response(
     if matched is not None:
         return ParseResult(legal_action=matched, raw_action=raw)
 
-    for token_match in _MOVE_TOKEN_RE.finditer(response):
+    for token_match in reversed(list(_MOVE_TOKEN_RE.finditer(response))):
         candidate = token_match.group(0)
         matched = _match_to_legal(candidate, legal_action_strings)
         if matched is not None:

@@ -239,8 +239,10 @@ def parse_response(
         if matched is not None:
             return ParseResult(legal_action=matched, raw_action=raw)
 
-    # Fallback: scan the response text for coordinate-like tokens.
-    for m in _COORD_RE.finditer(response):
+    # Fallback: scan the response text for coordinate-like tokens. Iterate
+    # in reverse so the *last* coordinate mentioned wins -- models typically
+    # enumerate rejected options before stating the final move.
+    for m in reversed(list(_COORD_RE.finditer(response))):
         candidate = m.group(0)
         matched = _match_move_to_legal(candidate, legal_action_strings)
         if matched is not None:
