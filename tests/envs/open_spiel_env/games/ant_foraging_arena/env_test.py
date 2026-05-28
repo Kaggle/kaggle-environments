@@ -198,6 +198,47 @@ class TerminationTest(absltest.TestCase):
         )
 
 
+    def test_food_completion_waits_for_opposing_team_move(self):
+        # If team A delivers its last food on player 0's move, the game
+        # must NOT terminate until team B's matching move (player 2) has
+        # been applied — i.e. only at move_number % NUM_TEAMS == 0.
+        s = _new_state(seed=1, num_food=1, max_turns=100, grid_size=8)
+        obs0 = json.loads(s.observation_string(0))
+        food_r, food_c = obs0["board"]["food_positions"][0]
+        nest_r, nest_c = obs0["board"]["nest_position"]
+        ant_r, ant_c = obs0["board"]["ant_positions"]["0"]
+
+        def _step_for_p0(action_value):
+            s.apply_action(action_value)  # P0
+            # After P0's move team A may have just finished — but the
+            # game must still let P2 play before terminating.
+            if s._boards[0]["food_collected"] >= 1:
+                self.assertFalse(s.is_terminal())
+                self.assertEqual(s.current_player(), 2)
+            s.apply_action(0)  # P2 stay
+            if s.is_terminal():
+                return
+            s.apply_action(0)  # P1 stay
+            s.apply_action(0)  # P3 stay
+
+        def _walk(r0, c0, r1, c1):
+            while r0 != r1 and not s.is_terminal():
+                action = 2 if r1 > r0 else 1
+                _step_for_p0(action)
+                r0 += 1 if r1 > r0 else -1
+            while c0 != c1 and not s.is_terminal():
+                action = 4 if c1 > c0 else 3
+                _step_for_p0(action)
+                c0 += 1 if c1 > c0 else -1
+
+        _walk(ant_r, ant_c, food_r, food_c)
+        if not s.is_terminal():
+            _walk(food_r, food_c, nest_r, nest_c)
+        self.assertTrue(s.is_terminal())
+        # Terminal only on a matching-move boundary.
+        self.assertEqual(s._move_number % 2, 0)
+
+
 class ScoringTest(absltest.TestCase):
     """Cooperative reward: both teammates get the team's food count."""
 
