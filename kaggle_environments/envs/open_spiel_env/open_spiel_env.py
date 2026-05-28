@@ -20,6 +20,7 @@ from open_spiel.python.games import (
 )
 
 from kaggle_environments import core, utils
+from kaggle_environments.envs.open_spiel_env.games.ant_foraging_arena import ant_foraging_arena_game  # noqa: F401
 from kaggle_environments.envs.open_spiel_env.games.coin_game_arena import coin_game_arena_game  # noqa: F401
 from kaggle_environments.envs.open_spiel_env.games.snake import snake_game  # noqa: F401
 
@@ -168,6 +169,16 @@ CONFIGURATION_SPEC_TEMPLATE = {
     },
     "savePrompt": {
         "description": ("If disabled, skip logging LLM prompts in the replay file."),
+        "type": "boolean",
+        "default": True,
+    },
+    "saveResponse": {
+        "description": (
+            "If disabled, skip logging raw LLM responses in the replay file."
+            " Extracted thoughts (which typically contain everything but the"
+            " final move tag) are still logged on the action, so the legal"
+            " response is effectively preserved."
+        ),
         "type": "boolean",
         "default": True,
     },
@@ -1002,6 +1013,7 @@ DEFAULT_REPEATED_POKERKIT_GAME_STRING = (
 
 GAMES_LIST = [
     "amazons",
+    "ant_foraging_arena",
     "backgammon",
     "python_ant_foraging",
     "checkers",

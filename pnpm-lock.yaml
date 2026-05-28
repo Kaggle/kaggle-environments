@@ -218,6 +218,34 @@ importers:
         specifier: ^5.0.0
         version: 5.4.21(@types/node@25.2.1)
 
+  kaggle_environments/envs/kaggriculture/visualizer/playable:
+    dependencies:
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.2.0
+        version: 18.3.1(react@18.3.1)
+    devDependencies:
+      '@types/react':
+        specifier: ^18.2.0
+        version: 18.3.28
+      '@types/react-dom':
+        specifier: ^18.2.0
+        version: 18.3.7(@types/react@18.3.28)
+      '@vitejs/plugin-react':
+        specifier: ^4.0.0
+        version: 4.7.0(vite@5.4.21(@types/node@25.2.1))
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.21(@types/node@25.2.1)
+      vitest:
+        specifier: ^2.1.4
+        version: 2.1.9(@types/node@25.2.1)(happy-dom@20.8.9)(jsdom@25.0.1)
+
   kaggle_environments/envs/kaggriculture_beginner/visualizer/default:
     dependencies:
       '@kaggle-environments/core':
@@ -331,6 +359,22 @@ importers:
         version: 5.4.21(@types/node@25.2.1)
 
   kaggle_environments/envs/open_spiel_env/games/amazons/visualizer/default:
+    dependencies:
+      '@kaggle-environments/core':
+        specifier: workspace:*
+        version: link:../../../../../../../web/core
+    devDependencies:
+      cross-env:
+        specifier: ^10.1.0
+        version: 10.1.0
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.21(@types/node@25.2.1)
+
+  kaggle_environments/envs/open_spiel_env/games/ant_foraging_arena/visualizer/default:
     dependencies:
       '@kaggle-environments/core':
         specifier: workspace:*

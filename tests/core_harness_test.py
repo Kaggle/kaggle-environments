@@ -326,6 +326,34 @@ class CoreHarnessTest(absltest.TestCase):
         self.assertIn("prompt", cd)
         self.assertEqual(cd["prompt"], harness.prompts[-1])
 
+    def test_response_included_in_call_details_by_default(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("move_1"),
+        ):
+            result = agent({}, {})
+
+        self.assertEqual(result["call_details"][0]["response"], "move_1")
+
+    def test_response_omitted_when_save_response_false(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("move_1"),
+        ):
+            result = agent({}, {"saveResponse": False})
+
+        cd = result["call_details"][0]
+        self.assertNotIn("response", cd)
+        # Thoughts (typically everything but the move tag) are still logged
+        # on the action itself, so the legal response is effectively preserved.
+        self.assertEqual(result["thoughts"], "move_1")
+
     def test_call_details_per_retry(self):
         harness = _SimpleHarness()
         agent = create_agent_fn(harness, max_retries=3)

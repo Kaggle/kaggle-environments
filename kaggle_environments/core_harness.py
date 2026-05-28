@@ -325,17 +325,19 @@ def _call_llm(
 def _build_call_detail(
     record: dict[str, Any],
     save_prompt: bool,
+    save_response: bool,
 ) -> dict[str, Any]:
     """Build a single ``call_details`` entry from an internal call record."""
     detail: dict[str, Any] = {
         "model": record["model"],
-        "response": record["content"],
         "prompt_tokens": record["prompt_tokens"],
         "generation_tokens": record["generation_tokens"],
         "total_tokens": record["total_tokens"],
         "finish_reason": record["finish_reason"],
         "duration_secs": record["duration_secs"],
     }
+    if save_response:
+        detail["response"] = record["content"]
     if "reasoning_tokens" in record:
         detail["reasoning_tokens"] = record["reasoning_tokens"]
     if "first_token_secs" in record:
@@ -442,6 +444,7 @@ def create_agent_fn(
             setup_done = True
 
         save_prompt = bool(config.get("savePrompt", True)) if config else True
+        save_response = bool(config.get("saveResponse", True)) if config else True
         include_generate_returns = (
             bool(config.get("includeGenerateReturns", False)) if config else False
         )
@@ -567,7 +570,7 @@ def create_agent_fn(
                     "thoughts": result.thoughts if result.thoughts is not None else last_content,
                     "status": "OK",
                     "call_details": [
-                        _build_call_detail(r, save_prompt)
+                        _build_call_detail(r, save_prompt, save_response)
                         for r in call_records
                     ],
                 }
@@ -623,7 +626,8 @@ def create_agent_fn(
                     " attempts; forfeiting."
                 ),
                 "call_details": [
-                    _build_call_detail(r, save_prompt) for r in call_records
+                    _build_call_detail(r, save_prompt, save_response)
+                    for r in call_records
                 ],
             }
             if include_generate_returns:
