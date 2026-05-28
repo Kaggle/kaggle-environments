@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { marketPrice } from '../market';
 
-describe('marketPrice matches Python reference', () => {
+describe('marketPrice', () => {
   const cases: Array<[any, number, number]> = [
     ['WHEAT', 10000, 25],
     ['WHEAT', 9000, 57],
