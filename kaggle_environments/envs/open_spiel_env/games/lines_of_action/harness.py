@@ -18,8 +18,9 @@ from kaggle_environments.core_harness import ParseResult
 _JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
 _BARE_JSON_RE = re.compile(r"\{[^{}]*\"move\"\s*:\s*\"([^\"]+)\"[^{}]*\}", re.DOTALL)
 # Lines of Action notation: "<file><rank><sep><file><rank>" where sep is '-' (move)
-# or 'x' (capture). Files are a-h, ranks are 1-8.
-_MOVE_RE = re.compile(r"\b([a-h])([1-8])\s*([-x])\s*([a-h])([1-8])\b", re.IGNORECASE)
+# or 'x' (capture). Files are a-h, ranks are 1-8. Use [ \t]* (not \s*) so the
+# pattern cannot bridge a newline and stitch unrelated tokens into a fake move.
+_MOVE_RE = re.compile(r"\b([a-h])([1-8])[ \t]*([-x])[ \t]*([a-h])([1-8])\b", re.IGNORECASE)
 
 
 # --- Prompt -----------------------------------------------------------------
@@ -40,9 +41,11 @@ an opponent's piece captures it.
 
 You win by connecting all of your remaining pieces into a single group
 (connectivity is 8-directional: horizontal, vertical, or diagonal
-neighbours count as connected). If your move connects both your pieces and
-your opponent's pieces simultaneously, your opponent wins. There are no
-draws under normal play.
+neighbours count as connected). If your move connects both your pieces
+and your opponent's pieces simultaneously, you (the moving player) win.
+A player who has no legal moves on their turn loses. The game is drawn
+if the same position (with the same player to move) occurs for the
+second time, or if 1000 moves are played without a winner.
 
 Board ('.' = empty, 'x' = Black, 'o' = White). Each rank has its total
 piece count on the right ("row"); each file's total is below ("col"):
@@ -183,20 +186,24 @@ def _normalize(move: str) -> str:
 
 
 def _extract_move_from_json(response: str) -> str | None:
-    """Try to extract a move string from a JSON code block or bare JSON."""
-    match = _JSON_BLOCK_RE.search(response)
-    if match:
+    """Try to extract a move string from a JSON code block or bare JSON.
+
+    Iterate the matches in reverse so the *last* JSON block wins: models
+    that self-correct (write an answer, reconsider, write another) put
+    their final answer in the trailing block, not the first one.
+    """
+    for match in reversed(list(_JSON_BLOCK_RE.finditer(response))):
         try:
             data = json.loads(match.group(1))
             move = str(data.get("move", "")).strip()
             if move:
                 return move
         except json.JSONDecodeError:
-            pass
+            continue
 
-    bare = _BARE_JSON_RE.search(response)
-    if bare:
-        return bare.group(1).strip()
+    bares = list(_BARE_JSON_RE.finditer(response))
+    if bares:
+        return bares[-1].group(1).strip()
 
     return None
 

@@ -98,6 +98,31 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response('```json\n{"move": "b1-h1"}\n```', legal)
         self.assertIsInstance(result, ParseResult)
 
+    def test_parse_multiple_json_blocks_picks_last(self):
+        """When the model self-corrects mid-response (writes one JSON answer,
+        then reconsiders and writes another), the *last* block is the model's
+        actual intent. Picking the first one submits the rejected option."""
+        legal = ["a6-a7", "g4-f4"]
+        response = (
+            "First attempt:\n```json\n{\"move\": \"a6-a7\"}\n```\n"
+            "On second thought, that's bad. Here's my real move:\n"
+            "```json\n{\"move\": \"g4-f4\"}\n```"
+        )
+        result = parse_response(response, legal)
+        self.assertEqual(result.legal_action, "g4-f4")
+
+    def test_parse_move_re_does_not_cross_newlines(self):
+        """``_MOVE_RE`` must not stitch a move-shaped token across newlines
+        via the rank-sep-file gap. ``"b1\\n-\\nh1"`` should NOT parse as
+        ``b1-h1`` (it would if the regex used ``\\s*`` instead of ``[ \\t]*``)."""
+        legal = ["b1-h1", "c1-c3"]
+        # A single move-shaped token cannot legitimately straddle newlines.
+        # The only token-on-each-line shape here is "b1" / "-" / "h1" — none
+        # of which is a valid move on its own, so the parser must return None.
+        response = "Move:\nb1\n-\nh1"
+        result = parse_response(response, legal)
+        self.assertIsNone(result.legal_action)
+
 
 class GeneratePromptTest(absltest.TestCase):
 
@@ -108,6 +133,39 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("Black", prompt)
         self.assertIn("(X)", prompt)
         self.assertIn("connecting all of your remaining pieces", prompt)
+
+    def test_prompt_states_draw_conditions(self):
+        """Regression: prompt must disclose that OpenSpiel's lines_of_action
+        draws on twofold position repetition and at the 1000-move cap. The
+        old prompt claimed 'no draws under normal play', which contradicted
+        the engine and stranded models in 5.5% of episodes that drew."""
+        observation = {"observationString": "{}", "playerId": 0}
+        prompt = generate_prompt(observation, [])
+        self.assertIn("drawn", prompt)
+        self.assertIn("second time", prompt)
+        self.assertIn("1000 moves", prompt)
+        self.assertNotIn("no draws", prompt.lower())
+
+    def test_prompt_double_connect_awards_mover(self):
+        """Regression: OpenSpiel awards the win to the moving player when a
+        move connects both groups (the my_piece check fires first in
+        CheckTerminalState). The old prompt said the OPPONENT won, which is
+        the standard-LoA rule but not what this engine implements."""
+        observation = {"observationString": "{}", "playerId": 0}
+        prompt = generate_prompt(observation, [])
+        self.assertIn("moving player", prompt)
+        # The old phrasing said "your opponent wins" in the double-connect
+        # case; make sure we did not regress to it.
+        self.assertNotIn("your opponent wins", prompt)
+
+    def test_prompt_states_no_moves_loses(self):
+        """Regression: 'a player with no legal moves loses' is rule #9 in
+        the engine. The old prompt omitted it, so models could blunder into
+        a stalemate-loss without knowing it was a win condition."""
+        observation = {"observationString": "{}", "playerId": 0}
+        prompt = generate_prompt(observation, [])
+        self.assertIn("no legal moves", prompt)
+        self.assertIn("loses", prompt)
 
     def test_basic_prompt_white(self):
         observation = {"observationString": "{}", "playerId": 1}
