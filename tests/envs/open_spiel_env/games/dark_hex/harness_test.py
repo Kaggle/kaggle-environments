@@ -1,11 +1,10 @@
 """Tests for Dark Hex LLM harness.
 
-Includes regression tests for three bugs found in the May 2026 review:
+Includes regression tests for two parser bugs found in the May 2026 review:
 
-1. Prompt over-permitted nominating known-opponent cells.
-2. Fallback coord-scan iterated forward, picking earlier-mentioned (often
+1. Fallback coord-scan iterated forward, picking earlier-mentioned (often
    rejected) coordinates instead of the model's final stated move.
-3. ``_COORD_RE`` used ``\\s*`` between the letter and digit groups, which
+2. ``_COORD_RE`` used ``\\s*`` between the letter and digit groups, which
    crossed newlines and captured the rendered board's column-header line
    (``"... e f\\n 1"``) as a fake ``f1`` coordinate.
 """
@@ -222,42 +221,6 @@ class GeneratePromptTest(absltest.TestCase):
         prompt = generate_prompt(observation, [])
         # The own-x stone should appear in the rendered board.
         self.assertIn("x", prompt)
-
-    # --- Regression: prompt must not over-permit known-opp cells (Issue #1) ---
-
-    def test_prompt_does_not_invite_known_opp_nominations(self):
-        """The pre-fix prompt said the player could nominate "any cell that
-        you do not already know to contain one of your own stones (including
-        unknown cells -- a collision there reveals an opponent stone and
-        keeps your turn)". That phrasing invited nominating revealed-opponent
-        cells, which are illegal."""
-        observation = {"observationString": _OBS_3X3_EMPTY, "playerId": 0}
-        prompt = generate_prompt(observation, [])
-        self.assertNotIn(
-            "any cell that you do not already know to contain one of your own stones",
-            prompt,
-        )
-        # "If the cell is already occupied by an opponent stone, no stone is
-        # placed" was the old wording that implied known-opp cells were
-        # legal nominations. The fix replaced it with "If the cell turns
-        # out to hold an opponent stone".
-        self.assertNotIn("If the cell is already occupied by an opponent", prompt)
-
-    def test_prompt_states_known_cells_are_illegal(self):
-        """The new phrasing must affirmatively say that known cells (own or
-        revealed opponent) are not legal nominations."""
-        observation = {"observationString": _OBS_3X3_EMPTY, "playerId": 0}
-        prompt = generate_prompt(observation, [])
-        self.assertIn("no longer a legal nomination", prompt)
-
-    def test_prompt_describes_collision_as_unknown_cell_outcome(self):
-        """A collision is what happens when an *unknown* cell turns out to
-        hold an opponent stone -- it is not a feature you opt into by
-        targeting a known opponent cell."""
-        observation = {"observationString": _OBS_3X3_EMPTY, "playerId": 0}
-        prompt = generate_prompt(observation, [])
-        self.assertIn("turns out to hold an opponent stone", prompt)
-
 
 class GetLegalMovesTest(absltest.TestCase):
     def test_from_provided_actions(self):

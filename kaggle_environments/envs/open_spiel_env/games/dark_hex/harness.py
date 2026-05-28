@@ -40,14 +40,12 @@ Rules:
       (a "collision" -- the move is wasted but the cell becomes visible)
   Cells shown as '.' are UNKNOWN to you: they may be empty, or they may hide
   an opponent stone you have not yet bumped into.
-- On each turn you nominate a cell whose contents are not already known to
-  you (i.e. a cell shown as '.'). If the cell turns out to be empty, your
-  stone is placed there and it becomes the opponent's turn. If the cell
-  turns out to hold an opponent stone, no stone is placed -- the cell is
-  revealed to you and it REMAINS YOUR TURN (you will move again). The
-  opponent learns nothing from your collision. Use collisions deliberately
-  as a probing/scouting tool. Once a cell is known to you (yours, or a
-  revealed opponent stone), it is no longer a legal nomination.
+- On each turn you nominate any cell that is not already known to be yours.
+  If the cell is empty, your stone is placed there and it becomes the
+  opponent's turn. If the cell is already occupied by an opponent stone, no
+  stone is placed -- the cell is revealed to you and it REMAINS YOUR TURN
+  (you will move again). The opponent learns nothing from your collision.
+  Use collisions deliberately as a probing/scouting tool.
 
 Your current view of the board ({player_code} = your stones,
 opponent symbol shown only on revealed cells, '.' = unknown):
@@ -58,10 +56,11 @@ Move history (your nominated moves only -- you do not see the opponent's):
 {move_history}
 
 {last_move_line}
-It is your turn. You may nominate any cell whose contents are not already
-known to you (any '.' cell). Think about which cell most advances your
-connection across {connect_goal} (or which probe most reduces your
-uncertainty), then choose a move.
+It is your turn. You may nominate any cell that you do not already know to
+contain one of your own stones (including unknown cells -- a collision there
+reveals an opponent stone and keeps your turn). Think about which cell most
+advances your connection across {connect_goal} (or which probe most reduces
+your uncertainty), then choose a move.
 
 Respond with your reasoning followed by your final move in a JSON block:
 
