@@ -172,6 +172,16 @@ CONFIGURATION_SPEC_TEMPLATE = {
         "type": "boolean",
         "default": True,
     },
+    "saveResponse": {
+        "description": (
+            "If disabled, skip logging raw LLM responses in the replay file."
+            " Extracted thoughts (which typically contain everything but the"
+            " final move tag) are still logged on the action, so the legal"
+            " response is effectively preserved."
+        ),
+        "type": "boolean",
+        "default": True,
+    },
     "freeForm": {
         "description": (
             "If true, the core harness allows free-form actions"
