@@ -46,7 +46,9 @@ preferred coin colour and your seat (and therefore the order in which
 you move).
 
 Actions: {{up, down, left, right, stand}}. Moving onto a coin collects
-it. The episode runs for {episode_length} moves total per board.
+it. Moves that would leave the board, or move onto your teammate's
+cell, are no-ops — you stay in place (this is not illegal). The
+episode runs for {episode_length} moves total per board.
 
 Scoring (per player on YOUR board, summed across the team):
 
@@ -63,9 +65,9 @@ preference for them, and AVOID coins of unowned colours (each one
 collected hurts both of you quadratically). You don't know your
 teammate's preference up front — infer it from what they pick up.
 
-Cells are ``"."`` for empty, digits for players (your seats), lowercase
-letters for coin colours. Coordinates are ``[row, column]`` with
-``row=0`` at the top.
+Cells are ``"."`` for empty, digits for players (the player ids shown
+below, not the seat indices), lowercase letters for coin colours.
+Coordinates are ``[row, column]`` with ``row=0`` at the top.
 
 Your team id is {team_id}. You are player {player_id} (seat {seat} on
 your team's board). Your teammate is player {teammate_id} (seat
@@ -113,18 +115,21 @@ def _normalize(move: str) -> str:
 
 
 def _extract_move_from_json(response: str) -> str | None:
-    match = _JSON_BLOCK_RE.search(response)
-    if match:
+    # Iterate in reverse so a self-correcting model (writes one JSON
+    # answer, reconsiders, writes another) gets credit for the LAST
+    # block, not the rejected first one.
+    for match in reversed(list(_JSON_BLOCK_RE.finditer(response))):
         try:
             data = json.loads(match.group(1))
             move = str(data.get("move", "")).strip()
             if move:
                 return move
         except json.JSONDecodeError:
-            pass
-    bare = _BARE_JSON_RE.search(response)
-    if bare:
-        return bare.group(1).strip()
+            continue
+    for bare in reversed(list(_BARE_JSON_RE.finditer(response))):
+        candidate = bare.group(1).strip()
+        if candidate:
+            return candidate
     return None
 
 
