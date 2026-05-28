@@ -184,24 +184,6 @@ export function pickSeed(): number {
   return Math.floor(Math.random() * 0x80000000);
 }
 
-// Tiny helpers used by the action processor (Stage 3) and the UI.
-
-export function getUnitPosition(farm: Farm, idx: number): Position | null {
-  if (idx === 0) return farm.farmer;
-  const hi = idx - 1;
-  return hi < farm.hands.length ? farm.hands[hi] : null;
-}
-
-export function setUnitPosition(farm: Farm, idx: number, pos: Position): void {
-  if (idx === 0) farm.farmer = [pos[0], pos[1]];
-  else farm.hands[idx - 1] = [pos[0], pos[1]];
-}
-
-export function getUnitInventory(priv: Private, idx: number): Partial<Record<string, number>> {
-  while (priv.inventories.length <= idx) priv.inventories.push({});
-  return priv.inventories[idx] as Partial<Record<string, number>>;
-}
-
 /** Spawn position for a newly hired hand: first free shed-access tile (NWSE order); ties by min occupancy. */
 export function spawnHand(farm: Farm, boardSize: number): Position {
   const tiles = shedAccessTiles(boardSize);

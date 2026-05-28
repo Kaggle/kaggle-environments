@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { AGENTS, DEFAULT_AGENT_ID } from '../ai';
 import { resolveConfig } from '../engine/state';
 import type { SlotConfig } from '../worker/protocol';
 import type { SetupResult } from './useGameWorker';
-import coinUrl from '../../../default/src/assets/sprites/coin.png';
+import strawberryUrl from '../../../default/src/assets/sprites/market_strawberry.png';
 import woodBgUrl from '../../../default/src/assets/sprites/wood_bg.svg';
 
 type SlotPick = { kind: 'human' } | { kind: 'ai'; agentId: string };
@@ -21,6 +21,9 @@ export function SetupScreen({ onStart }: Props) {
   const [slots, setSlots] = useState<SlotPick[]>(DEFAULT_SLOTS);
   const [seedText, setSeedText] = useState('');
   const [days, setDays] = useState<number>(DEFAULT_DAYS);
+  const idPrefix = useId();
+  const daysId = `${idPrefix}-days`;
+  const seedId = `${idPrefix}-seed`;
 
   const setSlot = (idx: number, slot: SlotPick) => {
     setSlots((prev) => {
@@ -44,35 +47,39 @@ export function SetupScreen({ onStart }: Props) {
   return (
     <div className="setup sketched-border" style={{ backgroundImage: `url(${woodBgUrl})` }}>
       <h1>
-        <img className="setup-coin" src={coinUrl} alt="" />
+        <img className="setup-strawberry" src={strawberryUrl} alt="" />
         Kaggriculture
       </h1>
       <p className="setup-sub">Pick who controls each farm, then start.</p>
 
-      {slots.map((slot, i) => (
-        <div key={i} className="setup-row">
-          <label>Player {i + 1}</label>
-          <select
-            value={slot.kind === 'human' ? '__human' : slot.agentId}
-            onChange={(e) => {
-              const v = e.target.value;
-              if (v === '__human') setSlot(i, { kind: 'human' });
-              else setSlot(i, { kind: 'ai', agentId: v });
-            }}
-          >
-            <option value="__human">Human</option>
-            {Object.entries(AGENTS).map(([id, info]) => (
-              <option key={id} value={id}>
-                AI — {info.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      ))}
+      {slots.map((slot, i) => {
+        const slotId = `${idPrefix}-slot-${i}`;
+        return (
+          <div key={i} className="setup-row">
+            <label htmlFor={slotId}>Player {i + 1}</label>
+            <select
+              id={slotId}
+              value={slot.kind === 'human' ? '__human' : slot.agentId}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === '__human') setSlot(i, { kind: 'human' });
+                else setSlot(i, { kind: 'ai', agentId: v });
+              }}
+            >
+              <option value="__human">Human</option>
+              {Object.entries(AGENTS).map(([id, info]) => (
+                <option key={id} value={id}>
+                  AI — {info.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        );
+      })}
 
       <div className="setup-row">
-        <label>Days</label>
-        <select value={days} onChange={(e) => setDays(Number(e.target.value))}>
+        <label htmlFor={daysId}>Days</label>
+        <select id={daysId} value={days} onChange={(e) => setDays(Number(e.target.value))}>
           {DAY_OPTIONS.map((d) => (
             <option key={d} value={d}>
               {d} {d === 1 ? 'day' : 'days'}
@@ -82,8 +89,9 @@ export function SetupScreen({ onStart }: Props) {
       </div>
 
       <div className="setup-row">
-        <label>Seed</label>
+        <label htmlFor={seedId}>Seed</label>
         <input
+          id={seedId}
           type="text"
           placeholder="random"
           value={seedText}

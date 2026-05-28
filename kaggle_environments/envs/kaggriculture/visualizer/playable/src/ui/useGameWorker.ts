@@ -45,6 +45,7 @@ export function useGameWorker(setup: SetupResult) {
     const client = clientRef.current;
     if (!client) return;
     setBusy(true);
+    setError(null);
     try {
       const next = await client.step(humanActions);
       setState(next);
@@ -59,6 +60,7 @@ export function useGameWorker(setup: SetupResult) {
     const client = clientRef.current;
     if (!client) return;
     setBusy(true);
+    setError(null);
     try {
       const next = await client.reset();
       setState(next);

@@ -643,11 +643,6 @@ export function dailyRefreshAnimals(farm: Farm, day: number): void {
 
 // ---------- weeds, drop, end-of-day ----------
 
-/**
- * NOTE: deterministic in TS for a given seed, but NOT bit-identical to
- * CPython's `random.random()` (PyRandom doesn't reproduce CPython's seeding
- * pipeline). Weed layouts will differ from Python rollouts of the same seed.
- */
 export function spawnWeeds(farm: Farm, boardSize: number, weedChance: number, rng: PyRandom): void {
   for (let y = 0; y < boardSize; y++) {
     for (let x = 0; x < boardSize; x++) {
@@ -708,10 +703,6 @@ export function endOfDay(
   if (nextDay > 0 && nextDay % shopInterval === 0) {
     const remaining = SHOP_NAMES.filter((s) => !town.unlocked_shops.includes(s));
     if (remaining.length > 0) {
-      // NOTE: deterministic in TS but NOT bit-identical to CPython's
-      // `rng.choice(sorted(remaining))` — the underlying PyRandom diverges
-      // from CPython, so which shop unlocks on a given day will differ from
-      // Python rollouts of the same seed.
       const choice = rng.choice([...remaining].sort());
       town.unlocked_shops.push(choice);
     }

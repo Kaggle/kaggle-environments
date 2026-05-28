@@ -4,7 +4,7 @@
  * panel resets to PASS / no orders.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { ANIMALS, CROPS, PRODUCTS } from '../engine/constants';
 import type { AnimalId, CropId, GameState, MarketOrder, PlayerAction, ShedItemId, UnitAction } from '../engine/types';
 
@@ -110,6 +110,7 @@ export function ActionPanel({ state, player, busy, onSubmit }: Props) {
   const [farmer, setFarmer] = useState<UnitDraft>(defaultUnit);
   const [hands, setHands] = useState<UnitDraft[]>([]);
   const [orders, setOrders] = useState<MarketDraft[]>([]);
+  const idPrefix = useId();
 
   // Keep the hands array length in sync with the live farm. New hands default
   // to PASS; extra entries are trimmed if a hand was lost.
@@ -134,45 +135,50 @@ export function ActionPanel({ state, player, busy, onSubmit }: Props) {
     setOrders([]);
   };
 
-  const renderUnit = (label: string, draft: UnitDraft, onChange: (d: UnitDraft) => void) => (
-    <div className="action-row" key={label}>
-      <label className="action-label">{label}</label>
-      <select value={draft.op} onChange={(e) => onChange({ ...draft, op: e.target.value as UnitOp })}>
-        {UNIT_OPS.map((op) => (
-          <option key={op} value={op}>
-            {op}
-          </option>
-        ))}
-      </select>
-      {draft.op === 'PLANT' && (
-        <select value={draft.crop} onChange={(e) => onChange({ ...draft, crop: e.target.value as CropId })}>
-          {CROP_IDS.map((c) => (
-            <option key={c} value={c}>
-              {c}
+  const renderUnit = (label: string, draft: UnitDraft, onChange: (d: UnitDraft) => void) => {
+    const opId = `${idPrefix}-${label}-op`;
+    return (
+      <div className="action-row" key={label}>
+        <label className="action-label" htmlFor={opId}>
+          {label}
+        </label>
+        <select id={opId} value={draft.op} onChange={(e) => onChange({ ...draft, op: e.target.value as UnitOp })}>
+          {UNIT_OPS.map((op) => (
+            <option key={op} value={op}>
+              {op}
             </option>
           ))}
         </select>
-      )}
-      {(draft.op === 'PICKUP' || draft.op === 'PLACE') && (
-        <>
-          <select value={draft.item} onChange={(e) => onChange({ ...draft, item: e.target.value as ShedItemId })}>
-            {SHED_ITEMS.map((it) => (
-              <option key={it} value={it}>
-                {it}
+        {draft.op === 'PLANT' && (
+          <select value={draft.crop} onChange={(e) => onChange({ ...draft, crop: e.target.value as CropId })}>
+            {CROP_IDS.map((c) => (
+              <option key={c} value={c}>
+                {c}
               </option>
             ))}
           </select>
-          <input
-            type="number"
-            min={1}
-            value={draft.qty}
-            onChange={(e) => onChange({ ...draft, qty: Number(e.target.value) || 1 })}
-            style={{ width: 60 }}
-          />
-        </>
-      )}
-    </div>
-  );
+        )}
+        {(draft.op === 'PICKUP' || draft.op === 'PLACE') && (
+          <>
+            <select value={draft.item} onChange={(e) => onChange({ ...draft, item: e.target.value as ShedItemId })}>
+              {SHED_ITEMS.map((it) => (
+                <option key={it} value={it}>
+                  {it}
+                </option>
+              ))}
+            </select>
+            <input
+              type="number"
+              min={1}
+              value={draft.qty}
+              onChange={(e) => onChange({ ...draft, qty: Number(e.target.value) || 1 })}
+              style={{ width: 60 }}
+            />
+          </>
+        )}
+      </div>
+    );
+  };
 
   const renderOrder = (draft: MarketDraft, idx: number) => (
     <div className="action-row" key={idx}>

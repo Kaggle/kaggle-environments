@@ -96,7 +96,7 @@ function normalizePrivate(priv: unknown) {
 }
 
 function diffStep(label: string, ts: GameState, pyObs: Record<string, unknown>): void {
-  const tsPublic = normalizePublic(JSON.parse(JSON.stringify(ts)));
+  const tsPublic = normalizePublic(ts as unknown as Record<string, unknown>);
   const pyPublic = normalizePublic(pyObs);
   expect(tsPublic, `${label} public state diverges`).toEqual(pyPublic);
 }

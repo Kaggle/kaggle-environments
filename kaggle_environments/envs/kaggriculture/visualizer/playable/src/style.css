@@ -48,7 +48,7 @@ input, select {
   align-items: center;
   gap: 10px;
 }
-.setup-coin { width: 28px; height: 28px; image-rendering: pixelated; }
+.setup-strawberry { width: 40px; height: 40px; image-rendering: pixelated; }
 .setup-sub { margin: 0 0 8px; color: #3c3b37; font-size: 13px; font-weight: 600; }
 .setup-row { display: flex; align-items: center; gap: 12px; }
 .setup-row label { flex: 0 0 80px; font-size: 13px; font-weight: 600; color: #050001; }

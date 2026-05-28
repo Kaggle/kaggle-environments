@@ -17,7 +17,7 @@ export function HUD({ state, busy, error, onReset, onExit }: Props) {
         {error && <span className="hud-tag hud-tag-error">error: {error}</span>}
       </div>
       <div className="hud-buttons">
-        <button type="button" onClick={onReset} disabled={busy}>
+        <button type="button" onClick={onReset}>
           Reset
         </button>
         <button type="button" onClick={onExit}>
