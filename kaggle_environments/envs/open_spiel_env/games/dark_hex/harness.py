@@ -21,7 +21,7 @@ from kaggle_environments.core_harness import ParseResult
 
 _JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
 _BARE_JSON_RE = re.compile(r"\{[^{}]*\"move\"\s*:\s*\"([^\"]+)\"[^{}]*\}", re.DOTALL)
-_COORD_RE = re.compile(r"\b([a-z])\s*([0-9]+)\b", re.IGNORECASE)
+_COORD_RE = re.compile(r"\b([a-z])[ \t]*([0-9]+)\b", re.IGNORECASE)
 
 
 # --- Prompt -----------------------------------------------------------------
@@ -249,7 +249,9 @@ def parse_response(
             return ParseResult(legal_action=matched, raw_action=raw)
 
     # Fallback: scan the prose for any "<letter><digits>" coordinate token.
-    for match in _COORD_RE.finditer(response):
+    # Iterate in reverse so the *last* coordinate mentioned wins -- models
+    # typically enumerate rejected options before stating the final move.
+    for match in reversed(list(_COORD_RE.finditer(response))):
         candidate = f"{match.group(1).lower()}{match.group(2)}"
         matched = _match_move_to_legal(candidate, legal_action_strings)
         if matched is not None:
