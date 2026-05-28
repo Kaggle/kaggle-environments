@@ -188,7 +188,17 @@ Port `step()` **phase for phase** from the Python interpreter. The order of side
 
 Walk the Python `interpreter` (or equivalent) top to bottom and reproduce each phase as a separate function. Whatever the source does — resolve per-player actions, apply environment dynamics, advance any per-tick counters, check terminal — do in the same order, with the same fall-through cases.
 
-Add vitest fixtures comparing TS rollouts against Python replays for ≥ 2 fixed seeds. Generate references with:
+**When is seed-parity testing worth the cost?** The bar for the playable is *behavioral* — a human shouldn't notice obvious rule differences vs. the Python version. That bar is usually met by orbit-wars-style behavioral tests ("launching a fleet deducts ships and creates a Fleet"; "production accrues for owned planets"). A Python-replay parity test is a heavier tool — treat it as a **build-time scaffold for stress-testing the port**, not shipped infrastructure. It earns its keep when:
+
+- The interpreter has many tightly-coupled phases (e.g. 4+ per step) where ordering or fall-through bugs are likely and hard to spot by reading the diff.
+- State has enough fields that hand-written behavioral tests would leave gaps the playtester won't notice until late game (silent drift in money, inventory, scoring).
+- You want a single fixture that catches the "I missed a Python phase entirely" failure mode end-to-end.
+
+Default to **building the parity test, using it during the port, then deleting it before merge** — same lifecycle as the AI-vs-AI Step button in Stage 5. Keep it past merge only when (a) you expect ongoing iteration on the Python interpreter that needs a regression net, or (b) a behavioral suite genuinely can't cover the deterministic pipeline (rare). Don't keep it just because you wrote it. Orbit wars ships without one; kaggriculture used parity heavily during the build but doesn't need it long-term.
+
+Skip parity entirely (go straight to behavioral tests) when the engine is small, the phases are obvious, or the state is mostly stochastic (parity would filter out most of the interesting fields anyway — see RNG note below).
+
+If you do build a parity fixture, generate references with:
 ```bash
 uv run python -c "
 from kaggle_environments import make; import json
@@ -219,13 +229,13 @@ for (let next = 1; next < replay.steps.length; next++) {
 
 2. *Port CPython's `Random` seeding faithfully* — MT19937 with `init_by_array` on the integer seed's 32-bit chunks. ~30–50 LOC, makes the full diff strict. Spike with `expect(new PyRandom(42).random()).toBeCloseTo(0.6394267984578837)` as your acceptance test.
 
-Option 1 is the default; pick option 2 only if you'll need the parity test to cover late-game state.
+Option 1 is the default; pick option 2 only if you'll need the parity test to cover late-game state — and remember that need only matters if you're keeping the parity test past merge in the first place (see the worth-the-cost note above). A browser-stable PRNG with filtered diff is usually enough to validate the deterministic pipeline during the build.
 
 Diff the TS output `GameState` against the corresponding `observation` field in each replay step. Drift here will silently break AI agents in Stage 4.
 
 **This is the heaviest stage.** Allocate the most time here; expect to discover Python-side subtleties (order of dict iteration, integer truncation, off-by-one boundaries between turns).
 
-**Done when:** TS `step()` output matches Python over a full episode for the reference seeds (modulo any RNG-driven fields you intentionally filtered).
+**Done when:** the engine produces behaviorally correct output — either passing a parity fixture for the reference seeds (modulo any filtered RNG fields), or covered by behavioral tests in the orbit-wars style. If parity was a scaffold, decide now whether to keep it; if not, delete before merge.
 
 ### Stage 4 — AI agents
 
@@ -428,7 +438,7 @@ Worth applying up front rather than after a review pass.
 - [ ] `vite.config.ts` sets `worker.format: 'es'` and registers `@vitejs/plugin-react`
 - [ ] `tsconfig.json` includes `"WebWorker"` in `lib`
 - [ ] `DEFAULT_CONFIG` pulls every field from `<name>.json` via `specDefault(...)` rather than hard-coded numbers
-- [ ] Engine port has vitest fixtures comparing against ≥ 2 Python reference replays (action-replay pattern, not independent rollout)
+- [ ] Engine port is covered by either behavioral tests (orbit-wars style) or, for complex multi-phase interpreters, Python-replay parity fixtures used as a build-time scaffold (action-replay pattern, not independent rollout) — kept past merge only if ongoing Python iteration is expected
 - [ ] Worker uses the INIT/STEP/RESET/GET_STATE protocol with `reqId` correlation
 - [ ] `useGameWorker` re-spawns the worker when the `setup` reference changes
 - [ ] GameView imports the renderer from `../../../default/src/...` (no duplication)
