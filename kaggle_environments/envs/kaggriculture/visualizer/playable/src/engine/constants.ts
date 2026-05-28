@@ -5,6 +5,18 @@
 
 import type { AnimalId, AnimalSpec, CropId, CropSpec, MarketParam, ProductId, ShopId, ShopName } from './types';
 
+// Read configuration defaults straight from the env spec so the TS engine
+// never silently drifts from kaggriculture.py / kaggriculture.json.
+import spec from '../../../../kaggriculture.json';
+
+function specDefault<T>(key: string): T {
+  const entry = (spec.configuration as Record<string, unknown>)[key];
+  if (entry !== null && typeof entry === 'object' && 'default' in (entry as object)) {
+    return (entry as { default: T }).default;
+  }
+  return entry as T;
+}
+
 export const CROPS: Record<CropId, CropSpec> = {
   WHEAT: { seed: 10, first_yield_day: 2, max_yield_day: 4, interval: 0, max_yield: 6, ongoing: false },
   CARROT: { seed: 20, first_yield_day: 2, max_yield_day: 3, interval: 0, max_yield: 4, ongoing: false },
@@ -124,7 +136,8 @@ export const LAND_PRICES = [1000, 2000, 4000] as const;
 
 // n-th hire of the day costs FARM_HAND_COST_MULT * fib(n).
 // fib here is indexed so fib(0)=1, fib(1)=1, fib(2)=2, fib(3)=3, fib(4)=5...
-export const FARM_HAND_COST_MULT = 10;
+// Value comes from the spec's `farmHandCostMult.default` so we don't drift from Python.
+export const FARM_HAND_COST_MULT = specDefault<number>('farmHandCostMult');
 
 export const SHOPS: Record<ShopName, ShopId[]> = {
   BAKERY: ['EGG', 'WHEAT'],
@@ -148,17 +161,18 @@ export const TOWN_CENTER_DEMAND_SCHEDULE: ReadonlyArray<readonly [number, number
   [0, 1],
 ];
 
-// Default configuration — mirrors kaggriculture.json's `configuration.*.default`.
+// Default configuration — pulled directly from kaggriculture.json so the TS
+// engine stays in sync with the Python source of truth automatically.
 export const DEFAULT_CONFIG = {
-  episodeSteps: 720,
-  boardSize: 10,
-  startingMoney: 2000,
-  maxMarketOrdersPerTurn: 10,
-  turnsPerDay: 24,
-  shedCapacity: 100,
-  weedSpawnChance: 0.005,
-  townShopUnlockInterval: 3,
-  townShopSellInterval: 2,
-  townCenterSellInterval: 6,
+  episodeSteps: specDefault<number>('episodeSteps'),
+  boardSize: specDefault<number>('boardSize'),
+  startingMoney: specDefault<number>('startingMoney'),
+  maxMarketOrdersPerTurn: specDefault<number>('maxMarketOrdersPerTurn'),
+  turnsPerDay: specDefault<number>('turnsPerDay'),
+  shedCapacity: specDefault<number>('shedCapacity'),
+  weedSpawnChance: specDefault<number>('weedSpawnChance'),
+  townShopUnlockInterval: specDefault<number>('townShopUnlockInterval'),
+  townShopSellInterval: specDefault<number>('townShopSellInterval'),
+  townCenterSellInterval: specDefault<number>('townCenterSellInterval'),
   farmHandCostMult: FARM_HAND_COST_MULT,
 } as const;

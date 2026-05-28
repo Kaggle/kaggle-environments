@@ -219,8 +219,8 @@ describe('parseOrder + hireCost', () => {
     expect(parseOrder(null as unknown)).toBe(null);
   });
 
-  it('hireCost follows fib: 1,1,2,3,5,8 with default mult=10', () => {
-    expect([0, 1, 2, 3, 4, 5].map((n) => hireCost(n))).toEqual([10, 10, 20, 30, 50, 80]);
+  it('hireCost follows fib: 1,1,2,3,5,8 with default mult=1', () => {
+    expect([0, 1, 2, 3, 4, 5].map((n) => hireCost(n))).toEqual([1, 1, 2, 3, 5, 8]);
   });
 });
 

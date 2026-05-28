@@ -178,7 +178,7 @@ input, select {
 .game-body { flex: 1 1 auto; min-height: 0; display: flex; }
 .game-main { flex: 1 1 auto; min-width: 0; display: flex; }
 .action-panel {
-  flex: 0 0 320px;
+  flex: 0 0 400px;
   padding: 12px;
   background: #14201e;
   border-left: 1px solid #2a402a;
