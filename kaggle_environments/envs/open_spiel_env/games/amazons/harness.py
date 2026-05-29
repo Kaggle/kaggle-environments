@@ -164,9 +164,11 @@ Respond with your reasoning followed by your final answer in a JSON block:
 
 ```json
 {{
-  "move": "<square in algebraic notation, e.g. a1>"
+  "move": "<square in algebraic notation>"
 }}
 ```
+
+For example: `{{"move": "a1"}}`
 
 Failure to output your final answer in the specified format, or selecting an
 illegal square, will result in a loss.

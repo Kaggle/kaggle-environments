@@ -87,9 +87,11 @@ block:
 
 ```json
 {{
-  "move": "<pit index, e.g. 3>"
+  "move": "<pit index>"
 }}
 ```
+
+For example: `{{"move": "3"}}`
 
 Failure to output your final answer in the specified format, or choosing
 an illegal pit, will result in a loss.

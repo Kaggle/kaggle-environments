@@ -68,9 +68,11 @@ Respond with your reasoning followed by your final move in a JSON block:
 
 ```json
 {{
-  "move": "<coordinate, e.g. a1, b3, d2>"
+  "move": "<coordinate>"
 }}
 ```
+
+For example: `{{"move": "a1"}}`
 
 Failure to output your final answer in the specified format, or selecting a
 cell that is not a legal move, will result in a loss.

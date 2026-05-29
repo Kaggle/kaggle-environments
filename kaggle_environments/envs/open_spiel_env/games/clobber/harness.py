@@ -55,9 +55,11 @@ Respond with your reasoning followed by your final move in a JSON block:
 
 ```json
 {{
-  "move": "<from><to>, e.g. a1b1"
+  "move": "<from><to>"
 }}
 ```
+
+For example: `{{"move": "a1b1"}}`
 
 Failure to output your final answer in the specified format, or selecting an
 illegal move, will result in a loss.

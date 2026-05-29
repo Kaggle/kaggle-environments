@@ -126,9 +126,11 @@ Respond with your reasoning followed by your move in a JSON block:
 
 ```json
 {{
-  "move": "<notation>, e.g. 24/23 24/22"
+  "move": "<notation>"
 }}
 ```
+
+For example: `{{"move": "24/23 24/22"}}`
 
 Failure to output your final answer in the specified format, or selecting
 an illegal move, will result in a loss.
