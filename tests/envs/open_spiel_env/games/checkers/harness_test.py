@@ -169,6 +169,35 @@ class GeneratePromptTest(absltest.TestCase):
             self.assertIn(sq, prompt)
         self.assertIn("Your kings ('*') are at: (none)", prompt)
 
+    def test_opponent_pieces_listed(self):
+        obs = _make_observation(self.state, self.game, player_id=0)
+        prompt = generate_prompt(obs, [])
+        # Player 0's opponent is Player 1; opponent men ('+') start on
+        # ranks 6-8 dark squares; no opponent kings yet.
+        self.assertIn("Opponent men ('+') are at:", prompt)
+        for sq in ("b6", "d6", "f6", "h6", "a7", "c7", "e7", "g7",
+                   "b8", "d8", "f8", "h8"):
+            self.assertIn(sq, prompt)
+        self.assertIn("Opponent kings ('*') are at: (none)", prompt)
+
+    def test_opponent_pieces_listed_for_player_1(self):
+        first = self.state.legal_actions()[0]
+        self.state.apply_action(first)
+        obs = _make_observation(self.state, self.game, player_id=1)
+        prompt = generate_prompt(obs, [])
+        # Player 1's opponent is Player 0; opponent men ('o') character.
+        self.assertIn("Opponent men ('o') are at:", prompt)
+        self.assertIn("Opponent kings ('O') are at: (none)", prompt)
+
+    def test_draw_rule_disclosed(self):
+        obs = _make_observation(self.state, self.game, player_id=0)
+        prompt = generate_prompt(obs, [])
+        # The 40-ply no-capture draw rule must be in the prompt -- it's a
+        # real terminal path that decided ~9% of recorded games.
+        self.assertIn("40", prompt)
+        self.assertIn("draw", prompt.lower())
+        self.assertIn("capture", prompt.lower())
+
     def test_captures_flag_no_at_start(self):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [])
