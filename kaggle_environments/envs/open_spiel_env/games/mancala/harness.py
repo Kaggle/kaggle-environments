@@ -81,8 +81,6 @@ Current board (seed counts):
 You are Player {player_id}. Move number: {move_number}.
 {last_action_line}
 Your move history: {move_history}.
-(Consecutive entries in your move history are bonus turns earned by landing
-in your own store.)
 
 It is your turn. Choose one of YOUR own pits that contains seeds.
 
