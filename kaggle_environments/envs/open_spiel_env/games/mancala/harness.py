@@ -44,7 +44,9 @@ On your turn, pick one of YOUR pits that contains seeds. Pick them all
 up and sow them one-at-a-time counter-clockwise into the following cells.
 
 Bonus turn: if the last seed lands in your OWN store, you immediately take
-another turn.
+another turn. There is no limit on how many bonus turns you can chain --
+if that next move also ends with the last seed in your store, you take
+another, and so on, until a move ends elsewhere.
 
 Capture: if the last seed lands in an empty pit on YOUR own side, AND the
 pit directly opposite (on the opponent's side) contains seeds, you capture
