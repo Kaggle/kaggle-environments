@@ -44,7 +44,9 @@ preferred coin colour and your seat (and therefore the order in which
 you move).
 
 Actions: {{up, down, left, right, stand}}. Moving onto a coin collects
-it. The episode runs for {episode_length} moves total per board.
+it. Moves that would leave the board, or move onto your teammate's
+cell, are no-ops — you stay in place (this is not illegal). The
+episode runs for {episode_length} moves total per board.
 
 Scoring (per player on YOUR board, summed across the team):
 
@@ -61,9 +63,9 @@ preference for them, and AVOID coins of unowned colours (each one
 collected hurts both of you quadratically). You don't know your
 teammate's preference up front — infer it from what they pick up.
 
-Cells are ``"."`` for empty, digits for players (your seats), lowercase
-letters for coin colours. Coordinates are ``[row, column]`` with
-``row=0`` at the top.
+Cells are ``"."`` for empty, digits for players (the player ids shown
+below, not the seat indices), lowercase letters for coin colours.
+Coordinates are ``[row, column]`` with ``row=0`` at the top.
 
 Your team id is {team_id}. You are player {player_id} (seat {seat} on
 your team's board). Your teammate is player {teammate_id} (seat

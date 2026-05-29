@@ -64,6 +64,25 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response('```json\n{"move": "diagonal"}\n```', legal)
         self.assertIsNone(result.legal_action)
 
+    def test_parse_picks_last_json_block_on_self_correction(self):
+        # Model writes one answer, then reconsiders and writes another.
+        # The harness must submit the final answer, not the rejected one.
+        legal = ["up", "down", "left", "right", "stand"]
+        response = (
+            '```json\n{"move":"up"}\n```\n'
+            'Wait, let me reconsider.\n'
+            '```json\n{"move":"down"}\n```'
+        )
+        result = parse_response(response, legal)
+        self.assertEqual(result.legal_action, "down")
+
+    def test_parse_picks_last_bare_json_on_self_correction(self):
+        legal = ["up", "down", "left", "right", "stand"]
+        result = parse_response(
+            '{"move":"up"} ... actually {"move":"down"}', legal,
+        )
+        self.assertEqual(result.legal_action, "down")
+
     def test_returns_parse_result(self):
         legal = ["up", "down", "left", "right", "stand"]
         self.assertIsInstance(
