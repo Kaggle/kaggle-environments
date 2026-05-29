@@ -77,9 +77,17 @@ brings the checker to your point (25 - N). Once every checker is in your
 home board (points 1-6) you may bear off: a die of N bears off the checker
 on your N-point. If no checker sits on your N-point, you may bear off the
 checker furthest from home, but only when N exceeds the highest occupied
-point. If you cannot use either die you must Pass.
+point.
 
-You win by bearing off all fifteen of your checkers first.
+If only ONE of the two dice can be legally used, you must still account for
+the unused die by writing ``Pass`` in its place (e.g. ``Bar/24 Pass`` means
+"enter from the bar with one die, the other die is unusable"). Write the
+move first and ``Pass`` second. Write a bare ``Pass`` only when NEITHER
+die can be played at all.
+
+You win by bearing off all fifteen of your checkers first. If neither
+player has borne off all checkers within 500 player turns, the game ends
+in a draw.
 
 Dice rolled this turn: {dice_str}
 Move number: {move_number}
@@ -105,8 +113,12 @@ Examples (your own perspective in every case):
 * ``13/11(2)`` -- doubles: the same start/end is played twice.
 * ``Bar/22`` -- enter from the bar onto your 22-point.
 * ``6/Off`` -- bear off the checker on your 6-point.
-* ``13/8*`` -- a hit (the ``*`` is added automatically by the game).
-* ``Pass`` -- only when no legal move exists.
+* ``13/8*`` -- a hit: if your destination has exactly one opponent checker
+  (a blot), append ``*`` to that step. Without the ``*`` the move will be
+  rejected as illegal.
+* ``Bar/24 Pass`` -- the second die cannot be used. ``Pass`` always comes
+  after the playable move. Bare ``Pass`` is only for turns where neither
+  die can be played.
 
 Tradition is to list moves with the higher starting point first.
 
@@ -268,15 +280,49 @@ def _normalize_notation(notation: str) -> str:
     return re.sub(r"\s+", " ", notation.strip().lower())
 
 
+_PASS_SUFFIX = " pass"
+
+
+def _tolerance_variants(notation: str) -> set[str]:
+    """Generate forgiving lookup keys for ``*`` and trailing ``Pass``.
+
+    OpenSpiel encodes hits with ``*`` and unused-die markers with ``Pass``
+    appended to the move (e.g. ``Bar/24 Pass``). Models routinely omit one
+    or both because they feel like cosmetic annotations. Treat them as
+    optional on both sides of the match so the model's intent gets through.
+    """
+    variants = {notation, notation.replace("*", "")}
+    for v in list(variants):
+        if v.endswith(_PASS_SUFFIX):
+            variants.add(v[: -len(_PASS_SUFFIX)].strip())
+    return {v for v in variants if v}
+
+
 def _match_notation_to_legal(
     raw: str, legal_action_strings: Sequence[str],
 ) -> str | None:
-    """Match a notation string against the legal list, case/whitespace insensitive."""
-    legal_by_notation = {
-        _normalize_notation(_strip_action_id_prefix(legal)): legal
-        for legal in legal_action_strings
-    }
-    return legal_by_notation.get(_normalize_notation(raw))
+    """Match a notation string against the legal list.
+
+    Case- and whitespace-insensitive. Forgives missing hit ``*`` and missing
+    trailing ``Pass`` markers in either direction (model omits them, or model
+    adds them where the legal action didn't have them).
+    """
+    # Build the lookup with canonical forms first, then register tolerance
+    # variants without clobbering canonical entries.
+    legal_by_notation: dict[str, str] = {}
+    for legal in legal_action_strings:
+        notation = _normalize_notation(_strip_action_id_prefix(legal))
+        legal_by_notation[notation] = legal
+    for legal in legal_action_strings:
+        notation = _normalize_notation(_strip_action_id_prefix(legal))
+        for variant in _tolerance_variants(notation):
+            legal_by_notation.setdefault(variant, legal)
+
+    for candidate in _tolerance_variants(_normalize_notation(raw)):
+        match = legal_by_notation.get(candidate)
+        if match is not None:
+            return match
+    return None
 
 
 def parse_response(
