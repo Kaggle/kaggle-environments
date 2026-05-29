@@ -86,9 +86,13 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response('I will bear off: ```json\n{"move": "6/Off 5/Off"}\n```', self.legal)
         self.assertEqual(result.legal_action, "300 - 6/Off 5/Off")
 
-    def test_parse_text_scan_fallback(self):
+    def test_prose_only_response_triggers_rethink(self):
+        # No structured JSON. The parser must NOT guess at intent from a
+        # notation substring in the prose -- return None and let rethink
+        # ask the model to use the required JSON format.
         result = parse_response("I'll play 24/23 24/22 because it builds the bar point.", self.legal)
-        self.assertEqual(result.legal_action, "0 - 24/23 24/22")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_illegal_move_returns_raw(self):
         result = parse_response('```json\n{"move": "99/100"}\n```', self.legal)
@@ -103,6 +107,20 @@ class ParseResponseTest(absltest.TestCase):
     def test_parse_returns_parse_result_type(self):
         result = parse_response('```json\n{"move": "24/23 24/22"}\n```', self.legal)
         self.assertIsInstance(result, ParseResult)
+
+    def test_illegal_json_does_not_ghost_substitute_from_prose(self):
+        # The model's JSON answer (99/99) is not legal. The parser must
+        # NOT silently substitute a legal notation mentioned in the
+        # prose (the ghost antipattern). Surface raw_action so the
+        # rethink loop fires.
+        legal_example = self.legal[0]
+        response = (
+            f"I considered {legal_example} but went bigger.\n"
+            '```json\n{"move": "99/99 99/99"}\n```'
+        )
+        result = parse_response(response, self.legal)
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "99/99 99/99")
 
 
 # ---------------------------------------------------------------------------

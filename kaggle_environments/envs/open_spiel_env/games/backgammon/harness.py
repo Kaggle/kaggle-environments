@@ -29,7 +29,7 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult, extract_last_json_object
+from kaggle_environments.core_harness import ParseResult, parse_json_action
 
 # Players: 0 = X, 1 = O (matches the proxy's "x"/"o" labels).
 _PLAYER_LABELS = {0: "x", 1: "o"}
@@ -268,56 +268,20 @@ def _normalize_notation(notation: str) -> str:
     return re.sub(r"\s+", " ", notation.strip().lower())
 
 
-def _extract_move_from_json(response: str) -> str | None:
-    """Pull the move string out of the LAST JSON object in the response."""
-    data = extract_last_json_object(response, required_keys=("move",))
-    if data is None:
-        return None
-    move = str(data.get("move") or "").strip()
-    return move or None
+def _match_notation_to_legal(
+    raw: str, legal_action_strings: Sequence[str],
+) -> str | None:
+    """Match a notation string against the legal list, case/whitespace insensitive."""
+    legal_by_notation = {
+        _normalize_notation(_strip_action_id_prefix(legal)): legal
+        for legal in legal_action_strings
+    }
+    return legal_by_notation.get(_normalize_notation(raw))
 
 
 def parse_response(
     response: str,
     legal_action_strings: Sequence[str],
 ) -> ParseResult:
-    """Extract a legal Backgammon move from the LLM response.
-
-    Tries a ```json``` block first, then a bare ``{"move": "..."}``, then
-    falls back to scanning the raw response for any legal move notation.
-    Matching is case-insensitive and tolerant of whitespace.
-    """
-    # Build {normalized_notation: original_legal_string} for matching.
-    legal_by_notation: dict[str, str] = {}
-    for legal in legal_action_strings:
-        notation = _strip_action_id_prefix(legal)
-        legal_by_notation[_normalize_notation(notation)] = legal
-
-    raw = _extract_move_from_json(response)
-    if raw is not None:
-        normalized = _normalize_notation(raw)
-        if normalized in legal_by_notation:
-            return ParseResult(legal_action=legal_by_notation[normalized], raw_action=raw)
-
-    # Fallback: scan the response for a legal notation substring. Pick the
-    # one whose rightmost occurrence is latest (models enumerate rejected
-    # options before stating their final move). Tie-break on length so that
-    # a longer notation beats a shorter prefix like ``Pass``.
-    normalized_response = _normalize_notation(response)
-    best_end = -1
-    best_notation: str | None = None
-    for notation in legal_by_notation:
-        pos = normalized_response.rfind(notation)
-        if pos < 0:
-            continue
-        end = pos + len(notation)
-        if end > best_end or (end == best_end and len(notation) > len(best_notation or "")):
-            best_end = end
-            best_notation = notation
-    if best_notation is not None:
-        return ParseResult(
-            legal_action=legal_by_notation[best_notation],
-            raw_action=raw or best_notation,
-        )
-
-    return ParseResult(legal_action=None, raw_action=raw)
+    """Trust the model's JSON answer; let the rethink loop fix anything else."""
+    return parse_json_action(response, legal_action_strings, matcher=_match_notation_to_legal)

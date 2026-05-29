@@ -12,12 +12,7 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult, extract_last_json_object
-
-# Plain direction words for the text fallback. Matches the action set
-# {stay, up, down, left, right}.
-_DIRECTION_RE = re.compile(r"\b(stay|up|down|left|right)\b", re.IGNORECASE)
-
+from kaggle_environments.core_harness import ParseResult, parse_json_action
 
 # --- Prompt -----------------------------------------------------------------
 
@@ -115,15 +110,6 @@ def _normalize(move: str) -> str:
     return re.sub(r"\s+", "", move).lower()
 
 
-def _extract_move_from_json(response: str) -> str | None:
-    """Pull the move string out of the LAST JSON object in the response."""
-    data = extract_last_json_object(response, required_keys=("move",))
-    if data is None:
-        return None
-    move = str(data.get("move") or "").strip()
-    return move or None
-
-
 def _match_move_to_legal(
     move: str,
     legal_action_strings: Sequence[str],
@@ -218,28 +204,7 @@ def generate_prompt(
 
 
 def parse_response(
-    response: str,
-    legal_action_strings: Sequence[str],
+    response: str, legal_action_strings: Sequence[str],
 ) -> ParseResult:
-    """Extract a legal Ant Foraging move from the model response.
-
-    Accepts either a bare direction (``"up"``) or the fully-qualified
-    legal action (``"ant0:up"``). Falls back to scanning the response
-    text for the first direction keyword that matches a legal move.
-    """
-    raw = _extract_move_from_json(response)
-    if raw is not None:
-        matched = _match_move_to_legal(raw, legal_action_strings)
-        if matched is not None:
-            return ParseResult(legal_action=matched, raw_action=raw)
-
-    # Fallback: scan from the end of the response — the prompt asks the
-    # model to put its final answer last, so the last direction word is
-    # more likely to be the real choice than the first.
-    for m in reversed(list(_DIRECTION_RE.finditer(response))):
-        candidate = m.group(0)
-        matched = _match_move_to_legal(candidate, legal_action_strings)
-        if matched is not None:
-            return ParseResult(legal_action=matched, raw_action=raw or candidate)
-
-    return ParseResult(legal_action=None, raw_action=raw)
+    """Trust the model's JSON answer; let the rethink loop fix anything else."""
+    return parse_json_action(response, legal_action_strings, matcher=_match_move_to_legal)

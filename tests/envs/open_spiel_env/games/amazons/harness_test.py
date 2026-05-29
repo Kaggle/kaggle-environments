@@ -74,11 +74,28 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response(response, legal)
         self.assertEqual(result.legal_action, "j7")
 
-    def test_parse_fallback_prose_cell(self):
+    def test_unfenced_prose_cell_triggers_rethink(self):
+        # No JSON. Return None and let the rethink loop ask the model to
+        # use the required JSON format.
         legal = ["a7", "j7", "d10", "g10"]
         response = "I'll start by moving the amazon at g10."
         result = parse_response(response, legal)
-        self.assertEqual(result.legal_action, "g10")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
+
+    def test_illegal_json_does_not_ghost_substitute_from_prose_v2(self):
+        # Distinct from the v1 test: emphasises that even when the prose
+        # contains a clearly-stated and legal "intent" cell, the parser
+        # must trust the JSON answer (which is illegal here) and surface
+        # raw_action -- never silently submit the prose cell.
+        legal = ["a7", "d10", "g10"]
+        response = (
+            "I'll play g10 because it controls the centre.\n"
+            '```json\n{"move": "j7"}\n```'
+        )
+        result = parse_response(response, legal)
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "j7")
 
     def test_parse_no_match_returns_none(self):
         legal = ["a7", "j7"]
@@ -100,32 +117,31 @@ class ParseResponseTest(absltest.TestCase):
 
     # --- Regression: reverse-iter fallback ---
 
-    def test_fallback_prefers_last_mentioned_cell(self):
-        """When fallback fires, the LAST legal cell in the prose should win.
-
-        Models typically enumerate rejected options before stating their
-        choice. Forward iteration used to pick the first-mentioned
-        (rejected) candidate; reverse iteration picks the actual move.
-        """
+    def test_prose_only_response_triggers_rethink(self):
+        # No structured JSON. The parser must NOT guess at intent from a
+        # cell mentioned in the prose -- return None and let rethink ask
+        # the model to use the required JSON format.
         legal = ["a7", "j7", "g10"]
         response = (
             "I considered a7 (too cornered) and j7 (blocked by an arrow), "
             "but I'll move g10 to keep mobility."
         )
         result = parse_response(response, legal)
-        self.assertEqual(result.legal_action, "g10")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
-    def test_fallback_after_illegal_json_picks_last_prose_cell(self):
-        """If the JSON move is illegal, fallback should reach the model's
-        actual stated move at the end of the prose, not the first
-        candidate it considered."""
+    def test_illegal_json_does_not_ghost_substitute_from_prose(self):
+        # The model's JSON answer (j7) is illegal. The parser must NOT
+        # silently substitute g10 or a7 from the prose -- that's the
+        # ghost antipattern. Surface raw_action so the rethink loop fires.
         legal = ["a7", "g10"]
         response = (
             "I thought about a7 but it's exposed. My move is g10.\n"
             '```json\n{"move": "j7"}\n```'
         )
         result = parse_response(response, legal)
-        self.assertEqual(result.legal_action, "g10")
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "j7")
 
     # --- Regression: header-artifact regex (cross-newline \s*) ---
 
@@ -151,9 +167,11 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response(response, legal)
         self.assertIsNone(result.legal_action)
 
-    def test_intended_cell_wins_over_echoed_board(self):
-        """When the model echoes the board AND states a real intended cell,
-        the parser should pick the stated cell, not a header artifact."""
+    def test_echoed_board_plus_prose_intent_triggers_rethink(self):
+        # The model echoes the board and states a prose intent ("g10") but
+        # no JSON answer. The parser must NOT guess, even when the prose
+        # intent is unambiguous -- return None so the rethink loop asks
+        # the model to wrap its answer in JSON.
         response = (
             "Board:\n   a b c d e f g h i j\n 1 . . . . . . . . . .\n"
             " 2 . . . . . . . . . .\n"
@@ -161,7 +179,8 @@ class ParseResponseTest(absltest.TestCase):
         )
         legal = ["a1", "j1", "g10"]
         result = parse_response(response, legal)
-        self.assertEqual(result.legal_action, "g10")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
 
 class GeneratePromptTest(absltest.TestCase):

@@ -61,11 +61,15 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response(response, legal)
         self.assertEqual(result.legal_action, "c3xa3")
 
-    def test_parse_fallback_coordinate_in_text(self):
+    def test_prose_only_response_triggers_rethink(self):
+        # No structured JSON. The parser must NOT guess at intent from a
+        # move-shaped token in the prose -- return None and let the
+        # rethink loop ask the model to use the required JSON format.
         legal = ["b1-h1", "c1-c3"]
         response = "After thinking it over, I'm going to play b1-h1."
         result = parse_response(response, legal)
-        self.assertEqual(result.legal_action, "b1-h1")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_no_match_returns_none(self):
         legal = ["b1-h1", "c1-c3"]
@@ -74,11 +78,15 @@ class ParseResponseTest(absltest.TestCase):
         self.assertIsNone(result.legal_action)
         self.assertEqual(result.raw_action, "z9-a1")
 
-    def test_parse_malformed_json_falls_back(self):
+    def test_malformed_json_triggers_rethink(self):
+        # Bad JSON: stage-1 extracts nothing. The parser must NOT
+        # silently rescue a move from the prose -- return None so the
+        # rethink loop can ask the model to fix its format.
         legal = ["b1-h1", "c1-c3"]
         response = "```json\n{bad json}\n```\nI play b1-h1."
         result = parse_response(response, legal)
-        self.assertEqual(result.legal_action, "b1-h1")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_no_move_returns_none(self):
         legal = ["b1-h1", "c1-c3"]
@@ -122,6 +130,19 @@ class ParseResponseTest(absltest.TestCase):
         response = "Move:\nb1\n-\nh1"
         result = parse_response(response, legal)
         self.assertIsNone(result.legal_action)
+
+    def test_illegal_json_does_not_ghost_substitute_from_prose(self):
+        # The JSON move "a8-a1" isn't in legal. The parser must NOT
+        # silently substitute "b1-h1" from the prose (ghost antipattern).
+        # Surface raw_action so the rethink loop can ask for a legal move.
+        legal = ["b1-h1", "c1-c3"]
+        response = (
+            "I considered b1-h1 but ruled it out. Playing a8-a1.\n"
+            '```json\n{"move": "a8-a1"}\n```'
+        )
+        result = parse_response(response, legal)
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "a8-a1")
 
 
 class GeneratePromptTest(absltest.TestCase):
