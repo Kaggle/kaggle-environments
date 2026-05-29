@@ -31,9 +31,6 @@ import pyspiel
 
 from kaggle_environments.core_harness import ParseResult, extract_last_json_object
 
-# Pull a JSON object out of a ```json``` fence -- the prompt asks for this
-# shape, and it's the easiest path to a reliable move.
-# Bare ``{"move": "..."}`` fallback when the model skips the fence.
 # Players: 0 = X, 1 = O (matches the proxy's "x"/"o" labels).
 _PLAYER_LABELS = {0: "x", 1: "o"}
 
