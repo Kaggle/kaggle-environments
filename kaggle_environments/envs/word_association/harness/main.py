@@ -38,6 +38,29 @@ def _is_cluemaster(turn: int) -> bool:
     return turn in (0, 2)
 
 
+def _team_role(turn: int) -> tuple[str, str]:
+    """Return ``(my_role, opp_role)`` as the lowercase role values used in
+    ``observation.roles`` for this turn."""
+    if turn in (0, 1):
+        return "blue", "yellow"
+    return "yellow", "blue"
+
+
+def _count_unrevealed_with_role(observation: Mapping[str, Any], role: str) -> int:
+    """Count cells whose role equals ``role`` and that are still hidden.
+
+    Only meaningful when the observation carries unmasked roles (i.e. the
+    Cluemaster's view); guesser observations have ``"Unknown"`` for every
+    hidden cell, so the count would always be 0.
+    """
+    roles = observation.get("roles", [])
+    revealed = observation.get("revealed", [])
+    return sum(
+        1 for i in range(len(roles))
+        if i < len(revealed) and not revealed[i] and roles[i] == role
+    )
+
+
 def _inject_multi_game_context(observation: Mapping[str, Any]) -> str:
     """Status block shown only on the second and later games.
 
@@ -244,12 +267,30 @@ def generate_prompt(
     multi_game_context = _inject_multi_game_context(observation)
     memory_context = _inject_memory_context(observation)
 
+    my_role, opp_role = _team_role(turn)
     if _is_cluemaster(turn):
+        my_remaining = _count_unrevealed_with_role(observation, my_role)
+        opp_remaining = _count_unrevealed_with_role(observation, opp_role)
         prompt = f"You are the {team} Cluemaster in Word Association.\n\n"
         prompt += multi_game_context
         prompt += (
             f"Your goal is to get your team to guess all your {team} words "
             "while avoiding the opposite team's words and the trap word.\n"
+        )
+        prompt += (
+            "The game ends as soon as either team has all of its assigned "
+            "words revealed (that team wins). Your team has "
+            f"{my_remaining} word(s) still hidden; the opponent has "
+            f"{opp_remaining}.\n"
+        )
+        prompt += (
+            "\nWhen your team's Guesser acts on your clue:\n"
+            f"  - One of YOUR ({team}) words: revealed; the Guesser continues "
+            "guessing.\n"
+            "  - An OPPONENT word: revealed (advancing the opponent toward "
+            "winning); the turn ends.\n"
+            "  - A NEUTRAL word: revealed; the turn ends.\n"
+            "  - The TRAP word: your team LOSES the game immediately.\n"
         )
         prompt += memory_context
         prompt += "Here is the board state:\n"
@@ -259,7 +300,11 @@ def generate_prompt(
             "connect with a single-word clue. Provide your reasoning in a "
             "'thinking' key.\n"
         )
-        prompt += "VALIDITY RULES FOR CLUES:\n"
+        prompt += (
+            "VALIDITY RULES FOR CLUES (violating these does NOT end the "
+            "game, but a random one of your OPPONENT's still-hidden words is "
+            "revealed and your turn passes — a meaningful setback):\n"
+        )
         prompt += (
             "- The clue must be a SINGLE WORD. It CANNOT contain spaces or "
             "hyphens.\n"
@@ -270,11 +315,18 @@ def generate_prompt(
             "your clue cannot be 'DOGS' or 'HOTDOG').\n"
         )
         prompt += (
-            "Note: A clue number of 0 means 'unlimited guesses, but 0 words "
-            "relate to this clue' (often used to help guessers avoid the trap "
-            "or opponent words). A clue number of -1 means 'infinity' "
-            "(unlimited guesses, for when you want them to guess remaining "
-            "words from previous clues).\n"
+            "Note on the clue number:\n"
+            "- A positive number N tells the Guesser there are N words "
+            "related to this clue. They receive N+1 guesses — N for the "
+            "related words, plus 1 BONUS guess after correctly identifying "
+            "all N (which they may spend on any remaining word from this or "
+            "any previous clue).\n"
+            "- 0 means 'unlimited guesses, but 0 words relate to this clue' "
+            "(often used to help guessers avoid the trap or opponent words; "
+            "the Guesser must still make at least one guess).\n"
+            "- -1 means 'infinity' (unlimited guesses, for when you want "
+            "them to guess remaining words from previous clues; the Guesser "
+            "must still make at least one guess).\n"
         )
         prompt += "You MUST format your response as valid JSON like this:\n"
         prompt += (
@@ -292,6 +344,19 @@ def generate_prompt(
             "Your goal is to correctly guess your team's words based on the "
             "Cluemaster's clues while avoiding the opposite team's words and "
             "the trap word.\n"
+        )
+        prompt += (
+            "The game ends as soon as either team has all of its assigned "
+            "words revealed (that team wins).\n"
+        )
+        prompt += (
+            "\nConsequences of each guess:\n"
+            f"  - One of YOUR ({team}) words: revealed; you continue "
+            "guessing until your guesses run out or you pass.\n"
+            "  - An OPPONENT word: revealed (helping THEM win); your turn "
+            "ends immediately.\n"
+            "  - A NEUTRAL word: revealed; your turn ends immediately.\n"
+            "  - The TRAP word: you LOSE the game immediately.\n\n"
         )
         prompt += (
             "You must make at least one guess before you are allowed to pass, "
