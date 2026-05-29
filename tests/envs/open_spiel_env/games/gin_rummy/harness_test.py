@@ -114,10 +114,12 @@ class ParseResponseTest(absltest.TestCase):
         )
         self.assertEqual(parse_response(response, self.legal).legal_action, "7h")
 
-    def test_parse_substring_takes_last_mention(self):
-        # Model enumerates rejected options before stating final choice.
+    def test_parse_no_json_returns_none(self):
+        # The harness deliberately does NOT scan prose for legal tokens --
+        # JSON only, let the rethink loop handle anything else (the rethink
+        # suffix prints the previous response back to the model).
         response = "I considered 7h then As, but I will discard 8h."
-        self.assertEqual(parse_response(response, self.legal).legal_action, "8h")
+        self.assertIsNone(parse_response(response, self.legal).legal_action)
 
     def test_parse_illegal_returns_raw(self):
         result = parse_response('```json\n{"move":"Kc"}\n```', self.legal)
@@ -148,10 +150,14 @@ class ParseMeldTest(absltest.TestCase):
         result = parse_response('```json\n{"move":"As 2s 3s"}\n```', self.legal)
         self.assertEqual(result.legal_action, "As2s3s")
 
-    def test_longer_meld_does_not_steal_when_shorter_chosen(self):
-        # Model says AsAcAdAh then changes mind; final answer is AsAcAd.
-        # Last-mention semantics should pick AsAcAd, NOT the longer one.
-        response = "AsAcAdAh ... actually no, I will play AsAcAd."
+    def test_rethink_with_two_json_blocks_takes_last(self):
+        # Model writes one meld, reconsiders, writes another. The shared
+        # extract_last_json_object helper takes the last block.
+        response = (
+            '```json\n{"move":"AsAcAdAh"}\n```\n'
+            'actually no:\n'
+            '```json\n{"move":"AsAcAd"}\n```'
+        )
         self.assertEqual(parse_response(response, self.legal).legal_action, "AsAcAd")
 
 
