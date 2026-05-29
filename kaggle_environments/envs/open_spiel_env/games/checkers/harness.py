@@ -24,9 +24,7 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult, extract_last_json_object
-
-_MOVE_RE = re.compile(r"\b([a-h][1-8][a-h][1-8])\b", re.IGNORECASE)
+from kaggle_environments.core_harness import ParseResult, parse_json_action
 
 
 # --- Prompt -----------------------------------------------------------------
@@ -53,7 +51,9 @@ choose any one. The sequence ends as soon as the moving piece is crowned,
 even if further captures would otherwise be possible.
 
 You win by capturing all of your opponent's pieces, or by leaving them with
-no legal move on their turn.
+no legal move on their turn. The game is drawn if 40 consecutive plies
+(counting both players' moves) pass without any capture; every capture
+resets that counter to zero. There is no other draw condition.
 
 Board (rank labels on the left, file labels on top; '.' = empty,
 'o' = Player 0 man, 'O' = Player 0 king, '+' = Player 1 man,
@@ -66,18 +66,22 @@ kings={p1_kings}.
 You are Player {player_label} ('{my_piece}').
 Your men ('{my_piece}') are at: {my_men_squares}
 Your kings ('{my_king}') are at: {my_king_squares}
+Opponent men ('{opp_piece}') are at: {opp_men_squares}
+Opponent kings ('{opp_king}') are at: {opp_king_squares}
 Captures available this turn: {captures_flag}{capture_reminder}
 
 Move number: {move_number}
 Last move played: {last_move}
 Moves you have played so far: {move_history}
 
-Action notation: ``<from><to>`` -- four lowercase characters. As Player
+Action notation: a four-character string ``<from><to>`` denotes "piece at
+<from> moves to <to>"; both squares are lowercase file+rank such as ``a3``
+or ``e5``. For example, ``a3b4`` means "the piece on a3 moves to b4" (a
+one-square diagonal slide), and ``c3e5`` means "the piece on c3 jumps two
+squares diagonally to e5" -- which is only a legal capture when an
+opponent occupies the intermediate square d4 and e5 is empty. As Player
 {player_label}, "forward" for your men means toward rank {forward_rank}.
-Examples: ``{slide_example}`` slides one of your men {slide_explanation};
-``{capture_example}`` is a capture jump that lands two squares diagonally
-away {capture_explanation}. Kings may move and capture in any diagonal
-direction.
+Kings may move and capture in any diagonal direction.
 {continuation_note}
 It is your turn. Choose a legal move for one of your pieces, remembering
 that if any capture is available you MUST take a capture.
@@ -144,7 +148,7 @@ def _format_board_ascii(board: Sequence[Sequence[str]]) -> str:
     return "\n".join(lines)
 
 
-def _list_own_pieces(
+def _list_pieces_of(
     board: Sequence[Sequence[str]], player_id: int
 ) -> tuple[list[str], list[str]]:
     """Return (men_squares, king_squares) in algebraic notation for player."""
@@ -170,15 +174,6 @@ def _is_capture(action_string: str) -> bool:
         return abs(int(action_string[1]) - int(action_string[3])) == 2
     except ValueError:
         return False
-
-
-def _extract_move_from_json(response: str) -> str | None:
-    """Pull the move string out of the LAST JSON object in the response."""
-    data = extract_last_json_object(response, required_keys=("move",))
-    if data is None:
-        return None
-    move = str(data.get("move") or "").strip().lower()
-    return move or None
 
 
 # --- Public functions (called by main.py) -----------------------------------
@@ -217,10 +212,15 @@ def generate_prompt(
     piece_counts = state.get("piece_counts") or {}
     my_piece = "o" if player_id == 0 else "+"
     my_king = "O" if player_id == 0 else "*"
+    opp_piece = "+" if player_id == 0 else "o"
+    opp_king = "*" if player_id == 0 else "O"
 
-    men, kings = _list_own_pieces(board, player_id)
+    men, kings = _list_pieces_of(board, player_id)
     my_men_squares = ", ".join(men) if men else "(none)"
     my_king_squares = ", ".join(kings) if kings else "(none)"
+    opp_men, opp_kings = _list_pieces_of(board, 1 - player_id)
+    opp_men_squares = ", ".join(opp_men) if opp_men else "(none)"
+    opp_king_squares = ", ".join(opp_kings) if opp_kings else "(none)"
 
     legal_moves = get_legal_moves(observation)
     captures_available = any(_is_capture(s) for s in legal_moves.values())
@@ -245,22 +245,7 @@ def generate_prompt(
             "jump is available, you may choose any of them.\n"
         )
 
-    if player_id == 0:
-        forward_rank = 8
-        slide_example = "a3b4"
-        slide_explanation = "forward-right from a3 to the empty square b4"
-        capture_example = "c3e5"
-        capture_explanation = (
-            "from c3 over an opponent on d4 onto the empty square e5"
-        )
-    else:
-        forward_rank = 1
-        slide_example = "f6e5"
-        slide_explanation = "forward-left from f6 to the empty square e5"
-        capture_example = "f6d4"
-        capture_explanation = (
-            "from f6 over an opponent on e5 onto the empty square d4"
-        )
+    forward_rank = 8 if player_id == 0 else 1
 
     move_history_str = ", ".join(move_history) if move_history else "None"
 
@@ -275,13 +260,13 @@ def generate_prompt(
         my_king=my_king,
         my_men_squares=my_men_squares,
         my_king_squares=my_king_squares,
+        opp_piece=opp_piece,
+        opp_king=opp_king,
+        opp_men_squares=opp_men_squares,
+        opp_king_squares=opp_king_squares,
         captures_flag=captures_flag,
         capture_reminder=capture_reminder,
         forward_rank=forward_rank,
-        slide_example=slide_example,
-        slide_explanation=slide_explanation,
-        capture_example=capture_example,
-        capture_explanation=capture_explanation,
         move_number=move_number,
         last_move=last_move,
         move_history=move_history_str,
@@ -298,26 +283,7 @@ def generate_prompt(
 
 
 def parse_response(
-    response: str,
-    legal_action_strings: Sequence[str],
+    response: str, legal_action_strings: Sequence[str],
 ) -> ParseResult:
-    """Extract a legal Checkers move from the LLM response.
-
-    Tries a ```json``` block first, then a bare ``{"move": "..."}``, then
-    falls back to scanning for any ``[a-h][1-8][a-h][1-8]`` token that
-    matches a legal move.
-    """
-    legal_set = {legal.lower(): legal for legal in legal_action_strings}
-
-    raw = _extract_move_from_json(response)
-    if raw is not None and raw in legal_set:
-        return ParseResult(legal_action=legal_set[raw], raw_action=raw)
-
-    # Iterate in reverse so the *last* token mentioned wins -- models
-    # typically enumerate rejected options before stating the final move.
-    for token in reversed(_MOVE_RE.findall(response)):
-        tok = token.lower()
-        if tok in legal_set:
-            return ParseResult(legal_action=legal_set[tok], raw_action=raw or tok)
-
-    return ParseResult(legal_action=None, raw_action=raw)
+    """Trust the model's JSON answer; let the rethink loop fix anything else."""
+    return parse_json_action(response, legal_action_strings)

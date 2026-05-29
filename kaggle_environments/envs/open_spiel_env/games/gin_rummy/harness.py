@@ -23,7 +23,7 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult, extract_last_json_object
+from kaggle_environments.core_harness import ParseResult, parse_json_action
 
 # Importing the proxy registers the ``gin_rummy_proxy`` pyspiel game so that
 # ``deserialize_game_and_state`` can rebuild it from the obs. Wrapped in
@@ -441,15 +441,6 @@ def generate_prompt(
     return prompt
 
 
-def _extract_move_from_json(response: str) -> str | None:
-    """Pull the move string out of the LAST JSON object in the response."""
-    data = extract_last_json_object(response, required_keys=("move",))
-    if data is None:
-        return None
-    move = str(data.get("move") or "").strip()
-    return move or None
-
-
 def _normalize(move: str) -> str:
     """Lowercase and drop whitespace/punctuation for forgiving comparisons."""
     return re.sub(r"[\s,.\-_'\"`()\[\]]", "", move).lower()
@@ -474,35 +465,5 @@ def _match_move_to_legal(move: str, legal_moves: Sequence[str]) -> str | None:
 def parse_response(
     response: str, legal_action_strings: Sequence[str],
 ) -> ParseResult:
-    """Extract a legal action string from the model response.
-
-    Tries the JSON block first, then a bare ``{"move": "..."}`` object, then a
-    fallback whole-token scan for any legal action string mentioned in the
-    response. Match is case- and punctuation-insensitive (so 'Draw Upcard',
-    'draw-upcard', '"As2s3s"' all map back to the canonical legal string).
-    """
-    raw = _extract_move_from_json(response)
-    if raw is not None:
-        matched = _match_move_to_legal(raw, legal_action_strings)
-        if matched is not None:
-            return ParseResult(legal_action=matched, raw_action=raw)
-
-    # Fallback: scan the response for any legal-action token. Pick the legal
-    # whose rightmost occurrence is latest (models enumerate rejected options
-    # before stating their final move). Tie-break on length so longer tokens
-    # like 'AsAcAdAh' beat shorter prefixes like 'AsAcAd' at the same position.
-    best_end = -1
-    best_legal: str | None = None
-    for legal in legal_action_strings:
-        pattern = r"(?<![A-Za-z0-9])" + re.escape(legal) + r"(?![A-Za-z0-9])"
-        matches = list(re.finditer(pattern, response))
-        if not matches:
-            continue
-        end = matches[-1].end()
-        if end > best_end or (end == best_end and len(legal) > len(best_legal or "")):
-            best_end = end
-            best_legal = legal
-    if best_legal is not None:
-        return ParseResult(legal_action=best_legal, raw_action=raw or best_legal)
-
-    return ParseResult(legal_action=None, raw_action=raw)
+    """Trust the model's JSON answer; let the rethink loop fix anything else."""
+    return parse_json_action(response, legal_action_strings, matcher=_match_move_to_legal)

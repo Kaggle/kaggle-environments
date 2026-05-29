@@ -13,7 +13,7 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult, extract_last_json_object
+from kaggle_environments.core_harness import ParseResult, parse_json_action
 
 # --- Prompt ---
 
@@ -64,15 +64,6 @@ Reconsider and play a legal move.
 
 
 # --- Helpers ----------------------------------------------------------------
-
-
-def _extract_move_from_json(response: str) -> str | None:
-    """Pull the move string out of the LAST JSON object in the response."""
-    data = extract_last_json_object(response, required_keys=("move",))
-    if data is None:
-        return None
-    move = str(data.get("move") or "").strip()
-    return move or None
 
 
 def _match_move_to_legal(
@@ -147,36 +138,5 @@ def generate_prompt(
 def parse_response(
     response: str, legal_action_strings: Sequence[str],
 ) -> ParseResult:
-    """Extract a legal Go move from the model response.
-
-    Tries to extract move from JSON block first, then falls back to
-    searching for coordinates in the response text.
-    """
-    raw = _extract_move_from_json(response)
-    if raw is not None:
-        matched = _match_move_to_legal(raw, legal_action_strings)
-        if matched is not None:
-            return ParseResult(legal_action=matched, raw_action=raw)
-
-    # Fallback: scan the response for any legal coordinate. Pick the legal
-    # whose rightmost occurrence is latest (models enumerate rejected moves
-    # before stating their final move).
-    response_lower = response.lower()
-    best_end = -1
-    best: tuple[str, str] | None = None  # (legal, coord)
-    for legal in legal_action_strings:
-        parts = legal.split()
-        if len(parts) != 2:
-            continue
-        coord = parts[1].lower()
-        pos = response_lower.rfind(coord)
-        if pos < 0:
-            continue
-        end = pos + len(coord)
-        if end > best_end or (end == best_end and (best is None or len(coord) > len(best[1]))):
-            best_end = end
-            best = (legal, coord)
-    if best is not None:
-        return ParseResult(legal_action=best[0], raw_action=raw or best[1])
-
-    return ParseResult(legal_action=None, raw_action=raw)
+    """Trust the model's JSON answer; let the rethink loop fix anything else."""
+    return parse_json_action(response, legal_action_strings, matcher=_match_move_to_legal)

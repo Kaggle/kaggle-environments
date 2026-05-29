@@ -19,7 +19,7 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult, extract_last_json_object
+from kaggle_environments.core_harness import ParseResult, parse_json_action
 
 # Importing the proxy registers the ``amazons_proxy`` pyspiel game so that
 # ``deserialize_game_and_state`` can rebuild it from the obs. Wrapped in
@@ -259,45 +259,19 @@ def generate_prompt(
     return prompt
 
 
-def _extract_move_from_json(response: str) -> str | None:
-    """Pull the move string out of the LAST JSON object in the response."""
-    data = extract_last_json_object(response, required_keys=("move",))
-    if data is None:
-        return None
-    move = str(data.get("move") or "").strip()
-    return move or None
-
-
-def _normalize_cell(text: str) -> str | None:
-    """Normalize free-form text to canonical 'a7'-style notation."""
-    cell = _algebraic_to_cell(text)
+def _match_cell_to_legal(
+    raw: str, legal_action_strings: Sequence[str],
+) -> str | None:
+    """Normalize free-form text to canonical 'a7'-style and match a legal."""
+    cell = _algebraic_to_cell(raw)
     if cell is None:
         return None
-    row, col = cell
-    return _cell_to_algebraic(row, col)
+    canonical = _cell_to_algebraic(*cell)
+    return canonical if canonical in set(legal_action_strings) else None
 
 
 def parse_response(
     response: str, legal_action_strings: Sequence[str],
 ) -> ParseResult:
-    """Extract a legal cell from the model response.
-
-    Tries the JSON block first, then a bare ``{"move": "..."}`` object,
-    then a fallback scan for any legal cell mentioned anywhere in the
-    response. Match is on canonical algebraic form so 'A7', 'a7 ', etc.
-    all map to 'a7'.
-    """
-    legal_set = set(legal_action_strings)
-
-    raw = _extract_move_from_json(response)
-    if raw is not None:
-        canonical = _normalize_cell(raw)
-        if canonical is not None and canonical in legal_set:
-            return ParseResult(legal_action=canonical, raw_action=raw)
-
-    for match in reversed(list(_CELL_RE.finditer(response))):
-        canonical = _normalize_cell(match.group(0))
-        if canonical is not None and canonical in legal_set:
-            return ParseResult(legal_action=canonical, raw_action=raw or canonical)
-
-    return ParseResult(legal_action=None, raw_action=raw)
+    """Trust the model's JSON answer; let the rethink loop fix anything else."""
+    return parse_json_action(response, legal_action_strings, matcher=_match_cell_to_legal)

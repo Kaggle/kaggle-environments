@@ -24,7 +24,7 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult, extract_last_json_object
+from kaggle_environments.core_harness import ParseResult, parse_json_action
 
 # Matches the shorthand "h 0 1" / "v 2 0" the LLM is asked to produce
 # (whitespace or comma separators). A leading lookbehind rejects matches
@@ -186,15 +186,6 @@ def _normalize_legal(action_string: str) -> str | None:
     return f"{m.group(1).lower()} {int(m.group(2))} {int(m.group(3))}"
 
 
-def _extract_move_from_json(response: str) -> str | None:
-    """Pull the move string out of the LAST JSON object in the response."""
-    data = extract_last_json_object(response, required_keys=("move",))
-    if data is None:
-        return None
-    move = str(data.get("move") or "").strip()
-    return move or None
-
-
 def _match_to_legal(
     raw: str | None,
     legal_action_strings: Sequence[str],
@@ -288,24 +279,7 @@ def generate_prompt(
 
 
 def parse_response(
-    response: str,
-    legal_action_strings: Sequence[str],
+    response: str, legal_action_strings: Sequence[str],
 ) -> ParseResult:
-    """Extract a legal Dots and Boxes move from the LLM response.
-
-    Tries a ```json``` block first, then a bare ``{"move": "..."}``, then
-    falls back to scanning the response text for any ``h r c`` / ``v r c``
-    token that matches a legal move.
-    """
-    raw = _extract_move_from_json(response)
-    matched = _match_to_legal(raw, legal_action_strings)
-    if matched is not None:
-        return ParseResult(legal_action=matched, raw_action=raw)
-
-    for token_match in reversed(list(_MOVE_TOKEN_RE.finditer(response))):
-        candidate = token_match.group(0)
-        matched = _match_to_legal(candidate, legal_action_strings)
-        if matched is not None:
-            return ParseResult(legal_action=matched, raw_action=raw or candidate)
-
-    return ParseResult(legal_action=None, raw_action=raw)
+    """Trust the model's JSON answer; let the rethink loop fix anything else."""
+    return parse_json_action(response, legal_action_strings, matcher=_match_to_legal)
