@@ -142,7 +142,10 @@ class GeneratePromptTest(absltest.TestCase):
         prompt = generate_prompt(observation, [])
         self.assertIn("None", prompt)
 
-    def test_rethink_suffix(self):
+    def test_rethink_illegal_branch(self):
+        # Parser DID extract a move but it was illegal. Rethink should
+        # lead with the previous response + attempted move; should NOT
+        # lead with the format spec (the model already complied).
         observation = {"observationString": self._OBS_STR, "playerId": 0}
         prompt = generate_prompt(
             observation,
@@ -152,6 +155,26 @@ class GeneratePromptTest(absltest.TestCase):
         )
         self.assertIn("Your previous response was", prompt)
         self.assertIn("z99", prompt)
+        self.assertNotIn("could not be parsed", prompt)
+        # Brief format tail still mentioned so the model keeps the format.
+        self.assertIn("JSON output format", prompt)
+
+    def test_rethink_unparsable_branch(self):
+        # Parser couldn't extract anything (previous_action is None).
+        # Rethink should lead with the format spec; should NOT show the
+        # "you suggested ..." illegal-move line because there's no
+        # attempted action to show.
+        observation = {"observationString": self._OBS_STR, "playerId": 0}
+        prompt = generate_prompt(
+            observation,
+            [],
+            previous_response="just prose, no JSON answer here",
+            previous_action=None,
+        )
+        self.assertIn("could not be parsed", prompt)
+        self.assertNotIn('You suggested move "', prompt)
+        # Brief legality tail still mentioned.
+        self.assertIn("must also be legal", prompt)
 
     def test_no_rethink_on_first_attempt(self):
         observation = {"observationString": self._OBS_STR, "playerId": 0}

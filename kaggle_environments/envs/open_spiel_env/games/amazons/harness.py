@@ -173,13 +173,28 @@ illegal square, will result in a loss.
 """
 
 
-RETHINK_SUFFIX = """
+RETHINK_ILLEGAL = """
 
 Your previous response was:
 {previous_response}
 
 You suggested move "{previous_action}" but it is not a legal move.
 Reconsider the position and pick a legal square.
+
+(Keep using the same JSON output format as before -- only the move value needs to change.)
+"""
+
+RETHINK_UNPARSABLE = """
+
+Your previous response could not be parsed -- no JSON move answer
+was found. Conclude your response with your final answer as JSON in
+a ```json fenced block, exactly as the original instructions required:
+
+```json
+{"move": "<square in algebraic notation, e.g. a1>"}
+```
+
+The move you choose must also be legal in the current state.
 """
 
 
@@ -251,10 +266,13 @@ def generate_prompt(
     )
 
     if previous_response is not None:
-        prompt += RETHINK_SUFFIX.format(
-            previous_response=previous_response[:500],
-            previous_action=previous_action or "(could not parse)",
-        )
+        if previous_action:
+            prompt += RETHINK_ILLEGAL.format(
+                previous_response=previous_response[:500],
+                previous_action=previous_action,
+            )
+        else:
+            prompt += RETHINK_UNPARSABLE
 
     return prompt
 

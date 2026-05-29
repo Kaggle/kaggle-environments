@@ -733,10 +733,23 @@ def create_agent_fn(
                 return action
 
             # -- parse failed → prepare rethink --
+            # Categorize the failure so dashboards can tell apart:
+            #   EMPTY      -> LLM returned no usable content at all
+            #   UNPARSABLE -> content present, but parser couldn't extract
+            #                 a structured answer (raw_action is None)
+            #   ILLEGAL    -> parser extracted something, but it didn't
+            #                 match a legal move
+            if not (content or "").strip():
+                failure_category = "EMPTY"
+            elif result.raw_action is None:
+                failure_category = "UNPARSABLE"
+            else:
+                failure_category = "ILLEGAL"
             _TELEMETRY(
                 action_is_legal=False,
                 parse_failure={
                     "attempt": attempt + 1,
+                    "category": failure_category,
                     "raw_action": result.raw_action,
                     "response_preview": content[:200],
                 },
@@ -748,9 +761,13 @@ def create_agent_fn(
             )
 
         # -- all attempts exhausted --
+        # `failure_category` here reports the LAST attempt's failure
+        # category (EMPTY / UNPARSABLE / ILLEGAL). Set defensively in
+        # case max_retries was 0 and the variable was never assigned.
         _TELEMETRY(
             all_attempts_failed=True,
             total_attempts=max_retries,
+            final_failure_category=locals().get("failure_category"),
         )
         if last_exception is not None:
             raise last_exception

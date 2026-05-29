@@ -75,13 +75,28 @@ illegal bid, will result in a loss.
 """
 
 
-RETHINK_SUFFIX = """
+RETHINK_ILLEGAL = """
 
 Your previous response was:
 {previous_response}
 
 You suggested bid "{previous_action}" but it is not a legal bid.
 Reconsider your coin total and the minimum bid, then pick a legal integer bid.
+
+(Keep using the same JSON output format as before -- only the bid value needs to change.)
+"""
+
+RETHINK_UNPARSABLE = """
+
+Your previous response could not be parsed -- no JSON bid answer
+was found. Conclude your response with your final answer as JSON in
+a ```json fenced block, exactly as the original instructions required:
+
+```json
+{"bid": <integer>}
+```
+
+The bid you choose must also be legal in the current state.
 """
 
 
@@ -217,10 +232,13 @@ def generate_prompt(
     )
 
     if previous_response is not None:
-        prompt += RETHINK_SUFFIX.format(
-            previous_response=previous_response[:500],
-            previous_action=previous_action or "(could not parse)",
-        )
+        if previous_action:
+            prompt += RETHINK_ILLEGAL.format(
+                previous_response=previous_response[:500],
+                previous_action=previous_action,
+            )
+        else:
+            prompt += RETHINK_UNPARSABLE
 
     return prompt
 
