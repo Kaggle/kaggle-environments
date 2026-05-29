@@ -13,10 +13,8 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult
+from kaggle_environments.core_harness import ParseResult, extract_last_json_object
 
-_JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
-_BARE_JSON_RE = re.compile(r"\{[^{}]*\"move\"\s*:\s*\"([^\"]+)\"[^{}]*\}", re.DOTALL)
 # Lines of Action notation: "<file><rank><sep><file><rank>" where sep is '-' (move)
 # or 'x' (capture). Files are a-h, ranks are 1-8. Use [ \t]* (not \s*) so the
 # pattern cannot bridge a newline and stitch unrelated tokens into a fake move.
@@ -186,26 +184,12 @@ def _normalize(move: str) -> str:
 
 
 def _extract_move_from_json(response: str) -> str | None:
-    """Try to extract a move string from a JSON code block or bare JSON.
-
-    Iterate the matches in reverse so the *last* JSON block wins: models
-    that self-correct (write an answer, reconsider, write another) put
-    their final answer in the trailing block, not the first one.
-    """
-    for match in reversed(list(_JSON_BLOCK_RE.finditer(response))):
-        try:
-            data = json.loads(match.group(1))
-            move = str(data.get("move", "")).strip()
-            if move:
-                return move
-        except json.JSONDecodeError:
-            continue
-
-    bares = list(_BARE_JSON_RE.finditer(response))
-    if bares:
-        return bares[-1].group(1).strip()
-
-    return None
+    """Pull the move string out of the LAST JSON object in the response."""
+    data = extract_last_json_object(response, required_keys=("move",))
+    if data is None:
+        return None
+    move = str(data.get("move") or "").strip()
+    return move or None
 
 
 def _match_move_to_legal(

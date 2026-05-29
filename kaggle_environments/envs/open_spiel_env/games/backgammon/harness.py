@@ -29,13 +29,7 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult
-
-# Pull a JSON object out of a ```json``` fence -- the prompt asks for this
-# shape, and it's the easiest path to a reliable move.
-_JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
-# Bare ``{"move": "..."}`` fallback when the model skips the fence.
-_BARE_JSON_RE = re.compile(r"\{[^{}]*\"move\"\s*:\s*\"([^\"]+)\"[^{}]*\}", re.DOTALL | re.IGNORECASE)
+from kaggle_environments.core_harness import ParseResult, extract_last_json_object
 
 # Players: 0 = X, 1 = O (matches the proxy's "x"/"o" labels).
 _PLAYER_LABELS = {0: "x", 1: "o"}
@@ -275,21 +269,12 @@ def _normalize_notation(notation: str) -> str:
 
 
 def _extract_move_from_json(response: str) -> str | None:
-    """Pull the ``move`` value from a ```json``` block or bare JSON object."""
-    match = _JSON_BLOCK_RE.search(response)
-    if match:
-        try:
-            data = json.loads(match.group(1))
-            move = data.get("move")
-            if move is None:
-                return None
-            return str(move).strip()
-        except json.JSONDecodeError:
-            pass
-    bare = _BARE_JSON_RE.search(response)
-    if bare:
-        return bare.group(1).strip()
-    return None
+    """Pull the move string out of the LAST JSON object in the response."""
+    data = extract_last_json_object(response, required_keys=("move",))
+    if data is None:
+        return None
+    move = str(data.get("move") or "").strip()
+    return move or None
 
 
 def parse_response(
@@ -314,12 +299,25 @@ def parse_response(
         if normalized in legal_by_notation:
             return ParseResult(legal_action=legal_by_notation[normalized], raw_action=raw)
 
-    # Fallback: scan the response text for a legal notation substring.  Sort
-    # legal options by length so longer (more specific) matches beat shorter
-    # prefixes like a single ``Pass`` token.
+    # Fallback: scan the response for a legal notation substring. Pick the
+    # one whose rightmost occurrence is latest (models enumerate rejected
+    # options before stating their final move). Tie-break on length so that
+    # a longer notation beats a shorter prefix like ``Pass``.
     normalized_response = _normalize_notation(response)
-    for notation in sorted(legal_by_notation, key=len, reverse=True):
-        if notation in normalized_response:
-            return ParseResult(legal_action=legal_by_notation[notation], raw_action=raw or notation)
+    best_end = -1
+    best_notation: str | None = None
+    for notation in legal_by_notation:
+        pos = normalized_response.rfind(notation)
+        if pos < 0:
+            continue
+        end = pos + len(notation)
+        if end > best_end or (end == best_end and len(notation) > len(best_notation or "")):
+            best_end = end
+            best_notation = notation
+    if best_notation is not None:
+        return ParseResult(
+            legal_action=legal_by_notation[best_notation],
+            raw_action=raw or best_notation,
+        )
 
     return ParseResult(legal_action=None, raw_action=raw)

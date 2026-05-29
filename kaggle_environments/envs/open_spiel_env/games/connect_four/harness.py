@@ -137,8 +137,12 @@ def parse_response(
     1. Look for ``Final Answer: <column>``
     2. Scan for last digit in the response matching a legal column
     """
-    # Stage 1: "Final Answer: <digit>"
-    match = _FINAL_ANSWER_RE.search(response)
+    # Stage 1: "Final Answer: <digit>" -- use the LAST occurrence (matching
+    # GameArena's ``parse_move_from_response`` which uses ``rfind`` on the
+    # action tag). Models that consider then revise their answer will
+    # restate the final answer; the trailing one is the intent.
+    matches = list(_FINAL_ANSWER_RE.finditer(response))
+    match = matches[-1] if matches else None
     raw = match.group(1) if match else None
     if raw is not None:
         matched = _match_column_to_legal(raw, legal_action_strings)

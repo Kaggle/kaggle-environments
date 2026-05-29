@@ -20,10 +20,8 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult
+from kaggle_environments.core_harness import ParseResult, extract_last_json_object
 
-_JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
-_BARE_JSON_RE = re.compile(r"\{[^{}]*\"bid\"\s*:\s*(-?\d+)[^{}]*\}", re.DOTALL)
 _BID_PREFIX_RE = re.compile(r"\[P\d+\]Bid:\s*(\d+)")
 
 
@@ -127,23 +125,14 @@ def _format_field_index_row(field_size: int) -> str:
 
 
 def _extract_bid_from_json(response: str) -> str | None:
-    """Pull the bid from a ```json``` block or a bare ``{"bid": N}``.
-
-    Iterates in reverse so that when the model writes one answer, reconsiders,
-    and writes another, we take the last (final) answer rather than the
-    rejected first one.
-    """
-    for match in reversed(list(_JSON_BLOCK_RE.finditer(response))):
-        try:
-            data = json.loads(match.group(1))
-        except json.JSONDecodeError:
-            continue
-        bid = data.get("bid")
-        if bid is not None:
-            return str(bid).strip()
-    for bare in reversed(list(_BARE_JSON_RE.finditer(response))):
-        return bare.group(1).strip()
-    return None
+    """Pull the bid from the LAST JSON object in the response."""
+    data = extract_last_json_object(response, required_keys=("bid",))
+    if data is None:
+        return None
+    bid = data.get("bid")
+    if bid is None:
+        return None
+    return str(bid).strip() or None
 
 
 def _match_bid_to_legal(
@@ -267,12 +256,20 @@ def parse_response(
         if matched is not None:
             return ParseResult(legal_action=matched, raw_action=raw)
 
-    last_pos, last_legal = -1, None
+    # Fallback 1: look for the legal action string verbatim. Pick the legal
+    # whose rightmost occurrence is latest (models enumerate rejected bids
+    # before stating their final one).
+    best_end = -1
+    best_legal: str | None = None
     for legal in legal_action_strings:
-        idx = response.rfind(legal)
-        if idx > last_pos:
-            last_pos, last_legal = idx, legal
-    if last_legal is not None:
-        return ParseResult(legal_action=last_legal, raw_action=raw or last_legal)
+        pos = response.rfind(legal)
+        if pos < 0:
+            continue
+        end = pos + len(legal)
+        if end > best_end or (end == best_end and len(legal) > len(best_legal or "")):
+            best_end = end
+            best_legal = legal
+    if best_legal is not None:
+        return ParseResult(legal_action=best_legal, raw_action=raw or best_legal)
 
     return ParseResult(legal_action=None, raw_action=raw)

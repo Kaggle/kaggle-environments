@@ -16,15 +16,15 @@ enumerable actions validated against the legal-moves list.
 from __future__ import annotations
 
 import json
-import re
 from typing import Any, Mapping, Sequence
 
-from kaggle_environments.core_harness import ParseResult, create_agent_fn
+from kaggle_environments.core_harness import (
+    ParseResult,
+    create_agent_fn,
+    extract_last_json_object,
+)
 
 BOARD_SIZE = 25
-
-_JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
-
 
 # --- Helpers ----------------------------------------------------------------
 
@@ -177,44 +177,13 @@ def _build_clue_context(observation: Mapping[str, Any]) -> str:
 
 
 def _extract_json(response: str) -> dict[str, Any] | None:
-    """Try to extract a JSON object from the LLM response.
+    """Pull the LAST action object from the LLM response.
 
-    Tries three strategies in order:
-    1. Fenced ````` ```json {...} ``` ````` block.
-    2. Strip markdown fences and parse the whole response.
-    3. Extract substring between the first ``{`` and last ``}``.
+    Cluemaster turns emit a ``{"clue": ..., "number": ...}`` object; guesser
+    turns emit a ``{"guess": ...}`` object. We filter by those keys so that
+    JSON-shaped content elsewhere in the model's reasoning is ignored.
     """
-    # 1. Fenced JSON block.
-    match = _JSON_BLOCK_RE.search(response)
-    if match:
-        try:
-            return json.loads(match.group(1), strict=False)
-        except json.JSONDecodeError:
-            pass
-
-    # 2. Strip markdown fences and try the whole response.
-    clean = response.strip()
-    if clean.startswith("```json"):
-        clean = clean[7:]
-    if clean.startswith("```"):
-        clean = clean[3:]
-    if clean.endswith("```"):
-        clean = clean[:-3]
-    try:
-        return json.loads(clean.strip(), strict=False)
-    except json.JSONDecodeError:
-        pass
-
-    # 3. First '{' … last '}'.
-    first = response.find("{")
-    last = response.rfind("}")
-    if first != -1 and last > first:
-        try:
-            return json.loads(response[first : last + 1], strict=False)
-        except json.JSONDecodeError:
-            pass
-
-    return None
+    return extract_last_json_object(response, required_keys=("clue", "guess"))
 
 
 # --- Rethink ----------------------------------------------------------------

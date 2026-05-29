@@ -9,6 +9,7 @@ from kaggle_environments import core_harness
 from kaggle_environments.core_harness import (
     ParseResult,
     create_agent_fn,
+    extract_last_json_object,
     set_telemetry_exporter,
 )
 
@@ -777,6 +778,119 @@ class ParseResultTest(absltest.TestCase):
     def test_submission_field(self):
         r = ParseResult(submission={"clue": "test", "number": 1})
         self.assertEqual(r.submission, {"clue": "test", "number": 1})
+
+
+class ExtractLastJsonObjectTest(absltest.TestCase):
+    """Shared helper for last-wins JSON extraction across harnesses."""
+
+    def test_single_fenced_block(self):
+        self.assertEqual(
+            extract_last_json_object('```json\n{"move": "e5"}\n```'),
+            {"move": "e5"},
+        )
+
+    def test_picks_last_of_multiple_fenced_blocks(self):
+        """Regression: models self-correct mid-response. The first block
+        is the rejected answer; the final block is the model's intent."""
+        response = (
+            'First attempt:\n```json\n{"move": "a1"}\n```\n'
+            'On second thought:\n```json\n{"move": "e5"}\n```'
+        )
+        self.assertEqual(
+            extract_last_json_object(response),
+            {"move": "e5"},
+        )
+
+    def test_skips_unparseable_fenced_block(self):
+        """If a later fenced block fails to parse, fall back to the prior
+        parseable one rather than dropping to bare-JSON strategy."""
+        response = (
+            '```json\n{"move": "e5"}\n```\n'
+            '```json\n{this is not valid json}\n```'
+        )
+        self.assertEqual(
+            extract_last_json_object(response),
+            {"move": "e5"},
+        )
+
+    def test_bare_json_when_no_fence(self):
+        self.assertEqual(
+            extract_last_json_object('I will play {"move": "e5"} now.'),
+            {"move": "e5"},
+        )
+
+    def test_picks_last_bare_json(self):
+        response = 'Considered {"move": "a1"}, but going with {"move": "e5"}.'
+        self.assertEqual(
+            extract_last_json_object(response),
+            {"move": "e5"},
+        )
+
+    def test_handles_nested_json(self):
+        """``json.JSONDecoder.raw_decode`` handles nesting; the old
+        ``_BARE_JSON_RE = r"\\{[^{}]*\\}"`` pattern could not."""
+        response = 'Result: {"move": "e5", "meta": {"depth": 3}}'
+        self.assertEqual(
+            extract_last_json_object(response),
+            {"move": "e5", "meta": {"depth": 3}},
+        )
+
+    def test_required_keys_filters_unrelated_objects(self):
+        """When required_keys is given, unrelated JSON in the model's
+        reasoning is ignored so the action object wins."""
+        response = (
+            'My plan: {"phase": "midgame"} then I will play '
+            '{"move": "e5"}.'
+        )
+        self.assertEqual(
+            extract_last_json_object(response, required_keys=("move",)),
+            {"move": "e5"},
+        )
+
+    def test_required_keys_returns_none_when_no_match(self):
+        response = '{"phase": "midgame"} {"other": 1}'
+        self.assertIsNone(
+            extract_last_json_object(response, required_keys=("move",)),
+        )
+
+    def test_required_keys_accepts_any_listed_key(self):
+        """Harnesses that look at multiple action fields (e.g. word
+        association: ``clue`` or ``guess``) pass them all."""
+        response = '{"guess": 3}'
+        self.assertEqual(
+            extract_last_json_object(response, required_keys=("clue", "guess")),
+            {"guess": 3},
+        )
+
+    def test_fenced_takes_priority_over_bare(self):
+        """Bare-JSON strategy only runs when no fenced block parses."""
+        response = (
+            '{"move": "a1"}\n\n'
+            '```json\n{"move": "e5"}\n```'
+        )
+        self.assertEqual(
+            extract_last_json_object(response),
+            {"move": "e5"},
+        )
+
+    def test_returns_none_on_empty_response(self):
+        self.assertIsNone(extract_last_json_object(""))
+        self.assertIsNone(extract_last_json_object("no json here at all"))
+
+    def test_unlabelled_fence(self):
+        """Some models use ``` ``` ``` ``` without the ``json`` language tag."""
+        self.assertEqual(
+            extract_last_json_object('```\n{"move": "e5"}\n```'),
+            {"move": "e5"},
+        )
+
+    def test_skips_non_dict_top_level(self):
+        """Top-level lists/strings/numbers are not action objects."""
+        response = '```json\n[1, 2, 3]\n```\n{"move": "e5"}'
+        self.assertEqual(
+            extract_last_json_object(response),
+            {"move": "e5"},
+        )
 
 
 if __name__ == "__main__":
