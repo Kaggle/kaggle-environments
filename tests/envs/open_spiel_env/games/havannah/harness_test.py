@@ -78,6 +78,21 @@ class ParseResponseTest(absltest.TestCase):
         self.assertIsNone(result.legal_action)
         self.assertIsNone(result.raw_action)
 
+    def test_illegal_json_does_not_ghost_substitute_from_prose(self):
+        # The model wrote a clear JSON answer of h8 but h8 is illegal here.
+        # The parser must NOT silently substitute one of the rejected
+        # candidates (i9 or g8) mentioned in the prose. It must surface
+        # the illegal raw move so the rethink loop fires.
+        legal = ["a1", "b2", "g8", "i9"]  # h8 deliberately not in legal
+        response = (
+            "Other candidates (e.g. i9 or g8) were considered but are "
+            "slightly less efficient. h8 accomplishes the goal best.\n"
+            '```json\n{"move": "h8"}\n```'
+        )
+        result = parse_response(response, legal)
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "h8")
+
     def test_returns_parse_result(self):
         legal = ["a1"]
         result = parse_response('```json\n{"move": "a1"}\n```', legal)

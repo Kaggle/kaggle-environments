@@ -218,22 +218,23 @@ def parse_response(
 ) -> ParseResult:
     """Extract a legal Havannah move from the model response.
 
-    Tries to extract the move from a JSON block first, then falls back to
-    searching for any coordinate (e.g. "a1", "g4") in the response text.
+    If the model gave an explicit JSON move, trust it: when it's legal we
+    submit it, and when it's illegal we surface ``legal_action=None`` so
+    the rethink loop can ask the model to correct itself. Only when no JSON
+    is present do we fall back to scanning for a bare coordinate.
     """
     raw = _extract_move_from_json(response)
     if raw is not None:
         matched = _match_move_to_legal(raw, legal_action_strings)
-        if matched is not None:
-            return ParseResult(legal_action=matched, raw_action=raw)
+        return ParseResult(legal_action=matched, raw_action=raw)
 
-    # Fallback: scan the response text for coordinate-like tokens. Iterate
-    # in reverse so the *last* coordinate mentioned wins -- models typically
-    # enumerate rejected options before stating the final move.
+    # No JSON answer at all -- best-effort: pick the last coord-like token,
+    # since models typically enumerate rejected options before stating the
+    # final move.
     for m in reversed(list(_COORD_RE.finditer(response))):
         candidate = m.group(0)
         matched = _match_move_to_legal(candidate, legal_action_strings)
         if matched is not None:
-            return ParseResult(legal_action=matched, raw_action=raw or candidate)
+            return ParseResult(legal_action=matched, raw_action=candidate)
 
-    return ParseResult(legal_action=None, raw_action=raw)
+    return ParseResult(legal_action=None, raw_action=None)
