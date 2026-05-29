@@ -27,7 +27,7 @@ export const CROPS: Record<CropId, CropSpec> = {
 
 export const ANIMALS: Record<AnimalId, AnimalSpec> = {
   GOOSE: { cost: 300, structure: 'COOP', first_yield_day: 4, interval: 1, max_held: 4, product: 'EGG' },
-  COW: { cost: 600, structure: 'PASTURE', first_yield_day: 8, interval: 2, max_held: 6, product: 'MILK' },
+  COW: { cost: 400, structure: 'PASTURE', first_yield_day: 8, interval: 2, max_held: 6, product: 'MILK' },
   SHEEP: { cost: 500, structure: 'PASTURE', first_yield_day: 6, interval: 3, max_held: 6, product: 'WOOL' },
 };
 
@@ -81,7 +81,7 @@ export const MARKET_PARAMS: Record<ProductId, MarketParam> = {
     below_func: 'sqrt',
     below_target: 0.7,
     above_func: 'linear',
-    above_target: 0.4,
+    above_target: 1.6,
   },
   MELON: {
     base: 250,
@@ -90,7 +90,7 @@ export const MARKET_PARAMS: Record<ProductId, MarketParam> = {
     below_func: 'log',
     below_target: 0.2,
     above_func: 'sq',
-    above_target: 0.9,
+    above_target: 3.6,
   },
   EGG: {
     base: 50,
@@ -108,9 +108,9 @@ export const MARKET_PARAMS: Record<ProductId, MarketParam> = {
     below_func: 'sqrt',
     below_target: 0.6,
     above_func: 'linear',
-    above_target: 0.4,
+    above_target: 1.6,
   },
-  WOOL: { base: 200, I0: MARKET_I0, T: 105, below_func: 'log', below_target: 0.2, above_func: 'sq', above_target: 0.8 },
+  WOOL: { base: 200, I0: MARKET_I0, T: 105, below_func: 'log', below_target: 0.2, above_func: 'sq', above_target: 3.2 },
   FERTILIZER: {
     base: 100,
     I0: MARKET_I0,
