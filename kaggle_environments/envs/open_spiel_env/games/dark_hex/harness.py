@@ -38,12 +38,16 @@ Rules:
       (a "collision" -- the move is wasted but the cell becomes visible)
   Cells shown as '.' are UNKNOWN to you: they may be empty, or they may hide
   an opponent stone you have not yet bumped into.
-- On each turn you nominate any cell that is not already known to be yours.
-  If the cell is empty, your stone is placed there and it becomes the
-  opponent's turn. If the cell is already occupied by an opponent stone, no
-  stone is placed -- the cell is revealed to you and it REMAINS YOUR TURN
-  (you will move again). The opponent learns nothing from your collision.
-  Use collisions deliberately as a probing/scouting tool.
+- On each turn you nominate any cell whose contents are still unknown to
+  you (any cell shown as '.'). If that cell turns out to be empty, your
+  stone is placed there and it becomes the opponent's turn. If it turns
+  out to hide an opponent stone, no stone is placed -- the cell is
+  revealed (you now see the opponent's symbol there) and it REMAINS YOUR
+  TURN (you will move again). The opponent learns nothing from your
+  collision. Use collisions deliberately as a probing/scouting tool.
+- Cells whose contents are already known to you cannot be nominated:
+  neither your own stones nor opponent stones you have already revealed
+  via a previous collision are legal moves.
 
 Your current view of the board ({player_code} = your stones,
 opponent symbol shown only on revealed cells, '.' = unknown):
@@ -54,9 +58,11 @@ Move history (your nominated moves only -- you do not see the opponent's):
 {move_history}
 
 {last_move_line}
-It is your turn. You may nominate any cell that you do not already know to
-contain one of your own stones (including unknown cells -- a collision there
-reveals an opponent stone and keeps your turn). Think about which cell most
+It is your turn. You may nominate any cell currently shown as '.' in your
+view (its contents are unknown -- it may be empty, in which case your stone
+is placed there, or it may hide an opponent stone, in which case the cell
+is revealed and you keep your turn). Cells already showing your stone or a
+revealed opponent stone are not legal moves. Think about which cell most
 advances your connection across {connect_goal} (or which probe most reduces
 your uncertainty), then choose a move.
 
@@ -79,8 +85,9 @@ Your previous response was:
 {previous_response}
 
 You suggested move "{previous_action}" but it is not a legal move.
-Reconsider and pick a valid coordinate on the board that you do not already
-know to be one of your own stones.
+Reconsider and pick a coordinate that is still shown as '.' in your current
+view (cells already showing your own stone or a revealed opponent stone
+cannot be nominated).
 """
 
 
