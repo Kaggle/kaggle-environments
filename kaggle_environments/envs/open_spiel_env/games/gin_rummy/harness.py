@@ -230,19 +230,14 @@ def _instruction_for_phase(phase: str | None, legal_strings: Sequence[str]) -> s
 # --- Prompt -----------------------------------------------------------------
 
 
-GIN_RUMMY_PROMPT_TEMPLATE = """Let's play Gin Rummy (OpenSpiel default rules; knock card = {knock_card}).
+GIN_RUMMY_PROMPT_TEMPLATE = """Let's play Gin Rummy ({variant_label}; knock card = {knock_card}{knock_qualifier}).
 
 Card notation: rank in {{A,2-9,T,J,Q,K}} followed by suit in {{s,c,d,h}}.
 Goal: arrange your 10-card hand into melds (runs of 3+ in a suit, e.g.
 '5s6s7s'; sets of 3-4 of the same rank, e.g. '7s7c7d'). Cards not in any
 meld are 'deadwood' worth their face value (Ace=1, 2-9=pip, T/J/Q/K=10).
 
-When your deadwood is at or below the knock card ({knock_card}) you may knock
-to end the hand. The knocker scores (opponent deadwood - knocker deadwood).
-Going gin (deadwood == 0) adds a +{gin_bonus} bonus and the opponent cannot
-lay off. If the non-knocker ends with deadwood <= knocker's after laying off
-they 'undercut' and instead receive (knocker deadwood - non-knocker deadwood)
-+ {undercut_bonus} bonus.
+{rules_paragraph}
 
 Other ways the hand can end:
   - The stock runs down to 2 cards (the 'wall'): the next player may pass
@@ -324,21 +319,67 @@ _DEFAULT_GIN_BONUS = 25
 _DEFAULT_UNCUT_BONUS = 25
 
 
-def _game_param(observation: Mapping[str, Any], name: str, default: int) -> int:
-    """Look up a numeric engine param via the serialized game string.
+def _game_params(observation: Mapping[str, Any]) -> dict[str, Any]:
+    """Recover the engine's GameParameters dict, or ``{}`` if unavailable.
 
-    Without the serialized state we can't recover non-default params, so we
-    fall back to the OpenSpiel default. This is good enough for the prompt's
-    rule wording -- the env loads with defaults today.
+    Without the serialized game we can't tell Oklahoma from default rules
+    apart, so the prompt falls back to default-rule wording in that case.
     """
     serialized = observation.get("serializedGameAndState", "")
     if not serialized:
-        return default
+        return {}
     try:
         game, _ = pyspiel.deserialize_game_and_state(serialized)
-        return int(game.get_parameters().get(name, default))
+        return dict(game.get_parameters())
     except Exception:
+        return {}
+
+
+def _game_param_int(params: Mapping[str, Any], name: str, default: int) -> int:
+    try:
+        return int(params.get(name, default))
+    except (TypeError, ValueError):
         return default
+
+
+def _build_rules_paragraph(
+    oklahoma: bool,
+    knock_card: Any,
+    gin_bonus: int,
+    undercut_bonus: int,
+) -> tuple[str, str, str]:
+    """Return (variant_label, knock_qualifier, rules_paragraph).
+
+    Splits the rules block into a header line (variant + knock card) and a
+    rules paragraph so the model gets the right description for the actual
+    ruleset rather than a one-size-fits-all blurb.
+    """
+    common_tail = (
+        "The knocker scores (opponent deadwood - knocker deadwood). "
+        f"Going gin (deadwood == 0) adds a +{gin_bonus} bonus and the "
+        "opponent cannot lay off. If the non-knocker ends with deadwood "
+        "<= knocker's after laying off they 'undercut' and instead receive "
+        f"(knocker deadwood - non-knocker deadwood) + {undercut_bonus} bonus."
+    )
+    if oklahoma:
+        variant_label = "OpenSpiel, Oklahoma variant"
+        knock_qualifier = ", set this hand from the upcard"
+        rules = (
+            "Oklahoma variant: each hand's knock card is set to the rank "
+            "value of the first card flipped from the stock (A=1, 2-9=pip, "
+            "T/J/Q/K=10). If the upcard was an Ace the knock card is 0, "
+            "which means you must go gin to knock this hand. This hand's "
+            f"knock card is {knock_card} -- you may knock when your "
+            "deadwood is at or below that value. "
+        ) + common_tail
+    else:
+        variant_label = "OpenSpiel default rules"
+        knock_qualifier = ""
+        rules = (
+            f"When your deadwood is at or below the knock card ({knock_card}) "
+            "you may knock to end the hand. "
+        ) + common_tail
+    return variant_label, knock_qualifier, rules
 
 
 def generate_prompt(
@@ -361,8 +402,13 @@ def generate_prompt(
     discard_pile = obs.get("discard_pile") or []
     my_layed = (obs.get("layed_melds") or {}).get(str(player_id)) or []
 
-    gin_bonus = _game_param(observation, "gin_bonus", _DEFAULT_GIN_BONUS)
-    undercut_bonus = _game_param(observation, "undercut_bonus", _DEFAULT_UNCUT_BONUS)
+    params = _game_params(observation)
+    oklahoma = bool(params.get("oklahoma", False))
+    gin_bonus = _game_param_int(params, "gin_bonus", _DEFAULT_GIN_BONUS)
+    undercut_bonus = _game_param_int(params, "undercut_bonus", _DEFAULT_UNCUT_BONUS)
+    variant_label, knock_qualifier, rules_paragraph = _build_rules_paragraph(
+        oklahoma, knock_card, gin_bonus, undercut_bonus,
+    )
 
     legal_map = get_legal_moves(observation)
     legal_strings = list(legal_map.values())
@@ -371,8 +417,9 @@ def generate_prompt(
         player_glyph=_player_glyph(player_id),
         phase=phase,
         knock_card=knock_card,
-        gin_bonus=gin_bonus,
-        undercut_bonus=undercut_bonus,
+        variant_label=variant_label,
+        knock_qualifier=knock_qualifier,
+        rules_paragraph=rules_paragraph,
         stock_size=stock_size,
         upcard=upcard,
         discard_pile=_format_discard_pile(discard_pile),

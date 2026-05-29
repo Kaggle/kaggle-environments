@@ -202,14 +202,30 @@ class GeneratePromptTest(absltest.TestCase):
         # Bonus values must be shown so the model can value gin/undercut.
         self.assertIn("+25", prompt)
 
-    def test_prompt_does_not_claim_oklahoma(self):
+    def test_prompt_does_not_claim_oklahoma_when_default(self):
         # The env loads default (non-Oklahoma) rules. The old prompt asserted
         # the knock card was set from the upcard's rank value -- that's wrong
         # for the default ruleset and confused models.
         s, g = _deal_state(seed=0)
         prompt = generate_prompt(_make_observation(s, g, player_id=0), [])
         self.assertNotIn("Oklahoma", prompt)
-        self.assertNotIn("not fixed at 10", prompt)
+        self.assertIn("default rules", prompt)
+
+    def test_prompt_describes_oklahoma_when_enabled(self):
+        # When the env is configured with oklahoma=True the prompt should
+        # explain the upcard-rank knock card rule instead.
+        rng = random.Random(1)
+        g = gin_rummy_proxy.GinRummyGame({"oklahoma": True})
+        s = g.new_initial_state()
+        while s.is_chance_node():
+            outcomes = s.chance_outcomes()
+            s.apply_action(rng.choices([a for a, _ in outcomes], [p for _, p in outcomes])[0])
+        prompt = generate_prompt(_make_observation(s, g, player_id=0), [])
+        self.assertIn("Oklahoma variant", prompt)
+        self.assertIn("upcard", prompt.lower())
+        self.assertIn("rank value", prompt)
+        # And must NOT claim a fixed knock card of 10 as the rule.
+        self.assertNotIn("default rules", prompt)
 
     def test_prompt_labels_history_as_yours(self):
         # core_harness only feeds the agent its own past actions. The label
