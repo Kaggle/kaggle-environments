@@ -111,21 +111,31 @@ class ParseResponseTest(absltest.TestCase):
         )
         self.assertEqual(result.legal_action, "Proposal: [2, 3, 1]")
 
-    def test_parse_fallback_text_list(self):
+    def test_loose_bracket_list_triggers_rethink(self):
+        # A prose mention like "propose [1, 1, 1]" is NOT a structured
+        # payload. The parser must NOT guess at intent from a bracket
+        # list in the reasoning -- return None so the rethink loop asks
+        # the model for a structured answer.
         obs = _observation(_PROPOSAL_STATE)
         result = parse_response(
             "After thinking it over my final answer is propose [1, 1, 1].",
             obs["legalActionStrings"],
         )
-        self.assertEqual(result.legal_action, "Proposal: [1, 1, 1]")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
-    def test_parse_fallback_accept_keyword(self):
+    def test_loose_accept_keyword_triggers_rethink(self):
+        # A bare "accept" in the prose is NOT enough; the model needs to
+        # send a structured payload. Return None so the rethink loop asks
+        # for one rather than silently submitting agreement from a stray
+        # keyword that might appear in any reasoning text.
         obs = _observation(_PROPOSAL_STATE)
         result = parse_response(
             "I accept the previous offer; it works for me.",
             obs["legalActionStrings"],
         )
-        self.assertEqual(result.legal_action, "Proposal: Agreement reached!")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_illegal_returns_none(self):
         obs = _observation(_PROPOSAL_STATE)
@@ -140,6 +150,22 @@ class ParseResponseTest(absltest.TestCase):
     def test_parse_returns_parse_result(self):
         result = parse_response('```json\n{"action": "accept"}\n```', ["Proposal: Agreement reached!"])
         self.assertIsInstance(result, ParseResult)
+
+    def test_illegal_payload_does_not_ghost_substitute_from_prose(self):
+        # The model's structured payload yields an illegal proposal (keep
+        # exceeds the pool). A legal proposal string IS mentioned in the
+        # prose, but the parser must NOT silently substitute it (the ghost
+        # antipattern). Surface raw_action so the rethink loop fires.
+        obs = _observation(_PROPOSAL_STATE)
+        legal = obs["legalActionStrings"]
+        legal_example = legal[0]
+        response = (
+            f"I might have proposed '{legal_example}' but I changed my mind.\n"
+            '```json\n{"action": "propose", "keep": [0, 9, 0]}\n```'
+        )
+        result = parse_response(response, legal)
+        self.assertIsNone(result.legal_action)
+        self.assertIsNotNone(result.raw_action)
 
 
 class GeneratePromptTest(absltest.TestCase):

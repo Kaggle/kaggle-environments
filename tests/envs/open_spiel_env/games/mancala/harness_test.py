@@ -56,9 +56,13 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response('I think {"move": "5"} is best.', self.legal)
         self.assertEqual(result.legal_action, "5")
 
-    def test_parse_pit_in_response_text(self):
+    def test_prose_only_response_triggers_rethink(self):
+        # No structured JSON. The parser must NOT guess at intent from a
+        # numeric token in the prose -- return None and let rethink ask
+        # the model to use the required JSON format.
         result = parse_response("I'll sow from pit 4 this turn.", self.legal)
-        self.assertEqual(result.legal_action, "4")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_illegal_pit_returns_raw(self):
         result = parse_response('```json\n{"move": "9"}\n```', self.legal)
@@ -74,15 +78,32 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response('```json\n{"move": "1"}\n```', self.legal)
         self.assertIsInstance(result, ParseResult)
 
-    def test_parse_picks_first_legal_token_in_text(self):
-        # Both 9 (illegal) and 3 (legal) appear; should pick the legal one.
+    def test_prose_only_response_with_mixed_tokens_triggers_rethink(self):
+        # No structured JSON. The parser must NOT scan the prose for a
+        # legal pit index -- the only signal is the model's JSON answer.
+        # Return None and let the rethink loop ask for one.
         result = parse_response("Avoid pit 9, I'll choose pit 3.", self.legal)
-        self.assertEqual(result.legal_action, "3")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_double_digit_pit(self):
         legal = ["8", "9", "10", "11", "12", "13"]
         result = parse_response('```json\n{"move": "11"}\n```', legal)
         self.assertEqual(result.legal_action, "11")
+
+    def test_illegal_json_does_not_ghost_substitute_from_prose(self):
+        # The model's JSON answer (99) isn't legal. The parser must NOT
+        # silently substitute a legal pit index from the prose (the ghost
+        # antipattern) -- return None so the rethink loop asks the model
+        # to fix its answer.
+        legal_example = self.legal[0]
+        response = (
+            f"I considered pit {legal_example} but went bigger.\n"
+            '```json\n{"move": "99"}\n```'
+        )
+        result = parse_response(response, self.legal)
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "99")
 
 
 # ---------------------------------------------------------------------------
