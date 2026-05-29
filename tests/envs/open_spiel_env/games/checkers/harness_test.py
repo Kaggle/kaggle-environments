@@ -242,7 +242,7 @@ class GeneratePromptTest(absltest.TestCase):
     def test_rethink_suffix(self):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [], previous_response="I'll play z9z9", previous_action="z9z9")
-        self.assertIn("Your previous response was", prompt)
+        self.assertIn("You suggested", prompt)  # ILLEGAL leads with action
         self.assertIn("z9z9", prompt)
         self.assertIn("not a legal move", prompt)
 

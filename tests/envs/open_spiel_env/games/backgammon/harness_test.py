@@ -228,7 +228,7 @@ class GeneratePromptTest(absltest.TestCase):
             previous_response="I tried bad/move",
             previous_action="bad/move",
         )
-        self.assertIn("Your previous response was", prompt)
+        self.assertIn("You suggested", prompt)  # ILLEGAL leads with action
         self.assertIn("bad/move", prompt)
         self.assertIn("not a legal move", prompt)
 

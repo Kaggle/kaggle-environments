@@ -88,24 +88,26 @@ an illegal move, will result in a loss.
 
 RETHINK_ILLEGAL = """
 
-Your previous response was:
-{previous_response}
-
-You suggested move "{previous_action}" but it is not a legal move.
-Reconsider and pick a legal move (an open edge shown as ``.`` on the board).
+You suggested move "{previous_action}" but this is not a legal move.
+Reconsider the rules and the current state, then pick a legal move.
 
 (Keep using the same JSON output format as before -- only the move value needs to change.)
 """
 
 RETHINK_UNPARSABLE = """
 
-Your previous response could not be parsed -- no JSON move answer
-was found. Conclude your response with your final answer as JSON in
-a ```json fenced block, exactly as the original instructions required:
+Your previous response ended with:
+{previous_response}
+
+No JSON answer could be parsed from that. Conclude your response
+with your final move as JSON in a ```json fenced block, exactly
+as the original instructions required:
 
 ```json
-{"move": "<your move>"}
+{{"move": "<orientation row col>"}}
 ```
+
+For example: `{{"move": "h 0 1"}}`
 
 The move you choose must also be legal in the current state.
 """
@@ -286,12 +288,11 @@ def generate_prompt(
 
     if previous_response is not None:
         if previous_action:
-            prompt += RETHINK_ILLEGAL.format(
-                previous_response=previous_response[:500],
-                previous_action=previous_action,
-            )
+            prompt += RETHINK_ILLEGAL.format(previous_action=previous_action)
         else:
-            prompt += RETHINK_UNPARSABLE
+            prompt += RETHINK_UNPARSABLE.format(
+                previous_response=(previous_response or "")[-500:],
+            )
 
     return prompt
 

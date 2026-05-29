@@ -200,7 +200,7 @@ class GeneratePromptTest(absltest.TestCase):
         prompt = generate_prompt(
             obs, [], previous_response="I'll bid 99", previous_action="99"
         )
-        self.assertIn("Your previous response was", prompt)
+        self.assertIn("You suggested", prompt)  # ILLEGAL leads with action
         self.assertIn("99", prompt)
         self.assertIn("not a legal bid", prompt)
 

@@ -147,15 +147,12 @@ Your response should include your reasoning, then conclude with your move as JSO
 ```
 """
 
-# Used when the parser extracted a move but it was illegal. Primary
-# message: "your move was illegal, pick a legal one". Secondary nudge:
-# remind the model to keep using the same JSON format (so its next
-# answer is also parseable). Note that the format reminder is a brief
-# tail, not the lead -- the model already complied with the format.
+# Used when the parser extracted a move but it was illegal. Leads
+# with the model's attempted move (the most useful signal) and asks
+# for a legal one; we deliberately do NOT include the previous
+# response here -- the action string is what matters. A brief tail
+# reminds the model to keep using the same JSON format.
 RETHINK_ILLEGAL = """
-Your previous response was:
-{previous_response}
-
 You suggested move "{previous_action}" but this is not a legal move.
 Reconsider the rules and the current state, then pick a legal move.
 
@@ -163,18 +160,24 @@ Reconsider the rules and the current state, then pick a legal move.
 value needs to change.)
 """
 
-# Used when the parser couldn't extract a move at all. Primary message:
-# "use this format". Secondary nudge: "the move you pick must also be
-# legal". Mirrors the ILLEGAL template: lead with the actual failure,
-# briefly mention the other thing the model must get right on retry.
+# Used when the parser couldn't extract a move at all. There's no
+# previous_action to show, so we lead with the previous response (last
+# 500 chars -- the model's conclusion is what we want to see, not the
+# preamble) so the model can see what it tried, then restate the exact
+# JSON format with a concrete example so it's unambiguous.
 RETHINK_UNPARSABLE = """
-Your previous response could not be parsed -- no JSON move answer was
-found. Conclude your response with your final move as JSON in a
-```json fenced block, exactly as the original instructions required:
+Your previous response ended with:
+{previous_response}
+
+No JSON answer could be parsed from that. Conclude your response with
+your final move as JSON in a ```json fenced block, exactly as the
+original instructions required:
 
 ```json
-{"move": "<your_move>"}
+{{"move": "<your_move>"}}
 ```
+
+For example: `{{"move": "<concrete_example_for_this_game>"}}`
 
 The move you choose must also be legal in the current state.
 """
@@ -183,15 +186,18 @@ The move you choose must also be legal in the current state.
 def _build_rethink(previous_response, previous_action):
     # `previous_action` is the parser's `raw_action`. When it's None the
     # parser couldn't extract anything -- the format itself failed, so
-    # we lead with the format. When it IS set the model already complied
-    # with the format and the move was just illegal -- show it back and
-    # ask for a legal one, with a brief format-reminder tail.
+    # we lead with the previous response so the model can see what went
+    # wrong. When it IS set the action string itself is the most useful
+    # signal -- show it back and ask for a legal one.
+    #
+    # Truncate to the LAST 500 chars (not the first 500). The model
+    # almost always puts its answer at the end of the response; the
+    # opening tokens are preamble we don't need.
     if not previous_action:
-        return RETHINK_UNPARSABLE  # NOT .format()d -- braces are literal
-    return RETHINK_ILLEGAL.format(
-        previous_response=(previous_response or "")[:500],
-        previous_action=previous_action,
-    )
+        return RETHINK_UNPARSABLE.format(
+            previous_response=(previous_response or "")[-500:],
+        )
+    return RETHINK_ILLEGAL.format(previous_action=previous_action)
 ```
 
 ### Prompt writing tips
@@ -202,10 +208,17 @@ def _build_rethink(previous_response, previous_action):
 - **Include rules that affect strategy.** Don't just list rules mechanically — highlight the ones that matter for making good decisions.
 - **Don't give strategy advice.** The prompt should explain rules and mechanics, not coach the model on how to play. Saying "capture pieces to win" is fine (that's a rule); saying "control the center early" or "prefer defensive moves" is not (that's strategy). The LLM should reason about strategy on its own from the rules and game state.
 - **Keep the rethink suffix concise.** Truncate the previous response to ~500 characters. Include the illegal move attempt and remind the LLM to re-derive a legal move from the state and rules (do *not* paste in a legal-moves list on retry either — same reasoning as above).
-- **Branch the rethink on whether `previous_action` was extracted.** Two different failures need two different prompts. Both templates should mention *both* failure modes (so the model fixes whichever it screwed up), but each should *lead with* the one that actually fired:
-  - `previous_action` is set (parser pulled a value from the JSON) → lead with "your move was illegal, pick a legal one." Show the model what it tried. Add a brief tail reminding it to keep using the same JSON format (so its retry is also parseable).
-  - `previous_action` is `None` (parser found nothing) → lead with "I couldn't parse your response — here's the exact JSON format." Add a brief tail reminding it the move must also be legal.
-  Pick the suffix at template-render time based on `previous_action`. A single one-size-fits-all suffix that always restates the format teaches the wrong fix on illegal-move retries; a single suffix that never restates the format leaves the model in the dark on unparseable retries.
+- **Branch the rethink on whether `previous_action` was extracted.** Each case wants a different signal back at the model:
+  - `previous_action` is set (parser pulled a value from the JSON) → the action string itself is the most useful signal. Lead with `"You suggested move {previous_action} but this is not legal."` Do NOT also include the full previous response — that's noise the model has to skim past to find the actual correction signal. Tail with a brief reminder to keep using the same JSON format.
+  - `previous_action` is `None` (parser found nothing) → there's no action string to show. Lead with the previous response (last 500 chars, not first 500 — the model's conclusion is at the end, not the preamble) so the model can see what it tried, then restate the JSON format with a concrete example. Tail with a brief reminder that the move must also be legal.
+  - Pick the suffix at render time based on `previous_action`. A single one-size-fits-all suffix that always restates the format teaches the wrong fix on illegal-move retries; a single suffix that never restates the format leaves the model in the dark on unparseable retries.
+- **Make the JSON example unambiguous.** In the rethink-unparseable suffix, write the JSON example so the *placeholder* and the *concrete example* are clearly separated. ```` ```json `{"move": "<notation>, e.g. 24/23 24/22"}` ``` ```` reads like the value should literally be that whole string. Instead, use a clean placeholder in the fenced block and put a concrete example on its own line right after:
+  ````
+  ```json
+  {"move": "<your_move>"}
+  ```
+  For example: `{"move": "24/23 24/22"}`
+  ````
 - **Move history formatting.** Show it as a readable list or "None" if empty. Don't let an empty string confuse the model.
 
 ```python
