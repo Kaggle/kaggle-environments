@@ -78,6 +78,28 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response("After thinking, I'll play a1b9.", self.legal)
         self.assertIsNone(result.legal_action)
 
+    def test_parse_prose_picks_last_legal_token(self):
+        # When the model brainstorms multiple legal moves and then commits to
+        # the final one, the parser must prefer the final mention over earlier
+        # candidates.
+        response = (
+            "I considered a1b1, and also b2a2, but I will play c3d3."
+        )
+        result = parse_response(response, self.legal)
+        self.assertEqual(result.legal_action, "c3d3")
+
+    def test_parse_illegal_json_does_not_fall_through_to_prose(self):
+        # If the model commits to an illegal move in the JSON block, the
+        # parser must surface that as a parse failure (so the rethink loop
+        # fires) rather than silently substituting an earlier-mentioned
+        # legal coord from the prose.
+        response = (
+            "Candidates: a1b1, b2a2. ```json\n{\"move\": \"z9z9\"}\n```"
+        )
+        result = parse_response(response, self.legal)
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "z9z9")
+
 
 # ---------------------------------------------------------------------------
 # generate_prompt

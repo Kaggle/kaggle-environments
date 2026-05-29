@@ -211,11 +211,15 @@ def parse_response(
     legal_set = set(legal_action_strings)
 
     raw = _extract_move_from_json(response)
-    if raw is not None and raw in legal_set:
-        return ParseResult(legal_action=raw, raw_action=raw)
+    if raw is not None:
+        if raw in legal_set:
+            return ParseResult(legal_action=raw, raw_action=raw)
+        # Model committed to an illegal move in JSON; surface it for rethink
+        # rather than substituting an arbitrary legal coord from earlier prose.
+        return ParseResult(legal_action=None, raw_action=raw)
 
-    for token in _MOVE_RE.findall(response):
+    for token in reversed(_MOVE_RE.findall(response)):
         if token in legal_set:
-            return ParseResult(legal_action=token, raw_action=raw or token)
+            return ParseResult(legal_action=token, raw_action=token)
 
     return ParseResult(legal_action=None, raw_action=raw)
