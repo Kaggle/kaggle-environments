@@ -80,12 +80,15 @@ class CheckersState(proxy.State):
         return list(reversed(ranks_top_down))
 
     def _last_move_str(self) -> str | None:
-        history = self.history()
-        if not history:
+        # During a multi-jump continuation the engine does NOT swap
+        # current_player_, so the prior action was by the *current* player,
+        # not 1 - current_player. Pull the actor straight from history_full
+        # so we don't have to special-case multi-jumps or terminal states.
+        full = self.full_history()
+        if not full:
             return None
-        last = history[-1]
-        prev_player = 1 - self.current_player() if not self.is_terminal() else 0
-        return self.__wrapped__.action_to_string(prev_player, last)
+        item = full[-1]
+        return self.__wrapped__.action_to_string(item.player, item.action)
 
     def _piece_counts(self, board: list[list[str]]) -> dict[str, int]:
         counts = {_MAN_P0: 0, _MAN_P1: 0, _KING_P0: 0, _KING_P1: 0}

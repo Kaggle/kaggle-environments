@@ -48,6 +48,42 @@ class CheckersEnvTest(absltest.TestCase):
         self.assertEqual(after_obs["board"][2][0], ".")  # a3 empty
         self.assertEqual(after_obs["board"][3][1], "o")  # b4 has piece
 
+    def test_last_move_during_multi_jump(self):
+        """During a multi-jump continuation the engine does NOT swap
+        current_player_, so the prior action was by the *current* player.
+        ``last_move`` must report the actual capture string regardless.
+        """
+        import random
+        from kaggle_environments.envs.open_spiel_env.games.checkers import (
+            checkers_proxy,
+        )
+
+        # Use the env directly so we exercise the proxy through state_dict.
+        game = checkers_proxy.CheckersGame()
+        state = game.new_initial_state()
+        random.seed(0)
+        prev_cur = -1
+        while not state.is_terminal():
+            cur = state.current_player()
+            if prev_cur == cur and state.history():
+                break  # multi-jump continuation reached
+            actions = state.legal_actions()
+
+            def is_capture(a, cur=cur):
+                s = state.action_to_string(cur, a)
+                return abs(int(s[1]) - int(s[3])) == 2
+
+            caps = [a for a in actions if is_capture(a)]
+            prev_cur = cur
+            state.apply_action(random.choice(caps if caps else actions))
+        self.assertEqual(prev_cur, state.current_player())
+        sd = state.state_dict()
+        # The last action was by the current player (multi-jump continuation),
+        # so last_move must be a capture (rank diff of 2).
+        self.assertIsNotNone(sd["last_move"])
+        last = sd["last_move"]
+        self.assertEqual(abs(int(last[1]) - int(last[3])), 2)
+
     def test_checkers_invalid_action(self):
         env = make("open_spiel_checkers", debug=True)
         env.reset()
