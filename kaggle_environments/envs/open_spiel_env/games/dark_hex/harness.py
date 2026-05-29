@@ -17,9 +17,7 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult, extract_last_json_object
-
-_COORD_RE = re.compile(r"\b([a-z])[ \t]*([0-9]+)\b", re.IGNORECASE)
+from kaggle_environments.core_harness import ParseResult, parse_json_action
 
 
 # --- Prompt -----------------------------------------------------------------
@@ -134,15 +132,6 @@ def _last_move_line(move_history: list[str]) -> str:
     return f"Your most recent nominated move was: {move_history[-1]}"
 
 
-def _extract_move_from_json(response: str) -> str | None:
-    """Pull the move string out of the LAST JSON object in the response."""
-    data = extract_last_json_object(response, required_keys=("move",))
-    if data is None:
-        return None
-    move = str(data.get("move") or "").strip()
-    return move or None
-
-
 def _normalize(move: str) -> str:
     """Lowercase, strip whitespace and parentheses (so 'A1' or '(a, 1)' work)."""
     cleaned = re.sub(r"[\s()\[\],.]", "", move).lower()
@@ -232,20 +221,5 @@ def generate_prompt(
 def parse_response(
     response: str, legal_action_strings: Sequence[str],
 ) -> ParseResult:
-    """Extract a legal coordinate (e.g. ``a1``) from the model response."""
-    raw = _extract_move_from_json(response)
-    if raw is not None:
-        matched = _match_move_to_legal(raw, legal_action_strings)
-        if matched is not None:
-            return ParseResult(legal_action=matched, raw_action=raw)
-
-    # Fallback: scan the prose for any "<letter><digits>" coordinate token.
-    # Iterate in reverse so the *last* coordinate mentioned wins -- models
-    # typically enumerate rejected options before stating the final move.
-    for match in reversed(list(_COORD_RE.finditer(response))):
-        candidate = f"{match.group(1).lower()}{match.group(2)}"
-        matched = _match_move_to_legal(candidate, legal_action_strings)
-        if matched is not None:
-            return ParseResult(legal_action=matched, raw_action=raw or candidate)
-
-    return ParseResult(legal_action=None, raw_action=raw)
+    """Trust the model's JSON answer; let the rethink loop fix anything else."""
+    return parse_json_action(response, legal_action_strings, matcher=_match_move_to_legal)

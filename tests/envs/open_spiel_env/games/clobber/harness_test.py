@@ -55,9 +55,13 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response('I think {"move": "b2a2"} is best.', self.legal)
         self.assertEqual(result.legal_action, "b2a2")
 
-    def test_parse_action_string_in_response(self):
+    def test_prose_only_response_triggers_rethink(self):
+        # No structured JSON. The parser must NOT guess at intent from a
+        # move-shaped token in the prose -- return None and let rethink
+        # ask the model to use the required JSON format.
         result = parse_response("I will play c3d3 this turn.", self.legal)
-        self.assertEqual(result.legal_action, "c3d3")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_illegal_move_returns_raw(self):
         result = parse_response('```json\n{"move": "z9z9"}\n```', self.legal)
@@ -77,6 +81,19 @@ class ParseResponseTest(absltest.TestCase):
         # A bare-text 'a1b9' is not in the legal list and shouldn't match.
         result = parse_response("After thinking, I'll play a1b9.", self.legal)
         self.assertIsNone(result.legal_action)
+
+    def test_illegal_json_does_not_ghost_substitute_from_prose(self):
+        # The model's JSON answer (z1z1) isn't legal. The parser must NOT
+        # silently substitute a legal move from the prose -- return None
+        # so the rethink loop asks the model to fix its answer.
+        legal_example = self.legal[0]
+        response = (
+            f"I considered {legal_example} but ruled it out.\n"
+            '```json\n{"move": "z1z1"}\n```'
+        )
+        result = parse_response(response, self.legal)
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "z1z1")
 
 
 # ---------------------------------------------------------------------------

@@ -56,11 +56,16 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response('I think {"bid": 1} is best.', self.legal)
         self.assertEqual(result.legal_action, "[P0]Bid: 1")
 
-    def test_parse_action_string_in_response(self):
+    def test_prose_action_string_triggers_rethink(self):
+        # A "[P0]Bid: 3" mention in the prose is NOT a structured answer.
+        # The parser must NOT silently submit the verbatim legal string
+        # from anywhere in the prose -- return None and let the rethink
+        # loop ask the model for a JSON bid.
         result = parse_response(
             "I will play [P0]Bid: 3 this round.", self.legal
         )
-        self.assertEqual(result.legal_action, "[P0]Bid: 3")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_no_integer_substring_fallback(self):
         # The largest legal bid equals the player's current coin total, which
@@ -100,11 +105,27 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response(response, self.legal)
         self.assertEqual(result.legal_action, "[P0]Bid: 3")
 
-    def test_parse_action_string_takes_last_occurrence(self):
-        # Model cites past round before declaring this round's choice.
+    def test_multiple_action_strings_in_prose_trigger_rethink(self):
+        # Mentions in the prose -- even multiple -- are not a structured
+        # answer. The parser must NOT pick one (the ghost antipattern);
+        # return None so the rethink loop asks the model for JSON.
         response = "Last round was [P0]Bid: 2, this round [P0]Bid: 3 looks good."
         result = parse_response(response, self.legal)
-        self.assertEqual(result.legal_action, "[P0]Bid: 3")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
+
+    def test_illegal_json_does_not_ghost_substitute_from_prose(self):
+        # The model's JSON answer (99) isn't legal. A legal "[P0]Bid: 1"
+        # is mentioned in the prose. The parser must NOT silently
+        # substitute it (ghost antipattern). Surface raw_action so the
+        # rethink loop fires.
+        response = (
+            "I considered [P0]Bid: 1 but went bigger.\n"
+            '```json\n{"bid": 99}\n```'
+        )
+        result = parse_response(response, self.legal)
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "99")
 
 
 # ---------------------------------------------------------------------------

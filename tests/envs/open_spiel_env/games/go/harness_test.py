@@ -55,12 +55,15 @@ class ParseResponseTest(absltest.TestCase):
         self.assertEqual(result.legal_action, "B E5")
         self.assertEqual(result.raw_action, "e5")
 
-    def test_parse_fallback_coordinate(self):
-        """Falls back to searching for coordinates in response text."""
+    def test_prose_only_response_triggers_rethink(self):
+        # No structured JSON. The parser must NOT guess at intent from a
+        # coord in the prose -- return None and let rethink ask the model
+        # to use the required JSON format.
         legal = ["B a1", "B b2", "B e5"]
         response = "I think e5 is the best move here."
         result = parse_response(response, legal)
-        self.assertEqual(result.legal_action, "B e5")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_no_match_returns_none(self):
         legal = ["B a1", "B b2"]
@@ -69,11 +72,15 @@ class ParseResponseTest(absltest.TestCase):
         self.assertIsNone(result.legal_action)
         self.assertEqual(result.raw_action, "z9")
 
-    def test_parse_malformed_json_falls_back(self):
+    def test_malformed_json_triggers_rethink(self):
+        # Bad JSON: stage-1 extracts nothing. The parser must NOT
+        # silently rescue a coord from the prose -- return None so the
+        # rethink loop can ask the model to fix its format.
         legal = ["B a1", "B e5"]
         response = "```json\n{bad json}\n```\nI play e5."
         result = parse_response(response, legal)
-        self.assertEqual(result.legal_action, "B e5")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_no_json_no_coord_returns_none(self):
         legal = ["B a1", "B b2"]
@@ -95,6 +102,19 @@ class ParseResponseTest(absltest.TestCase):
         legal = ["B a1"]
         result = parse_response('```json\n{"move": "a1"}\n```', legal)
         self.assertIsInstance(result, ParseResult)
+
+    def test_illegal_json_does_not_ghost_substitute_from_prose(self):
+        # The model's JSON answer (z99) isn't legal. The parser must NOT
+        # silently substitute a legal coord from the prose -- return None
+        # so the rethink loop asks the model to fix its answer.
+        legal = ["B a1", "B e5"]
+        response = (
+            "I considered e5 but ruled it out.\n"
+            '```json\n{"move": "z99"}\n```'
+        )
+        result = parse_response(response, legal)
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "z99")
 
 
 class GeneratePromptTest(absltest.TestCase):

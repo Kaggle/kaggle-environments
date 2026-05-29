@@ -22,14 +22,11 @@ player 0's 3rd pit, ``"11"`` for one of player 1's pits.
 from __future__ import annotations
 
 import json
-import re
 from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult, create_agent_fn, extract_last_json_object
-
-_PIT_TOKEN_RE = re.compile(r"\b(\d{1,2})\b")
+from kaggle_environments.core_harness import ParseResult, create_agent_fn, parse_json_action
 
 _PLAYER_0_PITS = (1, 2, 3, 4, 5, 6)
 _PLAYER_0_STORE = 7
@@ -134,15 +131,6 @@ def _format_row(values: Sequence[int], width: int = 3) -> str:
     return " ".join(str(v).rjust(width) for v in values)
 
 
-def _extract_move_from_json(response: str) -> str | None:
-    """Pull the move string out of the LAST JSON object in the response."""
-    data = extract_last_json_object(response, required_keys=("move",))
-    if data is None:
-        return None
-    move = str(data.get("move") or "").strip()
-    return move or None
-
-
 # --- Public functions (called by main.py) -----------------------------------
 
 
@@ -210,28 +198,10 @@ def generate_prompt(
 
 
 def parse_response(
-    response: str,
-    legal_action_strings: Sequence[str],
+    response: str, legal_action_strings: Sequence[str],
 ) -> ParseResult:
-    """Extract a legal Mancala pit index from the LLM response.
-
-    Tries a ```json``` block first, then a bare ``{"move": ...}``, then
-    falls back to scanning the response text for the first numeric token
-    that matches a legal pit index.
-    """
-    legal_set = {legal.strip(): legal for legal in legal_action_strings}
-
-    raw = _extract_move_from_json(response)
-    if raw is not None and raw in legal_set:
-        return ParseResult(legal_action=legal_set[raw], raw_action=raw)
-
-    # Iterate in reverse so the *last* token mentioned wins -- models
-    # typically enumerate rejected options before stating the final move.
-    for token in reversed(_PIT_TOKEN_RE.findall(response)):
-        if token in legal_set:
-            return ParseResult(legal_action=legal_set[token], raw_action=raw or token)
-
-    return ParseResult(legal_action=None, raw_action=raw)
+    """Trust the model's JSON answer; let the rethink loop fix anything else."""
+    return parse_json_action(response, legal_action_strings)
 
 
 # --- Adapter & agent function -----------------------------------------------
