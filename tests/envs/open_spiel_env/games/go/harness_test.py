@@ -157,9 +157,9 @@ class GeneratePromptTest(absltest.TestCase):
             previous_response="I play z9",
             previous_action="z9",
         )
-        self.assertIn("Your previous response was", prompt)
+        self.assertIn("You suggested", prompt)  # ILLEGAL leads with action
         self.assertIn("z9", prompt)
-        self.assertIn("not in the legal moves list", prompt)
+        self.assertIn("not a legal", prompt)
 
     def test_no_rethink_on_first_attempt(self):
         observation = {

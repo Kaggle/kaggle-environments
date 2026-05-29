@@ -13,7 +13,7 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult, parse_json_action
+from kaggle_environments.core_harness import ParseResult, parse_json_action, render_rethink_suffix
 
 # Lines of Action notation: "<file><rank><sep><file><rank>" where sep is '-' (move)
 # or 'x' (capture). Files are a-h, ranks are 1-8. Use [ \t]* (not \s*) so the
@@ -80,13 +80,30 @@ an illegal move, will result in a loss.
 """
 
 
-RETHINK_SUFFIX = """
+RETHINK_ILLEGAL = """
 
-Your previous response was:
+You suggested move "{previous_action}" but this is not a legal move.
+Reconsider the rules and the current state, then pick a legal move.
+
+(Keep using the same JSON output format as before -- only the move value needs to change.)
+"""
+
+RETHINK_UNPARSABLE = """
+
+Your previous response ended with:
 {previous_response}
 
-You suggested move "{previous_action}" but this is not in the legal moves list.
-Reconsider and play a legal move.
+No JSON answer could be parsed from that. Conclude your response
+with your final move as JSON in a ```json fenced block, exactly
+as the original instructions required:
+
+```json
+{{"move": "<from><sep><to>"}}
+```
+
+For example: `{{"move": "b1-h1"}}`
+
+The move you choose must also be legal in the current state.
 """
 
 
@@ -261,11 +278,10 @@ def generate_prompt(
         player_code=player_code,
     )
 
-    if previous_response is not None:
-        prompt += RETHINK_SUFFIX.format(
-            previous_response=previous_response[:500],
-            previous_action=previous_action or "(could not parse)",
-        )
+    prompt += render_rethink_suffix(
+        RETHINK_ILLEGAL, RETHINK_UNPARSABLE,
+        previous_response, previous_action,
+    )
 
     return prompt
 

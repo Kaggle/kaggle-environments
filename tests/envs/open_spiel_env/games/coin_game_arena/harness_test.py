@@ -226,7 +226,7 @@ class GeneratePromptTest(absltest.TestCase):
             previous_response="I play diagonally",
             previous_action="diagonal",
         )
-        self.assertIn("Your previous response was", prompt)
+        self.assertIn("You suggested", prompt)  # ILLEGAL leads with action
         self.assertIn("diagonal", prompt)
 
 

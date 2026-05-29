@@ -210,7 +210,7 @@ class GeneratePromptTest(absltest.TestCase):
     def test_rethink_suffix(self):
         obs = _observation(_PROPOSAL_STATE)
         prompt = generate_prompt(obs, [], previous_response="I tried [9,9,9]", previous_action="[9,9,9]")
-        self.assertIn("Your previous response was", prompt)
+        self.assertIn("You suggested", prompt)  # ILLEGAL leads with action
         self.assertIn("[9,9,9]", prompt)
 
     def test_no_rethink_on_first_attempt(self):

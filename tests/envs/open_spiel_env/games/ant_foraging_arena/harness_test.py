@@ -160,9 +160,9 @@ class GeneratePromptTest(absltest.TestCase):
             previous_response="I'll go diagonal",
             previous_action="diagonal",
         )
-        self.assertIn("Your previous response was", prompt)
+        self.assertIn("You suggested", prompt)  # ILLEGAL leads with action
         self.assertIn("diagonal", prompt)
-        self.assertIn("not in the legal", prompt)
+        self.assertIn("not a legal", prompt)
 
     def test_no_rethink_on_first_attempt(self):
         prompt = generate_prompt(_make_arena_observation(player_id=0), [])

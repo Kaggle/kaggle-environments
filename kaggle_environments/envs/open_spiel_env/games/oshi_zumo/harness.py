@@ -20,7 +20,7 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult, parse_json_action
+from kaggle_environments.core_harness import ParseResult, parse_json_action, render_rethink_suffix
 
 _BID_PREFIX_RE = re.compile(r"\[P\d+\]Bid:\s*(\d+)")
 
@@ -75,13 +75,30 @@ illegal bid, will result in a loss.
 """
 
 
-RETHINK_SUFFIX = """
+RETHINK_ILLEGAL = """
 
-Your previous response was:
+You suggested bid "{previous_action}" but this is not a legal bid.
+Reconsider the rules and the current state, then pick a legal bid.
+
+(Keep using the same JSON output format as before -- only the bid value needs to change.)
+"""
+
+RETHINK_UNPARSABLE = """
+
+Your previous response ended with:
 {previous_response}
 
-You suggested bid "{previous_action}" but it is not a legal bid.
-Reconsider your coin total and the minimum bid, then pick a legal integer bid.
+No JSON answer could be parsed from that. Conclude your response
+with your final bid as JSON in a ```json fenced block, exactly
+as the original instructions required:
+
+```json
+{{"bid": <integer>}}
+```
+
+For example: `{{"bid": 5}}`
+
+The bid you choose must also be legal in the current state.
 """
 
 
@@ -216,11 +233,10 @@ def generate_prompt(
         opp_edge_index=opp_edge_index,
     )
 
-    if previous_response is not None:
-        prompt += RETHINK_SUFFIX.format(
-            previous_response=previous_response[:500],
-            previous_action=previous_action or "(could not parse)",
-        )
+    prompt += render_rethink_suffix(
+        RETHINK_ILLEGAL, RETHINK_UNPARSABLE,
+        previous_response, previous_action,
+    )
 
     return prompt
 

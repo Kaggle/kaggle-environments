@@ -30,7 +30,7 @@ import json
 import re
 from typing import Any, Mapping, Sequence
 
-from kaggle_environments.core_harness import ParseResult, extract_last_json_object
+from kaggle_environments.core_harness import ParseResult, extract_last_json_object, render_rethink_suffix
 
 _INT_LIST_RE = re.compile(r"\[\s*(\d+(?:\s*,\s*\d+)*)\s*\]")
 
@@ -112,14 +112,30 @@ and {num_symbols_m1} inclusive.
 """
 
 
-RETHINK_SUFFIX = """
+RETHINK_ILLEGAL = """
 
-Your previous response was:
+You suggested action "{previous_action}" but this is not a legal action.
+Reconsider the rules and the current state, then pick a legal action.
+
+(Keep using the same JSON output format as before -- only the action value needs to change.)
+"""
+
+RETHINK_UNPARSABLE = """
+
+Your previous response ended with:
 {previous_response}
 
-You suggested action "{previous_action}" but it is not legal in this
-state. Re-read the rules and the current state, then pick a legal action
-in the required JSON format.
+No JSON answer could be parsed from that. Conclude your response
+with your final action as JSON in a ```json fenced block, exactly
+as the original instructions required:
+
+```json
+{{"action": "propose", "keep": [<int>, <int>, ...]}}
+```
+
+For example: `{{"action": "propose", "keep": [1, 2, 0]}}`
+
+The action you choose must also be legal in the current state.
 """
 
 
@@ -338,11 +354,10 @@ def generate_prompt(
     if move_history:
         prompt += "\nYour own past submissions: " + " | ".join(move_history[-6:])
 
-    if previous_response is not None:
-        prompt += RETHINK_SUFFIX.format(
-            previous_response=previous_response[:500],
-            previous_action=previous_action or "(could not parse)",
-        )
+    prompt += render_rethink_suffix(
+        RETHINK_ILLEGAL, RETHINK_UNPARSABLE,
+        previous_response, previous_action,
+    )
 
     return prompt
 
