@@ -24,7 +24,7 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult, parse_json_action
+from kaggle_environments.core_harness import ParseResult, parse_json_action, render_rethink_suffix
 
 # Matches the shorthand "h 0 1" / "v 2 0" the LLM is asked to produce
 # (whitespace or comma separators). A leading lookbehind rejects matches
@@ -286,13 +286,10 @@ def generate_prompt(
         move_history=move_history_str,
     )
 
-    if previous_response is not None:
-        if previous_action:
-            prompt += RETHINK_ILLEGAL.format(previous_action=previous_action)
-        else:
-            prompt += RETHINK_UNPARSABLE.format(
-                previous_response=(previous_response or "")[-500:],
-            )
+    prompt += render_rethink_suffix(
+        RETHINK_ILLEGAL, RETHINK_UNPARSABLE,
+        previous_response, previous_action,
+    )
 
     return prompt
 

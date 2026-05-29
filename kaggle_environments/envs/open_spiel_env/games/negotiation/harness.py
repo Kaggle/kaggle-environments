@@ -30,7 +30,7 @@ import json
 import re
 from typing import Any, Mapping, Sequence
 
-from kaggle_environments.core_harness import ParseResult, extract_last_json_object
+from kaggle_environments.core_harness import ParseResult, extract_last_json_object, render_rethink_suffix
 
 _INT_LIST_RE = re.compile(r"\[\s*(\d+(?:\s*,\s*\d+)*)\s*\]")
 
@@ -354,13 +354,10 @@ def generate_prompt(
     if move_history:
         prompt += "\nYour own past submissions: " + " | ".join(move_history[-6:])
 
-    if previous_response is not None:
-        if previous_action:
-            prompt += RETHINK_ILLEGAL.format(previous_action=previous_action)
-        else:
-            prompt += RETHINK_UNPARSABLE.format(
-                previous_response=(previous_response or "")[-500:],
-            )
+    prompt += render_rethink_suffix(
+        RETHINK_ILLEGAL, RETHINK_UNPARSABLE,
+        previous_response, previous_action,
+    )
 
     return prompt
 

@@ -181,24 +181,27 @@ For example: `{{"move": "<concrete_example_for_this_game>"}}`
 
 The move you choose must also be legal in the current state.
 """
-
-
-def _build_rethink(previous_response, previous_action):
-    # `previous_action` is the parser's `raw_action`. When it's None the
-    # parser couldn't extract anything -- the format itself failed, so
-    # we lead with the previous response so the model can see what went
-    # wrong. When it IS set the action string itself is the most useful
-    # signal -- show it back and ask for a legal one.
-    #
-    # Truncate to the LAST 500 chars (not the first 500). The model
-    # almost always puts its answer at the end of the response; the
-    # opening tokens are preamble we don't need.
-    if not previous_action:
-        return RETHINK_UNPARSABLE.format(
-            previous_response=(previous_response or "")[-500:],
-        )
-    return RETHINK_ILLEGAL.format(previous_action=previous_action)
 ```
+
+Then in `generate_prompt`, delegate the branching to
+`render_rethink_suffix` from `core_harness`:
+
+```python
+from kaggle_environments.core_harness import render_rethink_suffix
+
+def generate_prompt(observation, move_history,
+                    previous_response=None, previous_action=None):
+    prompt = ...  # build the main prompt as usual
+    prompt += render_rethink_suffix(
+        RETHINK_ILLEGAL, RETHINK_UNPARSABLE,
+        previous_response, previous_action,
+    )
+    return prompt
+```
+
+`render_rethink_suffix` returns an empty string on the first attempt
+(no prior response to react to) and otherwise picks the right template
+and truncates `previous_response` to the last 500 chars.
 
 ### Prompt writing tips
 
