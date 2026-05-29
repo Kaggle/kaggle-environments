@@ -95,6 +95,16 @@ Print the prompt for a handful of representative states (start of game, mid-game
 
 Whenever you find one, ask: *what other class of claim might be wrong?* — and verify those too.
 
+**When the harness emits structurally different prompts for different roles, phases, or turn types** (cluemaster vs guesser; proposal vs utterance; setup vs play; mover vs non-mover at a chance node), reading each branch in isolation is not enough — a rule the model needs may be present in one branch and silently missing from another. Render *one prompt per branch* and build a coverage matrix. Rows are the engine's mechanical rules (enumerated once from `process_action` / `DoApplyAction` / wherever state transitions happen, with file:line refs from Step 1). Columns are the prompt branches.
+
+| Engine rule (file:line) | Branch A prompt | Branch B prompt |
+|---|---|---|
+| Trap word → instant loss (`word_association.py:217`) | – | – |
+| Positive N gives N+1 guesses (`word_association.py:170`) | – | yes |
+| Game ends when one team's words depleted (`word_association.py:244`) | – | – |
+
+A `–` in any column whose role's strategy depends on knowing the rule is a finding. `n/a` is fine (the rule doesn't apply to that role). Do not skip rows on the grounds that "this rule is obvious from the goal statement" — if it's a mechanical consequence the engine enforces, the prompt must say so explicitly, because the model only knows what's in the prompt. The matrix is the deliverable; gaps are concrete catalogue hits under "Rule disclosed to one prompt branch but not another."
+
 ### 2c. Stress-test the parser with adversarial responses
 
 Construct synthetic LLM responses that *look* plausible and run the actual `parse_response` on them. The point is to expose failure modes the harness author didn't think of:
@@ -296,6 +306,46 @@ grep -rnE 'reversed\(list\(|reversed\(.*\.findall|response\.rfind|extract_last_j
 # Cross-newline coord regex (\s* between letter and digit groups).
 grep -rE '_(MOVE|COORD|CELL|MOVE_TOKEN)_RE\s*=\s*re\.compile\(.*\\s\*' \
     kaggle_environments/envs/*/harness*.py
+
+# --- Branching prompts: apply the per-branch rule-coverage matrix ---
+# (See Step 2b. Hits here mean the harness emits structurally different
+# prompts for different roles/phases/turn types, so a rule disclosed to
+# one branch may be silently missing from another.)
+#
+# A. Files with 2+ PROMPT_TEMPLATE constants → multi-branch by template.
+for f in kaggle_environments/envs/*/harness*.py \
+         kaggle_environments/envs/*/harness/*.py \
+         kaggle_environments/envs/open_spiel_env/games/*/harness*.py; do
+    [ -f "$f" ] || continue
+    n=$(grep -cE '_PROMPT_TEMPLATE\s*=' "$f")
+    [ "$n" -ge 2 ] && echo "$n templates: $f"
+done
+
+# B. Role/phase predicate helpers (any `_is_<role>(...)` style classifier the
+#    harness defines or calls; game-agnostic — catches cluemaster/guesser,
+#    proposer, mover, attacker/defender, narrator, etc.).
+grep -rnE '\b_is_[a-z_]+\(' \
+    kaggle_environments/envs/*/harness*.py \
+    kaggle_environments/envs/*/harness/*.py \
+    kaggle_environments/envs/open_spiel_env/games/*/harness*.py 2>/dev/null
+
+# C. Branching on a conventional phase/role/turn-type field inside the
+#    harness — these field names recur across games. Add to the alternation
+#    if a new harness uses a different conventional name.
+grep -rnE 'if .*\b(turn_type|phase|role|stage|round_type|sub_phase|action_type)\b' \
+    kaggle_environments/envs/*/harness*.py \
+    kaggle_environments/envs/*/harness/*.py \
+    kaggle_environments/envs/open_spiel_env/games/*/harness*.py 2>/dev/null
+
+# D. Multiple `prompt = X_TEMPLATE.format(...)` sites in one file — another
+#    sign of multi-branch composition independent of how dispatch is named.
+for f in kaggle_environments/envs/*/harness*.py \
+         kaggle_environments/envs/*/harness/*.py \
+         kaggle_environments/envs/open_spiel_env/games/*/harness*.py; do
+    [ -f "$f" ] || continue
+    n=$(grep -cE 'prompt\s*=\s*[A-Z][A-Z0-9_]*_TEMPLATE\.format' "$f")
+    [ "$n" -ge 2 ] && echo "$n template-select sites: $f"
+done
 ```
 
 **Behavior-based check** (catches the same logical bug across different syntaxes): for each harness, construct an adversarial response that should trigger the bug, run the harness's `parse_response`, and check the result. This catches variants of the bug that don't textually match a grep pattern.
@@ -354,6 +404,7 @@ Bugs that have been found in real reviews. Treat this as a starting point — fi
 | **Prompt reveals hidden information** | Prompt leaks data the receiving player should not see. Two common shapes: (1) **partial-info adversarial (A vs B)** — e.g. dark hex, where each player has their own per-player board view; the prompt for A must never include B's full board or unrevealed cells. (2) **co-op with teammates (AA vs BB)** — e.g. coin game arena (2v2), where A1 and A2 are teammates but still have private state; the prompt for A1 must not include A2's private observation. Once leaked, the game's information structure is broken and benchmark results become meaningless. | Render the prompt for each player at a state where private info is supposed to be hidden (mid-game in dark hex; partway through a co-op turn) and search the rendered text for the *other* player's private fields. Also audit which fields the harness reads from the obs — anything sourced from a global / shared / cross-player state dict instead of the per-player observation is suspect. | Source all per-player data through the proxy's per-player observation (e.g. `state.observation_string(player)`), never from a global state dict. If the proxy returns both players' boards when called with `player=None`, the harness must always pass an explicit `player`. Add a unit test that asserts player B's private fields do not appear in player A's prompt. |
 | **Prompt invariant violation** | Rule statement disagrees with engine; model burns retries on "legal" moves | Print prompt; verify each "you may/cannot" claim against `legal_actions()` | Rewrite the claim |
 | **Missing or denied game-end paths** | Prompt either confidently *denies* a terminal condition the engine implements ("no draws under normal play" — but the engine draws on repetition), or omits one entirely ("a player with no legal moves loses" never stated). Models then can't strategically aim for, avoid, or recognize these outcomes. In LoA, 282/5,164 episodes (5.5%) drew via twofold repetition — a path the prompt told the model didn't exist. | Read the engine's terminal-state code top-to-bottom (`CheckTerminalState`, `DoApplyAction`, anywhere `winner_` or equivalent is set, anywhere `Returns()` can return zero / a draw value) and enumerate every path to win/loss/draw. Cross-check the prompt covers every one. Also check the engine's `.h` header — known quirks are often listed there as numbered rules. | Add the missing rule(s) to the prompt; remove or reword any sentence that confidently denies a condition the engine allows. |
+| **Rule disclosed to one prompt branch but not another** | When the harness has multiple prompt branches (different roles, phases, or turn types), a mechanical rule may end up disclosed in only one branch's prompt. The branch that lacks the rule plays as if it doesn't exist. Example: word_association's Guesser prompt explains the bonus-guess mechanic (`number=N` → N+1 attempts) but the Cluemaster prompt doesn't, so the cluemaster systematically under-sizes clues by one. Easy to miss when reading each prompt in isolation — only the per-branch diff surfaces it. | Build the (engine-rule × prompt-branch) coverage matrix described in Step 2b. Any rule present in one branch but absent in another, where the missing branch's strategy depends on knowing it, is a finding. Also grep for harnesses with branching prompts (Step 4) so you know which ones to apply the matrix to. | Copy the missing rule statement into every branch whose strategy depends on it (usually near the existing "your goal is..." preamble). If the rule applies symmetrically, factor it into a shared preamble both branches concatenate. |
 | **Engine-vs-rulebook divergence** | The OpenSpiel implementation deviates from the canonical/Wikipedia rules of the game, and the prompt teaches the canonical rule. The model loses confidently because it's playing by the wrong rulebook. Example: standard LoA says "both groups simultaneously connected → opponent wins"; OpenSpiel awards the win to the *moving* player because `current_player_`'s flood-fill is checked first. | Where the engine implements an unusual or contested rule, look it up (Wikipedia, MSO rules, the game's tournament authority). If the engine and rulebook disagree, the prompt MUST match the engine — the engine is what scores the game. | Match the prompt to the engine, not the canonical rules. Consider also flagging the divergence upstream so OpenSpiel can be fixed. |
 | **Prompt enumerates legal moves** | Bloated prompt, trivializes legality-finding games | Read prompt | Describe rules; let the model derive legality |
 | **Prompt gives strategy advice** | Biases the model toward the author's preferred play | Read prompt | Remove strategy hints; keep only rules and mechanics |
