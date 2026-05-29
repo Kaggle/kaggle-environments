@@ -19,10 +19,8 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult
+from kaggle_environments.core_harness import ParseResult, extract_last_json_object
 
-_JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
-_BARE_JSON_RE = re.compile(r"\{[^{}]*\"move\"\s*:\s*\"([^\"]+)\"[^{}]*\}", re.DOTALL)
 _MOVE_RE = re.compile(r"\b(up|down|left|right|stand)\b", re.IGNORECASE)
 
 
@@ -113,19 +111,12 @@ def _normalize(move: str) -> str:
 
 
 def _extract_move_from_json(response: str) -> str | None:
-    match = _JSON_BLOCK_RE.search(response)
-    if match:
-        try:
-            data = json.loads(match.group(1))
-            move = str(data.get("move", "")).strip()
-            if move:
-                return move
-        except json.JSONDecodeError:
-            pass
-    bare = _BARE_JSON_RE.search(response)
-    if bare:
-        return bare.group(1).strip()
-    return None
+    """Pull the move string out of the LAST JSON object in the response."""
+    data = extract_last_json_object(response, required_keys=("move",))
+    if data is None:
+        return None
+    move = str(data.get("move") or "").strip()
+    return move or None
 
 
 def _match_move_to_legal(

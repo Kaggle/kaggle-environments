@@ -19,7 +19,7 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult
+from kaggle_environments.core_harness import ParseResult, extract_last_json_object
 
 # Importing the proxy registers the ``gin_rummy_proxy`` pyspiel game so that
 # ``deserialize_game_and_state`` can rebuild it from the obs. Wrapped in
@@ -34,8 +34,6 @@ except Exception:
     pass
 
 
-_JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
-_BARE_JSON_RE = re.compile(r"\{[^{}]*\"move\"\s*:\s*\"([^\"]+)\"[^{}]*\}", re.DOTALL)
 # Strip OpenSpiel's "Player: 0 Action: Draw upcard" wrapper.
 _ACTION_PREFIX_RE = re.compile(r"^Player:\s*\d+\s+Action:\s*", re.IGNORECASE)
 # A canonical card token, e.g. "As", "Td", "9h".
@@ -291,22 +289,12 @@ def generate_prompt(
 
 
 def _extract_move_from_json(response: str) -> str | None:
-    """Pull the move string out of a ```json``` block, or a bare JSON object."""
-    match = _JSON_BLOCK_RE.search(response)
-    if match:
-        try:
-            data = json.loads(match.group(1))
-            move = str(data.get("move", "")).strip()
-            if move:
-                return move
-        except json.JSONDecodeError:
-            pass
-
-    bare = _BARE_JSON_RE.search(response)
-    if bare:
-        return bare.group(1).strip()
-
-    return None
+    """Pull the move string out of the LAST JSON object in the response."""
+    data = extract_last_json_object(response, required_keys=("move",))
+    if data is None:
+        return None
+    move = str(data.get("move") or "").strip()
+    return move or None
 
 
 def _normalize(move: str) -> str:
@@ -346,12 +334,22 @@ def parse_response(
         if matched is not None:
             return ParseResult(legal_action=matched, raw_action=raw)
 
-    # Fallback: scan the response text for any legal action token. Try the
-    # longest legal strings first so 'AsAcAdAh' matches before 'AsAcAd'.
-    sorted_legals = sorted(legal_action_strings, key=len, reverse=True)
-    for legal in sorted_legals:
+    # Fallback: scan the response for any legal-action token. Pick the legal
+    # whose rightmost occurrence is latest (models enumerate rejected options
+    # before stating their final move). Tie-break on length so longer tokens
+    # like 'AsAcAdAh' beat shorter prefixes like 'AsAcAd' at the same position.
+    best_end = -1
+    best_legal: str | None = None
+    for legal in legal_action_strings:
         pattern = r"(?<![A-Za-z0-9])" + re.escape(legal) + r"(?![A-Za-z0-9])"
-        if re.search(pattern, response):
-            return ParseResult(legal_action=legal, raw_action=raw or legal)
+        matches = list(re.finditer(pattern, response))
+        if not matches:
+            continue
+        end = matches[-1].end()
+        if end > best_end or (end == best_end and len(legal) > len(best_legal or "")):
+            best_end = end
+            best_legal = legal
+    if best_legal is not None:
+        return ParseResult(legal_action=best_legal, raw_action=raw or best_legal)
 
     return ParseResult(legal_action=None, raw_action=raw)

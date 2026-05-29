@@ -263,15 +263,37 @@ If a bug is structural (in the parser, regex, or framework-glue code), check whe
 **Pattern-based grep** (catches known anti-patterns):
 
 ```bash
-# Forward-iter coord-scan fallbacks
-grep -rn 'for .* in .*\.finditer(response)' \
+# --- All "first-match wins" surfaces (umbrella: last-mention-wins) ---
+
+# Forward-iter finditer / findall over the response.
+grep -rnE 'for [a-z_]+ in [a-zA-Z_]+\.find(iter|all)\(' \
+    kaggle_environments/envs/*/harness*.py 2>/dev/null \
+    | grep -v 'reversed('
+
+# First-match regex extraction from the response.
+grep -rnE '\.search\(response\)' \
     kaggle_environments/envs/*/harness*.py 2>/dev/null
 
-# Reverse-iter (the safe form, for comparison)
-grep -rn 'reversed(list(.*\.finditer' \
+# First-substring lookup against the response.
+grep -rnE 'response\.find\(' \
     kaggle_environments/envs/*/harness*.py 2>/dev/null
 
-# Cross-newline coord regex (\s* between letter and digit groups)
+# Iterate-legals "first that appears wins" loops (read each loop body
+# to confirm it tests substring/regex containment against the response).
+grep -rnE 'for [a-z_]+ in legal_action_strings' \
+    kaggle_environments/envs/*/harness*.py 2>/dev/null
+
+# JSON-extractor first-match variants (should use extract_last_json_object).
+grep -rnE '_JSON_BLOCK_RE\.search|_BARE_JSON_RE\.search|_JSON_OBJECT_RE\.finditer' \
+    kaggle_environments/envs/*/harness*.py 2>/dev/null
+
+# Safe forms (for reference / sanity).
+grep -rnE 'reversed\(list\(|reversed\(.*\.findall|response\.rfind|extract_last_json_object' \
+    kaggle_environments/envs/*/harness*.py 2>/dev/null
+
+# --- Other parser anti-patterns ---
+
+# Cross-newline coord regex (\s* between letter and digit groups).
 grep -rE '_(MOVE|COORD|CELL|MOVE_TOKEN)_RE\s*=\s*re\.compile\(.*\\s\*' \
     kaggle_environments/envs/*/harness*.py
 ```
@@ -313,8 +335,11 @@ Bugs that have been found in real reviews. Treat this as a starting point — fi
 
 | Pattern | Symptom | Detection | Fix |
 |---|---|---|---|
-| **Forward-iter coord scan** | Parser picks first-mentioned coord (often a rejected option) instead of the model's final stated move | `grep -n 'for .* in .*\.finditer(response)'` in non-`reversed` form | `reversed(list(re.finditer(...)))` |
-| **First-JSON-block pick** | `_JSON_BLOCK_RE.search(response)` returns the *first* JSON block. When the model self-corrects (writes one answer, reconsiders, writes another), the harness submits the rejected earlier answer. Same logical bug as forward-iter coord scan, different surface. | `grep -n '_JSON_BLOCK_RE\.search\|_BARE_JSON_RE\.search' kaggle_environments/envs/*/harness*.py`; verify by counting replays with `thoughts.count('```json') >= 2` where the first and last `move` values differ. Found in 132/~155k LoA turns and in 18/18 OpenSpiel-game harnesses (every one had the pattern). | Iterate in reverse and take the last successful parse: `for m in reversed(list(_JSON_BLOCK_RE.finditer(response))): ...`. Apply the same fix to `_BARE_JSON_RE` for consistency. |
+| **Forward-iter / first-match wins (umbrella)** | Whenever the parser scans the response for any kind of candidate — a regex match, a `findall`, an action tag, a fixed substring, a "first legal action that appears anywhere" loop, a JSON block — and picks the *first* one, it almost always picks a rejected option. Models enumerate alternatives ("considered a1, then b2, going with e5") before stating their final answer. The universal rule is **last-mention-wins**. This bug has shown up on at least six surfaces; treat the catalogue rows below as instances of the same defect, not separate bugs. | Grep for every surface (see `bash` block below this table). For each hit, verify it's a scan of the **response** (not a lookup against a single already-extracted candidate, which is fine). Where a replay archive is available, count fires by re-running the parser with last-wins and counting turns whose chosen action changes. | Use the patterns in the create-harness "Last-mention-wins" section. For JSON specifically, use the shared `extract_last_json_object` helper in `kaggle_environments.core_harness` rather than re-rolling fenced/bare regexes; pass `required_keys=(...)` so unrelated JSON in the reasoning is ignored. |
+| ↳ *Forward-iter `finditer` / `findall`* | `for m in r.finditer(response):` or `for x in r.findall(response):` — picks the first match. Fired 13 turns / 10 episodes in the dark_hex prose fallback before the fix. | `grep -rnE 'for [a-z_]+ in [a-zA-Z_]+\.find(iter\|all)\(' kaggle_environments/envs/*/harness*.py` (skip hits already wrapped in `reversed(...)` / `reversed(list(...))`). | `for m in reversed(list(r.finditer(response))):` / `for x in reversed(r.findall(response)):` |
+| ↳ *First-JSON-block pick* | `_JSON_BLOCK_RE.search(response)` (or any equivalent first-match regex) selects the first fenced/bare JSON object. Self-corrected later block is ignored. Fired 132 / ~155k LoA turns; structurally present in 18/18 OpenSpiel-game harnesses + word_association. | `grep -rnE '_JSON_BLOCK_RE\.search\|_BARE_JSON_RE\.search\|_JSON_OBJECT_RE\.finditer' kaggle_environments/envs/*/harness*.py`; verify by counting replays where `thoughts.count('```json') >= 2` and first/last `move` values differ. | Replace with `extract_last_json_object(response, required_keys=(...))` from `core_harness`. Do not reintroduce per-harness `_JSON_BLOCK_RE` / `_BARE_JSON_RE` constants. |
+| ↳ *First action-tag wins* | `_FINAL_ANSWER_RE.search(response)` (or `response.find("Final Answer:")`) picks the first occurrence of the action tag. Models that revise their answer restate the tag; the trailing one is the intent. Also a faithfulness gap when porting from GameArena, whose `parse_move_from_response` uses `rfind` for the action tag. | `grep -rnE '\.search\(response\)\|response\.find\(' kaggle_environments/envs/*/harness*.py` (look for action-tag patterns specifically). | Take the last match: `matches = list(r.finditer(response)); m = matches[-1] if matches else None`. For plain substrings, use `response.rfind(...)`. |
+| ↳ *Iterate legals, first that appears wins* | `for legal in legals: if legal in response: return legal` (or the regex equivalent). Order of `legals` is whatever the engine returns, so which legal "wins" is essentially undefined when several appear. | `grep -rnE 'for [a-z_]+ in legal_action_strings' kaggle_environments/envs/*/harness*.py` then read each loop body — flag any that test substring/regex containment against the response. | Track the legal whose rightmost occurrence (`response.rfind(legal)` or `list(re.finditer(pat, response))[-1].end()`) is latest; tie-break by length so longer/more-specific tokens beat shorter prefixes. See create-harness "Last-mention-wins" for the canonical shape. |
 | **`\s*` between letter and digit in coord regex** | Captures `<col_letter>\n<row1>` from board header as a fake coord (`f1`, `j1`, etc.) | `grep -E '\\b\\(\\[a-z.*\\)\\\\s\\*\\(\\[0-9'` | Use `[ \t]*` or remove the gap entirely |
 | **JSON-only parser, no fallback** | Model adds commentary inside the fence, parser fails | Read parser; check for multi-stage fallback | Multi-stage: fenced block → bare JSON → prose scan |
 | **Free-form/enumerable misdispatch** | Free-form turn produces `legal_action=None` and is rejected | Inject an obs with `legal_action_strings=None` | Branch on `legal_action_strings is None` |

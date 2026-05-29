@@ -30,10 +30,8 @@ import json
 import re
 from typing import Any, Mapping, Sequence
 
-from kaggle_environments.core_harness import ParseResult
+from kaggle_environments.core_harness import ParseResult, extract_last_json_object
 
-_JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
-_JSON_OBJECT_RE = re.compile(r"\{(?:[^{}]|\{[^{}]*\})*\}", re.DOTALL)
 _INT_LIST_RE = re.compile(r"\[\s*(\d+(?:\s*,\s*\d+)*)\s*\]")
 
 
@@ -352,24 +350,14 @@ def generate_prompt(
 # --- Response parsing ------------------------------------------------------
 
 
-def _extract_first_json(response: str) -> dict[str, Any] | None:
-    """Try fenced ```json block first, then the first balanced ``{...}``."""
-    block = _JSON_BLOCK_RE.search(response)
-    if block:
-        try:
-            value = json.loads(block.group(1))
-            if isinstance(value, dict):
-                return value
-        except json.JSONDecodeError:
-            pass
-    for match in _JSON_OBJECT_RE.finditer(response):
-        try:
-            value = json.loads(match.group(0))
-            if isinstance(value, dict):
-                return value
-        except json.JSONDecodeError:
-            continue
-    return None
+_PAYLOAD_KEYS = (
+    "action", "accept", "keep", "items", "proposal", "symbols", "utterance",
+)
+
+
+def _extract_payload(response: str) -> dict[str, Any] | None:
+    """Pull the LAST JSON object that carries a negotiation action field."""
+    return extract_last_json_object(response, required_keys=_PAYLOAD_KEYS)
 
 
 def _parse_int_list(value: Any) -> list[int] | None:
@@ -420,7 +408,7 @@ def parse_response(
         return ParseResult(raw_action=response[:200])
 
     legal_set = set(legal_action_strings)
-    payload = _extract_first_json(response)
+    payload = _extract_payload(response)
     raw_repr: str | None = None
 
     if payload is not None:
@@ -430,10 +418,21 @@ def parse_response(
                 return ParseResult(legal_action=candidate, raw_action=raw_repr)
 
     # Fallback: scan the raw response for an explicit legal-action string.
+    # Pick the one whose rightmost occurrence is latest (models enumerate
+    # rejected options before stating their final move). Tie-break by length
+    # so longer/more-specific strings win.
+    best_end = -1
+    best_legal: str | None = None
     for legal in legal_action_strings:
-        # The literal action string occasionally shows up verbatim.
-        if legal in response:
-            return ParseResult(legal_action=legal, raw_action=raw_repr or legal)
+        pos = response.rfind(legal)
+        if pos < 0:
+            continue
+        end = pos + len(legal)
+        if end > best_end or (end == best_end and len(legal) > len(best_legal or "")):
+            best_end = end
+            best_legal = legal
+    if best_legal is not None:
+        return ParseResult(legal_action=best_legal, raw_action=raw_repr or best_legal)
 
     # Fallback: hunt for ``[a, b, c]`` lists in the text and try them as a
     # proposal or utterance against the legal set.
@@ -441,8 +440,9 @@ def parse_response(
         prefix = ", Utterance: "
     else:
         prefix = "Proposal: "
-    list_matches = _INT_LIST_RE.findall(response)
-    for raw_list in list_matches:
+    # Iterate in reverse so the *last* list mentioned wins -- models
+    # typically enumerate rejected options before stating the final one.
+    for raw_list in reversed(_INT_LIST_RE.findall(response)):
         try:
             ints = [int(x.strip()) for x in raw_list.split(",")]
         except ValueError:

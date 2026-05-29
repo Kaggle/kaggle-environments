@@ -20,10 +20,8 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult
+from kaggle_environments.core_harness import ParseResult, extract_last_json_object
 
-_JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
-_BARE_JSON_RE = re.compile(r"\{[^{}]*\"bid\"\s*:\s*(-?\d+)[^{}]*\}", re.DOTALL)
 _BID_PREFIX_RE = re.compile(r"\[P\d+\]Bid:\s*(\d+)")
 
 
@@ -120,21 +118,14 @@ def _format_field_index_row(field_size: int) -> str:
 
 
 def _extract_bid_from_json(response: str) -> str | None:
-    """Pull the bid from a ```json``` block or a bare ``{"bid": N}``."""
-    match = _JSON_BLOCK_RE.search(response)
-    if match:
-        try:
-            data = json.loads(match.group(1))
-            bid = data.get("bid")
-            if bid is None:
-                return None
-            return str(bid).strip()
-        except json.JSONDecodeError:
-            pass
-    bare = _BARE_JSON_RE.search(response)
-    if bare:
-        return bare.group(1).strip()
-    return None
+    """Pull the bid from the LAST JSON object in the response."""
+    data = extract_last_json_object(response, required_keys=("bid",))
+    if data is None:
+        return None
+    bid = data.get("bid")
+    if bid is None:
+        return None
+    return str(bid).strip() or None
 
 
 def _match_bid_to_legal(
@@ -246,17 +237,41 @@ def parse_response(
         if matched is not None:
             return ParseResult(legal_action=matched, raw_action=raw)
 
+    # Fallback 1: look for the legal action string verbatim. Pick the legal
+    # whose rightmost occurrence is latest (models enumerate rejected bids
+    # before stating their final one).
+    best_end = -1
+    best_legal: str | None = None
     for legal in legal_action_strings:
-        if legal in response:
-            return ParseResult(legal_action=legal, raw_action=raw or legal)
+        pos = response.rfind(legal)
+        if pos < 0:
+            continue
+        end = pos + len(legal)
+        if end > best_end or (end == best_end and len(legal) > len(best_legal or "")):
+            best_end = end
+            best_legal = legal
+    if best_legal is not None:
+        return ParseResult(legal_action=best_legal, raw_action=raw or best_legal)
 
+    # Fallback 2: extract a bare integer from the response. Same last-wins
+    # principle; tie-break by larger bid (preserves the prior bias toward
+    # more aggressive bids when positions coincide).
     legal_bids = {
         _bid_from_action_string(s): s for s in legal_action_strings
     }
     legal_bids.pop(None, None)
-    for n in sorted(legal_bids.keys(), reverse=True):
+    best_end = -1
+    best_bid: int | None = None
+    for n in legal_bids:
         pattern = r"(?<!\d)" + re.escape(str(n)) + r"(?!\d)"
-        if re.search(pattern, response):
-            return ParseResult(legal_action=legal_bids[n], raw_action=raw or str(n))
+        matches = list(re.finditer(pattern, response))
+        if not matches:
+            continue
+        end = matches[-1].end()
+        if end > best_end or (end == best_end and n > (best_bid if best_bid is not None else -1)):
+            best_end = end
+            best_bid = n
+    if best_bid is not None:
+        return ParseResult(legal_action=legal_bids[best_bid], raw_action=raw or str(best_bid))
 
     return ParseResult(legal_action=None, raw_action=raw)

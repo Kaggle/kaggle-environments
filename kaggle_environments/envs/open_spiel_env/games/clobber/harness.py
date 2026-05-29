@@ -23,12 +23,8 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult
+from kaggle_environments.core_harness import ParseResult, extract_last_json_object
 
-_JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
-_BARE_JSON_RE = re.compile(
-    r"\{[^{}]*\"move\"\s*:\s*\"([a-z]\d+[a-z]\d+)\"[^{}]*\}", re.DOTALL
-)
 _MOVE_RE = re.compile(r"\b([a-z]\d+[a-z]\d+)\b")
 
 
@@ -124,21 +120,12 @@ def _format_board_ascii(board: Sequence[Sequence[str]], rows: int, columns: int)
 
 
 def _extract_move_from_json(response: str) -> str | None:
-    """Pull the move from a ```json``` block or a bare ``{"move": "..."}``."""
-    match = _JSON_BLOCK_RE.search(response)
-    if match:
-        try:
-            data = json.loads(match.group(1))
-            move = data.get("move")
-            if move is None:
-                return None
-            return str(move).strip()
-        except json.JSONDecodeError:
-            pass
-    bare = _BARE_JSON_RE.search(response)
-    if bare:
-        return bare.group(1).strip()
-    return None
+    """Pull the move string out of the LAST JSON object in the response."""
+    data = extract_last_json_object(response, required_keys=("move",))
+    if data is None:
+        return None
+    move = str(data.get("move") or "").strip()
+    return move or None
 
 
 # --- Public functions (called by main.py) -----------------------------------
@@ -214,7 +201,9 @@ def parse_response(
     if raw is not None and raw in legal_set:
         return ParseResult(legal_action=raw, raw_action=raw)
 
-    for token in _MOVE_RE.findall(response):
+    # Iterate in reverse so the *last* token mentioned wins -- models
+    # typically enumerate rejected options before stating the final move.
+    for token in reversed(_MOVE_RE.findall(response)):
         if token in legal_set:
             return ParseResult(legal_action=token, raw_action=raw or token)
 

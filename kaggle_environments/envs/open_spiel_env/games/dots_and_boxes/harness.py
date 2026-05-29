@@ -24,13 +24,8 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult
+from kaggle_environments.core_harness import ParseResult, extract_last_json_object
 
-_JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
-_BARE_JSON_RE = re.compile(
-    r"\{[^{}]*\"move\"\s*:\s*\"([^\"]+)\"[^{}]*\}",
-    re.DOTALL | re.IGNORECASE,
-)
 # Matches the shorthand "h 0 1" / "v 2 0" the LLM is asked to produce
 # (whitespace or comma separators). A leading lookbehind rejects matches
 # inside ``P1(h,0,1)`` or other wrapped forms.
@@ -192,21 +187,12 @@ def _normalize_legal(action_string: str) -> str | None:
 
 
 def _extract_move_from_json(response: str) -> str | None:
-    """Pull the move from a ```json``` block or a bare ``{"move": "..."}``."""
-    match = _JSON_BLOCK_RE.search(response)
-    if match:
-        try:
-            data = json.loads(match.group(1))
-            move = data.get("move")
-            if move is None:
-                return None
-            return str(move).strip()
-        except json.JSONDecodeError:
-            pass
-    bare = _BARE_JSON_RE.search(response)
-    if bare:
-        return bare.group(1).strip()
-    return None
+    """Pull the move string out of the LAST JSON object in the response."""
+    data = extract_last_json_object(response, required_keys=("move",))
+    if data is None:
+        return None
+    move = str(data.get("move") or "").strip()
+    return move or None
 
 
 def _match_to_legal(

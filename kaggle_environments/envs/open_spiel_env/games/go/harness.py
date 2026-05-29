@@ -13,11 +13,7 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult
-
-_JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
-_BARE_JSON_RE = re.compile(r"\{[^{}]*\"move\"\s*:\s*\"([^\"]+)\"[^{}]*\}", re.DOTALL)
-
+from kaggle_environments.core_harness import ParseResult, extract_last_json_object
 
 # --- Prompt ---
 
@@ -71,22 +67,12 @@ Reconsider and play a legal move.
 
 
 def _extract_move_from_json(response: str) -> str | None:
-    """Try to extract a move string from a JSON code block or bare JSON."""
-    match = _JSON_BLOCK_RE.search(response)
-    if match:
-        try:
-            data = json.loads(match.group(1))
-            move = data.get("move", "").strip()
-            if move:
-                return move
-        except json.JSONDecodeError:
-            pass
-
-    bare = _BARE_JSON_RE.search(response)
-    if bare:
-        return bare.group(1).strip()
-
-    return None
+    """Pull the move string out of the LAST JSON object in the response."""
+    data = extract_last_json_object(response, required_keys=("move",))
+    if data is None:
+        return None
+    move = str(data.get("move") or "").strip()
+    return move or None
 
 
 def _match_move_to_legal(
@@ -172,13 +158,25 @@ def parse_response(
         if matched is not None:
             return ParseResult(legal_action=matched, raw_action=raw)
 
-    # Fallback: search for coordinates in response
+    # Fallback: scan the response for any legal coordinate. Pick the legal
+    # whose rightmost occurrence is latest (models enumerate rejected moves
+    # before stating their final move).
     response_lower = response.lower()
+    best_end = -1
+    best: tuple[str, str] | None = None  # (legal, coord)
     for legal in legal_action_strings:
         parts = legal.split()
-        if len(parts) == 2:
-            coord = parts[1].lower()
-            if coord in response_lower:
-                return ParseResult(legal_action=legal, raw_action=raw or coord)
+        if len(parts) != 2:
+            continue
+        coord = parts[1].lower()
+        pos = response_lower.rfind(coord)
+        if pos < 0:
+            continue
+        end = pos + len(coord)
+        if end > best_end or (end == best_end and (best is None or len(coord) > len(best[1]))):
+            best_end = end
+            best = (legal, coord)
+    if best is not None:
+        return ParseResult(legal_action=best[0], raw_action=raw or best[1])
 
     return ParseResult(legal_action=None, raw_action=raw)

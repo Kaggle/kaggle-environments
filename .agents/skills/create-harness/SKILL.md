@@ -201,33 +201,30 @@ class ParseResult:
 
 ### Multi-stage parsing pattern
 
-Every harness in this repo follows a multi-stage fallback pattern for robustness:
+Every harness in this repo follows a multi-stage fallback pattern for
+robustness. Use the shared `extract_last_json_object` helper from
+`core_harness` for the JSON-extraction step — do NOT roll your own
+fenced/bare regex. It iterates candidates in document order, prefers the
+**last** parseable object (so a model that self-corrects mid-response
+gets its actual answer used, not the rejected first attempt), and
+handles both ```` ```json``` ```` fences and bare `{...}` in prose.
 
 ```python
 import json
-import re
 
-_JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
-_BARE_JSON_RE = re.compile(r'\{[^{}]*"move"\s*:\s*"([^"]+)"[^{}]*\}')
+from kaggle_environments.core_harness import (
+    ParseResult,
+    extract_last_json_object,
+)
+
 
 def _extract_move_from_json(response: str) -> str | None:
-    """Try to extract a move from JSON in the response."""
-    # Stage 1: fenced ```json ... ``` block
-    match = _JSON_BLOCK_RE.search(response)
-    if match:
-        try:
-            data = json.loads(match.group(1))
-            if "move" in data:
-                return str(data["move"]).strip()
-        except json.JSONDecodeError:
-            pass
-
-    # Stage 2: bare JSON object with "move" key
-    match = _BARE_JSON_RE.search(response)
-    if match:
-        return match.group(1).strip()
-
-    return None
+    """Pull the move string out of the LAST JSON object in the response."""
+    data = extract_last_json_object(response, required_keys=("move",))
+    if data is None:
+        return None
+    move = str(data.get("move") or "").strip()
+    return move or None
 
 
 def _match_move_to_legal(
@@ -250,7 +247,7 @@ def parse_response(
 ) -> ParseResult:
     # --- Free-form path ---
     if legal_action_strings is None:
-        data = _extract_json(response)  # your JSON extractor
+        data = extract_last_json_object(response, required_keys=("clue",))
         if data and "clue" in data:
             return ParseResult(
                 submission=data,
@@ -266,25 +263,69 @@ def parse_response(
         if matched:
             return ParseResult(legal_action=matched, raw_action=raw)
 
-    # Stage 2: scan response text for any legal action string
-    for legal in legal_action_strings:
-        # Extract the coordinate/keyword part of the action
-        parts = legal.split()
-        for part in parts:
-            if re.search(r'\b' + re.escape(part) + r'\b', response, re.IGNORECASE):
-                return ParseResult(legal_action=legal, raw_action=part)
+    # Stage 2: scan response text for any legal action token (last wins —
+    # see the "Last-mention-wins" rule below).
+    legal_lower = {legal.lower(): legal for legal in legal_action_strings}
+    move_token_re = re.compile(r"\b[a-h][1-8]\b", re.IGNORECASE)
+    for match in reversed(list(move_token_re.finditer(response))):
+        candidate = match.group(0).lower()
+        if candidate in legal_lower:
+            return ParseResult(legal_action=legal_lower[candidate], raw_action=candidate)
 
     # Stage 3: nothing found — return failure for retry
     return ParseResult(raw_action=raw)
 ```
 
+### Last-mention-wins — the universal parser rule
+
+When the parser scans the LLM response for *any* kind of candidate — a regex
+match, a substring, a legal-action mention, a JSON block, an action tag like
+`Final Answer:` — **the candidate that appears LAST in the response is the
+intent**. Models almost always enumerate options ("considered a1, then b2,
+but going with e5") before stating the final answer. Forward iteration silently
+picks the rejected first candidate.
+
+Every surface this rule shows up on, and how to write it:
+
+| Pattern | Wrong | Right |
+|---|---|---|
+| Scan a regex over the response | `for m in r.finditer(response):` | `for m in reversed(list(r.finditer(response))):` |
+| `findall` over the response | `for x in r.findall(response):` | `for x in reversed(r.findall(response)):` |
+| Single-match regex extract | `m = r.search(response)` | `matches = list(r.finditer(response)); m = matches[-1] if matches else None` |
+| Substring of a fixed tag | `response.find("Final Answer:")` | `response.rfind("Final Answer:")` |
+| Iterate legals, "first that appears wins" | `for legal in legals: if legal in response: return legal` | Track the legal whose rightmost occurrence is latest; tie-break on length (see below) |
+| Multiple JSON blocks | `_JSON_BLOCK_RE.search(response)` | `extract_last_json_object(response, required_keys=(...))` from `core_harness` |
+
+For the iterate-legals case, the shape is:
+
+```python
+best_end = -1
+best_legal: str | None = None
+for legal in legal_action_strings:
+    pos = response.rfind(legal)  # or list(re.finditer(pattern, response))[-1].end()
+    if pos < 0:
+        continue
+    end = pos + len(legal)
+    if end > best_end or (end == best_end and len(legal) > len(best_legal or "")):
+        best_end = end
+        best_legal = legal
+```
+
+Tie-break by length so longer-and-more-specific tokens beat shorter prefixes
+(e.g., `AsAcAdAh` beats `AsAcAd` at the same position).
+
+The one exception: when you're matching a single already-extracted candidate
+against the legal-action list and each legal is unique by the lookup key,
+forward iteration is fine because there's only ever one match.
+
 ### Parsing tips
 
+- **Always use `extract_last_json_object`** for JSON extraction — never `_JSON_BLOCK_RE.search` (first match). Pass `required_keys=(...)` so unrelated JSON in the model's reasoning is ignored.
 - **Always try JSON first**, then fall back to text scanning. LLMs usually follow the JSON format but not always.
 - **Case-insensitive matching** is essential — models often change case.
 - **Handle special actions** like "PASS" or "STAND" explicitly if the game has them.
-- **The fallback scan matters.** When the model ignores the JSON instruction and writes "I'll play e5", the fallback should still find the move.
-- **Adapt the JSON key** to your game. Use `"move"` for board games, `"bid"` for auction games, `"action"` for generic games — whatever matches your prompt.
+- **The fallback scan matters.** When the model ignores the JSON instruction and writes "I'll play e5", the fallback should still find the move — and per the rule above, last-wins.
+- **Adapt the JSON key** to your game. Pass it as `required_keys`: `("move",)` for board games, `("bid",)` for auction games, `("action",)` for generic games — whatever matches your prompt.
 - **For numeric actions** (like bids), parse the integer and validate it's in the legal range.
 
 ## Step 5: Create the adapter class and agent function

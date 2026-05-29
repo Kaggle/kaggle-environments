@@ -24,13 +24,8 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult
+from kaggle_environments.core_harness import ParseResult, extract_last_json_object
 
-_JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
-_BARE_JSON_RE = re.compile(
-    r"\{[^{}]*\"move\"\s*:\s*\"([a-h][1-8][a-h][1-8])\"[^{}]*\}",
-    re.DOTALL | re.IGNORECASE,
-)
 _MOVE_RE = re.compile(r"\b([a-h][1-8][a-h][1-8])\b", re.IGNORECASE)
 
 
@@ -178,21 +173,12 @@ def _is_capture(action_string: str) -> bool:
 
 
 def _extract_move_from_json(response: str) -> str | None:
-    """Pull the move from a ```json``` block or a bare ``{"move": "..."}``."""
-    match = _JSON_BLOCK_RE.search(response)
-    if match:
-        try:
-            data = json.loads(match.group(1))
-            move = data.get("move")
-            if move is None:
-                return None
-            return str(move).strip().lower()
-        except json.JSONDecodeError:
-            pass
-    bare = _BARE_JSON_RE.search(response)
-    if bare:
-        return bare.group(1).strip().lower()
-    return None
+    """Pull the move string out of the LAST JSON object in the response."""
+    data = extract_last_json_object(response, required_keys=("move",))
+    if data is None:
+        return None
+    move = str(data.get("move") or "").strip().lower()
+    return move or None
 
 
 # --- Public functions (called by main.py) -----------------------------------
@@ -327,7 +313,9 @@ def parse_response(
     if raw is not None and raw in legal_set:
         return ParseResult(legal_action=legal_set[raw], raw_action=raw)
 
-    for token in _MOVE_RE.findall(response):
+    # Iterate in reverse so the *last* token mentioned wins -- models
+    # typically enumerate rejected options before stating the final move.
+    for token in reversed(_MOVE_RE.findall(response)):
         tok = token.lower()
         if tok in legal_set:
             return ParseResult(legal_action=legal_set[tok], raw_action=raw or tok)
