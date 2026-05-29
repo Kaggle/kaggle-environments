@@ -144,12 +144,34 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("store [7] = 0", prompt)
 
     def test_last_action_rendered_after_play(self):
-        first = self.state.legal_actions()[0]
-        first_str = self.state.action_to_string(0, first)
-        self.state.apply_action(first)
+        # P0's pit 1 has 4 seeds: sows to 2,3,4,5 (no bonus, no capture),
+        # turn flips to P1. P1's prompt should attribute the move to P0.
+        self.state.apply_action(1)
         obs1 = _make_observation(self.state, self.game, player_id=1)
         prompt = generate_prompt(obs1, [])
-        self.assertIn(f"Last action played: {first_str}", prompt)
+        self.assertIn("Opponent (Player 0) played pit 1", prompt)
+
+    def test_bonus_turn_rendered(self):
+        # P0's pit 3 has 4 seeds: sows to 4,5,6,7 — lands in own store →
+        # bonus turn. P0's next prompt should call out the bonus turn.
+        self.state.apply_action(3)
+        obs0 = _make_observation(self.state, self.game, player_id=0)
+        prompt = generate_prompt(obs0, ["3"])
+        self.assertIn("BONUS TURN", prompt)
+        self.assertIn("pit 3", prompt)
+
+    def test_last_action_none_at_start(self):
+        obs = _make_observation(self.state, self.game, player_id=0)
+        prompt = generate_prompt(obs, [])
+        self.assertIn("Last action played: (none yet)", prompt)
+
+    def test_endgame_sweep_rule_disclosed(self):
+        obs = _make_observation(self.state, self.game, player_id=0)
+        prompt = generate_prompt(obs, [])
+        # The engine sweeps remaining seeds on each side into that side's
+        # score at terminal -- prompt must say so, not the opposite.
+        self.assertIn("PLUS any seeds remaining in their 6 pits", prompt)
+        self.assertNotIn("no end-of-game sweep", prompt)
 
     def test_move_history_rendered(self):
         obs = _make_observation(self.state, self.game, player_id=0)

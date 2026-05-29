@@ -51,8 +51,14 @@ class MancalaState(proxy.State):
             else:
                 winner = "draw"
 
-        history = self.history()
-        last_action = int(history[-1]) if history else None
+        full = self.full_history()
+        if full:
+            last_item = full[-1]
+            last_action = int(last_item.action)
+            last_action_player = int(last_item.player)
+        else:
+            last_action = None
+            last_action_player = None
 
         return {
             "board": board,
@@ -68,6 +74,7 @@ class MancalaState(proxy.State):
             "current_player": self._player_label(self.current_player()),
             "move_number": self.move_number(),
             "last_action": last_action,
+            "last_action_player": last_action_player,
             "is_terminal": self.is_terminal(),
             "winner": winner,
         }
