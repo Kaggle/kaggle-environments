@@ -163,6 +163,29 @@ class CoinGameState(proxy.State):
         except Exception:  # noqa: BLE001
             return None
 
+    def _play_move_history(self, moves: int, num_players: int) -> list[dict[str, Any]]:
+        """Return the per-board play-action log, oldest first.
+
+        OpenSpiel's ``history()`` interleaves setup-phase chance actions
+        (which we skip) followed by play actions in order. Play actions
+        rotate through players ``0, 1, ..., num_players-1`` starting with
+        player 0, so we can recover ``(player_id, action_name)`` from the
+        tail of ``history()`` without re-parsing the setup phase.
+        """
+        if moves <= 0:
+            return []
+        raw_history = list(self.__wrapped__.history())
+        play_actions = raw_history[-moves:]
+        log: list[dict[str, Any]] = []
+        for idx, action in enumerate(play_actions):
+            player_id = idx % num_players
+            try:
+                name = self.__wrapped__.action_to_string(player_id, action)
+            except Exception:  # noqa: BLE001
+                name = str(action)
+            log.append({"move_number": idx + 1, "player_id": player_id, "action": name})
+        return log
+
     def state_dict(self, player: int | None = None) -> dict[str, Any]:
         full = self._parse_full_state()
         params = self._params()
@@ -189,6 +212,9 @@ class CoinGameState(proxy.State):
             "is_terminal": self.is_terminal(),
             "winner": winner,
             "last_action": self._last_action_str(),
+            "move_history": self._play_move_history(
+                full["moves"], params["players"]
+            ),
         }
 
         # Imperfect info: only expose the requesting player's preference.
