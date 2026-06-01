@@ -27,10 +27,12 @@ import pyspiel
 from kaggle_environments.core_harness import ParseResult, extract_last_json_object
 
 # Matches the shorthand "h 0 1" / "v 2 0" the LLM is asked to produce
-# (whitespace or comma separators). A leading lookbehind rejects matches
-# inside ``P1(h,0,1)`` or other wrapped forms.
+# (space/tab/comma separators, kept on a single line so multi-line layouts
+# can't accidentally chain orientations to digits from a later line). A
+# leading lookbehind rejects matches inside ``P1(h,0,1)`` or other wrapped
+# forms.
 _MOVE_TOKEN_RE = re.compile(
-    r"(?<![(\w])([hv])[\s,]+(\d+)[\s,]+(\d+)",
+    r"(?<![(\w])([hv])[ \t,]+(\d+)[ \t,]+(\d+)",
     re.IGNORECASE,
 )
 # Matches the canonical OpenSpiel form ``P1(h,0,1)`` for normalizing the
@@ -51,16 +53,19 @@ Rules: The board is a {num_rows}x{num_cols} grid of unit boxes formed by a
 edge per turn between two horizontally- or vertically-adjacent dots. When
 you draw the fourth edge of a unit box you claim it (marked with your
 player number) and MUST take another turn immediately. The game ends when
-every edge has been drawn; the player with more boxes wins.
+every edge has been drawn; the player with more boxes wins. If both
+players have claimed the same number of boxes the game is a draw.
 
-Coordinates: rows are numbered 0 (top) to {num_rows} (bottom); columns are
-0 (left) to {num_cols} (right). A horizontal edge ``h(r,c)`` connects dot
+Coordinates: dots are indexed 0 (top) to {num_rows} (bottom) across
+{rows_plus} rows of dots, and 0 (left) to {num_cols} (right) across
+{cols_plus} columns of dots. A horizontal edge ``h(r,c)`` connects dot
 (r,c) to (r,c+1); a vertical edge ``v(r,c)`` connects dot (r,c) to (r+1,c).
 Valid ranges: horizontal r in 0..{num_rows}, c in 0..{cols_minus};
 vertical r in 0..{rows_minus}, c in 0..{num_cols}.
 
-Board (``+`` = dot, ``-``/``|`` = drawn edge, ``.`` = open edge; box cells
-show the owning player number when claimed, ``.`` when still open):
+Board (``+`` = dot, ``-``/``|`` = drawn edge, ``.`` = open horizontal edge,
+``:`` = open vertical edge; box cells show the owning player number when
+claimed, ``.`` when still open):
 {board_ascii}
 
 Score: Player 1 = {p1_score}, Player 2 = {p2_score}. Boxes remaining:
@@ -71,7 +76,7 @@ You are Player {player_label}.
 Moves you have played so far: {move_history}
 
 Action notation: ``<h|v> <row> <col>`` (e.g. ``h 0 1`` or ``v 2 0``). Only
-open edges (shown as ``.`` on the board) are legal.
+open edges (shown as ``.`` or ``:`` on the board) are legal.
 
 Respond with your reasoning followed by your final move in a JSON block:
 
@@ -92,7 +97,8 @@ Your previous response was:
 {previous_response}
 
 You suggested move "{previous_action}" but it is not a legal move.
-Reconsider and pick a legal move (an open edge shown as ``.`` on the board).
+Reconsider and pick a legal move (an open edge shown as ``.`` or ``:`` on
+the board).
 """
 
 
@@ -123,9 +129,11 @@ def _format_board_ascii(state: Mapping[str, Any]) -> str:
     """Render the board as an ASCII grid with edges and box owners.
 
     Rows of dots and horizontal edges interleave with rows of vertical
-    edges and box cells. Open edges render as ``.`` so the model can see
-    candidate moves at a glance; drawn edges show ``---`` / ``|``; box
-    cells show the owning player digit or ``.`` for an unclaimed box.
+    edges and box cells. Open horizontal edges render as ``.`` and open
+    vertical edges as ``:`` so the model can distinguish a candidate
+    vertical edge from an unclaimed box (both sit in the same row);
+    drawn edges show ``---`` / ``|``; box cells show the owning player
+    digit or ``.`` for an unclaimed box.
     """
     num_rows = int(state.get("num_rows", 0))
     num_cols = int(state.get("num_cols", 0))
@@ -153,7 +161,7 @@ def _format_board_ascii(state: Mapping[str, Any]) -> str:
         parts = []
         for c in range(num_cols + 1):
             owner = v_lines[r][c] if r < len(v_lines) and c < len(v_lines[r]) else 0
-            parts.append("|" if owner else ".")
+            parts.append("|" if owner else ":")
             if c < num_cols:
                 box_owner = boxes[r][c] if r < len(boxes) and c < len(boxes[r]) else 0
                 parts.append(f" {box_owner} " if box_owner else " . ")
