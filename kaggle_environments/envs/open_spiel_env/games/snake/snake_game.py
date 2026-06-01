@@ -128,6 +128,10 @@ class SnakeState(pyspiel.State):
         self._steps = 0
         self._next_player = 0
         self._move_buffer = [None] * self.num_players
+        # Per-round log of applied actions (one inner list per simultaneous
+        # round). Lets the harness expose opponent moves to each player; in
+        # simultaneous-move snake this is otherwise invisible.
+        self._round_history: List[List[int | None]] = []
 
     def _place_foods(self):
         """Places a 180°-rotationally-symmetric pair of food on empty cells.
@@ -202,6 +206,7 @@ class SnakeState(pyspiel.State):
 
     def _process_simultaneous_turn(self):
         self._steps += 1
+        self._round_history.append(list(self._move_buffer))
 
         # Calculate new heads
         new_heads = []
