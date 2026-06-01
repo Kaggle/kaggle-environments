@@ -12,7 +12,6 @@ hide an opponent piece).
 
 import json
 import re
-import sys
 from typing import Any, Mapping, Sequence
 
 import pyspiel
@@ -186,24 +185,9 @@ def get_legal_moves(observation: Mapping[str, Any]) -> dict[int, str]:
 
     serialized = observation.get("serializedGameAndState", "")
     if not serialized:
-        try:
-            keys = list(observation.keys())
-        except Exception:
-            keys = ["<unkeyable>"]
-        print(
-            f"[dark_hex harness] get_legal_moves: empty obs. keys={keys}",
-            file=sys.stderr,
-        )
         return {}
     _, state = pyspiel.deserialize_game_and_state(serialized)
     actions = state.legal_actions()
-    if not actions:
-        print(
-            f"[dark_hex harness] get_legal_moves: deserialized state has no "
-            f"legal actions. current_player={state.current_player()} "
-            f"is_terminal={state.is_terminal()}",
-            file=sys.stderr,
-        )
     return {a: state.action_to_string(a) for a in actions}
 
 
