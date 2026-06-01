@@ -22,19 +22,11 @@ player 0's 3rd pit, ``"11"`` for one of player 1's pits.
 from __future__ import annotations
 
 import json
-import re
 from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult, create_agent_fn, extract_last_json_object
-
-_PIT_TOKEN_RE = re.compile(r"\b(\d{1,2})\b")
-
-_PLAYER_0_PITS = (1, 2, 3, 4, 5, 6)
-_PLAYER_0_STORE = 7
-_PLAYER_1_PITS = (8, 9, 10, 11, 12, 13)
-_PLAYER_1_STORE = 0
+from kaggle_environments.core_harness import ParseResult, create_agent_fn, parse_json_action, render_rethink_suffix
 
 
 # --- Prompt -----------------------------------------------------------------
@@ -52,18 +44,26 @@ On your turn, pick one of YOUR pits that contains seeds. Pick them all
 up and sow them one-at-a-time counter-clockwise into the following cells.
 
 Bonus turn: if the last seed lands in your OWN store, you immediately take
-another turn.
+another turn. There is no limit on how many bonus turns you can chain --
+if that next move also ends with the last seed in your store, you take
+another, and so on, until a move ends elsewhere.
 
 Capture: if the last seed lands in an empty pit on YOUR own side, AND the
 pit directly opposite (on the opponent's side) contains seeds, you capture
 both the sowing seed and all seeds in the opposite pit into your store.
 
-Game end: as soon as one player has no seeds in their 6 pits, the game
-ends. Each player's score is the number of seeds in their own store at
-that moment (no end-of-game sweep is applied in this implementation). The
-player with the higher score wins. Equal scores is a draw.
+A single move cannot both capture and earn a bonus turn: the bonus requires
+the last seed to land in your store, while a capture requires it to land in
+a regular pit on your side.
 
-Board layout (indices), shown from your point of view:
+Game end: as soon as one player has no seeds in any of their 6 pits, the
+game ends. Each player's final score is the total number of seeds on their
+side of the board: their store PLUS any seeds remaining in their 6 pits.
+(Equivalently, when the game ends, all seeds still on a side are credited
+to that side's owner.) The player with the higher final score wins; equal
+scores is a draw.
+
+Board layout (fixed orientation, indices labeled):
 
     Player 1's pits:   [13] [12] [11] [10] [ 9] [ 8]
     Stores:        [0]                              [7]
@@ -77,7 +77,7 @@ Current board (seed counts):
     Player 0 pits (1..6):    {p0_row}
 
 You are Player {player_id}. Move number: {move_number}.
-Last action played: {last_action}.
+{last_action_line}
 Your move history: {move_history}.
 
 It is your turn. Choose one of YOUR own pits that contains seeds.
@@ -87,23 +87,41 @@ block:
 
 ```json
 {{
-  "move": "<pit index, e.g. 3>"
+  "move": "<pit index>"
 }}
 ```
+
+For example: `{{"move": "3"}}`
 
 Failure to output your final answer in the specified format, or choosing
 an illegal pit, will result in a loss.
 """
 
 
-RETHINK_SUFFIX = """
+RETHINK_ILLEGAL = """
 
-Your previous response was:
+You suggested move "{previous_action}" but this is not a legal move.
+Reconsider the rules and the current state, then pick a legal move.
+
+(Keep using the same JSON output format as before -- only the move value needs to change.)
+"""
+
+RETHINK_UNPARSABLE = """
+
+Your previous response ended with:
 {previous_response}
 
-You suggested move "{previous_action}" but it is not a legal move.
-Reconsider the rules and the current state, then pick one of your own
-pits that contains seeds.
+No JSON answer could be parsed from that. Conclude your response
+with your final move as JSON in a ```json fenced block, exactly
+as the original instructions required:
+
+```json
+{{"move": "<pit index>"}}
+```
+
+For example: `{{"move": "3"}}`
+
+The move you choose must also be legal in the current state.
 """
 
 
@@ -132,15 +150,6 @@ def _parse_observation_payload(observation: Mapping[str, Any]) -> dict[str, Any]
 
 def _format_row(values: Sequence[int], width: int = 3) -> str:
     return " ".join(str(v).rjust(width) for v in values)
-
-
-def _extract_move_from_json(response: str) -> str | None:
-    """Pull the move string out of the LAST JSON object in the response."""
-    data = extract_last_json_object(response, required_keys=("move",))
-    if data is None:
-        return None
-    move = str(data.get("move") or "").strip()
-    return move or None
 
 
 # --- Public functions (called by main.py) -----------------------------------
@@ -185,7 +194,21 @@ def generate_prompt(
 
     move_number = state.get("move_number", 0)
     last_action = state.get("last_action")
-    last_action_str = str(last_action) if last_action is not None else "(none yet)"
+    last_action_player = state.get("last_action_player")
+    if last_action is None:
+        last_action_line = "Last action played: (none yet)."
+    elif last_action_player == player_id:
+        last_action_line = (
+            f"Last action played: you played pit {last_action} and your last "
+            f"seed landed in your own store, so it is your BONUS TURN."
+        )
+    elif last_action_player is not None and last_action_player >= 0:
+        last_action_line = (
+            f"Last action played: Opponent (Player {last_action_player}) "
+            f"played pit {last_action}."
+        )
+    else:
+        last_action_line = f"Last action played: pit {last_action}."
 
     move_history_str = ", ".join(move_history) if move_history else "None"
 
@@ -196,42 +219,23 @@ def generate_prompt(
         p0_row=_format_row(p0_pits),
         player_id=player_id,
         move_number=move_number,
-        last_action=last_action_str,
+        last_action_line=last_action_line,
         move_history=move_history_str,
     )
 
-    if previous_response is not None:
-        prompt += RETHINK_SUFFIX.format(
-            previous_response=previous_response[:500],
-            previous_action=previous_action or "(could not parse)",
-        )
+    prompt += render_rethink_suffix(
+        RETHINK_ILLEGAL, RETHINK_UNPARSABLE,
+        previous_response, previous_action,
+    )
 
     return prompt
 
 
 def parse_response(
-    response: str,
-    legal_action_strings: Sequence[str],
+    response: str, legal_action_strings: Sequence[str],
 ) -> ParseResult:
-    """Extract a legal Mancala pit index from the LLM response.
-
-    Tries a ```json``` block first, then a bare ``{"move": ...}``, then
-    falls back to scanning the response text for the first numeric token
-    that matches a legal pit index.
-    """
-    legal_set = {legal.strip(): legal for legal in legal_action_strings}
-
-    raw = _extract_move_from_json(response)
-    if raw is not None and raw in legal_set:
-        return ParseResult(legal_action=legal_set[raw], raw_action=raw)
-
-    # Iterate in reverse so the *last* token mentioned wins -- models
-    # typically enumerate rejected options before stating the final move.
-    for token in reversed(_PIT_TOKEN_RE.findall(response)):
-        if token in legal_set:
-            return ParseResult(legal_action=legal_set[token], raw_action=raw or token)
-
-    return ParseResult(legal_action=None, raw_action=raw)
+    """Trust the model's JSON answer; let the rethink loop fix anything else."""
+    return parse_json_action(response, legal_action_strings)
 
 
 # --- Adapter & agent function -----------------------------------------------

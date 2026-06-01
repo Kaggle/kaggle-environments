@@ -8,14 +8,11 @@ functions: ``get_legal_moves``, ``generate_prompt``, ``parse_response``.
 from __future__ import annotations
 
 import json
-import re
 from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult, extract_last_json_object
-
-_COORD_RE = re.compile(r"\b([a-o])(\d{1,2})\b", re.IGNORECASE)
+from kaggle_environments.core_harness import ParseResult, parse_json_action, render_rethink_suffix
 
 
 # --- Prompt ---
@@ -67,44 +64,31 @@ Begin!
 """
 
 
-RETHINK_SUFFIX = """
+RETHINK_ILLEGAL = """
 
-Your previous response was:
-{previous_response}
+You suggested move "{previous_action}" but this is not a legal move.
+Reconsider the rules and the current state, then pick a legal move.
 
-You suggested move "{previous_action}" but this is not a legal move (the cell
-must be empty and on the board). Reconsider the state and play a legal move.
+(Keep using the same JSON output format as before -- only the move value needs to change.)
 """
 
+RETHINK_UNPARSABLE = """
 
-# --- Helpers ----------------------------------------------------------------
+Your previous response ended with:
+{previous_response}
 
+No JSON answer could be parsed from that. Conclude your response
+with your final move as JSON in a ```json fenced block, exactly
+as the original instructions required:
 
-def _extract_move_from_json(response: str) -> str | None:
-    """Pull the move string out of the LAST JSON object in the response."""
-    data = extract_last_json_object(response, required_keys=("move",))
-    if data is None:
-        return None
-    move = str(data.get("move") or "").strip()
-    return move or None
+```json
+{{"move": "<coordinate>"}}
+```
 
+For example: `{{"move": "a1"}}`
 
-def _normalize(move: str) -> str:
-    return move.replace(" ", "").lower()
-
-
-def _match_move_to_legal(
-    move: str,
-    legal_moves: Sequence[str],
-) -> str | None:
-    """Match a move string (e.g. "a1") to a legal move string."""
-    candidate = _normalize(move)
-    if not candidate:
-        return None
-    for legal in legal_moves:
-        if _normalize(legal) == candidate:
-            return legal
-    return None
+The move you choose must also be legal in the current state.
+"""
 
 
 # --- Public functions (called by main.py) -----------------------------------
@@ -203,11 +187,10 @@ def generate_prompt(
         player_name=player_name,
     )
 
-    if previous_response is not None:
-        prompt += RETHINK_SUFFIX.format(
-            previous_response=previous_response[:500],
-            previous_action=previous_action or "(could not parse)",
-        )
+    prompt += render_rethink_suffix(
+        RETHINK_ILLEGAL, RETHINK_UNPARSABLE,
+        previous_response, previous_action,
+    )
 
     return prompt
 
@@ -216,24 +199,5 @@ def parse_response(
     response: str,
     legal_action_strings: Sequence[str],
 ) -> ParseResult:
-    """Extract a legal Havannah move from the model response.
-
-    Tries to extract the move from a JSON block first, then falls back to
-    searching for any coordinate (e.g. "a1", "g4") in the response text.
-    """
-    raw = _extract_move_from_json(response)
-    if raw is not None:
-        matched = _match_move_to_legal(raw, legal_action_strings)
-        if matched is not None:
-            return ParseResult(legal_action=matched, raw_action=raw)
-
-    # Fallback: scan the response text for coordinate-like tokens. Iterate
-    # in reverse so the *last* coordinate mentioned wins -- models typically
-    # enumerate rejected options before stating the final move.
-    for m in reversed(list(_COORD_RE.finditer(response))):
-        candidate = m.group(0)
-        matched = _match_move_to_legal(candidate, legal_action_strings)
-        if matched is not None:
-            return ParseResult(legal_action=matched, raw_action=raw or candidate)
-
-    return ParseResult(legal_action=None, raw_action=raw)
+    """Trust the model's JSON answer; let the rethink loop fix anything else."""
+    return parse_json_action(response, legal_action_strings)

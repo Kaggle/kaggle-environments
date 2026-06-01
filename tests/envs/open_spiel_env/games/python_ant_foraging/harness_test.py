@@ -67,11 +67,15 @@ class ParseResponseTest(absltest.TestCase):
             result = parse_response(response, legal)
             self.assertEqual(result.legal_action, f"ant0:{direction}")
 
-    def test_parse_fallback_text_scan(self):
+    def test_prose_only_response_triggers_rethink(self):
+        # No structured JSON. The parser must NOT guess at intent from a
+        # direction keyword in the prose -- return None and let the
+        # rethink loop ask the model to use the required JSON format.
         legal = _legal_for_player(0)
         response = "I'll head right toward the food I can see."
         result = parse_response(response, legal)
-        self.assertEqual(result.legal_action, "ant0:right")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_bare_json(self):
         legal = _legal_for_player(0)
@@ -79,11 +83,15 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response(response, legal)
         self.assertEqual(result.legal_action, "ant0:stay")
 
-    def test_parse_malformed_json_falls_back(self):
+    def test_malformed_json_triggers_rethink(self):
+        # Bad JSON: stage-1 extracts nothing. The parser must NOT
+        # silently rescue a direction from the prose -- return None so
+        # the rethink loop can ask the model to fix its format.
         legal = _legal_for_player(0)
         response = "```json\n{bad}\n```\nI'll go up."
         result = parse_response(response, legal)
-        self.assertEqual(result.legal_action, "ant0:up")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_no_match_returns_none(self):
         legal = _legal_for_player(0)
@@ -110,6 +118,19 @@ class ParseResponseTest(absltest.TestCase):
         response = "I think I should go up."
         result = parse_response(response, legal)
         self.assertIsNone(result.legal_action)
+
+    def test_illegal_json_does_not_ghost_substitute_from_prose(self):
+        # The JSON answer ("diagonal") is illegal. The parser must NOT
+        # silently substitute "up" mentioned in the prose (the ghost
+        # antipattern). Surface raw_action so the rethink loop fires.
+        legal = ["ant0:stay", "ant0:up", "ant0:down", "ant0:left", "ant0:right"]
+        response = (
+            "I considered up but ruled it out. I'll play diagonal.\n"
+            '```json\n{"move": "diagonal"}\n```'
+        )
+        result = parse_response(response, legal)
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "diagonal")
 
 
 class GeneratePromptTest(absltest.TestCase):
@@ -175,7 +196,7 @@ class GeneratePromptTest(absltest.TestCase):
             previous_response="I tried diagonal",
             previous_action="diagonal",
         )
-        self.assertIn("Your previous response was", prompt)
+        self.assertIn("You suggested", prompt)  # ILLEGAL leads with action
         self.assertIn("diagonal", prompt)
         self.assertIn("not a legal move", prompt)
 

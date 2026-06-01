@@ -54,10 +54,14 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response('```json\n{"move": "DOWN"}\n```', legal)
         self.assertEqual(result.legal_action, "down")
 
-    def test_parse_fallback_keyword(self):
+    def test_prose_only_response_triggers_rethink(self):
+        # No structured JSON. The parser must NOT guess at intent from a
+        # keyword in the prose -- return None and let rethink ask the
+        # model to use the required JSON format.
         legal = ["up", "down", "left", "right", "stand"]
         result = parse_response("I'll go right toward the b coin.", legal)
-        self.assertEqual(result.legal_action, "right")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_no_match(self):
         legal = ["up", "down", "left", "right", "stand"]
@@ -89,6 +93,18 @@ class ParseResponseTest(absltest.TestCase):
             parse_response('```json\n{"move": "up"}\n```', legal),
             ParseResult,
         )
+
+    def test_illegal_json_does_not_ghost_substitute_from_prose(self):
+        # JSON answer "diagonal" is illegal; the parser must NOT silently
+        # substitute "up" from the prose (that's the ghost antipattern).
+        legal = ["up", "down", "left", "right", "stand"]
+        response = (
+            "I considered up but ruled it out. I'll play diagonal.\n"
+            '```json\n{"move": "diagonal"}\n```'
+        )
+        result = parse_response(response, legal)
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "diagonal")
 
 
 class GeneratePromptTest(absltest.TestCase):
@@ -210,7 +226,7 @@ class GeneratePromptTest(absltest.TestCase):
             previous_response="I play diagonally",
             previous_action="diagonal",
         )
-        self.assertIn("Your previous response was", prompt)
+        self.assertIn("You suggested", prompt)  # ILLEGAL leads with action
         self.assertIn("diagonal", prompt)
 
 

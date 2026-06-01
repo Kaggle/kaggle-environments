@@ -17,9 +17,7 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult, extract_last_json_object
-
-_COORD_RE = re.compile(r"\b([a-z])[ \t]*([0-9]+)\b", re.IGNORECASE)
+from kaggle_environments.core_harness import ParseResult, parse_json_action, render_rethink_suffix
 
 
 # --- Prompt -----------------------------------------------------------------
@@ -38,12 +36,16 @@ Rules:
       (a "collision" -- the move is wasted but the cell becomes visible)
   Cells shown as '.' are UNKNOWN to you: they may be empty, or they may hide
   an opponent stone you have not yet bumped into.
-- On each turn you nominate any cell that is not already known to be yours.
-  If the cell is empty, your stone is placed there and it becomes the
-  opponent's turn. If the cell is already occupied by an opponent stone, no
-  stone is placed -- the cell is revealed to you and it REMAINS YOUR TURN
-  (you will move again). The opponent learns nothing from your collision.
-  Use collisions deliberately as a probing/scouting tool.
+- On each turn you nominate any cell whose contents are still unknown to
+  you (any cell shown as '.'). If that cell turns out to be empty, your
+  stone is placed there and it becomes the opponent's turn. If it turns
+  out to hide an opponent stone, no stone is placed -- the cell is
+  revealed (you now see the opponent's symbol there) and it REMAINS YOUR
+  TURN (you will move again). The opponent learns nothing from your
+  collision. Use collisions deliberately as a probing/scouting tool.
+- Cells whose contents are already known to you cannot be nominated:
+  neither your own stones nor opponent stones you have already revealed
+  via a previous collision are legal moves.
 
 Your current view of the board ({player_code} = your stones,
 opponent symbol shown only on revealed cells, '.' = unknown):
@@ -54,9 +56,11 @@ Move history (your nominated moves only -- you do not see the opponent's):
 {move_history}
 
 {last_move_line}
-It is your turn. You may nominate any cell that you do not already know to
-contain one of your own stones (including unknown cells -- a collision there
-reveals an opponent stone and keeps your turn). Think about which cell most
+It is your turn. You may nominate any cell currently shown as '.' in your
+view (its contents are unknown -- it may be empty, in which case your stone
+is placed there, or it may hide an opponent stone, in which case the cell
+is revealed and you keep your turn). Cells already showing your stone or a
+revealed opponent stone are not legal moves. Think about which cell most
 advances your connection across {connect_goal} (or which probe most reduces
 your uncertainty), then choose a move.
 
@@ -64,23 +68,41 @@ Respond with your reasoning followed by your final move in a JSON block:
 
 ```json
 {{
-  "move": "<coordinate, e.g. a1, b3, d2>"
+  "move": "<coordinate>"
 }}
 ```
+
+For example: `{{"move": "a1"}}`
 
 Failure to output your final answer in the specified format, or selecting a
 cell that is not a legal move, will result in a loss.
 """
 
 
-RETHINK_SUFFIX = """
+RETHINK_ILLEGAL = """
 
-Your previous response was:
+You suggested move "{previous_action}" but this is not a legal move.
+Reconsider the rules and the current state, then pick a legal move.
+
+(Keep using the same JSON output format as before -- only the move value needs to change.)
+"""
+
+RETHINK_UNPARSABLE = """
+
+Your previous response ended with:
 {previous_response}
 
-You suggested move "{previous_action}" but it is not a legal move.
-Reconsider and pick a valid coordinate on the board that you do not already
-know to be one of your own stones.
+No JSON answer could be parsed from that. Conclude your response
+with your final move as JSON in a ```json fenced block, exactly
+as the original instructions required:
+
+```json
+{{"move": "<coordinate>"}}
+```
+
+For example: `{{"move": "a1"}}`
+
+The move you choose must also be legal in the current state.
 """
 
 
@@ -132,15 +154,6 @@ def _last_move_line(move_history: list[str]) -> str:
     if not move_history:
         return "This is your first move."
     return f"Your most recent nominated move was: {move_history[-1]}"
-
-
-def _extract_move_from_json(response: str) -> str | None:
-    """Pull the move string out of the LAST JSON object in the response."""
-    data = extract_last_json_object(response, required_keys=("move",))
-    if data is None:
-        return None
-    move = str(data.get("move") or "").strip()
-    return move or None
 
 
 def _normalize(move: str) -> str:
@@ -220,11 +233,10 @@ def generate_prompt(
         last_move_line=_last_move_line(move_history),
     )
 
-    if previous_response is not None:
-        prompt += RETHINK_SUFFIX.format(
-            previous_response=previous_response[:500],
-            previous_action=previous_action or "(could not parse)",
-        )
+    prompt += render_rethink_suffix(
+        RETHINK_ILLEGAL, RETHINK_UNPARSABLE,
+        previous_response, previous_action,
+    )
 
     return prompt
 
@@ -232,20 +244,5 @@ def generate_prompt(
 def parse_response(
     response: str, legal_action_strings: Sequence[str],
 ) -> ParseResult:
-    """Extract a legal coordinate (e.g. ``a1``) from the model response."""
-    raw = _extract_move_from_json(response)
-    if raw is not None:
-        matched = _match_move_to_legal(raw, legal_action_strings)
-        if matched is not None:
-            return ParseResult(legal_action=matched, raw_action=raw)
-
-    # Fallback: scan the prose for any "<letter><digits>" coordinate token.
-    # Iterate in reverse so the *last* coordinate mentioned wins -- models
-    # typically enumerate rejected options before stating the final move.
-    for match in reversed(list(_COORD_RE.finditer(response))):
-        candidate = f"{match.group(1).lower()}{match.group(2)}"
-        matched = _match_move_to_legal(candidate, legal_action_strings)
-        if matched is not None:
-            return ParseResult(legal_action=matched, raw_action=raw or candidate)
-
-    return ParseResult(legal_action=None, raw_action=raw)
+    """Trust the model's JSON answer; let the rethink loop fix anything else."""
+    return parse_json_action(response, legal_action_strings, matcher=_match_move_to_legal)

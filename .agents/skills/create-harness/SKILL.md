@@ -147,14 +147,61 @@ Your response should include your reasoning, then conclude with your move as JSO
 ```
 """
 
-RETHINK_SUFFIX = """
-Your previous response was:
-{previous_response}
-
+# Used when the parser extracted a move but it was illegal. Leads
+# with the model's attempted move (the most useful signal) and asks
+# for a legal one; we deliberately do NOT include the previous
+# response here -- the action string is what matters. A brief tail
+# reminds the model to keep using the same JSON format.
+RETHINK_ILLEGAL = """
 You suggested move "{previous_action}" but this is not a legal move.
 Reconsider the rules and the current state, then pick a legal move.
+
+(Keep using the same JSON output format as before -- only the move
+value needs to change.)
+"""
+
+# Used when the parser couldn't extract a move at all. There's no
+# previous_action to show, so we lead with the previous response (last
+# 500 chars -- the model's conclusion is what we want to see, not the
+# preamble) so the model can see what it tried, then restate the exact
+# JSON format with a concrete example so it's unambiguous.
+RETHINK_UNPARSABLE = """
+Your previous response ended with:
+{previous_response}
+
+No JSON answer could be parsed from that. Conclude your response with
+your final move as JSON in a ```json fenced block, exactly as the
+original instructions required:
+
+```json
+{{"move": "<your_move>"}}
+```
+
+For example: `{{"move": "<concrete_example_for_this_game>"}}`
+
+The move you choose must also be legal in the current state.
 """
 ```
+
+Then in `generate_prompt`, delegate the branching to
+`render_rethink_suffix` from `core_harness`:
+
+```python
+from kaggle_environments.core_harness import render_rethink_suffix
+
+def generate_prompt(observation, move_history,
+                    previous_response=None, previous_action=None):
+    prompt = ...  # build the main prompt as usual
+    prompt += render_rethink_suffix(
+        RETHINK_ILLEGAL, RETHINK_UNPARSABLE,
+        previous_response, previous_action,
+    )
+    return prompt
+```
+
+`render_rethink_suffix` returns an empty string on the first attempt
+(no prior response to react to) and otherwise picks the right template
+and truncates `previous_response` to the last 500 chars.
 
 ### Prompt writing tips
 
@@ -164,6 +211,17 @@ Reconsider the rules and the current state, then pick a legal move.
 - **Include rules that affect strategy.** Don't just list rules mechanically — highlight the ones that matter for making good decisions.
 - **Don't give strategy advice.** The prompt should explain rules and mechanics, not coach the model on how to play. Saying "capture pieces to win" is fine (that's a rule); saying "control the center early" or "prefer defensive moves" is not (that's strategy). The LLM should reason about strategy on its own from the rules and game state.
 - **Keep the rethink suffix concise.** Truncate the previous response to ~500 characters. Include the illegal move attempt and remind the LLM to re-derive a legal move from the state and rules (do *not* paste in a legal-moves list on retry either — same reasoning as above).
+- **Branch the rethink on whether `previous_action` was extracted.** Each case wants a different signal back at the model:
+  - `previous_action` is set (parser pulled a value from the JSON) → the action string itself is the most useful signal. Lead with `"You suggested move {previous_action} but this is not legal."` Do NOT also include the full previous response — that's noise the model has to skim past to find the actual correction signal. Tail with a brief reminder to keep using the same JSON format.
+  - `previous_action` is `None` (parser found nothing) → there's no action string to show. Lead with the previous response (last 500 chars, not first 500 — the model's conclusion is at the end, not the preamble) so the model can see what it tried, then restate the JSON format with a concrete example. Tail with a brief reminder that the move must also be legal.
+  - Pick the suffix at render time based on `previous_action`. A single one-size-fits-all suffix that always restates the format teaches the wrong fix on illegal-move retries; a single suffix that never restates the format leaves the model in the dark on unparseable retries.
+- **Make the JSON example unambiguous.** In the rethink-unparseable suffix, write the JSON example so the *placeholder* and the *concrete example* are clearly separated. ```` ```json `{"move": "<notation>, e.g. 24/23 24/22"}` ``` ```` reads like the value should literally be that whole string. Instead, use a clean placeholder in the fenced block and put a concrete example on its own line right after:
+  ````
+  ```json
+  {"move": "<your_move>"}
+  ```
+  For example: `{"move": "24/23 24/22"}`
+  ````
 - **Move history formatting.** Show it as a readable list or "None" if empty. Don't let an empty string confuse the model.
 
 ```python
@@ -199,53 +257,93 @@ class ParseResult:
 
 **On failure:** return `ParseResult(raw_action=<what_was_attempted>)` — the framework will retry with the rethink prompt.
 
-### Multi-stage parsing pattern
+### The default: `parse_json_action` from `core_harness`
 
-Every harness in this repo follows a multi-stage fallback pattern for
-robustness. Use the shared `extract_last_json_object` helper from
-`core_harness` for the JSON-extraction step — do NOT roll your own
-fenced/bare regex. It iterates candidates in document order, prefers the
-**last** parseable object (so a model that self-corrects mid-response
-gets its actual answer used, not the rejected first attempt), and
-handles both ```` ```json``` ```` fences and bare `{...}` in prose.
+For an enumerable harness, your `parse_response` should be one line —
+delegate to `parse_json_action`:
 
 ```python
-import json
-
-from kaggle_environments.core_harness import (
-    ParseResult,
-    extract_last_json_object,
-)
-
-
-def _extract_move_from_json(response: str) -> str | None:
-    """Pull the move string out of the LAST JSON object in the response."""
-    data = extract_last_json_object(response, required_keys=("move",))
-    if data is None:
-        return None
-    move = str(data.get("move") or "").strip()
-    return move or None
-
-
-def _match_move_to_legal(
-    raw_move: str, legal_action_strings: Sequence[str]
-) -> str | None:
-    """Case-insensitive match of a raw move string to legal actions."""
-    lower = raw_move.lower().strip()
-    for legal in legal_action_strings:
-        # Direct match
-        if lower == legal.lower():
-            return legal
-        # Coordinate match: raw="e5" matches legal="B e5"
-        if lower in legal.lower().split():
-            return legal
-    return None
+from kaggle_environments.core_harness import ParseResult, parse_json_action
 
 
 def parse_response(
-    response: str, legal_action_strings: Sequence[str] | None
+    response: str, legal_action_strings: Sequence[str],
 ) -> ParseResult:
-    # --- Free-form path ---
+    """Trust the model's JSON answer; let the rethink loop fix anything else."""
+    return parse_json_action(response, legal_action_strings)
+```
+
+`parse_json_action` enforces the design rule that the parser has exactly
+one intent surface: the model's structured JSON answer. It uses
+`extract_last_json_object` under the hood (last-block-wins, both fenced
+and bare), and:
+
+- If the model wrote no JSON answer at all → `legal_action=None,
+  raw_action=None` → rethink loop asks for one.
+- If the JSON is parseable but the move is illegal → `legal_action=None,
+  raw_action=<what_the_model_said>` → rethink loop shows the model what
+  it tried and asks it to pick a legal move.
+- If the JSON is legal → `legal_action=<matched>, raw_action=<raw>` →
+  submit.
+
+**Do not write a prose-scan fallback.** Coord regex, keyword regex,
+`response.rfind(legal)`, anything that picks a token mentioned in the
+reasoning text — these silently substitute moves the model never
+explicitly chose (almost always a rejected option from the prose). The
+review-harness skill's "Ghost-fallback / prose-scan rescue" entry has
+the empirical case: across 12 harnesses, 7,477 substitutions in one
+game's replay archive touched 74% of episodes.
+
+#### Customizing the JSON key
+
+If your game uses a key other than `"move"`, pass `json_key=`:
+
+```python
+return parse_json_action(response, legal_action_strings, json_key="bid")
+```
+
+#### Customizing the matcher
+
+The default matcher is case-insensitive and strips whitespace. For
+games that need notation tolerance, alias handling, or canonicalization
+(e.g. `'A7'` → `'a7'`, `'b1-c2'` → `'b1xc2'`), pass `matcher=`:
+
+```python
+def _match_move_to_legal(
+    raw: str, legal_action_strings: Sequence[str],
+) -> str | None:
+    """Game-specific normalization, e.g. canonicalize a coord."""
+    canonical = _canonicalize(raw)
+    return canonical if canonical in set(legal_action_strings) else None
+
+
+def parse_response(
+    response: str, legal_action_strings: Sequence[str],
+) -> ParseResult:
+    return parse_json_action(
+        response, legal_action_strings, matcher=_match_move_to_legal,
+    )
+```
+
+The matcher operates on the *raw value the model wrote inside the JSON*,
+never the full response. This is the one place where game-specific
+parsing logic belongs.
+
+#### Free-form harnesses
+
+For free-form turns (where `legal_action_strings is None`), don't use
+`parse_json_action` — write the extraction by hand using
+`extract_last_json_object`, since the resulting object goes into
+`submission` rather than `legal_action`:
+
+```python
+import json
+from kaggle_environments.core_harness import (
+    ParseResult, extract_last_json_object, parse_json_action,
+)
+
+
+def parse_response(response, legal_action_strings):
     if legal_action_strings is None:
         data = extract_last_json_object(response, required_keys=("clue",))
         if data and "clue" in data:
@@ -254,79 +352,46 @@ def parse_response(
                 raw_action=json.dumps(data),
             )
         return ParseResult(raw_action=response[:200])
-
-    # --- Enumerable path ---
-    # Stage 1: try JSON extraction
-    raw = _extract_move_from_json(response)
-    if raw:
-        matched = _match_move_to_legal(raw, legal_action_strings)
-        if matched:
-            return ParseResult(legal_action=matched, raw_action=raw)
-
-    # Stage 2: scan response text for any legal action token (last wins —
-    # see the "Last-mention-wins" rule below).
-    legal_lower = {legal.lower(): legal for legal in legal_action_strings}
-    move_token_re = re.compile(r"\b[a-h][1-8]\b", re.IGNORECASE)
-    for match in reversed(list(move_token_re.finditer(response))):
-        candidate = match.group(0).lower()
-        if candidate in legal_lower:
-            return ParseResult(legal_action=legal_lower[candidate], raw_action=candidate)
-
-    # Stage 3: nothing found — return failure for retry
-    return ParseResult(raw_action=raw)
+    return parse_json_action(response, legal_action_strings)
 ```
 
-### Last-mention-wins — the universal parser rule
+### Last-mention-wins — when extracting the structured answer
 
-When the parser scans the LLM response for *any* kind of candidate — a regex
-match, a substring, a legal-action mention, a JSON block, an action tag like
-`Final Answer:` — **the candidate that appears LAST in the response is the
-intent**. Models almost always enumerate options ("considered a1, then b2,
-but going with e5") before stating the final answer. Forward iteration silently
+When the model writes the structured answer surface more than once — a
+draft, then a revision — the **last** occurrence is the intent. Models
+almost always enumerate options ("considered a1, then b2, but going
+with e5") before stating the final answer. Forward iteration silently
 picks the rejected first candidate.
 
-Every surface this rule shows up on, and how to write it:
+`parse_json_action` and `extract_last_json_object` already handle this
+for JSON answers. If your harness uses a different stage-1 surface
+(e.g. a tagged `Final Answer: <x>` line), apply the same rule:
 
 | Pattern | Wrong | Right |
 |---|---|---|
-| Scan a regex over the response | `for m in r.finditer(response):` | `for m in reversed(list(r.finditer(response))):` |
-| `findall` over the response | `for x in r.findall(response):` | `for x in reversed(r.findall(response)):` |
-| Single-match regex extract | `m = r.search(response)` | `matches = list(r.finditer(response)); m = matches[-1] if matches else None` |
-| Substring of a fixed tag | `response.find("Final Answer:")` | `response.rfind("Final Answer:")` |
-| Iterate legals, "first that appears wins" | `for legal in legals: if legal in response: return legal` | Track the legal whose rightmost occurrence is latest; tie-break on length (see below) |
-| Multiple JSON blocks | `_JSON_BLOCK_RE.search(response)` | `extract_last_json_object(response, required_keys=(...))` from `core_harness` |
+| Multiple JSON blocks | `_JSON_BLOCK_RE.search(response)` | `parse_json_action(response, legal_action_strings)` (preferred) or `extract_last_json_object(response, required_keys=(...))` |
+| Single-match regex extract for an answer tag | `m = r.search(response)` | `matches = list(r.finditer(response)); m = matches[-1] if matches else None` |
+| Substring of a fixed answer tag | `response.find("Final Answer:")` | `response.rfind("Final Answer:")` |
 
-For the iterate-legals case, the shape is:
-
-```python
-best_end = -1
-best_legal: str | None = None
-for legal in legal_action_strings:
-    pos = response.rfind(legal)  # or list(re.finditer(pattern, response))[-1].end()
-    if pos < 0:
-        continue
-    end = pos + len(legal)
-    if end > best_end or (end == best_end and len(legal) > len(best_legal or "")):
-        best_end = end
-        best_legal = legal
-```
-
-Tie-break by length so longer-and-more-specific tokens beat shorter prefixes
-(e.g., `AsAcAdAh` beats `AsAcAd` at the same position).
-
-The one exception: when you're matching a single already-extracted candidate
-against the legal-action list and each legal is unique by the lookup key,
-forward iteration is fine because there's only ever one match.
+**Do not scan the response for unstructured candidates.** Iterating a
+regex (`finditer` / `findall`) over the response for coords or keywords,
+or iterating `legal_action_strings` and checking `response.rfind(legal)`,
+is the prose-scan rescue antipattern even with the "reverse-iter" fix:
+the model often discusses several options it doesn't choose, and any
+loop over those mentions silently substitutes a non-chosen move. If the
+structured answer is missing or illegal, return `legal_action=None` and
+let the rethink loop ask the model to fix its format. See the
+review-harness "Ghost-fallback / prose-scan rescue" entry for the
+empirical impact.
 
 ### Parsing tips
 
-- **Always use `extract_last_json_object`** for JSON extraction — never `_JSON_BLOCK_RE.search` (first match). Pass `required_keys=(...)` so unrelated JSON in the model's reasoning is ignored.
-- **Always try JSON first**, then fall back to text scanning. LLMs usually follow the JSON format but not always.
-- **Case-insensitive matching** is essential — models often change case.
-- **Handle special actions** like "PASS" or "STAND" explicitly if the game has them.
-- **The fallback scan matters.** When the model ignores the JSON instruction and writes "I'll play e5", the fallback should still find the move — and per the rule above, last-wins.
-- **Adapt the JSON key** to your game. Pass it as `required_keys`: `("move",)` for board games, `("bid",)` for auction games, `("action",)` for generic games — whatever matches your prompt.
-- **For numeric actions** (like bids), parse the integer and validate it's in the legal range.
+- **Prefer `parse_json_action`** over rolling your own. It's the audited single-stage default and removes the temptation to add a "smart" fallback later.
+- **JSON is the only intent surface.** No prose fallback. If the model doesn't give a JSON answer, return `legal_action=None` and let the rethink loop ask for one. Prose-scan fallbacks reliably substitute moves the model never chose (rejected options it discussed in its reasoning).
+- **Case-insensitive matching** is essential — the default matcher already lowercases and strips whitespace. Pass a custom `matcher=` only when you need notation tolerance, alias handling, or canonicalization.
+- **Handle special actions** like "PASS" or "STAND" by including them in `legal_action_strings`; the default matcher will pick them up.
+- **Adapt the JSON key** to your game by passing `json_key=`: `"move"` for board games (default), `"bid"` for auction games, `"action"` for generic games — whatever matches your prompt.
+- **For numeric actions** (like bids), validate in the matcher: convert raw → int, check membership in the legal-action-encoded integers, and return the canonical legal string.
 
 ## Step 5: Create the adapter class and agent function
 

@@ -30,7 +30,7 @@ import json
 import re
 from typing import Any, Mapping, Sequence
 
-from kaggle_environments.core_harness import ParseResult, extract_last_json_object
+from kaggle_environments.core_harness import ParseResult, extract_last_json_object, render_rethink_suffix
 
 _INT_LIST_RE = re.compile(r"\[\s*(\d+(?:\s*,\s*\d+)*)\s*\]")
 
@@ -112,14 +112,30 @@ and {num_symbols_m1} inclusive.
 """
 
 
-RETHINK_SUFFIX = """
+RETHINK_ILLEGAL = """
 
-Your previous response was:
+You suggested action "{previous_action}" but this is not a legal action.
+Reconsider the rules and the current state, then pick a legal action.
+
+(Keep using the same JSON output format as before -- only the action value needs to change.)
+"""
+
+RETHINK_UNPARSABLE = """
+
+Your previous response ended with:
 {previous_response}
 
-You suggested action "{previous_action}" but it is not legal in this
-state. Re-read the rules and the current state, then pick a legal action
-in the required JSON format.
+No JSON answer could be parsed from that. Conclude your response
+with your final action as JSON in a ```json fenced block, exactly
+as the original instructions required:
+
+```json
+{{"action": "propose", "keep": [<int>, <int>, ...]}}
+```
+
+For example: `{{"action": "propose", "keep": [1, 2, 0]}}`
+
+The action you choose must also be legal in the current state.
 """
 
 
@@ -338,11 +354,10 @@ def generate_prompt(
     if move_history:
         prompt += "\nYour own past submissions: " + " | ".join(move_history[-6:])
 
-    if previous_response is not None:
-        prompt += RETHINK_SUFFIX.format(
-            previous_response=previous_response[:500],
-            previous_action=previous_action or "(could not parse)",
-        )
+    prompt += render_rethink_suffix(
+        RETHINK_ILLEGAL, RETHINK_UNPARSABLE,
+        previous_response, previous_action,
+    )
 
     return prompt
 
@@ -409,54 +424,22 @@ def parse_response(
 
     legal_set = set(legal_action_strings)
     payload = _extract_payload(response)
-    raw_repr: str | None = None
 
-    if payload is not None:
-        raw_repr = json.dumps(payload, separators=(",", ":"))
-        for candidate in _candidate_action_strings(payload):
-            if candidate in legal_set:
-                return ParseResult(legal_action=candidate, raw_action=raw_repr)
+    if payload is None:
+        # The model didn't give a structured answer at all. Return None
+        # so the rethink loop asks for one rather than guessing at the
+        # intent from bracket-lists or stray "accept" keywords in the
+        # prose (both of which silently substituted moves the model
+        # never chose).
+        return ParseResult(legal_action=None, raw_action=None)
 
-    # Fallback: scan the raw response for an explicit legal-action string.
-    # Pick the one whose rightmost occurrence is latest (models enumerate
-    # rejected options before stating their final move). Tie-break by length
-    # so longer/more-specific strings win.
-    best_end = -1
-    best_legal: str | None = None
-    for legal in legal_action_strings:
-        pos = response.rfind(legal)
-        if pos < 0:
-            continue
-        end = pos + len(legal)
-        if end > best_end or (end == best_end and len(legal) > len(best_legal or "")):
-            best_end = end
-            best_legal = legal
-    if best_legal is not None:
-        return ParseResult(legal_action=best_legal, raw_action=raw_repr or best_legal)
-
-    # Fallback: hunt for ``[a, b, c]`` lists in the text and try them as a
-    # proposal or utterance against the legal set.
-    if legal_action_strings and legal_action_strings[0].lstrip(",").lstrip().startswith("Utterance"):
-        prefix = ", Utterance: "
-    else:
-        prefix = "Proposal: "
-    # Iterate in reverse so the *last* list mentioned wins -- models
-    # typically enumerate rejected options before stating the final one.
-    for raw_list in reversed(_INT_LIST_RE.findall(response)):
-        try:
-            ints = [int(x.strip()) for x in raw_list.split(",")]
-        except ValueError:
-            continue
-        candidate = f"{prefix}[{', '.join(str(i) for i in ints)}]"
+    # The model gave a structured answer. Trust it: submit if any
+    # derived candidate is legal, otherwise surface raw_action with
+    # legal_action=None so the rethink loop fires.
+    raw_repr = json.dumps(payload, separators=(",", ":"))
+    for candidate in _candidate_action_strings(payload):
         if candidate in legal_set:
-            return ParseResult(legal_action=candidate, raw_action=raw_repr or candidate)
-
-    if "accept" in response.lower() and "Proposal: Agreement reached!" in legal_set:
-        return ParseResult(
-            legal_action="Proposal: Agreement reached!",
-            raw_action=raw_repr or "accept",
-        )
-
+            return ParseResult(legal_action=candidate, raw_action=raw_repr)
     return ParseResult(legal_action=None, raw_action=raw_repr)
 
 

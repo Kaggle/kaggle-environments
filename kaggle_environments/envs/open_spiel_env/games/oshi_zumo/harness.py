@@ -20,7 +20,7 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult, extract_last_json_object
+from kaggle_environments.core_harness import ParseResult, parse_json_action, render_rethink_suffix
 
 _BID_PREFIX_RE = re.compile(r"\[P\d+\]Bid:\s*(\d+)")
 
@@ -75,13 +75,30 @@ illegal bid, will result in a loss.
 """
 
 
-RETHINK_SUFFIX = """
+RETHINK_ILLEGAL = """
 
-Your previous response was:
+You suggested bid "{previous_action}" but this is not a legal bid.
+Reconsider the rules and the current state, then pick a legal bid.
+
+(Keep using the same JSON output format as before -- only the bid value needs to change.)
+"""
+
+RETHINK_UNPARSABLE = """
+
+Your previous response ended with:
 {previous_response}
 
-You suggested bid "{previous_action}" but it is not a legal bid.
-Reconsider your coin total and the minimum bid, then pick a legal integer bid.
+No JSON answer could be parsed from that. Conclude your response
+with your final bid as JSON in a ```json fenced block, exactly
+as the original instructions required:
+
+```json
+{{"bid": <integer>}}
+```
+
+For example: `{{"bid": 5}}`
+
+The bid you choose must also be legal in the current state.
 """
 
 
@@ -122,17 +139,6 @@ def _parse_observation_payload(observation: Mapping[str, Any]) -> dict[str, Any]
 def _format_field_index_row(field_size: int) -> str:
     """Index row aligned under the field, single character per cell."""
     return "".join(str(i % 10) for i in range(field_size))
-
-
-def _extract_bid_from_json(response: str) -> str | None:
-    """Pull the bid from the LAST JSON object in the response."""
-    data = extract_last_json_object(response, required_keys=("bid",))
-    if data is None:
-        return None
-    bid = data.get("bid")
-    if bid is None:
-        return None
-    return str(bid).strip() or None
 
 
 def _match_bid_to_legal(
@@ -227,11 +233,10 @@ def generate_prompt(
         opp_edge_index=opp_edge_index,
     )
 
-    if previous_response is not None:
-        prompt += RETHINK_SUFFIX.format(
-            previous_response=previous_response[:500],
-            previous_action=previous_action or "(could not parse)",
-        )
+    prompt += render_rethink_suffix(
+        RETHINK_ILLEGAL, RETHINK_UNPARSABLE,
+        previous_response, previous_action,
+    )
 
     return prompt
 
@@ -239,37 +244,9 @@ def generate_prompt(
 def parse_response(
     response: str, legal_action_strings: Sequence[str],
 ) -> ParseResult:
-    """Extract a legal bid from the LLM response.
-
-    Tries a ``json`` block first (last block wins on rethink), then a bare
-    ``{"bid": N}``, then falls back to scanning for a legal ``[Pk]Bid: N``
-    substring (last occurrence wins).
-
-    We intentionally do NOT fall back to a bare-integer scan: the largest
-    legal bid for this game is always the player's current coin total, which
-    the model echoes in nearly every response — that fallback silently
-    converts truncated/unparseable responses into all-in bids.
-    """
-    raw = _extract_bid_from_json(response)
-    if raw is not None:
-        matched = _match_bid_to_legal(raw, legal_action_strings)
-        if matched is not None:
-            return ParseResult(legal_action=matched, raw_action=raw)
-
-    # Fallback 1: look for the legal action string verbatim. Pick the legal
-    # whose rightmost occurrence is latest (models enumerate rejected bids
-    # before stating their final one).
-    best_end = -1
-    best_legal: str | None = None
-    for legal in legal_action_strings:
-        pos = response.rfind(legal)
-        if pos < 0:
-            continue
-        end = pos + len(legal)
-        if end > best_end or (end == best_end and len(legal) > len(best_legal or "")):
-            best_end = end
-            best_legal = legal
-    if best_legal is not None:
-        return ParseResult(legal_action=best_legal, raw_action=raw or best_legal)
-
-    return ParseResult(legal_action=None, raw_action=raw)
+    """Trust the model's JSON answer; let the rethink loop fix anything else."""
+    return parse_json_action(
+        response, legal_action_strings,
+        json_key="bid",
+        matcher=_match_bid_to_legal,
+    )

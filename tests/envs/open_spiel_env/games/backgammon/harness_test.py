@@ -86,9 +86,13 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response('I will bear off: ```json\n{"move": "6/Off 5/Off"}\n```', self.legal)
         self.assertEqual(result.legal_action, "300 - 6/Off 5/Off")
 
-    def test_parse_text_scan_fallback(self):
+    def test_prose_only_response_triggers_rethink(self):
+        # No structured JSON. The parser must NOT guess at intent from a
+        # notation substring in the prose -- return None and let rethink
+        # ask the model to use the required JSON format.
         result = parse_response("I'll play 24/23 24/22 because it builds the bar point.", self.legal)
-        self.assertEqual(result.legal_action, "0 - 24/23 24/22")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_illegal_move_returns_raw(self):
         result = parse_response('```json\n{"move": "99/100"}\n```', self.legal)
@@ -103,6 +107,45 @@ class ParseResponseTest(absltest.TestCase):
     def test_parse_returns_parse_result_type(self):
         result = parse_response('```json\n{"move": "24/23 24/22"}\n```', self.legal)
         self.assertIsInstance(result, ParseResult)
+
+    def test_illegal_json_does_not_ghost_substitute_from_prose(self):
+        # The model's JSON answer (99/99) is not legal. The parser must
+        # NOT silently substitute a legal notation mentioned in the
+        # prose (the ghost antipattern). Surface raw_action so the
+        # rethink loop fires.
+        legal_example = self.legal[0]
+        response = (
+            f"I considered {legal_example} but went bigger.\n"
+            '```json\n{"move": "99/99 99/99"}\n```'
+        )
+        result = parse_response(response, self.legal)
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "99/99 99/99")
+
+    def test_parse_accepts_missing_trailing_pass(self):
+        # When only one die is usable, OpenSpiel emits ``Bar/24 Pass``; the
+        # model routinely writes just ``Bar/24``. The parser must accept it.
+        legal = ["1350 - Bar/24 Pass"]
+        result = parse_response('```json\n{"move": "Bar/24"}\n```', legal)
+        self.assertEqual(result.legal_action, "1350 - Bar/24 Pass")
+
+    def test_parse_accepts_missing_hit_star(self):
+        # OpenSpiel adds ``*`` to mark hits; models routinely forget it.
+        legal = ["700 - Bar/24/18*", "986 - Bar/24 13/7"]
+        result = parse_response('```json\n{"move": "Bar/24/18"}\n```', legal)
+        self.assertEqual(result.legal_action, "700 - Bar/24/18*")
+
+    def test_parse_accepts_missing_star_and_pass(self):
+        # Both ornamentations missing at once.
+        legal = ["1350 - Bar/24* Pass"]
+        result = parse_response('```json\n{"move": "Bar/24"}\n```', legal)
+        self.assertEqual(result.legal_action, "1350 - Bar/24* Pass")
+
+    def test_parse_accepts_extra_star_from_model(self):
+        # Model adds ``*`` to a step the engine didn't mark as a hit.
+        legal = ["0 - 24/23 24/22"]
+        result = parse_response('```json\n{"move": "24/23* 24/22"}\n```', legal)
+        self.assertEqual(result.legal_action, "0 - 24/23 24/22")
 
 
 # ---------------------------------------------------------------------------
@@ -185,7 +228,7 @@ class GeneratePromptTest(absltest.TestCase):
             previous_response="I tried bad/move",
             previous_action="bad/move",
         )
-        self.assertIn("Your previous response was", prompt)
+        self.assertIn("You suggested", prompt)  # ILLEGAL leads with action
         self.assertIn("bad/move", prompt)
         self.assertIn("not a legal move", prompt)
 
@@ -193,6 +236,25 @@ class GeneratePromptTest(absltest.TestCase):
         obs = _make_observation(self.state, self.game)
         prompt = generate_prompt(obs, [])
         self.assertNotIn("Your previous response was", prompt)
+
+    def test_prompt_documents_partial_pass(self):
+        obs = _make_observation(self.state, self.game)
+        prompt = generate_prompt(obs, [])
+        # The prompt must teach the ``move Pass`` shape, not just bare Pass.
+        self.assertIn("Bar/24 Pass", prompt)
+
+    def test_prompt_documents_required_hit_star(self):
+        obs = _make_observation(self.state, self.game)
+        prompt = generate_prompt(obs, [])
+        # The prompt must not claim the engine adds ``*`` automatically -- the
+        # legal-action strings include ``*`` already and the parser sees it.
+        self.assertNotIn("added automatically", prompt)
+
+    def test_prompt_documents_draw_terminal(self):
+        obs = _make_observation(self.state, self.game)
+        prompt = generate_prompt(obs, [])
+        self.assertIn("500 player turns", prompt)
+        self.assertIn("draw", prompt)
 
 
 # ---------------------------------------------------------------------------

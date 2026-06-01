@@ -55,9 +55,13 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response('I think {"move": "v 0 0"} works.', self.legal)
         self.assertEqual(result.legal_action, "P1(v,0,0)")
 
-    def test_parse_fallback_text_scan(self):
+    def test_prose_only_response_triggers_rethink(self):
+        # No structured JSON. The parser must NOT guess at intent from
+        # an h/v token in the prose -- return None and let the rethink
+        # loop ask the model to use the required JSON format.
         result = parse_response("I will draw h 0 1 this turn.", self.legal)
-        self.assertEqual(result.legal_action, "P1(h,0,1)")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_case_insensitive(self):
         result = parse_response('```json\n{"move": "H 0 0"}\n```', self.legal)
@@ -80,6 +84,18 @@ class ParseResponseTest(absltest.TestCase):
     def test_parse_returns_parse_result_type(self):
         result = parse_response('```json\n{"move": "h 0 0"}\n```', self.legal)
         self.assertIsInstance(result, ParseResult)
+
+    def test_illegal_json_does_not_ghost_substitute_from_prose(self):
+        # The model's JSON answer "v 9 9" is not legal. The parser must
+        # NOT silently substitute "h 0 0" from the prose (the ghost
+        # antipattern). Surface raw_action so the rethink loop fires.
+        response = (
+            'I considered "h 0 0" but think bigger is better.\n'
+            '```json\n{"move": "v 9 9"}\n```'
+        )
+        result = parse_response(response, self.legal)
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "v 9 9")
 
 
 # ---------------------------------------------------------------------------
@@ -163,7 +179,7 @@ class GeneratePromptTest(absltest.TestCase):
     def test_rethink_suffix(self):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [], previous_response="I'll play x 9 9", previous_action="x 9 9")
-        self.assertIn("Your previous response was", prompt)
+        self.assertIn("You suggested", prompt)  # ILLEGAL leads with action
         self.assertIn("x 9 9", prompt)
         self.assertIn("not a legal move", prompt)
 

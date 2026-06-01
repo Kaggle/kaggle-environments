@@ -19,7 +19,7 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult, extract_last_json_object
+from kaggle_environments.core_harness import ParseResult, parse_json_action, render_rethink_suffix
 
 # Importing the proxy registers the ``amazons_proxy`` pyspiel game so that
 # ``deserialize_game_and_state`` can rebuild it from the obs. Wrapped in
@@ -164,22 +164,41 @@ Respond with your reasoning followed by your final answer in a JSON block:
 
 ```json
 {{
-  "move": "<square in algebraic notation, e.g. a1>"
+  "move": "<square in algebraic notation>"
 }}
 ```
+
+For example: `{{"move": "a1"}}`
 
 Failure to output your final answer in the specified format, or selecting an
 illegal square, will result in a loss.
 """
 
 
-RETHINK_SUFFIX = """
+RETHINK_ILLEGAL = """
 
-Your previous response was:
+You suggested move "{previous_action}" but this is not a legal move.
+Reconsider the rules and the current state, then pick a legal move.
+
+(Keep using the same JSON output format as before -- only the move value needs to change.)
+"""
+
+RETHINK_UNPARSABLE = """
+
+Your previous response ended with:
 {previous_response}
 
-You suggested move "{previous_action}" but it is not a legal move.
-Reconsider the position and pick a legal square.
+No JSON answer could be parsed from that. Conclude your response
+with your final move as JSON in a ```json fenced block, exactly
+as the original instructions required:
+
+```json
+{{"move": "<algebraic square>"}}
+```
+
+For example: `{{"move": "a1"}}`
+
+The move you choose must also be legal in the current state.
 """
 
 
@@ -250,54 +269,27 @@ def generate_prompt(
         phase_instruction=_PHASE_INSTRUCTION.get(phase, _PHASE_INSTRUCTION["from"]),
     )
 
-    if previous_response is not None:
-        prompt += RETHINK_SUFFIX.format(
-            previous_response=previous_response[:500],
-            previous_action=previous_action or "(could not parse)",
-        )
+    prompt += render_rethink_suffix(
+        RETHINK_ILLEGAL, RETHINK_UNPARSABLE,
+        previous_response, previous_action,
+    )
 
     return prompt
 
 
-def _extract_move_from_json(response: str) -> str | None:
-    """Pull the move string out of the LAST JSON object in the response."""
-    data = extract_last_json_object(response, required_keys=("move",))
-    if data is None:
-        return None
-    move = str(data.get("move") or "").strip()
-    return move or None
-
-
-def _normalize_cell(text: str) -> str | None:
-    """Normalize free-form text to canonical 'a7'-style notation."""
-    cell = _algebraic_to_cell(text)
+def _match_cell_to_legal(
+    raw: str, legal_action_strings: Sequence[str],
+) -> str | None:
+    """Normalize free-form text to canonical 'a7'-style and match a legal."""
+    cell = _algebraic_to_cell(raw)
     if cell is None:
         return None
-    row, col = cell
-    return _cell_to_algebraic(row, col)
+    canonical = _cell_to_algebraic(*cell)
+    return canonical if canonical in set(legal_action_strings) else None
 
 
 def parse_response(
     response: str, legal_action_strings: Sequence[str],
 ) -> ParseResult:
-    """Extract a legal cell from the model response.
-
-    Tries the JSON block first, then a bare ``{"move": "..."}`` object,
-    then a fallback scan for any legal cell mentioned anywhere in the
-    response. Match is on canonical algebraic form so 'A7', 'a7 ', etc.
-    all map to 'a7'.
-    """
-    legal_set = set(legal_action_strings)
-
-    raw = _extract_move_from_json(response)
-    if raw is not None:
-        canonical = _normalize_cell(raw)
-        if canonical is not None and canonical in legal_set:
-            return ParseResult(legal_action=canonical, raw_action=raw)
-
-    for match in reversed(list(_CELL_RE.finditer(response))):
-        canonical = _normalize_cell(match.group(0))
-        if canonical is not None and canonical in legal_set:
-            return ParseResult(legal_action=canonical, raw_action=raw or canonical)
-
-    return ParseResult(legal_action=None, raw_action=raw)
+    """Trust the model's JSON answer; let the rethink loop fix anything else."""
+    return parse_json_action(response, legal_action_strings, matcher=_match_cell_to_legal)

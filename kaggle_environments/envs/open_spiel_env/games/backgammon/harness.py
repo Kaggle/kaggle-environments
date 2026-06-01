@@ -29,7 +29,7 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult, extract_last_json_object
+from kaggle_environments.core_harness import ParseResult, parse_json_action, render_rethink_suffix
 
 # Players: 0 = X, 1 = O (matches the proxy's "x"/"o" labels).
 _PLAYER_LABELS = {0: "x", 1: "o"}
@@ -77,9 +77,17 @@ brings the checker to your point (25 - N). Once every checker is in your
 home board (points 1-6) you may bear off: a die of N bears off the checker
 on your N-point. If no checker sits on your N-point, you may bear off the
 checker furthest from home, but only when N exceeds the highest occupied
-point. If you cannot use either die you must Pass.
+point.
 
-You win by bearing off all fifteen of your checkers first.
+If only ONE of the two dice can be legally used, you must still account for
+the unused die by writing ``Pass`` in its place (e.g. ``Bar/24 Pass`` means
+"enter from the bar with one die, the other die is unusable"). Write the
+move first and ``Pass`` second. Write a bare ``Pass`` only when NEITHER
+die can be played at all.
+
+You win by bearing off all fifteen of your checkers first. If neither
+player has borne off all checkers within 500 player turns, the game ends
+in a draw.
 
 Dice rolled this turn: {dice_str}
 Move number: {move_number}
@@ -105,8 +113,12 @@ Examples (your own perspective in every case):
 * ``13/11(2)`` -- doubles: the same start/end is played twice.
 * ``Bar/22`` -- enter from the bar onto your 22-point.
 * ``6/Off`` -- bear off the checker on your 6-point.
-* ``13/8*`` -- a hit (the ``*`` is added automatically by the game).
-* ``Pass`` -- only when no legal move exists.
+* ``13/8*`` -- a hit: if your destination has exactly one opponent checker
+  (a blot), append ``*`` to that step. Without the ``*`` the move will be
+  rejected as illegal.
+* ``Bar/24 Pass`` -- the second die cannot be used. ``Pass`` always comes
+  after the playable move. Bare ``Pass`` is only for turns where neither
+  die can be played.
 
 Tradition is to list moves with the higher starting point first.
 
@@ -114,23 +126,41 @@ Respond with your reasoning followed by your move in a JSON block:
 
 ```json
 {{
-  "move": "<notation>, e.g. 24/23 24/22"
+  "move": "<notation>"
 }}
 ```
+
+For example: `{{"move": "24/23 24/22"}}`
 
 Failure to output your final answer in the specified format, or selecting
 an illegal move, will result in a loss.
 """
 
 
-RETHINK_SUFFIX = """
+RETHINK_ILLEGAL = """
 
-Your previous response was:
+You suggested move "{previous_action}" but this is not a legal move.
+Reconsider the rules and the current state, then pick a legal move.
+
+(Keep using the same JSON output format as before -- only the move value needs to change.)
+"""
+
+RETHINK_UNPARSABLE = """
+
+Your previous response ended with:
 {previous_response}
 
-You suggested move "{previous_action}" but it is not a legal move.
-Reconsider the dice and your checker positions, then pick a legal move
-using the notation after the ``" - "`` in legal-move strings.
+No JSON answer could be parsed from that. Conclude your response
+with your final move as JSON in a ```json fenced block, exactly
+as the original instructions required:
+
+```json
+{{"move": "<notation>"}}
+```
+
+For example: `{{"move": "24/23 24/22"}}`
+
+The move you choose must also be legal in the current state.
 """
 
 
@@ -240,11 +270,10 @@ def generate_prompt(
         my_piece=my_label,
     )
 
-    if previous_response is not None:
-        prompt += RETHINK_SUFFIX.format(
-            previous_response=previous_response[:500],
-            previous_action=previous_action or "(could not parse)",
-        )
+    prompt += render_rethink_suffix(
+        RETHINK_ILLEGAL, RETHINK_UNPARSABLE,
+        previous_response, previous_action,
+    )
 
     return prompt
 
@@ -268,56 +297,54 @@ def _normalize_notation(notation: str) -> str:
     return re.sub(r"\s+", " ", notation.strip().lower())
 
 
-def _extract_move_from_json(response: str) -> str | None:
-    """Pull the move string out of the LAST JSON object in the response."""
-    data = extract_last_json_object(response, required_keys=("move",))
-    if data is None:
-        return None
-    move = str(data.get("move") or "").strip()
-    return move or None
+_PASS_SUFFIX = " pass"
+
+
+def _tolerance_variants(notation: str) -> set[str]:
+    """Generate forgiving lookup keys for ``*`` and trailing ``Pass``.
+
+    OpenSpiel encodes hits with ``*`` and unused-die markers with ``Pass``
+    appended to the move (e.g. ``Bar/24 Pass``). Models routinely omit one
+    or both because they feel like cosmetic annotations. Treat them as
+    optional on both sides of the match so the model's intent gets through.
+    """
+    variants = {notation, notation.replace("*", "")}
+    for v in list(variants):
+        if v.endswith(_PASS_SUFFIX):
+            variants.add(v[: -len(_PASS_SUFFIX)].strip())
+    return {v for v in variants if v}
+
+
+def _match_notation_to_legal(
+    raw: str, legal_action_strings: Sequence[str],
+) -> str | None:
+    """Match a notation string against the legal list.
+
+    Case- and whitespace-insensitive. Forgives missing hit ``*`` and missing
+    trailing ``Pass`` markers in either direction (model omits them, or model
+    adds them where the legal action didn't have them).
+    """
+    # Build the lookup with canonical forms first, then register tolerance
+    # variants without clobbering canonical entries.
+    legal_by_notation: dict[str, str] = {}
+    for legal in legal_action_strings:
+        notation = _normalize_notation(_strip_action_id_prefix(legal))
+        legal_by_notation[notation] = legal
+    for legal in legal_action_strings:
+        notation = _normalize_notation(_strip_action_id_prefix(legal))
+        for variant in _tolerance_variants(notation):
+            legal_by_notation.setdefault(variant, legal)
+
+    for candidate in _tolerance_variants(_normalize_notation(raw)):
+        match = legal_by_notation.get(candidate)
+        if match is not None:
+            return match
+    return None
 
 
 def parse_response(
     response: str,
     legal_action_strings: Sequence[str],
 ) -> ParseResult:
-    """Extract a legal Backgammon move from the LLM response.
-
-    Tries a ```json``` block first, then a bare ``{"move": "..."}``, then
-    falls back to scanning the raw response for any legal move notation.
-    Matching is case-insensitive and tolerant of whitespace.
-    """
-    # Build {normalized_notation: original_legal_string} for matching.
-    legal_by_notation: dict[str, str] = {}
-    for legal in legal_action_strings:
-        notation = _strip_action_id_prefix(legal)
-        legal_by_notation[_normalize_notation(notation)] = legal
-
-    raw = _extract_move_from_json(response)
-    if raw is not None:
-        normalized = _normalize_notation(raw)
-        if normalized in legal_by_notation:
-            return ParseResult(legal_action=legal_by_notation[normalized], raw_action=raw)
-
-    # Fallback: scan the response for a legal notation substring. Pick the
-    # one whose rightmost occurrence is latest (models enumerate rejected
-    # options before stating their final move). Tie-break on length so that
-    # a longer notation beats a shorter prefix like ``Pass``.
-    normalized_response = _normalize_notation(response)
-    best_end = -1
-    best_notation: str | None = None
-    for notation in legal_by_notation:
-        pos = normalized_response.rfind(notation)
-        if pos < 0:
-            continue
-        end = pos + len(notation)
-        if end > best_end or (end == best_end and len(notation) > len(best_notation or "")):
-            best_end = end
-            best_notation = notation
-    if best_notation is not None:
-        return ParseResult(
-            legal_action=legal_by_notation[best_notation],
-            raw_action=raw or best_notation,
-        )
-
-    return ParseResult(legal_action=None, raw_action=raw)
+    """Trust the model's JSON answer; let the rethink loop fix anything else."""
+    return parse_json_action(response, legal_action_strings, matcher=_match_notation_to_legal)

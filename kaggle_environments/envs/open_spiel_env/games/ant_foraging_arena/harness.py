@@ -19,9 +19,7 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult, extract_last_json_object
-
-_MOVE_RE = re.compile(r"\b(up|down|left|right|stay)\b", re.IGNORECASE)
+from kaggle_environments.core_harness import ParseResult, parse_json_action, render_rethink_suffix
 
 
 # --- Prompt -----------------------------------------------------------------
@@ -92,42 +90,34 @@ Begin!
 """
 
 
-RETHINK_SUFFIX = """
+RETHINK_ILLEGAL = """
 
-Your previous response was:
+You suggested move "{previous_action}" but this is not a legal move.
+Reconsider the rules and the current state, then pick a legal move.
+
+(Keep using the same JSON output format as before -- only the move value needs to change.)
+"""
+
+RETHINK_UNPARSABLE = """
+
+Your previous response ended with:
 {previous_response}
 
-You suggested move "{previous_action}" but this is not in the legal
-moves list. Reconsider and play a legal move from {{up, down, left,
-right, stay}}.
+No JSON answer could be parsed from that. Conclude your response
+with your final move as JSON in a ```json fenced block, exactly
+as the original instructions required:
+
+```json
+{{"move": "<direction>"}}
+```
+
+For example: `{{"move": "up"}}`
+
+The move you choose must also be legal in the current state.
 """
 
 
 # --- Helpers ----------------------------------------------------------------
-
-
-def _normalize(move: str) -> str:
-    return re.sub(r"\s+", "", move).lower()
-
-
-def _extract_move_from_json(response: str) -> str | None:
-    """Pull the move string out of the LAST JSON object in the response."""
-    data = extract_last_json_object(response, required_keys=("move",))
-    if data is None:
-        return None
-    move = str(data.get("move") or "").strip()
-    return move or None
-
-
-def _match_move_to_legal(
-    move: str,
-    legal_moves: Sequence[str],
-) -> str | None:
-    target = _normalize(move)
-    if not target:
-        return None
-    legal_normalized = {_normalize(legal): legal for legal in legal_moves}
-    return legal_normalized.get(target)
 
 
 def _parse_obs(observation: Mapping[str, Any]) -> dict[str, Any]:
@@ -236,33 +226,16 @@ def generate_prompt(
         move_history_str=move_history_str,
     )
 
-    if previous_response is not None:
-        prompt += RETHINK_SUFFIX.format(
-            previous_response=previous_response[:500],
-            previous_action=previous_action or "(could not parse)",
-        )
+    prompt += render_rethink_suffix(
+        RETHINK_ILLEGAL, RETHINK_UNPARSABLE,
+        previous_response, previous_action,
+    )
 
     return prompt
 
 
 def parse_response(
-    response: str,
-    legal_action_strings: Sequence[str],
+    response: str, legal_action_strings: Sequence[str],
 ) -> ParseResult:
-    """Extract a legal arena move from the model response."""
-    raw = _extract_move_from_json(response)
-    if raw is not None:
-        matched = _match_move_to_legal(raw, legal_action_strings)
-        if matched is not None:
-            return ParseResult(legal_action=matched, raw_action=raw)
-
-    # Scan from the end: the prompt asks the model to put its final
-    # answer at the end of the response, so the last direction word is
-    # the right one to pick when the JSON parse failed.
-    for m in reversed(list(_MOVE_RE.finditer(response))):
-        candidate = m.group(0)
-        matched = _match_move_to_legal(candidate, legal_action_strings)
-        if matched is not None:
-            return ParseResult(legal_action=matched, raw_action=raw or candidate)
-
-    return ParseResult(legal_action=None, raw_action=raw)
+    """Trust the model's JSON answer; let the rethink loop fix anything else."""
+    return parse_json_action(response, legal_action_strings)

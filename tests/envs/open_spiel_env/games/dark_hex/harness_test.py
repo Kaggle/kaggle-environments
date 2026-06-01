@@ -73,11 +73,14 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response(response, legal)
         self.assertEqual(result.legal_action, "b2")
 
-    def test_parse_fallback_prose_coord(self):
+    def test_unfenced_prose_coord_triggers_rethink(self):
+        # No JSON. Return None and let the rethink loop ask the model to
+        # use the required JSON format.
         legal = ["a1", "b2", "c3"]
         response = "After some thought I'll play c3 to control the diagonal."
         result = parse_response(response, legal)
-        self.assertEqual(result.legal_action, "c3")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_no_match_returns_none(self):
         legal = ["a1", "b2"]
@@ -99,33 +102,34 @@ class ParseResponseTest(absltest.TestCase):
 
     # --- Regression: reverse-iter fallback (Issue #2) ---
 
-    def test_fallback_prefers_last_mentioned_coord(self):
-        """When fallback fires, the LAST legal coord in the prose should win.
-
-        Models typically enumerate rejected options before stating the final
-        move. Forward iteration used to pick the first-mentioned (rejected)
-        candidate; reverse iteration picks the actual stated move.
-        """
+    def test_prose_only_response_triggers_rethink(self):
+        # No structured JSON. The parser must NOT guess at intent from any
+        # coord in the prose -- even the last-mentioned one. Return None
+        # so the rethink loop asks the model for a JSON answer.
         legal = ["a1", "b2", "c3"]
         response = (
             "I considered a1 (too edgy) and b2 (blocked by opponent), "
             "but I'll play c3 because it controls the diagonal."
         )
         result = parse_response(response, legal)
-        self.assertEqual(result.legal_action, "c3")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
-    def test_fallback_after_illegal_json_picks_last_prose_coord(self):
-        """If the JSON move is illegal, fallback should still find the right
-        coord in the prose -- and pick the last one (intent), not the first."""
+    def test_illegal_json_does_not_ghost_substitute_from_prose(self):
+        """When the model's JSON answer is illegal, the parser must NOT
+        silently substitute some other coord mentioned in the prose. The
+        model's stated intent was b2; surfacing legal_action=None lets
+        the rethink loop give the model a chance to correct itself,
+        instead of playing a coord (a1 or c3) it explicitly discussed
+        and dismissed."""
         legal = ["a1", "c3"]
-        # JSON move b2 is illegal (not in legal); a1 is mentioned then rejected;
-        # c3 is the model's actual choice. The fallback must reach c3.
         response = (
             "I rejected a1 because it's edge-bound. I'll play c3.\n"
             '```json\n{"move": "b2"}\n```'
         )
         result = parse_response(response, legal)
-        self.assertEqual(result.legal_action, "c3")
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "b2")
 
     # --- Regression: header-artifact regex (cross-newline \s*) ---
 
@@ -153,9 +157,11 @@ class ParseResponseTest(absltest.TestCase):
         # Pre-fix: legal_action == "f1" (header artifact). Post-fix: None.
         self.assertIsNone(result.legal_action)
 
-    def test_intended_coord_wins_over_echoed_board(self):
-        """When the model echoes the board AND states a real intended coord,
-        the parser should pick the stated coord, not anything from the board."""
+    def test_echoed_board_plus_prose_intent_triggers_rethink(self):
+        # The model echoes the board and states a prose intent ("e4") but
+        # no JSON answer. The parser must NOT guess, even when the prose
+        # intent is unambiguous -- return None so the rethink loop asks
+        # the model to wrap its answer in JSON.
         response = (
             "Board:\n    a b c d e f\n 1  . . . . . .\n"
             "  2  . . . . . .\n"
@@ -163,7 +169,8 @@ class ParseResponseTest(absltest.TestCase):
         )
         legal = ["a1", "b1", "e4", "f1"]
         result = parse_response(response, legal)
-        self.assertEqual(result.legal_action, "e4")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
 
 class GeneratePromptTest(absltest.TestCase):
@@ -203,7 +210,7 @@ class GeneratePromptTest(absltest.TestCase):
             previous_response="I play z99",
             previous_action="z99",
         )
-        self.assertIn("Your previous response was", prompt)
+        self.assertIn("You suggested", prompt)  # ILLEGAL leads with action
         self.assertIn("z99", prompt)
 
     def test_no_rethink_on_first_attempt(self):
