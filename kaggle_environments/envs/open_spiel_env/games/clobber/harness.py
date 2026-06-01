@@ -31,7 +31,7 @@ from kaggle_environments.core_harness import ParseResult, parse_json_action, ren
 
 CLOBBER_PROMPT_TEMPLATE = """Let's play Clobber.
 
-Rules: Two players take turns on an {rows}x{columns} checkerboard. White
+Rules: Two players take turns on a {rows}x{columns} checkerboard. White
 ('o') moves first; Black ('x') moves second. On your turn pick one of YOUR
 pieces and move it onto an orthogonally adjacent square (up/down/left/right)
 that holds an OPPONENT's piece, capturing it. The first player with no
@@ -45,7 +45,7 @@ Board (top to bottom; '.' = empty):
 {board_ascii}
 
 You are Player {player_label} ('{my_piece}').
-Move number: {move_number}
+Moves played so far: {move_number}
 Last move played: {last_move}
 
 Choose your move. It must move one of your pieces onto an orthogonally
@@ -193,8 +193,34 @@ def generate_prompt(
     return prompt
 
 
+_NOTATION_NOISE_RE = re.compile(r"[\s\-x>]+", re.IGNORECASE)
+
+
+def _normalize_move(token: str) -> str:
+    return _NOTATION_NOISE_RE.sub("", token.lower())
+
+
+def _match_move(raw: str, legal: Sequence[str]) -> str | None:
+    """Tolerate the capture/coord separators models naturally write.
+
+    Clobber is a capture game and the engine emits bare ``<from><to>``
+    strings, but chess-trained models routinely add ``-`` (``a1-b1``),
+    ``->`` (``a1->b1``), or the SAN capture marker ``x`` (``a1xb1``).
+    Strip those and the surrounding whitespace before comparing.
+    """
+    target = _normalize_move(raw)
+    if not target:
+        return None
+    for legal_str in legal:
+        if _normalize_move(legal_str) == target:
+            return legal_str
+    return None
+
+
 def parse_response(
     response: str, legal_action_strings: Sequence[str],
 ) -> ParseResult:
     """Trust the model's JSON answer; let the rethink loop fix anything else."""
-    return parse_json_action(response, legal_action_strings)
+    return parse_json_action(
+        response, legal_action_strings, matcher=_match_move,
+    )

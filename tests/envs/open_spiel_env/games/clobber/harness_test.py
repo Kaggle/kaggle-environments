@@ -95,6 +95,24 @@ class ParseResponseTest(absltest.TestCase):
         self.assertIsNone(result.legal_action)
         self.assertEqual(result.raw_action, "z1z1")
 
+    def test_parse_tolerates_hyphen_separator(self):
+        # Models trained on chess routinely write coord moves with '-'.
+        result = parse_response('```json\n{"move":"a1-b1"}\n```', self.legal)
+        self.assertEqual(result.legal_action, "a1b1")
+
+    def test_parse_tolerates_arrow_separator(self):
+        result = parse_response('```json\n{"move":"a1->b1"}\n```', self.legal)
+        self.assertEqual(result.legal_action, "a1b1")
+
+    def test_parse_tolerates_san_capture_marker(self):
+        # Clobber IS a capture game; 'a1xb1' reads as "a1 takes b1".
+        result = parse_response('```json\n{"move":"a1xb1"}\n```', self.legal)
+        self.assertEqual(result.legal_action, "a1b1")
+
+    def test_parse_tolerates_capture_marker_case_insensitively(self):
+        result = parse_response('```json\n{"move":"A1XB1"}\n```', self.legal)
+        self.assertEqual(result.legal_action, "a1b1")
+
 
 # ---------------------------------------------------------------------------
 # generate_prompt
