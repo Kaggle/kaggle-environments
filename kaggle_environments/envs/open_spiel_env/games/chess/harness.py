@@ -51,16 +51,16 @@ def _build_pgn_movetext(state: pyspiel.State) -> str:
     """
     history = state.history()
     game = state.get_game()
-    tmp = game.new_initial_state()
+    replay_state = game.new_initial_state()
     parts: list[str] = []
 
     for i, action in enumerate(history):
         if i % 2 == 0:
             # White's move — prepend move number
             parts.append(f"{i // 2 + 1}.")
-        san = tmp.action_to_string(tmp.current_player(), action)
+        san = replay_state.action_to_string(replay_state.current_player(), action)
         parts.append(san)
-        tmp.apply_action(action)
+        replay_state.apply_action(action)
 
     # Trailing move number when it's White's turn (even number of moves).
     n = len(history)
@@ -96,7 +96,7 @@ def _extract_move_from_response(
     last_index = -1
     final_split_token = ""
     for split_token in [action_tag, *additional_tags]:
-        tmp_index = response.rfind(split_token)
+        tmp_index = response.find(split_token)
         if tmp_index > last_index:
             last_index = tmp_index
             final_split_token = split_token

@@ -1,7 +1,7 @@
 """LLM harness for OpenSpiel Connect Four.
 
-Migrated from Google DeepMind's GameArena connect_four harness.
-The prompt template is preserved exactly from the original.
+Originally migrated from Google DeepMind's GameArena connect_four harness;
+the prompt template is preserved verbatim from the original.
 """
 
 from __future__ import annotations
@@ -149,8 +149,8 @@ def parse_response(
         if matched is not None:
             return ParseResult(legal_action=matched, raw_action=raw)
 
-    # Stage 2: scan for digits from the end of the response
-    for digit_match in reversed(list(re.finditer(r"\d+", response))):
+    # Stage 2: scan response for a digit that maps to a legal column
+    for digit_match in re.finditer(r"\d+", response):
         column = digit_match.group()
         matched = _match_column_to_legal(column, legal_action_strings)
         if matched is not None:
