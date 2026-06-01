@@ -417,11 +417,26 @@ Every harness should include a `test_llm_game.py` script that runs a
 full game locally with a real LLM — catches issues mocked unit tests
 miss (bad prompts, unparseable responses, env interaction bugs).
 
-Copy `kaggle_environments/envs/open_spiel_env/games/checkers/test_llm_game.py`
-verbatim and change two strings: the `make("open_spiel_checkers", ...)`
-env name and the docstring usage example. The script handles API-key
-discovery, env-var setup, game execution, per-step printing, and replay
-save. For non-OpenSpiel games use `word_association/test_llm_game.py`.
+Use `run_llm_game` from `kaggle_environments.local_harness_runner`. The
+helper handles API-key discovery, env-var defaults, `--model` /
+`--replay-path` CLI flags, game execution, per-step printing, and
+replay save. Per-game files are 3 lines plus a docstring:
+
+```python
+"""Run a full Checkers game with LLM agents for local integration testing."""
+from kaggle_environments.local_harness_runner import run_llm_game
+
+if __name__ == "__main__":
+    run_llm_game("open_spiel_checkers", caller_file=__file__)
+```
+
+For games that need extra config, pass `configuration=`,
+`replay_filename=`, `num_agents=`, or `agent_module=`. See
+`havannah/test_llm_game.py` (custom board size), `word_association/test_llm_game.py`
+(4 agents, packaged harness, custom post-run output), and
+`python_ant_foraging/test_llm_game.py` (custom replay filename) for
+real examples. Capture the returned `env` if you need to print
+game-specific results after the run.
 
 Place it next to the harness module:
 - OpenSpiel: `kaggle_environments/envs/open_spiel_env/games/<name>/test_llm_game.py`
