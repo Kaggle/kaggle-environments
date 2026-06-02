@@ -42,6 +42,20 @@ class PythonAntForagingState(proxy.State):
         arr = getattr(self.__wrapped__, attr)
         return [[round(float(v), 4) for v in row] for row in arr]
 
+    def _move_history(self) -> list[dict[str, Any]]:
+        """Game-wide move history derived from the engine action history.
+
+        OpenSpiel ant_foraging cycles players in fixed order 0, 1, ..., N-1
+        each round, so the i-th action in ``state.history()`` belongs to
+        player ``i % num_ants``. Exposed so cooperative agents can see what
+        their teammates have actually done, not just where they are now.
+        """
+        num_ants = int(self.__wrapped__._num_ants)
+        return [
+            {"seat": i % num_ants, "action": _ACTION_NAMES.get(int(a), "?")}
+            for i, a in enumerate(self.history())
+        ]
+
     def state_dict(self, player: int | None = None) -> dict[str, Any]:
         w = self.__wrapped__
         score = int(w._food_collected)
@@ -63,6 +77,7 @@ class PythonAntForagingState(proxy.State):
             "current_player": self.current_player(),
             "legal_actions": [int(a) for a in self.legal_actions()],
             "action_names": _ACTION_NAMES,
+            "move_history": self._move_history(),
             "is_terminal": self.is_terminal(),
         }
 

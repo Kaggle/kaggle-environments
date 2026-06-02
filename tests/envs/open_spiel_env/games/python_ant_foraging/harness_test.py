@@ -172,7 +172,7 @@ class GeneratePromptTest(absltest.TestCase):
 
     def test_includes_player_id_and_position(self):
         prompt = generate_prompt(self._obs(player_id=1, position=(2, 3)), [])
-        self.assertIn("(ant id) is 1", prompt)
+        self.assertIn("You are ant 1", prompt)
         self.assertIn("[2, 3]", prompt)
 
     def test_carrying_status_reflected(self):
@@ -181,13 +181,87 @@ class GeneratePromptTest(absltest.TestCase):
         prompt_searching = generate_prompt(self._obs(carrying=False), [])
         self.assertIn("searching for food", prompt_searching)
 
-    def test_move_history_included(self):
+    def test_move_history_falls_back_to_param(self):
+        # When the obs has no proxy-provided history (e.g. older proxy
+        # builds), the harness renders the per-agent history passed by
+        # the framework.
         prompt = generate_prompt(self._obs(), ["ant0:up", "ant1:down", "ant0:right"])
         self.assertIn("ant0:up, ant1:down, ant0:right", prompt)
+
+    def test_move_history_prefers_proxy_history(self):
+        # When the proxy exposes the game-wide history, that is preferred
+        # over the per-agent fallback so each agent sees what teammates
+        # actually did.
+        obs = self._obs()
+        parsed = json.loads(obs["observationString"])
+        parsed["move_history"] = [
+            {"seat": 0, "action": "up"},
+            {"seat": 1, "action": "down"},
+        ]
+        obs["observationString"] = json.dumps(parsed)
+        prompt = generate_prompt(obs, ["ant0:stay"])  # fallback should be ignored
+        self.assertIn("ant0:up, ant1:down", prompt)
+        self.assertNotIn("ant0:stay", prompt)
 
     def test_empty_move_history_shows_none(self):
         prompt = generate_prompt(self._obs(), [])
         self.assertIn("Moves taken so far this game: None", prompt)
+
+    def test_round_display_is_one_indexed(self):
+        # Engine ``turn`` is 0-indexed (turn=0 during the first round,
+        # turn=49 during the final round). The prompt must add 1 so the
+        # final round reads "round 50 of 50" rather than "round 49 of
+        # 50" (which models misread as "one round still remains").
+        prompt_start = generate_prompt(self._obs(turn=0), [])
+        self.assertIn("round 1 of 50", prompt_start)
+        prompt_final = generate_prompt(self._obs(turn=49), [])
+        self.assertIn("round 50 of 50", prompt_final)
+
+    def test_renders_ascii_grid_with_ants(self):
+        # Place ant 0 at the nest (4,4) and ant 1 at (2,3). The board
+        # rendering should show 'N' covered by '0' at the nest cell and
+        # '1' at row 2 col 3 (overlaid on '.').
+        obs = self._obs(player_id=0, position=(4, 4))
+        # Mutate ant 1's position.
+        parsed = json.loads(obs["observationString"])
+        parsed["ant_positions"] = [[4, 4], [2, 3]]
+        obs["observationString"] = json.dumps(parsed)
+        prompt = generate_prompt(obs, [])
+        # Header row of column indices is present.
+        self.assertIn("0 1 2 3 4 5 6 7", prompt)
+        # Row 2 with ant 1 at column 3.
+        self.assertIn(" 2  . . . 1 .", prompt)
+
+    def test_carrying_ant_renders_as_capital(self):
+        obs = self._obs(player_id=0, position=(4, 4), carrying=True)
+        prompt = generate_prompt(obs, [])
+        # Ant 0 carrying food → 'A' overlaid on the nest cell at row 4.
+        self.assertIn(" 4  . . . . A", prompt)
+
+    def test_pheromone_rendered_sparsely(self):
+        obs = self._obs()
+        parsed = json.loads(obs["observationString"])
+        pher = [[0.0] * 8 for _ in range(8)]
+        pher[3][5] = 0.81
+        pher[4][5] = 0.01  # below threshold, should be dropped
+        parsed["pheromone_to_food"] = pher
+        obs["observationString"] = json.dumps(parsed)
+        prompt = generate_prompt(obs, [])
+        self.assertIn("[3,5]=0.81", prompt)
+        self.assertNotIn("[4,5]=0.01", prompt)
+
+    def test_no_raw_legal_actions_in_prompt(self):
+        # The proxy still emits legal_actions / action_names in the obs,
+        # but the harness must not leak those into the rendered prompt
+        # (would amount to enumerating legal moves to the model).
+        obs = self._obs()
+        parsed = json.loads(obs["observationString"])
+        parsed["legal_actions"] = [0, 1, 2, 3, 4]
+        parsed["action_names"] = {"0": "stay", "1": "up", "2": "down", "3": "left", "4": "right"}
+        obs["observationString"] = json.dumps(parsed)
+        prompt = generate_prompt(obs, [])
+        self.assertNotIn("legal_actions", prompt)
+        self.assertNotIn("action_names", prompt)
 
     def test_rethink_suffix(self):
         prompt = generate_prompt(
