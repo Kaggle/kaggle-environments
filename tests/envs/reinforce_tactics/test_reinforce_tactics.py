@@ -16,7 +16,7 @@ import pytest
 
 ke = pytest.importorskip("kaggle_environments")
 
-from reinforcetactics.kaggle import reinforce_tactics as rt_module  # noqa: E402
+from kaggle_environments.envs.reinforce_tactics import reinforce_tactics as rt_module  # noqa: E402
 
 
 @pytest.fixture(scope="module", autouse=True)

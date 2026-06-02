@@ -13,8 +13,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from reinforcetactics.kaggle.reinforce_tactics_engine import GameState
-from reinforcetactics.kaggle.reinforce_tactics_engine.core.unit import Unit
+from kaggle_environments.envs.reinforce_tactics.reinforce_tactics_engine import GameState
+from kaggle_environments.envs.reinforce_tactics.reinforce_tactics_engine.core.unit import Unit
 
 
 def _small_map(width=10, height=10):
