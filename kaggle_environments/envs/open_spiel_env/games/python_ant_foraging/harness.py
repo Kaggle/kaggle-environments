@@ -281,7 +281,11 @@ def generate_prompt(
     num_ants = int(parsed.get("num_ants", 2))
     num_food = int(parsed.get("num_food", 3))
     max_turns = int(parsed.get("max_turns", 50))
-    turn = int(parsed.get("turn", 0))
+    # Display is 1-indexed so the final round reads "round 50 of 50"; the
+    # engine's 0-indexed ``turn`` would render "round 49 of 50" on the
+    # last round, which models systematically misread as "one round still
+    # remains". Mirrors the arena harness.
+    display_round = int(parsed.get("turn", 0)) + 1
     score = int(parsed.get("food_collected", parsed.get("score", 0)))
 
     ant_positions = parsed.get("ant_positions") or []
@@ -309,7 +313,7 @@ def generate_prompt(
         num_ants=num_ants,
         num_food=num_food,
         max_turns=max_turns,
-        turn=turn,
+        turn=display_round,
         score=score,
         player_id=player_id,
         your_position=your_position,

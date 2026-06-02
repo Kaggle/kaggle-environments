@@ -207,6 +207,16 @@ class GeneratePromptTest(absltest.TestCase):
         prompt = generate_prompt(self._obs(), [])
         self.assertIn("Moves taken so far this game: None", prompt)
 
+    def test_round_display_is_one_indexed(self):
+        # Engine ``turn`` is 0-indexed (turn=0 during the first round,
+        # turn=49 during the final round). The prompt must add 1 so the
+        # final round reads "round 50 of 50" rather than "round 49 of
+        # 50" (which models misread as "one round still remains").
+        prompt_start = generate_prompt(self._obs(turn=0), [])
+        self.assertIn("round 1 of 50", prompt_start)
+        prompt_final = generate_prompt(self._obs(turn=49), [])
+        self.assertIn("round 50 of 50", prompt_final)
+
     def test_renders_ascii_grid_with_ants(self):
         # Place ant 0 at the nest (4,4) and ant 1 at (2,3). The board
         # rendering should show 'N' covered by '0' at the nest cell and

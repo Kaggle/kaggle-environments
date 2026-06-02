@@ -272,9 +272,12 @@ def generate_prompt(
     move_number = int(obs.get("move_number", 0))
 
     # Normalize to per-team-round units so the model isn't comparing
-    # interleaved-step counts against round-based max_turns.
+    # interleaved-step counts against round-based max_turns. Display is
+    # 1-indexed so the final move reads "round 50 of 50"; the engine's
+    # 0-indexed count would read "round 49 of 50" on the last move, and
+    # models systematically misread that as "one round still remains".
     round_size = players_per_team * _NUM_TEAMS
-    current_round = move_number // round_size if round_size else 0
+    current_round = (move_number // round_size) + 1 if round_size else 1
 
     teammate_seat = (seat + 1) % players_per_team
     teammate_id = team_id * players_per_team + teammate_seat

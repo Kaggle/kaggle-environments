@@ -176,8 +176,33 @@ class GeneratePromptTest(absltest.TestCase):
         # The legacy "moves_remaining" field counted interleaved
         # single-player steps, mismatched against max_turns which counts
         # rounds. The prompt must surface round-based progress.
+        # Display is 1-indexed: game start is "round 1 of 50", final
+        # move is "round 50 of 50".
         prompt = generate_prompt(_make_arena_observation(player_id=0), [])
-        self.assertIn("round 0 of 50", prompt)
+        self.assertIn("round 1 of 50", prompt)
+
+    def test_round_display_is_one_indexed(self):
+        # Engine move_number is 0-indexed; the prompt must add 1 so the
+        # final move reads "round 50 of 50" rather than "round 49 of 50"
+        # (which models misread as "one round still remains").
+        game = pyspiel.load_game("ant_foraging_arena", {"seed": 1})
+        state = game.new_initial_state()
+        # Advance to the very last move (move_number == total_moves - 1).
+        # total_moves = max_turns * num_ants_per_team * NUM_TEAMS = 50*2*2 = 200.
+        total_moves = 50 * 2 * 2
+        for _ in range(total_moves - 1):
+            cp = state.current_player()
+            state.apply_action(state.legal_actions(cp)[0])
+        active = state.current_player()
+        obs = {
+            "observationString": state.observation_string(active),
+            "playerId": active,
+            "legalActions": list(state.legal_actions(active)),
+            "legalActionStrings": [state.action_to_string(active, a) for a in state.legal_actions(active)],
+        }
+        prompt = generate_prompt(obs, [])
+        # We're on the final move; display must say round 50.
+        self.assertIn("round 50 of 50", prompt)
 
     def test_no_raw_board_json_dump(self):
         # The earlier prompt embedded the whole board as a multi-page JSON
