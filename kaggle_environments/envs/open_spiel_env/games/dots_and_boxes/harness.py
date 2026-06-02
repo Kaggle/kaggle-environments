@@ -65,7 +65,7 @@ vertical r in 0..{rows_minus}, c in 0..{num_cols}.
 
 Board (``+`` = dot, ``-``/``|`` = drawn edge, ``.`` = open horizontal edge,
 ``:`` = open vertical edge; box cells show the owning player number when
-claimed, ``.`` when still open):
+claimed, ``*`` when still open):
 {board_ascii}
 
 Score: Player 1 = {p1_score}, Player 2 = {p2_score}. Boxes remaining:
@@ -149,7 +149,7 @@ def _format_board_ascii(state: Mapping[str, Any]) -> str:
     vertical edges as ``:`` so the model can distinguish a candidate
     vertical edge from an unclaimed box (both sit in the same row);
     drawn edges show ``---`` / ``|``; box cells show the owning player
-    digit or ``.`` for an unclaimed box.
+    digit or ``*`` for an unclaimed box.
     """
     num_rows = int(state.get("num_rows", 0))
     num_cols = int(state.get("num_cols", 0))
@@ -180,7 +180,7 @@ def _format_board_ascii(state: Mapping[str, Any]) -> str:
             parts.append("|" if owner else ":")
             if c < num_cols:
                 box_owner = boxes[r][c] if r < len(boxes) and c < len(boxes[r]) else 0
-                parts.append(f" {box_owner} " if box_owner else " . ")
+                parts.append(f" {box_owner} " if box_owner else " * ")
         lines.append("".join(parts))
 
     return "\n".join(lines)
