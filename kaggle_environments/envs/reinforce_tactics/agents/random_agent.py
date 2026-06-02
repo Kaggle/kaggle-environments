@@ -53,9 +53,7 @@ def agent(observation, configuration):
 
     # Find buildings we own that are unoccupied
     occupied = {(u["x"], u["y"]) for u in units}
-    my_buildings = [
-        s for s in structures if s["owner"] == player and s["type"] == "b" and (s["x"], s["y"]) not in occupied
-    ]
+    my_buildings = [s for s in structures if s["owner"] == player and s["type"] == "b" and (s["x"], s["y"]) not in occupied]
 
     # Parse enabled units from configuration
     enabled_str = getattr(configuration, "enabledUnits", "W,M,C,A,K,R,S,B")

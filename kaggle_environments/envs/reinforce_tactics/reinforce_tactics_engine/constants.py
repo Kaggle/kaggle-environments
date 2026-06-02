@@ -115,8 +115,8 @@ UNIT_DATA = {
         "name": "Cleric",
         "cost": 200,
         "color": (255, 215, 0),
-        "movement": 2,
-        "health": 8,
+        "movement": 3,
+        "health": 10,
         "attack": 2,
         "defence": 4,
     },
@@ -168,14 +168,17 @@ UNIT_DATA = {
         "static_path": "sorcerer.png",
         "animation_path": "sorcerer",
         "name": "Sorcerer",
-        "cost": 400,
+        "cost": 350,
         "color": (0, 191, 255),
         "movement": 2,
-        "health": 10,
+        "health": 12,
         "attack": {"adjacent": 6, "range": 8},
         "defence": 3,
     },
 }
+
+# All available unit types — canonical ordering used by RL environments and bots.
+ALL_UNIT_TYPES = ["W", "M", "C", "A", "K", "R", "S", "B"]
 
 # Starting gold for each player
 STARTING_GOLD = 250
@@ -184,6 +187,13 @@ STARTING_GOLD = 250
 HEADQUARTERS_INCOME = 150
 BUILDING_INCOME = 100
 TOWER_INCOME = 50
+
+# Hard ceiling on how many units a single player may have on the board at
+# once. Caps both the action-space balloon (move enumeration scales with
+# army size) and the "convert-all-gold-to-permanent-free-units" economy --
+# once at the cap, extra gold has no unit sink. Config-surfaced via
+# engine_overrides["max_units_per_player"].
+MAX_UNITS_PER_PLAYER = 50
 
 # Structure health
 TOWER_MAX_HEALTH = 30
@@ -206,17 +216,18 @@ ROGUE_EVADE_CHANCE = 0.15  # Rogue: 15% chance to dodge counter-attacks
 # Status effects
 PARALYZE_DURATION = 3
 PARALYZE_COOLDOWN = 2  # Turns before Mage can use Paralyze again
-HEAL_AMOUNT = 5
-HASTE_COOLDOWN = 3  # Turns before Sorcerer can use Haste again
+HEAL_AMOUNT = 7
+CLERIC_HEAL_RANGE = 3  # Max Manhattan distance for Cleric heal and cure-paralyze abilities
+HASTE_COOLDOWN = 2  # Turns before Sorcerer can use Haste again
 
 # Rogue forest bonus
 ROGUE_FOREST_EVADE_BONUS = 0.15  # Additional 15% dodge chance when in forest (15% + 15% = 30%)
 
 # Sorcerer buff abilities
 SORCERER_BUFF_DURATION = 3  # Turns the buff lasts
-SORCERER_BUFF_COOLDOWN = 3  # Turns before Sorcerer can use buff again
-SORCERER_DEFENCE_BUFF_AMOUNT = 0.35  # 35% damage reduction
-SORCERER_ATTACK_BUFF_AMOUNT = 0.35  # 35% damage increase
+SORCERER_BUFF_COOLDOWN = 2  # Turns before Sorcerer can use buff again
+SORCERER_DEFENCE_BUFF_AMOUNT = 0.50  # 50% damage reduction
+SORCERER_ATTACK_BUFF_AMOUNT = 0.50  # 50% damage increase
 
 # Tile type mapping (string code -> display name)
 # Kept for backwards compatibility

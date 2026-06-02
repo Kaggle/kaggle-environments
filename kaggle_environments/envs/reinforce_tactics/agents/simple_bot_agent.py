@@ -70,9 +70,7 @@ def agent(observation, configuration):
     occupied = {(u["x"], u["y"]) for u in units}
 
     # ---- Phase 1: Create units ----
-    my_buildings = [
-        s for s in structures if s["owner"] == player and s["type"] == "b" and (s["x"], s["y"]) not in occupied
-    ]
+    my_buildings = [s for s in structures if s["owner"] == player and s["type"] == "b" and (s["x"], s["y"]) not in occupied]
 
     for bldg in my_buildings:
         best = None

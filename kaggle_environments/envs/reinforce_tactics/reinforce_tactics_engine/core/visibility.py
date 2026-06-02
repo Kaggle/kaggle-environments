@@ -295,9 +295,7 @@ class VisibilityMap:
         return self.state.copy()
 
 
-def calculate_vision_radius(
-    unit_or_structure_type: str, tile_type: Optional[str] = None, is_structure: bool = False
-) -> int:
+def calculate_vision_radius(unit_or_structure_type: str, tile_type: Optional[str] = None, is_structure: bool = False) -> int:
     """Calculate vision radius for a unit or structure.
 
     Args:

@@ -51,13 +51,19 @@ class TileGrid:
 
         Returns:
             numpy array of shape (height, width, channels) where channels are:
-            0: tile_type (encoded as int)
+            0: tile_type (encoded as int; must stay in sync with
+               ``reinforcetactics.rl.observation.TILE_TYPE_ORDER``)
             1: tile_owner (0 for neutral, 1-4 for players)
             2: structure_hp_percentage (0-100)
         """
         result = np.zeros((self.height, self.width, 3), dtype=np.float32)
 
-        tile_type_encoding = {"p": 0, "w": 1, "m": 2, "f": 3, "r": 4, "b": 5, "h": 6, "t": 7}
+        # Ocean ("o") shares the water ("w") code: both are impassable and
+        # mechanically identical, so the RL observation treats them as one
+        # terrain class. Without the explicit "o" entry it would fall through
+        # the ``.get(..., 0)`` default below and be encoded as grass ("p"),
+        # making impassable ocean indistinguishable from open ground.
+        tile_type_encoding = {"p": 0, "w": 1, "m": 2, "f": 3, "r": 4, "b": 5, "h": 6, "t": 7, "o": 1}
 
         for y in range(self.height):
             for x in range(self.width):

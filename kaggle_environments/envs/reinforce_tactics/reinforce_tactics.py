@@ -33,6 +33,26 @@ _games = {}
 
 
 # ---------------------------------------------------------------------------
+# Engine balance overrides
+# Applied to every game so the competition environment matches the balance the
+# reference agents were trained under -- the engine_overrides block of
+# configs/ppo/bootstrap_sweep/v52a_maxturn_scaled_draw.yaml:
+#   * Warrior cost 200 -> 300 (economy; equalises it with the Mage so the
+#     mono-Warrior local optimum loses its cost-efficiency edge)
+#   * damage_model "flat" -> "hp_scaled" (a wounded unit deals proportionally
+#     less, so focus-fire is decisive and the even-attrition stalemate that
+#     drives max-turn draws is broken)
+# Starting gold and income are left at the engine defaults (v52a does not
+# override them). Resolved by GameState through the same engine_overrides path
+# the trainer uses, so the vendored constants.py stays a faithful copy.
+# ---------------------------------------------------------------------------
+ENGINE_OVERRIDES = {
+    "unit_data": {"W": {"cost": 300}},
+    "damage_model": "hp_scaled",
+}
+
+
+# ---------------------------------------------------------------------------
 # Specification (loaded from JSON)
 # ---------------------------------------------------------------------------
 _dirpath = path.dirname(__file__)
@@ -189,52 +209,370 @@ def _mark_agent_loss(state, losing_idx):
 
 
 # ---------------------------------------------------------------------------
-# Built-in Maps (from the upstream reinforce-tactics repository)
-# Format: 2D list of tile code strings (see README for tile codes).
-# Small maps are automatically padded to 20x20 with ocean borders.
+# Built-in maps (vendored from the repository's maps/1v1/*.csv).
+# Format: CSV-style rows of tile-code strings (see README for tile codes),
+# parsed into a 2D list. Small maps are auto-padded to 20x20 with ocean
+# borders at game start.
 # ---------------------------------------------------------------------------
+def _map_rows(block):
+    """Parse a CSV-style map block into a 2D list of tile-code strings."""
+    return [[cell.strip() for cell in line.split(",")] for line in block.strip().splitlines()]
+
+
 BUILTIN_MAPS = {
-    "beginner": [
-        ["h_1", "b_1", "p", "p", "p", "p"],
-        ["b_1", "p", "p", "p", "p", "p"],
-        ["p", "p", "t", "t", "p", "p"],
-        ["p", "p", "t", "t", "p", "p"],
-        ["p", "p", "p", "p", "p", "b_2"],
-        ["p", "p", "p", "p", "b_2", "h_2"],
-    ],
-    "crossroads": [
-        ["m", "m", "m", "m", "p", "p", "p", "p", "p", "p", "p", "p", "p", "p", "p"],
-        ["m", "h_1", "b_1", "m", "p", "p", "t", "p", "p", "p", "p", "p", "p", "p", "p"],
-        ["m", "b_1", "p", "m", "p", "f", "p", "p", "p", "p", "p", "p", "t", "p", "p"],
-        ["m", "m", "p", "p", "t", "f", "p", "p", "p", "p", "p", "p", "p", "p", "p"],
-        ["p", "p", "p", "p", "f", "p", "p", "b", "p", "p", "p", "p", "p", "p", "p"],
-        ["p", "t", "p", "p", "p", "p", "r", "r", "r", "p", "p", "t", "p", "p", "p"],
-        ["p", "p", "p", "p", "p", "r", "r", "t", "r", "r", "p", "p", "p", "p", "p"],
-        ["p", "p", "p", "b", "r", "r", "t", "b", "t", "r", "r", "b", "p", "p", "p"],
-        ["p", "p", "p", "p", "p", "r", "r", "t", "r", "r", "p", "p", "p", "p", "p"],
-        ["p", "p", "p", "t", "p", "p", "r", "r", "r", "p", "p", "p", "p", "t", "p"],
-        ["p", "p", "p", "p", "p", "p", "p", "b", "p", "p", "p", "p", "p", "p", "p"],
-        ["p", "p", "t", "p", "p", "p", "p", "p", "p", "p", "p", "p", "w", "w", "w"],
-        ["p", "p", "p", "p", "p", "p", "p", "p", "p", "p", "p", "w", "p", "b_2", "w"],
-        ["p", "p", "p", "p", "p", "p", "t", "p", "p", "p", "w", "b_2", "h_2", "w", "w"],
-        ["p", "p", "p", "p", "p", "p", "p", "p", "p", "p", "w", "w", "w", "w", "w"],
-    ],
-    "tower_rush": [
-        ["h_1", "b_1", "p", "p", "t", "p", "p", "p", "p", "t", "p", "p", "b_2", "h_2"],
-        ["b_1", "p", "p", "f", "p", "p", "t", "t", "p", "p", "f", "p", "p", "b_2"],
-        ["p", "p", "t", "p", "p", "b", "p", "p", "b", "p", "p", "t", "p", "p"],
-        ["p", "f", "p", "p", "t", "p", "p", "p", "p", "t", "p", "p", "f", "p"],
-        ["t", "p", "p", "t", "p", "p", "b", "b", "p", "p", "t", "p", "p", "t"],
-        ["p", "p", "b", "p", "p", "t", "p", "p", "t", "p", "p", "b", "p", "p"],
-        ["p", "t", "p", "p", "b", "p", "t", "t", "p", "b", "p", "p", "t", "p"],
-        ["p", "t", "p", "p", "b", "p", "t", "t", "p", "b", "p", "p", "t", "p"],
-        ["p", "p", "b", "p", "p", "t", "p", "p", "t", "p", "p", "b", "p", "p"],
-        ["t", "p", "p", "t", "p", "p", "b", "b", "p", "p", "t", "p", "p", "t"],
-        ["p", "f", "p", "p", "t", "p", "p", "p", "p", "t", "p", "p", "f", "p"],
-        ["p", "p", "t", "p", "p", "b", "p", "p", "b", "p", "p", "t", "p", "p"],
-        ["b_1", "p", "p", "f", "p", "p", "t", "t", "p", "p", "f", "p", "p", "b_2"],
-        ["h_1", "b_1", "p", "p", "t", "p", "p", "p", "p", "t", "p", "p", "b_2", "h_2"],
-    ],
+    "beginner": _map_rows(
+        """
+            h_1,b_1,p,p,p,p
+            b_1,p,p,p,p,p
+            p,p,t,t,p,p
+            p,p,t,t,p,p
+            p,p,p,p,p,b_2
+            p,p,p,p,b_2,h_2
+        """
+    ),
+    "cavalry_charge": _map_rows(
+        """
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,h_1,t_1,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,t_1,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,r,r,r,r,r,r,r,r,r,r,r,r,r,r,p,p,p
+            p,p,p,r,p,p,p,p,p,p,p,p,p,p,p,p,r,p,p,p
+            p,p,p,r,p,p,p,p,p,p,p,p,p,p,p,p,r,p,p,p
+            p,p,p,r,p,p,p,p,p,p,p,p,p,p,p,p,r,p,p,p
+            p,p,p,r,p,p,p,p,p,p,p,p,p,p,p,p,r,p,p,p
+            p,p,p,r,p,p,p,p,p,p,p,p,p,p,p,p,r,p,p,p
+            p,p,p,r,p,p,p,p,p,t,t,p,p,p,p,p,r,p,p,p
+            p,p,p,r,p,p,p,p,p,t,t,p,p,p,p,p,r,p,p,p
+            p,p,p,r,p,p,p,p,p,p,p,p,p,p,p,p,r,p,p,p
+            p,p,p,r,p,p,p,p,p,p,p,p,p,p,p,p,r,p,p,p
+            p,p,p,r,p,p,p,p,p,p,p,p,p,p,p,p,r,p,p,p
+            p,p,p,r,p,p,p,p,p,p,p,p,p,p,p,p,r,p,p,p
+            p,p,p,r,p,p,p,p,p,p,p,p,p,p,p,p,r,p,p,p
+            p,p,p,r,r,r,r,r,r,r,r,r,r,r,r,r,r,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,t_2,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,t_2,h_2,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+        """
+    ),
+    "center_mountains": _map_rows(
+        """
+            b_1,t,p,p,p,p,p,p,p,p,p,p,p,p,p,t,p,t
+            t,p,p,p,p,p,p,p,p,p,p,p,p,m,m,m,m,p
+            p,p,h_1,p,b_1,p,p,r,r,r,r,r,p,p,p,p,m,t
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,m,p
+            p,p,b_1,p,p,p,p,p,p,p,p,p,p,b,r,p,m,p
+            p,p,p,p,p,t,p,p,f,p,p,p,p,p,r,p,p,p
+            p,p,p,p,p,p,p,f,m,m,p,b,p,p,r,p,p,p
+            p,p,p,r,p,p,f,f,m,m,p,p,r,r,r,p,p,p
+            p,p,p,r,p,f,f,p,m,m,p,p,p,p,r,p,p,p
+            p,p,p,r,p,p,p,p,m,m,p,f,f,p,r,p,p,p
+            p,p,p,r,r,r,p,p,m,m,f,f,p,p,r,p,p,p
+            p,p,p,r,p,p,b,p,m,m,f,p,p,p,p,p,p,p
+            p,p,p,r,p,p,p,p,p,f,p,p,t,p,p,p,p,p
+            p,m,p,r,b,p,p,p,p,p,p,p,p,p,p,b_2,p,p
+            p,m,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            t,m,p,p,p,p,r,r,r,r,r,p,p,b_2,p,h_2,p,p
+            p,m,m,m,m,p,p,p,p,p,p,p,p,p,p,p,p,t
+            t,p,t,p,p,p,p,p,p,p,p,p,p,p,p,p,t,b_2
+        """
+    ),
+    "cleric_vigil": _map_rows(
+        """
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,h_1,t_1,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,t_1,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,f,p,p,p,p,p,p,p,p,f,p,p,p,p,p
+            p,p,p,p,p,f,p,p,p,p,p,p,p,p,f,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,m,m,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,t,t,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,t,t,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,m,m,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,f,p,p,p,p,p,p,p,p,f,p,p,p,p,p
+            p,p,p,p,p,f,p,p,p,p,p,p,p,p,f,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,t_2,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,t_2,h_2,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+        """
+    ),
+    "corner_points": _map_rows(
+        """
+            h_1,b_1,p,p,p,p,p,p,p,p,f,b
+            b_1,f,p,t,p,p,m,p,p,p,f,f
+            p,p,p,p,p,p,p,f,p,b,p,p
+            p,t,p,p,o,p,p,f,f,p,p,p
+            p,p,p,p,p,t,t,p,p,m,p,p
+            p,p,m,p,p,t,t,p,p,p,p,p
+            p,p,p,f,f,p,p,o,p,p,t,p
+            p,p,b,p,f,p,p,p,p,p,p,p
+            f,f,p,p,p,m,p,p,t,p,f,b_2
+            b,f,p,p,p,p,p,p,p,p,b_2,h_2
+        """
+    ),
+    "crossroads": _map_rows(
+        """
+            w,w,w,w,w,p,p,p,p,p,p,p,p,p,p
+            w,h_1,b_1,p,w,p,t,p,p,p,p,p,p,p,p
+            w,b_1,p,p,p,f,p,p,p,p,p,p,t,p,p
+            w,w,p,p,t,f,p,p,p,p,p,p,p,p,p
+            p,p,p,p,f,p,p,b,p,p,p,p,p,p,p
+            p,t,p,p,p,p,r,r,r,p,p,t,p,p,p
+            p,p,p,p,p,r,r,t,r,r,p,p,p,p,p
+            p,p,p,b,r,r,t,b,t,r,r,b,p,p,p
+            p,p,p,p,p,r,r,t,r,r,p,p,p,p,p
+            p,p,p,t,p,p,r,r,r,p,p,p,p,t,p
+            p,p,p,p,p,p,p,b,p,p,p,p,p,p,p
+            p,p,t,p,p,p,p,p,p,p,p,p,p,w,w
+            p,p,p,p,p,p,p,p,p,p,p,p,p,b_2,w
+            p,p,p,p,p,p,t,p,p,p,w,b_2,h_2,w,w
+            p,p,p,p,p,p,p,p,p,p,w,w,w,w,w
+        """
+    ),
+    "difficult_terrain": _map_rows(
+        """
+            p,p,p,p,p,p,p,p,p,p
+            p,f,p,m,p,r,f,m,b,w
+            p,f,h_1,b_1,w,p,w,p,m,w
+            p,w,f,r,m,b,m,m,p,w
+            p,f,b_1,r,p,r,r,p,m,w
+            p,m,p,r,m,m,r,b_2,p,w
+            p,p,f,b,m,p,r,p,m,m
+            p,w,w,m,m,b_2,r,h_2,f,w
+            p,b,f,m,p,f,f,f,p,w
+            p,m,f,w,w,f,m,f,f,w
+        """
+    ),
+    "funnel_point": _map_rows(
+        """
+            h_1,p,p,p,p,p,b,p,p,p,p,p,b_1
+            p,p,p,o,p,p,p,p,p,o,p,o,p
+            p,p,b_1,p,m,p,m,p,m,o,p,p,p
+            p,o,p,t,m,p,m,p,m,t,o,o,p
+            p,p,m,m,m,p,m,p,m,m,m,p,p
+            p,f,p,f,p,f,b,f,p,f,p,f,p
+            p,p,m,m,m,p,m,p,m,m,m,p,p
+            p,o,o,t,m,p,m,p,m,t,p,o,p
+            p,p,p,o,m,p,m,p,m,p,b_2,p,p
+            p,o,p,o,p,p,p,p,p,o,p,p,p
+            b_2,p,p,p,p,p,b,p,p,p,p,p,h_2
+        """
+    ),
+    "intermediate": _map_rows(
+        """
+            h_1,b_1,p,p,p,o,o
+            b_1,p,p,p,p,p,o
+            p,p,t,p,p,f,p
+            p,p,p,b,p,p,p
+            p,f,p,p,t,p,p
+            o,p,p,p,p,p,b_2
+            o,o,p,p,p,b_2,h_2
+        """
+    ),
+    "island_fortress": _map_rows(
+        """
+            h_1,b_1,p,p,w,w,w,p,p,w,w,w,p,p,p,p
+            b_1,p,p,t,w,w,p,p,p,p,w,w,t,p,p,p
+            p,p,f,p,w,p,p,b,b,p,p,w,p,f,p,p
+            p,t,p,p,p,p,t,p,p,t,p,p,p,p,t,p
+            w,w,w,p,p,p,p,w,w,p,p,p,p,w,w,w
+            w,w,p,p,t,p,w,w,w,w,p,t,p,p,w,w
+            w,p,p,b,p,p,p,t,t,p,p,p,b,p,p,w
+            p,p,r,p,w,p,r,r,r,r,p,w,p,r,p,p
+            p,p,r,p,w,p,r,r,r,r,p,w,p,r,p,p
+            w,p,p,b,p,p,p,t,t,p,p,p,b,p,p,w
+            w,w,p,p,t,p,w,w,w,w,p,t,p,p,w,w
+            w,w,w,p,p,p,p,w,w,p,p,p,p,w,w,w
+            p,t,p,p,p,p,t,p,p,t,p,p,p,p,t,p
+            p,p,f,p,w,p,p,b,b,p,p,w,p,f,p,p
+            p,p,p,t,w,w,p,p,p,p,w,w,t,p,p,b_2
+            p,p,p,p,w,w,w,p,p,w,w,w,p,p,b_2,h_2
+        """
+    ),
+    "last_stand": _map_rows(
+        """
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,h_1,t_1,p,p,p,p,m,m,p,p,m,m,p,p,p,p,p,p,p
+            p,t_1,p,p,f,p,p,p,p,p,p,p,p,p,p,f,p,p,p,p
+            p,p,p,p,f,p,p,p,p,p,p,p,p,p,p,f,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,m,p,p,p,t,p,p,t,p,p,p,m,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,f,p,p,p,p,p,p,p,p,p,p,p,p,f,p,p,p
+            p,p,p,p,p,p,p,t,p,p,p,p,t,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,m,m,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,m,m,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,t,p,p,p,p,t,p,p,p,p,p,p,p
+            p,p,p,f,p,p,p,p,p,p,p,p,p,p,p,p,f,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,m,p,p,p,t,p,p,t,p,p,p,m,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,f,p,p,p,p,p,p,p,p,p,p,f,p,p,p,p
+            p,p,p,p,f,p,p,p,p,p,p,p,p,p,p,f,p,t_2,p,p
+            p,p,p,p,p,p,p,m,m,p,p,m,m,p,p,p,p,t_2,h_2,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+        """
+    ),
+    "mage_showdown": _map_rows(
+        """
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,h_1,t_1,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,t_1,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,m,m,p,p,p,p,m,m,p,p,p,p,p,p
+            p,p,p,p,p,p,m,p,p,p,p,p,p,m,p,p,p,p,p,p
+            p,p,p,p,p,p,m,p,p,p,p,p,p,m,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,w,w,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,w,t,t,w,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,w,t,t,w,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,w,w,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,m,p,p,p,p,p,p,m,p,p,p,p,p,p
+            p,p,p,p,p,p,m,p,p,p,p,p,p,m,p,p,p,p,p,p
+            p,p,p,p,p,p,m,m,p,p,p,p,m,m,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,t_2,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,t_2,h_2,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+        """
+    ),
+    "mountain_snipers": _map_rows(
+        """
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,h_1,t_1,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,t_1,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,m,m,m,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,m,m,m,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,m,m,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,m,m,p,p,p,p,m,m,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,t,t,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,t,t,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,m,m,p,p,p,p,m,m,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,m,m,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,m,m,m,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,m,m,m,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,t_2,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,t_2,h_2,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+        """
+    ),
+    "rogue_flank": _map_rows(
+        """
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,h_1,t_1,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,t_1,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,f,f,p,p,p,p,p,p,f,f,p,p,p,p,p
+            p,p,p,p,p,f,p,p,p,p,p,p,p,p,f,p,p,p,p,p
+            p,p,p,p,p,f,p,p,f,f,f,f,p,p,f,p,p,p,p,p
+            p,p,p,p,p,f,p,p,p,p,p,p,p,p,f,p,p,p,p,p
+            p,p,p,p,p,f,p,p,p,p,p,p,p,p,f,p,p,p,p,p
+            p,p,p,p,p,f,p,p,p,t,t,p,p,p,f,p,p,p,p,p
+            p,p,p,p,p,f,p,p,p,t,t,p,p,p,f,p,p,p,p,p
+            p,p,p,p,p,f,p,p,p,p,p,p,p,p,f,p,p,p,p,p
+            p,p,p,p,p,f,p,p,p,p,p,p,p,p,f,p,p,p,p,p
+            p,p,p,p,p,f,p,p,f,f,f,f,p,p,f,p,p,p,p,p
+            p,p,p,p,p,f,p,p,p,p,p,p,p,p,f,p,p,p,p,p
+            p,p,p,p,p,f,f,p,p,p,p,p,p,f,f,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,t_2,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,t_2,h_2,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+        """
+    ),
+    "skirmish": _map_rows(
+        """
+            h_1,b_1,p,p,p,p,p,b
+            b_1,p,f,p,p,p,p,p
+            p,f,p,t,p,m,p,p
+            p,p,p,p,b,p,p,p
+            p,p,p,b,p,p,p,p
+            p,p,m,p,t,p,f,p
+            p,p,p,p,p,f,p,b_2
+            b,p,p,p,p,p,b_2,h_2
+        """
+    ),
+    "sorcerer_cabal": _map_rows(
+        """
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,h_1,t_1,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,t_1,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,f,f,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,f,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,m,m,p,p,m,m,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,t,t,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,t,t,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,t,t,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,t,t,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,m,m,p,p,m,m,p,p,p,p,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,f,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,f,f,p,p,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,t_2,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,t_2,h_2,p
+            p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p
+        """
+    ),
+    "starter": _map_rows(
+        """
+            o,o,o,o,o,o
+            o,h_1,b_1,p,p,o
+            o,b_1,p,t,p,o
+            o,p,t,p,b_2,o
+            o,p,p,b_2,h_2,o
+            o,o,o,o,o,o
+        """
+    ),
+    "the_narrows": _map_rows(
+        """
+            m,m,m,m,m,m,p,p,p,p,m,m,m,m,m,m
+            m,m,h_1,b_1,p,p,p,t,p,p,p,b_2,h_2,m,m,m
+            m,m,b_1,p,p,f,p,p,p,f,p,p,b_2,m,m,m
+            m,m,p,p,t,p,p,r,p,p,t,p,p,m,m,m
+            m,p,p,f,p,p,r,r,r,p,p,f,p,p,m,m
+            p,p,t,p,m,m,r,b,r,m,m,p,t,p,p,m
+            p,p,p,m,m,m,r,t,r,m,m,m,p,p,p,m
+            p,r,r,r,r,r,r,p,r,r,r,r,r,r,p,m
+            p,r,r,r,r,r,r,p,r,r,r,r,r,r,p,m
+            p,p,p,m,m,m,r,t,r,m,m,m,p,p,p,m
+            p,p,t,p,m,m,r,b,r,m,m,p,t,p,p,m
+            m,p,p,f,p,p,r,r,r,p,p,f,p,p,m,m
+            m,m,p,p,t,p,p,r,p,p,t,p,p,m,m,m
+            m,m,b_1,p,p,f,p,p,p,f,p,p,b_2,m,m,m
+            m,m,b_1,p,p,p,p,t,p,p,p,p,b_2,m,m,m
+            m,m,m,m,m,m,p,p,p,p,m,m,m,m,m,m
+        """
+    ),
+    "tower_rush": _map_rows(
+        """
+            h_1,b_1,p,p,t,p,p,p,p,t,p,p,b_2,h_2
+            b_1,p,p,f,p,p,t,t,p,p,f,p,p,b_2
+            p,p,t,p,p,b,p,p,b,p,p,t,p,p
+            p,f,p,p,t,p,p,p,p,t,p,p,f,p
+            t,p,p,t,p,p,b,b,p,p,t,p,p,t
+            p,p,b,p,p,t,p,p,t,p,p,b,p,p
+            p,t,p,p,b,p,t,t,p,b,p,p,t,p
+            p,t,p,p,b,p,t,t,p,b,p,p,t,p
+            p,p,b,p,p,t,p,p,t,p,p,b,p,p
+            t,p,p,t,p,p,b,b,p,p,t,p,p,t
+            p,f,p,p,t,p,p,p,p,t,p,p,f,p
+            p,p,t,p,p,b,p,p,b,p,p,t,p,p
+            b_1,p,p,f,p,p,t,t,p,p,f,p,p,b_2
+            h_1,b_1,p,p,t,p,p,p,p,t,p,p,b_2,h_2
+        """
+    ),
 }
 
 
@@ -370,6 +708,7 @@ def _init_game(config):
         max_turns=config.episodeSteps,
         enabled_units=enabled_units,
         fog_of_war=fog_of_war,
+        engine_overrides=ENGINE_OVERRIDES,
     )
 
     # Override starting gold if configured

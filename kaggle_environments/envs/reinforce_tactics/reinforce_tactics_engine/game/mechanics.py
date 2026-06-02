@@ -8,6 +8,7 @@ from ..constants import (
     BUILDING_INCOME,
     CHARGE_BONUS,
     CHARGE_MIN_DISTANCE,
+    CLERIC_HEAL_RANGE,
     COUNTER_ATTACK_MULTIPLIER,
     DEFENCE_REDUCTION_PER_POINT,
     FLANK_BONUS,
@@ -133,22 +134,14 @@ class GameMechanics:
     @staticmethod
     def get_healable_allies(cleric, units):
         """
-        Get list of damaged friendly units within the Cleric's heal range (1-2 tiles).
-
-        Args:
-            cleric: The Cleric unit
-            units: List of all units
-
-        Returns:
-            List of allied units within range 1-2 that are damaged
+        Get damaged friendly units within the Cleric's heal range (1..CLERIC_HEAL_RANGE).
         """
         healable = []
 
         for ally in units:
             if ally.player == cleric.player and ally.health > 0 and ally != cleric:
-                # Check distance (range 1-2)
                 distance = abs(cleric.x - ally.x) + abs(cleric.y - ally.y)
-                if 1 <= distance <= 2 and ally.health < ally.max_health:
+                if 1 <= distance <= CLERIC_HEAL_RANGE and ally.health < ally.max_health:
                     healable.append(ally)
 
         return healable
@@ -156,22 +149,14 @@ class GameMechanics:
     @staticmethod
     def get_curable_allies(cleric, units):
         """
-        Get list of paralyzed friendly units within the Cleric's cure range (1-2 tiles).
-
-        Args:
-            cleric: The Cleric unit
-            units: List of all units
-
-        Returns:
-            List of allied units within range 1-2 that are paralyzed
+        Get paralyzed friendly units within the Cleric's cure range (1..CLERIC_HEAL_RANGE).
         """
         curable = []
 
         for ally in units:
             if ally.player == cleric.player and ally.health > 0 and ally != cleric:
-                # Check distance (range 1-2)
                 distance = abs(cleric.x - ally.x) + abs(cleric.y - ally.y)
-                if 1 <= distance <= 2 and ally.is_paralyzed():
+                if 1 <= distance <= CLERIC_HEAL_RANGE and ally.is_paralyzed():
                     curable.append(ally)
 
         return curable
@@ -307,7 +292,21 @@ class GameMechanics:
         return buffable
 
     @staticmethod
-    def _calculate_counter_damage(unit, target_x, target_y, grid):
+    def _hp_damage_scale(unit, damage_model):
+        """Multiplier applied to a unit's outgoing damage under ``damage_model``.
+
+        ``"flat"`` (default/legacy) returns 1.0 -- damage is HP-independent.
+        ``"hp_scaled"`` returns the unit's current HP fraction so a wounded
+        unit deals proportionally less (the engine-side analog of seize,
+        which already scales with ``unit.health``). Guards against a zero /
+        missing ``max_health`` by falling back to 1.0.
+        """
+        if damage_model == "hp_scaled" and getattr(unit, "max_health", 0):
+            return unit.health / unit.max_health
+        return 1.0
+
+    @staticmethod
+    def _calculate_counter_damage(unit, target_x, target_y, grid, damage_model="flat"):
         """
         Calculate counter-attack damage for a unit.
 
@@ -316,6 +315,11 @@ class GameMechanics:
             target_x: X coordinate of the target
             target_y: Y coordinate of the target
             grid: TileGrid instance (optional, for checking mountain tiles)
+            damage_model: "flat" or "hp_scaled" (see ``attack_unit``). Under
+                "hp_scaled" the counter is scaled by the counter-attacker's
+                HP fraction -- and because counters are computed *after* the
+                unit has taken the incoming hit, a freshly-wounded defender
+                counters weaker, which is what makes focus-fire pay off.
 
         Returns:
             Counter-attack damage as integer
@@ -325,10 +329,12 @@ class GameMechanics:
             tile = grid.get_tile(unit.x, unit.y)
             on_mountain = tile.type == "m"
 
-        return int(unit.get_attack_damage(target_x, target_y, on_mountain) * COUNTER_ATTACK_MULTIPLIER)
+        base = unit.get_attack_damage(target_x, target_y, on_mountain) * COUNTER_ATTACK_MULTIPLIER
+        base = base * GameMechanics._hp_damage_scale(unit, damage_model)
+        return int(base)
 
     @staticmethod
-    def attack_unit(attacker, target, grid=None, units=None):
+    def attack_unit(attacker, target, grid=None, units=None, damage_model="flat"):
         """
         Execute an attack from attacker to target.
 
@@ -337,6 +343,9 @@ class GameMechanics:
             target: The target unit
             grid: TileGrid instance (optional, for checking mountain tiles)
             units: List of all units (optional, for flanking checks)
+            damage_model: "flat" (HP-independent, legacy) or "hp_scaled"
+                (outgoing damage scaled by the attacker's current HP
+                fraction). Applies symmetrically to the counter-attack.
 
         Returns:
             dict with 'attacker_alive', 'target_alive', 'damage', 'counter_damage',
@@ -348,8 +357,13 @@ class GameMechanics:
             attacker_tile = grid.get_tile(attacker.x, attacker.y)
             attacker_on_mountain = attacker_tile.type == "m"
 
-        # Calculate base attack damage
+        # Calculate base attack damage. Under "hp_scaled" the base is reduced
+        # by the attacker's current HP fraction *before* ability bonuses and
+        # defence reduction, so a wounded unit hits proportionally weaker
+        # (makes focus-fire decisive and discourages the even-attrition
+        # stalemate flat damage produces). "flat" scales by 1.0 (legacy).
         base_attack_damage = attacker.get_attack_damage(target.x, target.y, attacker_on_mountain)
+        base_attack_damage = base_attack_damage * GameMechanics._hp_damage_scale(attacker, damage_model)
 
         # Apply special ability bonuses
         charge_applied = False
@@ -411,7 +425,9 @@ class GameMechanics:
 
             if can_counter:
                 # Calculate base counter damage
-                base_counter_damage = GameMechanics._calculate_counter_damage(target, attacker.x, attacker.y, grid)
+                base_counter_damage = GameMechanics._calculate_counter_damage(
+                    target, attacker.x, attacker.y, grid, damage_model=damage_model
+                )
 
                 # Apply attack buff to counter-attacker (target)
                 if target.has_attack_buff():
@@ -451,6 +467,18 @@ class GameMechanics:
         if target.player == paralyzer.player:
             return False
 
+        # Mage paralyze range is 1..2 -- mirror of the mask gate in
+        # ``GameState.get_legal_actions`` (``distance <= 2``). Kept
+        # symmetric with haste/buff helpers so any future mask
+        # tightening can't reopen the heal-spam loop pattern:
+        # mask-only filters let through a legal-but-unexecutable
+        # action that, under a deterministic policy, traps the
+        # legal-actions cache (which only invalidates on successful
+        # mutations).
+        distance = abs(paralyzer.x - target.x) + abs(paralyzer.y - target.y)
+        if distance < 1 or distance > 2:
+            return False
+
         target.paralyzed_turns = PARALYZE_DURATION
         paralyzer.paralyze_cooldown = PARALYZE_COOLDOWN
         return True
@@ -473,9 +501,15 @@ class GameMechanics:
         if target.player != healer.player:
             return -1
 
-        # Check distance (range 1-2)
+        # Check distance (range 1..CLERIC_HEAL_RANGE). Must agree with
+        # ``get_healable_allies`` (the mask builder); a tighter bound here
+        # produces mask/execution drift -- the mask advertises heal
+        # actions whose execution returns -1 with no state change, and
+        # under a deterministic policy that loops the legal_actions
+        # cache forever (eval signature: thousands of consecutive
+        # invalid heal actions until max_steps truncation).
         distance = abs(healer.x - target.x) + abs(healer.y - target.y)
-        if distance < 1 or distance > 2:
+        if distance < 1 or distance > CLERIC_HEAL_RANGE:
             return -1
 
         if target.health >= target.max_health:
@@ -494,9 +528,12 @@ class GameMechanics:
         if target.player != curer.player:
             return False
 
-        # Check distance (range 1-2)
+        # Check distance (range 1..CLERIC_HEAL_RANGE). Mirror of the
+        # same fix applied to ``heal_unit``: mask uses
+        # ``CLERIC_HEAL_RANGE`` so cure must too, or the mask/execution
+        # disagreement re-opens the heal-spam loop on a paralyzed ally.
         distance = abs(curer.x - target.x) + abs(curer.y - target.y)
-        if distance < 1 or distance > 2:
+        if distance < 1 or distance > CLERIC_HEAL_RANGE:
             return False
 
         if not target.is_paralyzed():
@@ -725,13 +762,16 @@ class GameMechanics:
             tile: The structure tile
 
         Returns:
-            dict with 'captured' boolean and 'game_over' boolean
+            dict with 'captured' boolean, 'game_over' boolean, and
+            'structure_type' (single-letter tile code) so callers can break
+            capture counts down by structure type without having to
+            re-look-up the tile.
         """
         if not tile.is_capturable():
-            return {"captured": False, "game_over": False}
+            return {"captured": False, "game_over": False, "structure_type": tile.type}
 
         if tile.player == unit.player:
-            return {"captured": False, "game_over": False}
+            return {"captured": False, "game_over": False, "structure_type": tile.type}
 
         if tile.regenerating:
             tile.regenerating = False
@@ -751,7 +791,13 @@ class GameMechanics:
             if tile.type == "h":
                 game_over = True
 
-        return {"captured": captured, "game_over": game_over, "damage": damage, "remaining_hp": tile.health}
+        return {
+            "captured": captured,
+            "game_over": game_over,
+            "damage": damage,
+            "remaining_hp": tile.health,
+            "structure_type": tile.type,
+        }
 
     @staticmethod
     def reset_structure_if_vacated(tile, units):
@@ -799,8 +845,25 @@ class GameMechanics:
         return regenerated
 
     @staticmethod
-    def calculate_income(player, grid):
-        """Calculate income for a player based on controlled structures."""
+    def calculate_income(player, grid, income_rates=None):
+        """Calculate income for a player based on controlled structures.
+
+        Args:
+            player: Player number to compute income for.
+            grid: The tile grid.
+            income_rates: Optional ``{"headquarters", "building", "tower"}``
+                per-structure rate overrides. When ``None`` the module
+                constants are used, preserving behaviour for every legacy
+                caller. ``GameState`` passes its per-game resolved rates so
+                engine-override (economy) sweeps flow through here without
+                mutating the shared module constants.
+        """
+        if income_rates is None:
+            income_rates = {
+                "headquarters": HEADQUARTERS_INCOME,
+                "building": BUILDING_INCOME,
+                "tower": TOWER_INCOME,
+            }
         headquarters_count = 0
         building_count = 0
         tower_count = 0
@@ -816,7 +879,9 @@ class GameMechanics:
                         tower_count += 1
 
         total_income = (
-            headquarters_count * HEADQUARTERS_INCOME + building_count * BUILDING_INCOME + tower_count * TOWER_INCOME
+            headquarters_count * income_rates["headquarters"]
+            + building_count * income_rates["building"]
+            + tower_count * income_rates["tower"]
         )
 
         return {
