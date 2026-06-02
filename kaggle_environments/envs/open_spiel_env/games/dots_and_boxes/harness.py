@@ -60,7 +60,7 @@ Valid ranges: horizontal r in 0..{num_rows}, c in 0..{cols_minus};
 vertical r in 0..{rows_minus}, c in 0..{num_cols}.
 
 Board (``+`` = dot, ``-``/``|`` = drawn edge, ``.`` = open edge; box cells
-show the owning player number when claimed, ``.`` when still open):
+show the owning player number when claimed, ``*`` when still open):
 {board_ascii}
 
 Score: Player 1 = {p1_score}, Player 2 = {p2_score}. Boxes remaining:
@@ -173,7 +173,7 @@ def _format_board_ascii(state: Mapping[str, Any]) -> str:
             parts.append("|" if owner else ".")
             if c < num_cols:
                 box_owner = boxes[r][c] if r < len(boxes) and c < len(boxes[r]) else 0
-                parts.append(f" {box_owner} " if box_owner else " . ")
+                parts.append(f" {box_owner} " if box_owner else " * ")
         lines.append("".join(parts))
 
     return "\n".join(lines)
