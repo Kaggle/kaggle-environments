@@ -265,12 +265,17 @@ export function renderer(options: RendererOptions<ChessStep[]>) {
     currentStatusTextElement.innerHTML = '';
     currentWinnerTextElement.innerHTML = '';
     if (chessStep.isTerminal) {
+      const escapeHtml = (s: string) =>
+        s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      const forfeitHtml = chessStep.forfeitReason
+        ? `<div style="font-size: ${isMobile ? '0.75rem' : '0.85rem'}; font-weight: 400; font-style: italic; color: #666; margin-top: 4px; max-width: 600px;">${escapeHtml(chessStep.forfeitReason)}</div>`
+        : '';
       if (isMobile) {
         currentStatusTextElement.innerHTML = `<div style="font-size: 0.9rem; color: #666;">Winner</div>`;
-        currentWinnerTextElement.innerHTML = `<div style="font-size: 1.1rem; font-weight: bold;">${chessStep.winner}</div>`;
+        currentWinnerTextElement.innerHTML = `<div style="font-size: 1.1rem; font-weight: bold;">${chessStep.winner}</div>${forfeitHtml}`;
       } else {
         currentStatusTextElement.textContent = '';
-        currentWinnerTextElement.innerHTML = `<span style="font-weight: bold; color: black;">${chessStep.winner}</span>`;
+        currentWinnerTextElement.innerHTML = `<span style="font-weight: bold; color: black;">${chessStep.winner}</span>${forfeitHtml}`;
       }
     } else {
       const currentPlayer = chessStep.players.find((player) => player.isTurn);

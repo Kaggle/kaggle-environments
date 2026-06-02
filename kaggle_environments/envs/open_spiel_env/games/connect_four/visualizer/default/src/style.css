@@ -26,6 +26,7 @@ html, body, #app {
 
 .status-bar {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 8px;
@@ -35,12 +36,28 @@ html, body, #app {
   font-weight: 500;
   min-height: 18px;
   flex-shrink: 0;
+  gap: 4px;
+}
+
+.status-bar .status-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .status-bar .token {
   width: 20px;
   height: 20px;
   margin-right: 8px;
+}
+
+.status-bar .forfeit-reason {
+  font-weight: 400;
+  font-size: 12px;
+  opacity: 0.8;
+  font-style: italic;
+  text-align: center;
+  max-width: 600px;
 }
 
 .player-legend {

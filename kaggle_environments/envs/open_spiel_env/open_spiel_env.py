@@ -7,7 +7,6 @@ import logging
 import os
 import pathlib
 import random
-import re
 import sys
 import warnings
 from typing import Any, Callable
@@ -15,11 +14,15 @@ from typing import Any, Callable
 import numpy as np
 import pokerkit  # noqa: F401
 import pyspiel
-from open_spiel.python.games import pokerkit_wrapper  # noqa: F401
-
-from kaggle_environments.envs.open_spiel_env.games.snake import snake_game  # noqa: F401
+from open_spiel.python.games import (
+    ant_foraging,  # noqa: F401
+    pokerkit_wrapper,  # noqa: F401
+)
 
 from kaggle_environments import core, utils
+from kaggle_environments.envs.open_spiel_env.games.ant_foraging_arena import ant_foraging_arena_game  # noqa: F401
+from kaggle_environments.envs.open_spiel_env.games.coin_game_arena import coin_game_arena_game  # noqa: F401
+from kaggle_environments.envs.open_spiel_env.games.snake import snake_game  # noqa: F401
 
 ERROR = "ERROR"
 DONE = "DONE"
@@ -123,7 +126,10 @@ CONFIGURATION_SPEC_TEMPLATE = {
         "default": False,
     },
     "seed": {
-        "description": "Integer currently only used for selecting starting position.",
+        "description": (
+            "Integer used to select a starting position (when useOpenings is true)"
+            " and to seed chance-node sampling so episodes are reproducible."
+        ),
         "type": "number",
     },
     "initialActions": {
@@ -147,6 +153,66 @@ CONFIGURATION_SPEC_TEMPLATE = {
         },
     },
     "metadata": {"description": "Arbitrary metadata.", "type": "object", "default": {}},
+    "strictMode": {
+        "description": (
+            "If true, agents must return only {'submission': int} (no extra fields"
+            " like 'thoughts'), and per-agent TIMEOUT/ERROR/INVALID counts as a"
+            " loss for the offending agent only — other agents are marked DONE"
+            " with a winning reward. The offender keeps its natural ERROR or"
+            " TIMEOUT status (matching how every other Kaggle competition"
+            " reports per-player failures). If false (default), any agent error"
+            " halts and voids the entire episode, matching the lenient"
+            " research-mode behavior."
+        ),
+        "type": "boolean",
+        "default": False,
+    },
+    "savePrompt": {
+        "description": ("If disabled, skip logging LLM prompts in the replay file."),
+        "type": "boolean",
+        "default": True,
+    },
+    "saveResponse": {
+        "description": (
+            "If disabled, skip logging raw LLM responses in the replay file."
+            " Extracted thoughts (which typically contain everything but the"
+            " final move tag) are still logged on the action, so the legal"
+            " response is effectively preserved."
+        ),
+        "type": "boolean",
+        "default": True,
+    },
+    "freeForm": {
+        "description": (
+            "If true, the core harness allows free-form actions"
+            " (get_legal_moves may return None) on turns where the action"
+            " space is not enumerable. Defaults to false for OpenSpiel games."
+        ),
+        "type": "boolean",
+        "default": False,
+    },
+    "includeGenerateReturns": {
+        "description": (
+            "If true, include a legacy generate_returns field on each action"
+            " with per-LLM-call metadata (model, token counts, finish reason,"
+            " duration). Useful for cost tracking and visualization pipelines."
+        ),
+        "type": "boolean",
+        "default": False,
+    },
+    "illegalMoveForfeit": {
+        "description": (
+            "If true (default), when an LLM harness exhausts its retries"
+            " without producing a legal move, it submits an invalid action"
+            " so this player forfeits via the env's INVALID path (matching"
+            " the game_arena convention). If false, the harness re-raises"
+            " the parse failure, which voids the whole episode. Only affects"
+            " exhaustion from illegal/unparsable moves; uncaught exceptions"
+            " still propagate either way."
+        ),
+        "type": "boolean",
+        "default": True,
+    },
 }
 
 OBSERVATION_SPEC_TEMPLATE = {
@@ -384,6 +450,9 @@ def interpreter(
         env.info["openSpielGameStringResolved"] = str(env.os_game)
     if not hasattr(env, "os_state"):
         env.os_state = env.os_game.new_initial_state()
+    if not hasattr(env, "chance_rng"):
+        seed = env.configuration.get("seed", None)
+        env.chance_rng = np.random.default_rng(seed) if seed is not None else np.random
     if "stateHistory" not in env.info:
         env.info["stateHistory"] = [str(env.os_state)]
     if "actionHistory" not in env.info:
@@ -439,11 +508,18 @@ def interpreter(
     simul_move_durations: list[float | None] = [None] * num_players
     simul_all_valid = False
 
+    strict_mode = bool(env.configuration.get("strictMode", False))
+
     if is_initial_step:
         pass
     elif 0 <= acting_agent < num_players:
         if kaggle_state[acting_agent]["status"] != "ACTIVE":
             pass
+        elif strict_mode and (
+            not isinstance(kaggle_state[acting_agent]["action"], dict)
+            or set(kaggle_state[acting_agent]["action"].keys()) != {"submission"}
+        ):
+            kaggle_state[acting_agent]["status"] = "INVALID"
         else:
             action_submitted = kaggle_state[acting_agent]["action"]["submission"]
             if action_submitted in os_state.legal_actions():
@@ -452,6 +528,10 @@ def interpreter(
                 action_applied = action_submitted
                 env.info["actionHistory"].append(str(action_applied))
                 env.info["stateHistory"].append(str(os_state))
+                # Visualizers (e.g. goTransformer) read actionString off the
+                # action dict to render moves. The LLM harness populates this
+                # itself; for code-submission agents we populate it here.
+                kaggle_state[acting_agent]["action"]["actionString"] = action_submitted_to_string
             elif action_submitted == AGENT_ERROR_ACTION:
                 kaggle_state[acting_agent]["status"] = "ERROR"
             else:
@@ -478,6 +558,13 @@ def interpreter(
             if kaggle_state[pid]["status"] != "ACTIVE":
                 simul_all_valid = False
                 break
+            if strict_mode and (
+                not isinstance(kaggle_state[pid]["action"], dict)
+                or set(kaggle_state[pid]["action"].keys()) != {"submission"}
+            ):
+                kaggle_state[pid]["status"] = "INVALID"
+                simul_all_valid = False
+                break
             sub = kaggle_state[pid]["action"]["submission"]
             simul_actions_submitted[pid] = sub
             if sub == AGENT_ERROR_ACTION:
@@ -496,6 +583,9 @@ def interpreter(
             os_state.apply_actions(actions_for_apply)
             for pid in range(num_players):
                 simul_actions_applied[pid] = simul_actions_submitted[pid]
+                # See note above: surface actionString for visualizers.
+                if simul_actions_submitted_to_string[pid] is not None:
+                    kaggle_state[pid]["action"]["actionString"] = simul_actions_submitted_to_string[pid]
             env.info["actionHistory"].append(str(actions_for_apply))
             env.info["stateHistory"].append(str(os_state))
 
@@ -525,7 +615,7 @@ def interpreter(
         if preset_action is not None:
             chance_action = preset_action
         else:
-            chance_action = np.random.choice(outcomes, p=probs)
+            chance_action = env.chance_rng.choice(outcomes, p=probs)
         os_state.apply_action(chance_action)
         env.info["actionHistory"].append(str(chance_action))
         env.info["stateHistory"].append(str(os_state))
@@ -542,7 +632,18 @@ def interpreter(
     status: str | None = None
     for player_id, agent_state in enumerate(kaggle_state):
         reward = None
-        if agent_error:
+        if agent_error and strict_mode:
+            # Per-player scoping like every other competition: offender keeps
+            # its natural ERROR / TIMEOUT status (core.py will null its reward),
+            # others get DONE + winning reward. The kaggleazure open_spiel
+            # carveout is gated on UseModelProxy / EnableInternet so non-DONE
+            # statuses no longer void the episode in strict-mode competitions.
+            if agent_state["status"] in ("TIMEOUT", "ERROR"):
+                status = agent_state["status"]
+            else:
+                reward = -DEFAULT_INVALID_ACTION_REWARD
+                status = "DONE"
+        elif agent_error:
             # Set all agent statuses to ERROR in order not to score episode. Preserve
             # TIMEOUT which has the same effect.
             if agent_state["status"] == "TIMEOUT":
@@ -578,9 +679,7 @@ def interpreter(
             info_dict["actionApplied"] = simul_actions_applied[player_id]
             info_dict["timeTaken"] = simul_move_durations[player_id]
             info_dict["agentSelfReportedStatus"] = (
-                kaggle_state[player_id]["action"].get("status")
-                if kaggle_state[player_id]["action"]
-                else "unknown"
+                kaggle_state[player_id]["action"].get("status") if kaggle_state[player_id]["action"] else "unknown"
             )
         elif acting_agent == player_id:
             info_dict["actionSubmitted"] = action_submitted
@@ -689,7 +788,25 @@ function renderer(context) {
 def _get_html_renderer_content(
     open_spiel_short_name: str, base_path_for_custom_renderers: pathlib.Path, default_renderer_func: Callable[[], str]
 ) -> str:
-    """Tries to load a custom JS renderer for the game, falls back to default."""
+    """Tries to load a custom HTML/JS renderer for the game, falls back to default."""
+    # Prefer the built Vite visualizer at games/<name>/visualizer/default/dist/index.html
+    dist_index_path = pathlib.Path(
+        base_path_for_custom_renderers,
+        open_spiel_short_name,
+        "visualizer",
+        "default",
+        "dist",
+        "index.html",
+    )
+    if dist_index_path.is_file():
+        try:
+            with open(dist_index_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            _log.debug(f"Using built HTML visualizer for {open_spiel_short_name} from {dist_index_path}")
+            return content
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            _log.debug(e)
+    # Fallback to legacy single-file JS renderer at games/<name>/<name>.js
     custom_renderer_js_path = pathlib.Path(
         base_path_for_custom_renderers,
         open_spiel_short_name,
@@ -710,11 +827,46 @@ def _get_html_renderer_content(
 
 
 _RANDOM_THOUGHT_WORDS = (
-    "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta",
-    "iota", "kappa", "lambda", "mu", "nu", "xi", "omicron", "pi",
-    "rho", "sigma", "tau", "upsilon", "phi", "chi", "psi", "omega",
-    "ponder", "muse", "wonder", "consider", "reflect", "imagine", "explore", "drift",
-    "spark", "ripple", "echo", "shadow", "horizon", "lantern", "cascade", "ember",
+    "alpha",
+    "beta",
+    "gamma",
+    "delta",
+    "epsilon",
+    "zeta",
+    "eta",
+    "theta",
+    "iota",
+    "kappa",
+    "lambda",
+    "mu",
+    "nu",
+    "xi",
+    "omicron",
+    "pi",
+    "rho",
+    "sigma",
+    "tau",
+    "upsilon",
+    "phi",
+    "chi",
+    "psi",
+    "omega",
+    "ponder",
+    "muse",
+    "wonder",
+    "consider",
+    "reflect",
+    "imagine",
+    "explore",
+    "drift",
+    "spark",
+    "ripple",
+    "echo",
+    "shadow",
+    "horizon",
+    "lantern",
+    "cascade",
+    "ember",
 )
 
 
@@ -723,13 +875,15 @@ def random_agent(
     configuration: dict[str, Any],
 ) -> int:
     """A built-in random agent specifically for OpenSpiel environments."""
-    del configuration
     legal_actions = observation.get("legalActions")
     if not legal_actions:
         return None
-    action = random.choice(legal_actions)
+    action = int(random.choice(legal_actions))
+    # strictMode requires the action dict to contain ONLY 'submission'.
+    if configuration.get("strictMode", False):
+        return {"submission": action}
     thoughts = " ".join(random.choices(_RANDOM_THOUGHT_WORDS, k=8))
-    return {"submission": int(action), "thoughts": thoughts}
+    return {"submission": action, "thoughts": thoughts}
 
 
 AGENT_REGISTRY = {
@@ -859,20 +1013,32 @@ DEFAULT_REPEATED_POKERKIT_GAME_STRING = (
 
 GAMES_LIST = [
     "amazons",
+    "ant_foraging_arena",
     "backgammon",
+    "python_ant_foraging",
     "checkers",
     "chess",
+    "clobber",
+    "coin_game",
+    "coin_game_arena",
     "connect_four",
     "dark_hex",
+    "dots_and_boxes(num_rows=8,num_cols=8)",
     "gin_rummy",
     "go(board_size=9)",
     "goofspiel(num_cards=4,points_order=descending,returns_type=total_points)",
+    "havannah(board_size=8)",
     "hearts",
     "hex",
+    "lines_of_action",
+    "mancala",
     "matching_pennies_3p",
+    "negotiation",
+    "oshi_zumo",
     "othello",
     "repeated_game(stage_game=matrix_pd(),num_repetitions=100)",
     "tic_tac_toe",
+    "ultimate_tic_tac_toe",
     "snake",
     "y",
     DEFAULT_UNIVERSAL_POKER_GAME_STRING,

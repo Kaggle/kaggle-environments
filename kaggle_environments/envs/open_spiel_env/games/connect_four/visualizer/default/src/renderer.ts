@@ -392,6 +392,7 @@ export function renderer({ parent, step, replay }: ConnectFourOptions) {
     // Open Spiel format: winner info is in finalStep.winner or finalStep.boardState.winner
     const boardWinner = finalStep.boardState?.winner; // 'x', 'o', or undefined/null for draw
     const winnerText = finalStep.winner; // e.g., "O (Player Name) Wins!" or "Draw"
+    const forfeitReason = finalStep.forfeitReason; // Set when loser failed to submit valid action
 
     if (boardWinner === 'x') {
       tokenUrl = getTokenAsDataURL(1);
@@ -403,6 +404,9 @@ export function renderer({ parent, step, replay }: ConnectFourOptions) {
       message = winnerText || 'Draw';
     }
 
-    statusBar.innerHTML = `${tokenUrl ? `<img src="${tokenUrl}" class="token" />` : ''}<span>${message}</span>`;
+    const escapeHtml = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const forfeitHtml = forfeitReason ? `<div class="forfeit-reason">${escapeHtml(forfeitReason)}</div>` : '';
+    statusBar.innerHTML = `<div class="status-line">${tokenUrl ? `<img src="${tokenUrl}" class="token" />` : ''}<span>${escapeHtml(message)}</span></div>${forfeitHtml}`;
   }
 }

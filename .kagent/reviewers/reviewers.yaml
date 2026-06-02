@@ -1,0 +1,23 @@
+# Routing config for KAgent PR reviewers in kaggle-environments.
+#
+# Fields:
+#   global-exclude: glob patterns - files matching are excluded from all
+#                   diffs sent to any reviewer
+#   include: glob patterns - reviewer runs if ANY changed file matches
+#   exclude: glob patterns - skip files matching these (subsets include)
+
+global-exclude:
+  - "**/pnpm-lock.yaml"
+  - "**/package-lock.json"
+  - "**/uv.lock"
+  - "**/node_modules/**"
+  - "deprecated_envs/**"
+  - "kaggle_environments/envs/**/dimensions/*.js"  # vendored engine bundles
+
+reviewers:
+  review-harness-reviewer:
+    include:
+      - "kaggle_environments/envs/*/harness*.py"
+      - "kaggle_environments/envs/*/harness/**/*.py"
+      - "kaggle_environments/envs/open_spiel_env/games/*/harness*.py"
+      - "kaggle_environments/envs/open_spiel_env/games/*/harness/**/*.py"

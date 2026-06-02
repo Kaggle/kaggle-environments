@@ -1,0 +1,737 @@
+{
+  "id": "e39a7772-4721-11f1-b2d8-122fb404ab4e",
+  "name": "open_spiel_oshi_zumo",
+  "title": "Open Spiel: oshi_zumo",
+  "description": "Kaggle environment wrapper for OpenSpiel games.\nFor game implementation details see:\nhttps://github.com/google-deepmind/open_spiel/tree/master/open_spiel/games",
+  "version": "0.1.0",
+  "module_version": "1.27.4",
+  "configuration": {
+    "includeLegalActions": true,
+    "openSpielGameParameters": {
+      "coins": 12,
+      "size": 3,
+      "horizon": 100,
+      "alesia": false,
+      "min_bid": 0
+    },
+    "episodeSteps": 2100,
+    "actTimeout": 3600,
+    "runTimeout": 172800,
+    "openSpielGameString": "oshi_zumo_proxy(alesia=False,coins=50,horizon=1000,min_bid=0,size=3)",
+    "openSpielGameName": "oshi_zumo",
+    "observationType": "observation",
+    "useOpenings": false,
+    "useImage": false,
+    "loadPresetHands": false,
+    "metadata": {},
+    "strictMode": false
+  },
+  "specification": {
+    "action": {
+      "description": "Action object MUST contain a field `submission`, and MAY contain arbitrary additional information.",
+      "type": "object",
+      "default": {
+        "submission": -1
+      }
+    },
+    "agents": [2],
+    "configuration": {
+      "episodeSteps": {
+        "description": "Maximum number of steps in the episode.",
+        "type": "integer",
+        "minimum": 1,
+        "default": 2100
+      },
+      "actTimeout": {
+        "description": "Maximum runtime (seconds) to obtain an action from an agent.",
+        "type": "number",
+        "minimum": 0,
+        "default": 3600
+      },
+      "runTimeout": {
+        "description": "Maximum runtime (seconds) of an episode (not necessarily DONE).",
+        "type": "number",
+        "minimum": 0,
+        "default": 172800
+      },
+      "openSpielGameString": {
+        "description": "The full game string including parameters.",
+        "type": "string",
+        "default": "oshi_zumo_proxy(alesia=False,coins=50,horizon=1000,min_bid=0,size=3)"
+      },
+      "openSpielGameName": {
+        "description": "The short_name of the OpenSpiel game to load.",
+        "type": "string",
+        "default": "oshi_zumo"
+      },
+      "openSpielGameParameters": {
+        "description": "Game parameters for Open Spiel game.",
+        "type": "object",
+        "default": {
+          "alesia": false,
+          "coins": 50,
+          "horizon": 1000,
+          "min_bid": 0,
+          "size": 3
+        },
+        "properties": {}
+      },
+      "observationType": {
+        "description": "Type of observation string: 'observation' or 'information_state'.",
+        "type": "string",
+        "default": "observation"
+      },
+      "useOpenings": {
+        "description": "Whether to start from a position in an opening book.",
+        "type": "boolean",
+        "default": false
+      },
+      "useImage": {
+        "description": "If true, indicates the observation is intended to be rendered as an image. Note that currently the agent harness is responsible for the actual rendering; no image is passed in the observation.",
+        "type": "boolean",
+        "default": false
+      },
+      "includeLegalActions": {
+        "description": "If true, include legalActions and legalActionStrings in observations. Defaults to false since these can be derived from serializedGameAndState.",
+        "type": "boolean",
+        "default": false
+      },
+      "seed": {
+        "description": "Integer currently only used for selecting starting position.",
+        "type": "number"
+      },
+      "initialActions": {
+        "description": "Actions applied to initial state before play begins to set up starting position.",
+        "type": "array"
+      },
+      "loadPresetHands": {
+        "description": "Repeated poker only. Load preset hand chance actions from preset_hands.jsonl.",
+        "type": "boolean",
+        "default": false
+      },
+      "presetHands": {
+        "description": "Repeated poker only. List of per-hand chance action sequences to use instead of random chance.",
+        "type": "array"
+      },
+      "metadata": {
+        "description": "Arbitrary metadata.",
+        "type": "object",
+        "default": {},
+        "properties": {}
+      },
+      "strictMode": {
+        "description": "If true, agents must return only {'submission': int} (no extra fields like 'thoughts'), and per-agent TIMEOUT/ERROR/INVALID counts as a loss for the offending agent only \u2014 other agents win. If false (default), any agent error halts and voids the entire episode, matching the lenient research-mode behavior.",
+        "type": "boolean",
+        "default": false
+      }
+    },
+    "info": {},
+    "observation": {
+      "remainingOverageTime": {
+        "description": "Total remaining banked time (seconds) that can be used in excess of per-step actTimeouts -- agent is disqualified with TIMEOUT status when this drops below 0.",
+        "shared": false,
+        "type": "number",
+        "minimum": 0,
+        "default": 12
+      },
+      "step": {
+        "description": "Current step within the episode.",
+        "type": "integer",
+        "shared": true,
+        "minimum": 0,
+        "default": 0
+      },
+      "properties": {
+        "openSpielGameString": {
+          "description": "Full game string including parameters.",
+          "type": "string",
+          "default": "oshi_zumo_proxy(alesia=False,coins=50,horizon=1000,min_bid=0,size=3)"
+        },
+        "openSpielGameName": {
+          "description": "Short name of the OpenSpiel game.",
+          "type": "string",
+          "default": "oshi_zumo"
+        },
+        "observationString": {
+          "description": "String representation of state.",
+          "type": "string"
+        },
+        "legalActions": {
+          "description": "List of OpenSpiel legal action integers. Only included if includeLegalActions is true.",
+          "type": "array"
+        },
+        "legalActionStrings": {
+          "description": "List of OpenSpiel legal action strings. Only included if includeLegalActions is true.",
+          "type": "array"
+        },
+        "currentPlayer": {
+          "description": "ID of player whose turn it is.",
+          "type": "integer"
+        },
+        "playerId": {
+          "description": "ID of the agent receiving this observation.",
+          "type": "integer"
+        },
+        "isTerminal": {
+          "description": "Boolean indicating game end.",
+          "type": "boolean"
+        },
+        "serializedGameAndState": {
+          "description": "Enables reconstructing the Game and State objects.",
+          "type": "string"
+        },
+        "remainingOverageTime": 60,
+        "step": 0
+      },
+      "default": {}
+    },
+    "reward": {
+      "type": ["number", "null"],
+      "default": 0.0
+    }
+  },
+  "steps": [
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": 0.0,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 0
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": 0.0,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": null,
+          "actionSubmittedToString": null,
+          "actionApplied": null,
+          "timeTaken": null,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 1,
+          "observationString": "{\"field\": \"#...W...#\", \"field_size\": 9, \"wrestler_position\": 4, \"coins\": [12, 12], \"current_player\": \"simultaneous\", \"move_number\": 0, \"is_terminal\": false, \"winner\": null, \"params\": {\"alesia\": false, \"starting_coins\": 12, \"size\": 3, \"horizon\": 100, \"min_bid\": 0}}",
+          "currentPlayer": -2,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\noshi_zumo_proxy(alesia=False,coins=12,horizon=100,min_bid=0,size=3)\n[State]\nhistory=\nmove_number=0\n__dict__=gASVzAAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMnyMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCm9zaGlfenVtbyhhbGVzaWE9RmFsc2UsY29pbnM9MTIsaG9yaXpvbj0xMDAsbWluX2JpZD0wLHNpemU9MykKW1N0YXRlXQoKCpRicy4=\n",
+          "legalActions": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+          "legalActionStrings": [
+            "[[P0]Bid: 0, [P1]Bid: 0]",
+            "[[P0]Bid: 1, [P1]Bid: 0]",
+            "[[P0]Bid: 2, [P1]Bid: 0]",
+            "[[P0]Bid: 3, [P1]Bid: 0]",
+            "[[P0]Bid: 4, [P1]Bid: 0]",
+            "[[P0]Bid: 5, [P1]Bid: 0]",
+            "[[P0]Bid: 6, [P1]Bid: 0]",
+            "[[P0]Bid: 7, [P1]Bid: 0]",
+            "[[P0]Bid: 8, [P1]Bid: 0]",
+            "[[P0]Bid: 9, [P1]Bid: 0]",
+            "[[P0]Bid: 10, [P1]Bid: 0]",
+            "[[P0]Bid: 11, [P1]Bid: 0]",
+            "[[P0]Bid: 12, [P1]Bid: 0]"
+          ]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": null,
+          "actionSubmittedToString": null,
+          "actionApplied": null,
+          "timeTaken": null,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"field\": \"#...W...#\", \"field_size\": 9, \"wrestler_position\": 4, \"coins\": [12, 12], \"current_player\": \"simultaneous\", \"move_number\": 0, \"is_terminal\": false, \"winner\": null, \"params\": {\"alesia\": false, \"starting_coins\": 12, \"size\": 3, \"horizon\": 100, \"min_bid\": 0}}",
+          "currentPlayer": -2,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\noshi_zumo_proxy(alesia=False,coins=12,horizon=100,min_bid=0,size=3)\n[State]\nhistory=\nmove_number=0\n__dict__=gASVzAAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMnyMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCm9zaGlfenVtbyhhbGVzaWE9RmFsc2UsY29pbnM9MTIsaG9yaXpvbj0xMDAsbWluX2JpZD0wLHNpemU9MykKW1N0YXRlXQoKCpRicy4=\n",
+          "legalActions": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+          "legalActionStrings": [
+            "[[P0]Bid: 0, [P1]Bid: 0]",
+            "[[P0]Bid: 1, [P1]Bid: 0]",
+            "[[P0]Bid: 2, [P1]Bid: 0]",
+            "[[P0]Bid: 3, [P1]Bid: 0]",
+            "[[P0]Bid: 4, [P1]Bid: 0]",
+            "[[P0]Bid: 5, [P1]Bid: 0]",
+            "[[P0]Bid: 6, [P1]Bid: 0]",
+            "[[P0]Bid: 7, [P1]Bid: 0]",
+            "[[P0]Bid: 8, [P1]Bid: 0]",
+            "[[P0]Bid: 9, [P1]Bid: 0]",
+            "[[P0]Bid: 10, [P1]Bid: 0]",
+            "[[P0]Bid: 11, [P1]Bid: 0]",
+            "[[P0]Bid: 12, [P1]Bid: 0]"
+          ]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 5,
+          "thoughts": "imagine upsilon alpha wonder echo xi shadow ember"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 5,
+          "actionSubmittedToString": "[P0]Bid: 5",
+          "actionApplied": 5,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 2,
+          "observationString": "{\"field\": \"#....W..#\", \"field_size\": 9, \"wrestler_position\": 5, \"coins\": [7, 9], \"current_player\": \"simultaneous\", \"move_number\": 1, \"is_terminal\": false, \"winner\": null, \"params\": {\"alesia\": false, \"starting_coins\": 12, \"size\": 3, \"horizon\": 100, \"min_bid\": 0}}",
+          "currentPlayer": -2,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\noshi_zumo_proxy(alesia=False,coins=12,horizon=100,min_bid=0,size=3)\n[State]\nhistory=0:5,1:3\nmove_number=1\n__dict__=gASVzwAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMoiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCm9zaGlfenVtbyhhbGVzaWE9RmFsc2UsY29pbnM9MTIsaG9yaXpvbj0xMDAsbWluX2JpZD0wLHNpemU9MykKW1N0YXRlXQo1CjMKCpRicy4=\n",
+          "legalActions": [0, 1, 2, 3, 4, 5, 6, 7],
+          "legalActionStrings": [
+            "[[P0]Bid: 0, [P1]Bid: 0]",
+            "[[P0]Bid: 1, [P1]Bid: 0]",
+            "[[P0]Bid: 2, [P1]Bid: 0]",
+            "[[P0]Bid: 3, [P1]Bid: 0]",
+            "[[P0]Bid: 4, [P1]Bid: 0]",
+            "[[P0]Bid: 5, [P1]Bid: 0]",
+            "[[P0]Bid: 6, [P1]Bid: 0]",
+            "[[P0]Bid: 7, [P1]Bid: 0]"
+          ]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 3,
+          "thoughts": "xi tau reflect pi beta nu gamma theta"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 3,
+          "actionSubmittedToString": "[P1]Bid: 3",
+          "actionApplied": 3,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"field\": \"#....W..#\", \"field_size\": 9, \"wrestler_position\": 5, \"coins\": [7, 9], \"current_player\": \"simultaneous\", \"move_number\": 1, \"is_terminal\": false, \"winner\": null, \"params\": {\"alesia\": false, \"starting_coins\": 12, \"size\": 3, \"horizon\": 100, \"min_bid\": 0}}",
+          "currentPlayer": -2,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\noshi_zumo_proxy(alesia=False,coins=12,horizon=100,min_bid=0,size=3)\n[State]\nhistory=0:5,1:3\nmove_number=1\n__dict__=gASVzwAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMoiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCm9zaGlfenVtbyhhbGVzaWE9RmFsc2UsY29pbnM9MTIsaG9yaXpvbj0xMDAsbWluX2JpZD0wLHNpemU9MykKW1N0YXRlXQo1CjMKCpRicy4=\n",
+          "legalActions": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+          "legalActionStrings": [
+            "[[P0]Bid: 0, [P1]Bid: 0]",
+            "[[P0]Bid: 1, [P1]Bid: 0]",
+            "[[P0]Bid: 2, [P1]Bid: 0]",
+            "[[P0]Bid: 3, [P1]Bid: 0]",
+            "[[P0]Bid: 4, [P1]Bid: 0]",
+            "[[P0]Bid: 5, [P1]Bid: 0]",
+            "[[P0]Bid: 6, [P1]Bid: 0]",
+            "[[P0]Bid: 7, [P1]Bid: 0]",
+            "[[P0]Bid: 0, [P1]Bid: 1]",
+            "[[P0]Bid: 1, [P1]Bid: 1]"
+          ]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 5,
+          "thoughts": "lambda pi sigma cascade shadow imagine epsilon lambda"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 5,
+          "actionSubmittedToString": "[P0]Bid: 5",
+          "actionApplied": 5,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 3,
+          "observationString": "{\"field\": \"#...W...#\", \"field_size\": 9, \"wrestler_position\": 4, \"coins\": [2, 1], \"current_player\": \"simultaneous\", \"move_number\": 2, \"is_terminal\": false, \"winner\": null, \"params\": {\"alesia\": false, \"starting_coins\": 12, \"size\": 3, \"horizon\": 100, \"min_bid\": 0}}",
+          "currentPlayer": -2,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\noshi_zumo_proxy(alesia=False,coins=12,horizon=100,min_bid=0,size=3)\n[State]\nhistory=0:5,1:3,0:5,1:8\nmove_number=2\n__dict__=gASV0wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMpiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCm9zaGlfenVtbyhhbGVzaWE9RmFsc2UsY29pbnM9MTIsaG9yaXpvbj0xMDAsbWluX2JpZD0wLHNpemU9MykKW1N0YXRlXQo1CjMKNQo4CgqUYnMu\n",
+          "legalActions": [0, 1, 2],
+          "legalActionStrings": [
+            "[[P0]Bid: 0, [P1]Bid: 0]",
+            "[[P0]Bid: 1, [P1]Bid: 0]",
+            "[[P0]Bid: 2, [P1]Bid: 0]"
+          ]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 8,
+          "thoughts": "omega delta imagine omicron muse eta pi sigma"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 8,
+          "actionSubmittedToString": "[P1]Bid: 8",
+          "actionApplied": 8,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"field\": \"#...W...#\", \"field_size\": 9, \"wrestler_position\": 4, \"coins\": [2, 1], \"current_player\": \"simultaneous\", \"move_number\": 2, \"is_terminal\": false, \"winner\": null, \"params\": {\"alesia\": false, \"starting_coins\": 12, \"size\": 3, \"horizon\": 100, \"min_bid\": 0}}",
+          "currentPlayer": -2,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\noshi_zumo_proxy(alesia=False,coins=12,horizon=100,min_bid=0,size=3)\n[State]\nhistory=0:5,1:3,0:5,1:8\nmove_number=2\n__dict__=gASV0wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMpiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCm9zaGlfenVtbyhhbGVzaWE9RmFsc2UsY29pbnM9MTIsaG9yaXpvbj0xMDAsbWluX2JpZD0wLHNpemU9MykKW1N0YXRlXQo1CjMKNQo4CgqUYnMu\n",
+          "legalActions": [0, 1],
+          "legalActionStrings": [
+            "[[P0]Bid: 0, [P1]Bid: 0]",
+            "[[P0]Bid: 1, [P1]Bid: 0]"
+          ]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 1,
+          "thoughts": "delta xi consider theta shadow epsilon omega imagine"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 1,
+          "actionSubmittedToString": "[P0]Bid: 1",
+          "actionApplied": 1,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 4,
+          "observationString": "{\"field\": \"#...W...#\", \"field_size\": 9, \"wrestler_position\": 4, \"coins\": [1, 0], \"current_player\": \"simultaneous\", \"move_number\": 3, \"is_terminal\": false, \"winner\": null, \"params\": {\"alesia\": false, \"starting_coins\": 12, \"size\": 3, \"horizon\": 100, \"min_bid\": 0}}",
+          "currentPlayer": -2,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\noshi_zumo_proxy(alesia=False,coins=12,horizon=100,min_bid=0,size=3)\n[State]\nhistory=0:5,1:3,0:5,1:8,0:1,1:1\nmove_number=3\n__dict__=gASV1wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMqiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCm9zaGlfenVtbyhhbGVzaWE9RmFsc2UsY29pbnM9MTIsaG9yaXpvbj0xMDAsbWluX2JpZD0wLHNpemU9MykKW1N0YXRlXQo1CjMKNQo4CjEKMQoKlGJzLg==\n",
+          "legalActions": [0, 1],
+          "legalActionStrings": [
+            "[[P0]Bid: 0, [P1]Bid: 0]",
+            "[[P0]Bid: 1, [P1]Bid: 0]"
+          ]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 1,
+          "thoughts": "xi kappa drift iota upsilon theta alpha explore"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 1,
+          "actionSubmittedToString": "[P1]Bid: 1",
+          "actionApplied": 1,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"field\": \"#...W...#\", \"field_size\": 9, \"wrestler_position\": 4, \"coins\": [1, 0], \"current_player\": \"simultaneous\", \"move_number\": 3, \"is_terminal\": false, \"winner\": null, \"params\": {\"alesia\": false, \"starting_coins\": 12, \"size\": 3, \"horizon\": 100, \"min_bid\": 0}}",
+          "currentPlayer": -2,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\noshi_zumo_proxy(alesia=False,coins=12,horizon=100,min_bid=0,size=3)\n[State]\nhistory=0:5,1:3,0:5,1:8,0:1,1:1\nmove_number=3\n__dict__=gASV1wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMqiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCm9zaGlfenVtbyhhbGVzaWE9RmFsc2UsY29pbnM9MTIsaG9yaXpvbj0xMDAsbWluX2JpZD0wLHNpemU9MykKW1N0YXRlXQo1CjMKNQo4CjEKMQoKlGJzLg==\n",
+          "legalActions": [0],
+          "legalActionStrings": ["[[P0]Bid: 0, [P1]Bid: 0]"]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 0,
+          "thoughts": "beta xi echo lantern wonder shadow muse psi"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 0,
+          "actionSubmittedToString": "[P0]Bid: 0",
+          "actionApplied": 0,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 5,
+          "observationString": "{\"field\": \"#...W...#\", \"field_size\": 9, \"wrestler_position\": 4, \"coins\": [1, 0], \"current_player\": \"simultaneous\", \"move_number\": 4, \"is_terminal\": false, \"winner\": null, \"params\": {\"alesia\": false, \"starting_coins\": 12, \"size\": 3, \"horizon\": 100, \"min_bid\": 0}}",
+          "currentPlayer": -2,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\noshi_zumo_proxy(alesia=False,coins=12,horizon=100,min_bid=0,size=3)\n[State]\nhistory=0:5,1:3,0:5,1:8,0:1,1:1,0:0,1:0\nmove_number=4\n__dict__=gASV2wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMriMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCm9zaGlfenVtbyhhbGVzaWE9RmFsc2UsY29pbnM9MTIsaG9yaXpvbj0xMDAsbWluX2JpZD0wLHNpemU9MykKW1N0YXRlXQo1CjMKNQo4CjEKMQowCjAKCpRicy4=\n",
+          "legalActions": [0, 1],
+          "legalActionStrings": [
+            "[[P0]Bid: 0, [P1]Bid: 0]",
+            "[[P0]Bid: 1, [P1]Bid: 0]"
+          ]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 0,
+          "thoughts": "zeta phi omicron cascade reflect drift psi zeta"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 0,
+          "actionSubmittedToString": "[P1]Bid: 0",
+          "actionApplied": 0,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"field\": \"#...W...#\", \"field_size\": 9, \"wrestler_position\": 4, \"coins\": [1, 0], \"current_player\": \"simultaneous\", \"move_number\": 4, \"is_terminal\": false, \"winner\": null, \"params\": {\"alesia\": false, \"starting_coins\": 12, \"size\": 3, \"horizon\": 100, \"min_bid\": 0}}",
+          "currentPlayer": -2,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\noshi_zumo_proxy(alesia=False,coins=12,horizon=100,min_bid=0,size=3)\n[State]\nhistory=0:5,1:3,0:5,1:8,0:1,1:1,0:0,1:0\nmove_number=4\n__dict__=gASV2wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMriMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCm9zaGlfenVtbyhhbGVzaWE9RmFsc2UsY29pbnM9MTIsaG9yaXpvbj0xMDAsbWluX2JpZD0wLHNpemU9MykKW1N0YXRlXQo1CjMKNQo4CjEKMQowCjAKCpRicy4=\n",
+          "legalActions": [0],
+          "legalActionStrings": ["[[P0]Bid: 0, [P1]Bid: 0]"]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 0,
+          "thoughts": "ember kappa nu reflect xi cascade imagine ponder"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 0,
+          "actionSubmittedToString": "[P0]Bid: 0",
+          "actionApplied": 0,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 6,
+          "observationString": "{\"field\": \"#...W...#\", \"field_size\": 9, \"wrestler_position\": 4, \"coins\": [1, 0], \"current_player\": \"simultaneous\", \"move_number\": 5, \"is_terminal\": false, \"winner\": null, \"params\": {\"alesia\": false, \"starting_coins\": 12, \"size\": 3, \"horizon\": 100, \"min_bid\": 0}}",
+          "currentPlayer": -2,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\noshi_zumo_proxy(alesia=False,coins=12,horizon=100,min_bid=0,size=3)\n[State]\nhistory=0:5,1:3,0:5,1:8,0:1,1:1,0:0,1:0,0:0,1:0\nmove_number=5\n__dict__=gASV3wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMsiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCm9zaGlfenVtbyhhbGVzaWE9RmFsc2UsY29pbnM9MTIsaG9yaXpvbj0xMDAsbWluX2JpZD0wLHNpemU9MykKW1N0YXRlXQo1CjMKNQo4CjEKMQowCjAKMAowCgqUYnMu\n",
+          "legalActions": [0, 1],
+          "legalActionStrings": [
+            "[[P0]Bid: 0, [P1]Bid: 0]",
+            "[[P0]Bid: 1, [P1]Bid: 0]"
+          ]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 0,
+          "thoughts": "spark phi ponder explore zeta lantern rho nu"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 0,
+          "actionSubmittedToString": "[P1]Bid: 0",
+          "actionApplied": 0,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"field\": \"#...W...#\", \"field_size\": 9, \"wrestler_position\": 4, \"coins\": [1, 0], \"current_player\": \"simultaneous\", \"move_number\": 5, \"is_terminal\": false, \"winner\": null, \"params\": {\"alesia\": false, \"starting_coins\": 12, \"size\": 3, \"horizon\": 100, \"min_bid\": 0}}",
+          "currentPlayer": -2,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\noshi_zumo_proxy(alesia=False,coins=12,horizon=100,min_bid=0,size=3)\n[State]\nhistory=0:5,1:3,0:5,1:8,0:1,1:1,0:0,1:0,0:0,1:0\nmove_number=5\n__dict__=gASV3wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMsiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCm9zaGlfenVtbyhhbGVzaWE9RmFsc2UsY29pbnM9MTIsaG9yaXpvbj0xMDAsbWluX2JpZD0wLHNpemU9MykKW1N0YXRlXQo1CjMKNQo4CjEKMQowCjAKMAowCgqUYnMu\n",
+          "legalActions": [0],
+          "legalActionStrings": ["[[P0]Bid: 0, [P1]Bid: 0]"]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 0,
+          "thoughts": "gamma lambda spark ember upsilon reflect theta muse"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 0,
+          "actionSubmittedToString": "[P0]Bid: 0",
+          "actionApplied": 0,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 7,
+          "observationString": "{\"field\": \"#...W...#\", \"field_size\": 9, \"wrestler_position\": 4, \"coins\": [1, 0], \"current_player\": \"simultaneous\", \"move_number\": 6, \"is_terminal\": false, \"winner\": null, \"params\": {\"alesia\": false, \"starting_coins\": 12, \"size\": 3, \"horizon\": 100, \"min_bid\": 0}}",
+          "currentPlayer": -2,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\noshi_zumo_proxy(alesia=False,coins=12,horizon=100,min_bid=0,size=3)\n[State]\nhistory=0:5,1:3,0:5,1:8,0:1,1:1,0:0,1:0,0:0,1:0,0:0,1:0\nmove_number=6\n__dict__=gASV4wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMtiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCm9zaGlfenVtbyhhbGVzaWE9RmFsc2UsY29pbnM9MTIsaG9yaXpvbj0xMDAsbWluX2JpZD0wLHNpemU9MykKW1N0YXRlXQo1CjMKNQo4CjEKMQowCjAKMAowCjAKMAoKlGJzLg==\n",
+          "legalActions": [0, 1],
+          "legalActionStrings": [
+            "[[P0]Bid: 0, [P1]Bid: 0]",
+            "[[P0]Bid: 1, [P1]Bid: 0]"
+          ]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 0,
+          "thoughts": "muse gamma reflect lantern beta iota omicron horizon"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 0,
+          "actionSubmittedToString": "[P1]Bid: 0",
+          "actionApplied": 0,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"field\": \"#...W...#\", \"field_size\": 9, \"wrestler_position\": 4, \"coins\": [1, 0], \"current_player\": \"simultaneous\", \"move_number\": 6, \"is_terminal\": false, \"winner\": null, \"params\": {\"alesia\": false, \"starting_coins\": 12, \"size\": 3, \"horizon\": 100, \"min_bid\": 0}}",
+          "currentPlayer": -2,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\noshi_zumo_proxy(alesia=False,coins=12,horizon=100,min_bid=0,size=3)\n[State]\nhistory=0:5,1:3,0:5,1:8,0:1,1:1,0:0,1:0,0:0,1:0,0:0,1:0\nmove_number=6\n__dict__=gASV4wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMtiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCm9zaGlfenVtbyhhbGVzaWE9RmFsc2UsY29pbnM9MTIsaG9yaXpvbj0xMDAsbWluX2JpZD0wLHNpemU9MykKW1N0YXRlXQo1CjMKNQo4CjEKMQowCjAKMAowCjAKMAoKlGJzLg==\n",
+          "legalActions": [0],
+          "legalActionStrings": ["[[P0]Bid: 0, [P1]Bid: 0]"]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 1,
+          "thoughts": "phi iota delta sigma tau wonder phi chi"
+        },
+        "reward": 1.0,
+        "info": {
+          "actionSubmitted": 1,
+          "actionSubmittedToString": "[P0]Bid: 1",
+          "actionApplied": 1,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 8,
+          "observationString": "{\"field\": \"#....W..#\", \"field_size\": 9, \"wrestler_position\": 5, \"coins\": [0, 0], \"current_player\": \"terminal\", \"move_number\": 7, \"is_terminal\": true, \"winner\": 0, \"params\": {\"alesia\": false, \"starting_coins\": 12, \"size\": 3, \"horizon\": 100, \"min_bid\": 0}}",
+          "currentPlayer": -4,
+          "playerId": 0,
+          "isTerminal": true,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\noshi_zumo_proxy(alesia=False,coins=12,horizon=100,min_bid=0,size=3)\n[State]\nhistory=0:5,1:3,0:5,1:8,0:1,1:1,0:0,1:0,0:0,1:0,0:0,1:0,0:1,1:0\nmove_number=7\n__dict__=gASV5wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMuiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCm9zaGlfenVtbyhhbGVzaWE9RmFsc2UsY29pbnM9MTIsaG9yaXpvbj0xMDAsbWluX2JpZD0wLHNpemU9MykKW1N0YXRlXQo1CjMKNQo4CjEKMQowCjAKMAowCjAKMAoxCjAKCpRicy4=\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "DONE"
+      },
+      {
+        "action": {
+          "submission": 0,
+          "thoughts": "muse chi xi eta sigma shadow iota iota"
+        },
+        "reward": -1.0,
+        "info": {
+          "actionSubmitted": 0,
+          "actionSubmittedToString": "[P1]Bid: 0",
+          "actionApplied": 0,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"field\": \"#....W..#\", \"field_size\": 9, \"wrestler_position\": 5, \"coins\": [0, 0], \"current_player\": \"terminal\", \"move_number\": 7, \"is_terminal\": true, \"winner\": 0, \"params\": {\"alesia\": false, \"starting_coins\": 12, \"size\": 3, \"horizon\": 100, \"min_bid\": 0}}",
+          "currentPlayer": -4,
+          "playerId": 1,
+          "isTerminal": true,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\noshi_zumo_proxy(alesia=False,coins=12,horizon=100,min_bid=0,size=3)\n[State]\nhistory=0:5,1:3,0:5,1:8,0:1,1:1,0:0,1:0,0:0,1:0,0:0,1:0,0:1,1:0\nmove_number=7\n__dict__=gASV5wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSMuiMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCm9zaGlfenVtbyhhbGVzaWE9RmFsc2UsY29pbnM9MTIsaG9yaXpvbj0xMDAsbWluX2JpZD0wLHNpemU9MykKW1N0YXRlXQo1CjMKNQo4CjEKMQowCjAKMAowCjAKMAoxCjAKCpRicy4=\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "DONE"
+      }
+    ]
+  ],
+  "rewards": [1.0, -1.0],
+  "statuses": ["DONE", "DONE"],
+  "schema_version": 1,
+  "info": {
+    "openSpielGameStringResolved": "oshi_zumo_proxy(alesia=False,coins=12,horizon=100,min_bid=0,size=3)",
+    "stateHistory": [
+      "{\"field\": \"#...W...#\", \"field_size\": 9, \"wrestler_position\": 4, \"coins\": [12, 12], \"current_player\": \"simultaneous\", \"move_number\": 0, \"is_terminal\": false, \"winner\": null, \"params\": {\"alesia\": false, \"starting_coins\": 12, \"size\": 3, \"horizon\": 100, \"min_bid\": 0}}",
+      "{\"field\": \"#....W..#\", \"field_size\": 9, \"wrestler_position\": 5, \"coins\": [7, 9], \"current_player\": \"simultaneous\", \"move_number\": 1, \"is_terminal\": false, \"winner\": null, \"params\": {\"alesia\": false, \"starting_coins\": 12, \"size\": 3, \"horizon\": 100, \"min_bid\": 0}}",
+      "{\"field\": \"#...W...#\", \"field_size\": 9, \"wrestler_position\": 4, \"coins\": [2, 1], \"current_player\": \"simultaneous\", \"move_number\": 2, \"is_terminal\": false, \"winner\": null, \"params\": {\"alesia\": false, \"starting_coins\": 12, \"size\": 3, \"horizon\": 100, \"min_bid\": 0}}",
+      "{\"field\": \"#...W...#\", \"field_size\": 9, \"wrestler_position\": 4, \"coins\": [1, 0], \"current_player\": \"simultaneous\", \"move_number\": 3, \"is_terminal\": false, \"winner\": null, \"params\": {\"alesia\": false, \"starting_coins\": 12, \"size\": 3, \"horizon\": 100, \"min_bid\": 0}}",
+      "{\"field\": \"#...W...#\", \"field_size\": 9, \"wrestler_position\": 4, \"coins\": [1, 0], \"current_player\": \"simultaneous\", \"move_number\": 4, \"is_terminal\": false, \"winner\": null, \"params\": {\"alesia\": false, \"starting_coins\": 12, \"size\": 3, \"horizon\": 100, \"min_bid\": 0}}",
+      "{\"field\": \"#...W...#\", \"field_size\": 9, \"wrestler_position\": 4, \"coins\": [1, 0], \"current_player\": \"simultaneous\", \"move_number\": 5, \"is_terminal\": false, \"winner\": null, \"params\": {\"alesia\": false, \"starting_coins\": 12, \"size\": 3, \"horizon\": 100, \"min_bid\": 0}}",
+      "{\"field\": \"#...W...#\", \"field_size\": 9, \"wrestler_position\": 4, \"coins\": [1, 0], \"current_player\": \"simultaneous\", \"move_number\": 6, \"is_terminal\": false, \"winner\": null, \"params\": {\"alesia\": false, \"starting_coins\": 12, \"size\": 3, \"horizon\": 100, \"min_bid\": 0}}",
+      "{\"field\": \"#....W..#\", \"field_size\": 9, \"wrestler_position\": 5, \"coins\": [0, 0], \"current_player\": \"terminal\", \"move_number\": 7, \"is_terminal\": true, \"winner\": 0, \"params\": {\"alesia\": false, \"starting_coins\": 12, \"size\": 3, \"horizon\": 100, \"min_bid\": 0}}"
+    ],
+    "actionHistory": [
+      "[5, 3]",
+      "[5, 8]",
+      "[1, 1]",
+      "[0, 0]",
+      "[0, 0]",
+      "[0, 0]",
+      "[1, 0]"
+    ],
+    "moveDurations": [
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+    ]
+  }
+}

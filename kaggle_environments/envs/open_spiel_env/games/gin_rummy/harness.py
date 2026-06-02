@@ -1,0 +1,332 @@
+"""LLM harness for OpenSpiel Gin Rummy (Oklahoma variant).
+
+Drop the body of this file into the notebook attached to the competition via
+HarnessKernelId. The auto-generated ``main.py`` calls these three module-level
+functions: ``get_legal_moves``, ``generate_prompt``, ``parse_response``.
+
+Gin Rummy turns walk through several phases (decide on the first upcard, draw,
+discard, optionally knock, lay off onto the knocker's melds). Each sub-action
+is one LLM call. The proxy in ``gin_rummy_proxy.py`` exposes the current phase
+plus the player's hand, the upcard, the discard pile, the stock size, and the
+knock card in ``observationString`` as JSON.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from typing import Any, Mapping, Sequence
+
+import pyspiel
+
+from kaggle_environments.core_harness import ParseResult, parse_json_action, render_rethink_suffix
+
+# Importing the proxy registers the ``gin_rummy_proxy`` pyspiel game so that
+# ``deserialize_game_and_state`` can rebuild it from the obs. Wrapped in
+# try/except because the harness can be dropped into a notebook where the
+# proxy module isn't on the path; in that case we rely on ``legalActions``
+# being included in the observation directly.
+try:
+    from kaggle_environments.envs.open_spiel_env.games.gin_rummy import (  # noqa: F401
+        gin_rummy_proxy,
+    )
+except Exception:
+    pass
+
+
+# Strip OpenSpiel's "Player: 0 Action: Draw upcard" wrapper.
+_ACTION_PREFIX_RE = re.compile(r"^Player:\s*\d+\s+Action:\s*", re.IGNORECASE)
+# A canonical card token, e.g. "As", "Td", "9h".
+_CARD_RE = re.compile(r"\b([A23456789TJQK])([scdh])\b")
+# Sort cards by suit then by rank so hands display in a stable, readable order.
+_RANK_ORDER = {r: i for i, r in enumerate("A23456789TJQK")}
+_SUIT_ORDER = {s: i for i, s in enumerate("scdh")}
+_SUIT_NAME = {"s": "Spades", "c": "Clubs", "d": "Diamonds", "h": "Hearts"}
+
+
+# --- Helpers ----------------------------------------------------------------
+
+
+def _parse_observation(observation: Mapping[str, Any]) -> dict[str, Any]:
+    """Parse the JSON observation_string emitted by the gin_rummy proxy."""
+    raw = observation.get("observationString", "")
+    if not raw:
+        return {}
+    try:
+        return json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
+        return {}
+
+
+def _strip_prefix(action_str: str) -> str:
+    """Drop OpenSpiel's 'Player: <id> Action: ' wrapper from an action string."""
+    return _ACTION_PREFIX_RE.sub("", action_str).strip()
+
+
+def _sort_cards(cards: Sequence[str]) -> list[str]:
+    """Sort cards by suit then rank for stable display."""
+    return sorted(
+        (c for c in cards if _CARD_RE.fullmatch(c)),
+        key=lambda c: (_SUIT_ORDER.get(c[1], 99), _RANK_ORDER.get(c[0], 99)),
+    )
+
+
+def _format_hand(hand: Sequence[str]) -> str:
+    """Group cards by suit, e.g. 'Spades: As 5s 9s | Hearts: 2h Th'."""
+    if not hand:
+        return "(empty)"
+    groups: dict[str, list[str]] = {"s": [], "c": [], "d": [], "h": []}
+    for card in _sort_cards(hand):
+        groups[card[1]].append(card)
+    parts: list[str] = []
+    for suit in "scdh":
+        if groups[suit]:
+            parts.append(f"{_SUIT_NAME[suit]}: " + " ".join(groups[suit]))
+    return " | ".join(parts) if parts else "(empty)"
+
+
+def _format_discard_pile(pile: Sequence[str]) -> str:
+    """Show the discard pile bottom -> top, marking the top (= upcard)."""
+    if not pile:
+        return "(empty)"
+    cards = list(pile)
+    top = cards[-1]
+    if len(cards) == 1:
+        return f"{top}  (top)"
+    return " ".join(cards[:-1]) + f"  [top: {top}]"
+
+
+def _format_history(move_history: list[str]) -> str:
+    if not move_history:
+        return "(no moves yet)"
+    return ", ".join(move_history)
+
+
+def _player_glyph(player_id: int) -> str:
+    return f"Player {player_id}"
+
+
+# --- Phase-specific instructions --------------------------------------------
+
+
+_PHASE_INSTRUCTION = {
+    "FirstUpcard": (
+        "This is the first decision of the hand. You may either take the "
+        "upcard (it goes into your hand and you must then discard) or pass. "
+        "If both players pass on the first upcard, the dealer's opponent then "
+        "draws normally."
+    ),
+    "Deal": (
+        "Decide whether to take the current upcard. Taking it adds the card "
+        "to your hand and you must then discard; passing lets your opponent "
+        "decide on it."
+    ),
+    "Draw": (
+        "Choose where to draw your card from: 'Draw upcard' takes the visible "
+        "top of the discard pile, 'Draw stock' draws an unknown card from the "
+        "stock. After drawing you will discard."
+    ),
+    "Discard": (
+        "You just drew a card. Choose one card from your hand to discard. "
+        "If your remaining deadwood would be at most the knock card, you may "
+        "instead knock to end the hand (use 'Knock' on the action list)."
+    ),
+    "Knock": (
+        "You have declared knock. Now declare each meld in your hand "
+        "(runs of 3+ in a suit, or sets of 3-4 of the same rank). Choose one "
+        "of the listed meld groups; you'll be asked again for any remaining "
+        "melds, and unmelded cards become your deadwood."
+    ),
+    "Layoff": (
+        "Your opponent knocked. You may lay off any of your unmatched cards "
+        "onto their declared melds to reduce your deadwood. Choose a card to "
+        "lay off, or pass if no card extends one of their melds."
+    ),
+    "GameOver": "The hand is over.",
+}
+
+
+def _instruction_for_phase(phase: str | None, legal_strings: Sequence[str]) -> str:
+    if phase and phase in _PHASE_INSTRUCTION:
+        return _PHASE_INSTRUCTION[phase]
+    # Fallback: infer from the legal moves on offer.
+    legals = set(legal_strings)
+    if "Draw upcard" in legals or "Draw stock" in legals:
+        return _PHASE_INSTRUCTION["Draw"]
+    if "Knock" in legals and any(_CARD_RE.fullmatch(s) for s in legals):
+        return _PHASE_INSTRUCTION["Discard"]
+    if "Pass" in legals and "Draw upcard" not in legals:
+        return _PHASE_INSTRUCTION["Layoff"]
+    return (
+        "Choose a legal action for this phase. Use an exact OpenSpiel "
+        "action string."
+    )
+
+
+# --- Prompt -----------------------------------------------------------------
+
+
+GIN_RUMMY_PROMPT_TEMPLATE = """Let's play Gin Rummy (OpenSpiel, Oklahoma variant; this hand's knock card = {knock_card}).
+
+Card notation: rank in {{A,2-9,T,J,Q,K}} followed by suit in {{s,c,d,h}}.
+Goal: arrange your 10-card hand into melds (runs of 3+ in a suit, sets of 3-4
+of the same rank). Cards not in any meld are 'deadwood' (face value, faces=10,
+Ace=1). When your deadwood is at or below the knock card you may knock to end
+the hand. Going gin (zero deadwood) and undercutting the knocker pay bonuses.
+
+Oklahoma variant: the knock card is not fixed at 10 -- it is set each hand to
+the rank value of the first card flipped from the stock (A=1, 2-9=pip,
+T/J/Q/K=10). A low knock card means you need a much tidier hand to knock.
+
+You are {player_glyph}.
+Phase: {phase}
+Knock card: {knock_card}    Stock remaining: {stock_size}
+Upcard (top of discard, available to draw): {upcard}
+Discard pile (oldest -> newest): {discard_pile}
+
+Your hand ({hand_count} cards): {hand}
+Your current deadwood: {deadwood}
+
+Move history (oldest -> newest):
+{move_history}
+
+{phase_instruction}
+
+It is your turn. Think briefly about the position, then choose your move.
+Use the exact OpenSpiel action string (e.g. 'Draw upcard', 'Knock', '7h',
+'As2s3s').
+
+Respond with your reasoning followed by your final answer in a JSON block:
+
+```json
+{{
+  "move": "<exact OpenSpiel action string>"
+}}
+```
+
+Failure to output your final answer in the specified format, or selecting an
+illegal move, will result in a loss.
+"""
+
+
+RETHINK_ILLEGAL = """
+
+You suggested move "{previous_action}" but this is not a legal move.
+Reconsider the rules and the current state, then pick a legal move.
+
+(Keep using the same JSON output format as before -- only the move value needs to change.)
+"""
+
+RETHINK_UNPARSABLE = """
+
+Your previous response ended with:
+{previous_response}
+
+No JSON answer could be parsed from that. Conclude your response
+with your final move as JSON in a ```json fenced block, exactly
+as the original instructions required:
+
+```json
+{{"move": "<OpenSpiel action string>"}}
+```
+
+For example: `{{"move": "Draw upcard"}}`
+
+The move you choose must also be legal in the current state.
+"""
+
+
+# --- Public functions (called by main.py) -----------------------------------
+
+
+def get_legal_moves(observation: Mapping[str, Any]) -> dict[int, str]:
+    """Return ``{action_id: action_string}`` for the current sub-action.
+
+    Strings are the cleaned OpenSpiel action names (no 'Player: X Action:'
+    prefix), e.g. ``"Draw upcard"``, ``"Knock"``, ``"7h"``, ``"As2s3s"``.
+    """
+    legal_actions = observation.get("legalActions")
+    legal_action_strings = observation.get("legalActionStrings")
+    if legal_actions and legal_action_strings:
+        return {a: _strip_prefix(s) for a, s in zip(legal_actions, legal_action_strings)}
+
+    serialized = observation.get("serializedGameAndState", "")
+    if not serialized:
+        return {}
+    try:
+        _, state = pyspiel.deserialize_game_and_state(serialized)
+    except Exception:
+        return {}
+    actions = state.legal_actions()
+    return {a: _strip_prefix(state.action_to_string(a)) for a in actions}
+
+
+def generate_prompt(
+    observation: Mapping[str, Any],
+    move_history: list[str],
+    previous_response: str | None = None,
+    previous_action: str | None = None,
+) -> str:
+    """Build the LLM prompt for the current sub-action."""
+    obs = _parse_observation(observation)
+
+    player_id = observation.get("playerId", obs.get("current_player", 0)) or 0
+    hand = obs.get("hands", {}).get(str(player_id), []) or []
+    deadwood = (obs.get("deadwood") or {}).get(str(player_id))
+    phase = obs.get("phase") or "Unknown"
+    knock_card = obs.get("knock_card", "?")
+    stock_size = obs.get("stock_size", "?")
+    upcard = obs.get("upcard") or "(none)"
+    discard_pile = obs.get("discard_pile") or []
+
+    legal_map = get_legal_moves(observation)
+    legal_strings = list(legal_map.values())
+
+    prompt = GIN_RUMMY_PROMPT_TEMPLATE.format(
+        player_glyph=_player_glyph(player_id),
+        phase=phase,
+        knock_card=knock_card,
+        stock_size=stock_size,
+        upcard=upcard,
+        discard_pile=_format_discard_pile(discard_pile),
+        hand_count=len(hand),
+        hand=_format_hand(hand),
+        deadwood=deadwood if deadwood is not None else "?",
+        move_history=_format_history(move_history),
+        phase_instruction=_instruction_for_phase(phase, legal_strings),
+    )
+
+    prompt += render_rethink_suffix(
+        RETHINK_ILLEGAL, RETHINK_UNPARSABLE,
+        previous_response, previous_action,
+    )
+
+    return prompt
+
+
+def _normalize(move: str) -> str:
+    """Lowercase and drop whitespace/punctuation for forgiving comparisons."""
+    return re.sub(r"[\s,.\-_'\"`()\[\]]", "", move).lower()
+
+
+def _match_move_to_legal(move: str, legal_moves: Sequence[str]) -> str | None:
+    if not move:
+        return None
+    if move in legal_moves:
+        return move
+    # Tolerate the model echoing the OpenSpiel "Player: X Action: ..." wrapper.
+    stripped = _strip_prefix(move)
+    if stripped in legal_moves:
+        return stripped
+    target = _normalize(stripped)
+    for legal in legal_moves:
+        if _normalize(legal) == target:
+            return legal
+    return None
+
+
+def parse_response(
+    response: str, legal_action_strings: Sequence[str],
+) -> ParseResult:
+    """Trust the model's JSON answer; let the rethink loop fix anything else."""
+    return parse_json_action(response, legal_action_strings, matcher=_match_move_to_legal)

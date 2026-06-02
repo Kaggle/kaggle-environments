@@ -1,6 +1,6 @@
 [project]
 name = "kaggle-environments"
-version = "1.28.1"
+version = "1.30.1"
 description = "Kaggle Environments"
 authors = [
     {name = "Kaggle", email = "support@kaggle.com"},
@@ -11,10 +11,9 @@ dependencies = [
     "gymnax==0.0.8",
     "jax",
     "jsonschema >= 3.0.1",
-    # Fixed due to litellm supply chain attack, hopefully can remove later.
-    "litellm <= 1.82.4",
+    "litellm >= 1.86.1",
     "numpy >= 2.0",
-    "open_spiel >= 1.6.8",
+    "open_spiel >= 1.6.15",
     "pettingzoo == 1.24.0",
     "pokerkit==0.6.3",
     "pydantic >= 2.11.4",
@@ -62,6 +61,14 @@ name = "kaggle_environments"
 # Flit specific options (files to exclude from the PyPI package).
 # If using another build backend (setuptools, poetry), you can remove this
 # section.
+#
+# NOTE: these patterns only apply to the sdist. flit_core's wheel builder
+# ignores them and ships everything under the module directory. The CI
+# `publish-to-pypi` step (docker/cicd-publish-to-pypi.sh) prunes each
+# `visualizer/<variant>/` to just `dist/index.html` before `flit publish`
+# so that the wheel ships the self-contained bundle without node_modules
+# or build sources. The shipped `dist/index.html` is what `html_renderer()`
+# returns in notebook / iframe srcdoc contexts.
 [tool.flit.sdist]
 exclude = [
   # Do not release tests files on PyPI

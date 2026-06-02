@@ -1,0 +1,1268 @@
+{
+  "id": "d63f93c0-4779-11f1-b87e-122fb404ab4e",
+  "name": "open_spiel_coin_game",
+  "title": "Open Spiel: coin_game",
+  "description": "Kaggle environment wrapper for OpenSpiel games.\nFor game implementation details see:\nhttps://github.com/google-deepmind/open_spiel/tree/master/open_spiel/games",
+  "version": "0.1.0",
+  "module_version": "1.18.0",
+  "configuration": {
+    "includeLegalActions": true,
+    "episodeSteps": 140,
+    "actTimeout": 3600,
+    "runTimeout": 172800,
+    "openSpielGameString": "coin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)",
+    "openSpielGameName": "coin_game",
+    "openSpielGameParameters": {
+      "columns": 8,
+      "episode_length": 20,
+      "num_coins_per_color": 4,
+      "num_extra_coin_colors": 1,
+      "players": 2,
+      "rows": 8
+    },
+    "observationType": "observation",
+    "useOpenings": false,
+    "useImage": false,
+    "loadPresetHands": false,
+    "metadata": {},
+    "strictMode": false
+  },
+  "specification": {
+    "action": {
+      "description": "Action object MUST contain a field `submission`, and MAY contain arbitrary additional information.",
+      "type": "object",
+      "default": {
+        "submission": -1
+      }
+    },
+    "agents": [2],
+    "configuration": {
+      "episodeSteps": {
+        "description": "Maximum number of steps in the episode.",
+        "type": "integer",
+        "minimum": 1,
+        "default": 140
+      },
+      "actTimeout": {
+        "description": "Maximum runtime (seconds) to obtain an action from an agent.",
+        "type": "number",
+        "minimum": 0,
+        "default": 3600
+      },
+      "runTimeout": {
+        "description": "Maximum runtime (seconds) of an episode (not necessarily DONE).",
+        "type": "number",
+        "minimum": 0,
+        "default": 172800
+      },
+      "openSpielGameString": {
+        "description": "The full game string including parameters.",
+        "type": "string",
+        "default": "coin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)"
+      },
+      "openSpielGameName": {
+        "description": "The short_name of the OpenSpiel game to load.",
+        "type": "string",
+        "default": "coin_game"
+      },
+      "openSpielGameParameters": {
+        "description": "Game parameters for Open Spiel game.",
+        "type": "object",
+        "default": {
+          "columns": 8,
+          "episode_length": 20,
+          "num_coins_per_color": 4,
+          "num_extra_coin_colors": 1,
+          "players": 2,
+          "rows": 8
+        },
+        "properties": {}
+      },
+      "observationType": {
+        "description": "Type of observation string: 'observation' or 'information_state'.",
+        "type": "string",
+        "default": "observation"
+      },
+      "useOpenings": {
+        "description": "Whether to start from a position in an opening book.",
+        "type": "boolean",
+        "default": false
+      },
+      "useImage": {
+        "description": "If true, indicates the observation is intended to be rendered as an image. Note that currently the agent harness is responsible for the actual rendering; no image is passed in the observation.",
+        "type": "boolean",
+        "default": false
+      },
+      "includeLegalActions": {
+        "description": "If true, include legalActions and legalActionStrings in observations. Defaults to false since these can be derived from serializedGameAndState.",
+        "type": "boolean",
+        "default": false
+      },
+      "seed": {
+        "description": "Integer currently only used for selecting starting position.",
+        "type": "number"
+      },
+      "initialActions": {
+        "description": "Actions applied to initial state before play begins to set up starting position.",
+        "type": "array"
+      },
+      "loadPresetHands": {
+        "description": "Repeated poker only. Load preset hand chance actions from preset_hands.jsonl.",
+        "type": "boolean",
+        "default": false
+      },
+      "presetHands": {
+        "description": "Repeated poker only. List of per-hand chance action sequences to use instead of random chance.",
+        "type": "array"
+      },
+      "metadata": {
+        "description": "Arbitrary metadata.",
+        "type": "object",
+        "default": {},
+        "properties": {}
+      },
+      "strictMode": {
+        "description": "If true, agents must return only {'submission': int} (no extra fields like 'thoughts'), and per-agent TIMEOUT/ERROR/INVALID counts as a loss for the offending agent only \u2014 other agents win. If false (default), any agent error halts and voids the entire episode, matching the lenient research-mode behavior.",
+        "type": "boolean",
+        "default": false
+      }
+    },
+    "info": {},
+    "observation": {
+      "remainingOverageTime": {
+        "description": "Total remaining banked time (seconds) that can be used in excess of per-step actTimeouts -- agent is disqualified with TIMEOUT status when this drops below 0.",
+        "shared": false,
+        "type": "number",
+        "minimum": 0,
+        "default": 12
+      },
+      "step": {
+        "description": "Current step within the episode.",
+        "type": "integer",
+        "shared": true,
+        "minimum": 0,
+        "default": 0
+      },
+      "properties": {
+        "openSpielGameString": {
+          "description": "Full game string including parameters.",
+          "type": "string",
+          "default": "coin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)"
+        },
+        "openSpielGameName": {
+          "description": "Short name of the OpenSpiel game.",
+          "type": "string",
+          "default": "coin_game"
+        },
+        "observationString": {
+          "description": "String representation of state.",
+          "type": "string"
+        },
+        "legalActions": {
+          "description": "List of OpenSpiel legal action integers. Only included if includeLegalActions is true.",
+          "type": "array"
+        },
+        "legalActionStrings": {
+          "description": "List of OpenSpiel legal action strings. Only included if includeLegalActions is true.",
+          "type": "array"
+        },
+        "currentPlayer": {
+          "description": "ID of player whose turn it is.",
+          "type": "integer"
+        },
+        "playerId": {
+          "description": "ID of the agent receiving this observation.",
+          "type": "integer"
+        },
+        "isTerminal": {
+          "description": "Boolean indicating game end.",
+          "type": "boolean"
+        },
+        "serializedGameAndState": {
+          "description": "Enables reconstructing the Game and State objects.",
+          "type": "string"
+        },
+        "remainingOverageTime": 60,
+        "step": 0
+      },
+      "default": {}
+    },
+    "reward": {
+      "type": ["number", "null"],
+      "default": 0.0
+    }
+  },
+  "steps": [
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": 0.0,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 0
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": 0.0,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 1,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \"1\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"b\", \"0\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 1], \"1\": [0, 4]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 0, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": 0, \"move_number\": 0, \"moves_remaining\": 20, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": null, \"your_preference\": \"a\", \"your_player_id\": 0}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11\nmove_number=16\n__dict__=gASVIAEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSM8yMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKCpRicy4=\n",
+          "legalActions": [0, 1, 2, 3, 4],
+          "legalActionStrings": ["up", "down", "left", "right", "stand"]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \"1\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"b\", \"0\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 1], \"1\": [0, 4]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 0, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": 0, \"move_number\": 0, \"moves_remaining\": 20, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": null, \"your_preference\": \"b\", \"your_player_id\": 1}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11\nmove_number=16\n__dict__=gASVIAEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSM8yMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKCpRicy4=\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 2,
+          "thoughts": "consider horizon kappa wonder pi reflect horizon lambda"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 2,
+          "actionSubmittedToString": "left",
+          "actionApplied": 2,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 2,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \"1\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 0], \"1\": [0, 4]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": 1, \"move_number\": 1, \"moves_remaining\": 19, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"left\", \"your_preference\": \"a\", \"your_player_id\": 0}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2\nmove_number=17\n__dict__=gASVIgEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSM9SMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoKlGJzLg==\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \"1\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 0], \"1\": [0, 4]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": 1, \"move_number\": 1, \"moves_remaining\": 19, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"left\", \"your_preference\": \"b\", \"your_player_id\": 1}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2\nmove_number=17\n__dict__=gASVIgEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSM9SMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoKlGJzLg==\n",
+          "legalActions": [0, 1, 2, 3, 4],
+          "legalActionStrings": ["up", "down", "left", "right", "stand"]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 3,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \"1\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 0], \"1\": [0, 3]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": 0, \"move_number\": 2, \"moves_remaining\": 18, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"left\", \"your_preference\": \"a\", \"your_player_id\": 0}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2\nmove_number=18\n__dict__=gASVJAEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSM9yMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCgqUYnMu\n",
+          "legalActions": [0, 1, 2, 3, 4],
+          "legalActionStrings": ["up", "down", "left", "right", "stand"]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 2,
+          "thoughts": "nu eta imagine spark omicron imagine pi ponder"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 2,
+          "actionSubmittedToString": "left",
+          "actionApplied": 2,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \"1\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 0], \"1\": [0, 3]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": 0, \"move_number\": 2, \"moves_remaining\": 18, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"left\", \"your_preference\": \"b\", \"your_player_id\": 1}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2\nmove_number=18\n__dict__=gASVJAEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSM9yMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 2,
+          "thoughts": "lambda xi omega lantern shadow delta upsilon theta"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 2,
+          "actionSubmittedToString": "left",
+          "actionApplied": 2,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 4,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \"1\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 0], \"1\": [0, 3]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": 1, \"move_number\": 3, \"moves_remaining\": 17, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"left\", \"your_preference\": \"a\", \"your_player_id\": 0}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2\nmove_number=19\n__dict__=gASVJgEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSM+SMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKCpRicy4=\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \"1\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 0], \"1\": [0, 3]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": 1, \"move_number\": 3, \"moves_remaining\": 17, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"left\", \"your_preference\": \"b\", \"your_player_id\": 1}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2\nmove_number=19\n__dict__=gASVJgEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSM+SMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKCpRicy4=\n",
+          "legalActions": [0, 1, 2, 3, 4],
+          "legalActionStrings": ["up", "down", "left", "right", "stand"]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 5,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \"1\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 0], \"1\": [0, 2]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": 0, \"move_number\": 4, \"moves_remaining\": 16, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"left\", \"your_preference\": \"a\", \"your_player_id\": 0}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2\nmove_number=20\n__dict__=gASVKAEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSM+yMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgoKlGJzLg==\n",
+          "legalActions": [0, 1, 2, 3, 4],
+          "legalActionStrings": ["up", "down", "left", "right", "stand"]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 2,
+          "thoughts": "muse tau cascade sigma rho wonder ember ripple"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 2,
+          "actionSubmittedToString": "left",
+          "actionApplied": 2,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \"1\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 0], \"1\": [0, 2]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": 0, \"move_number\": 4, \"moves_remaining\": 16, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"left\", \"your_preference\": \"b\", \"your_player_id\": 1}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2\nmove_number=20\n__dict__=gASVKAEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSM+yMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgoKlGJzLg==\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 0,
+          "thoughts": "tau lambda alpha beta nu delta eta beta"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 0,
+          "actionSubmittedToString": "up",
+          "actionApplied": 0,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 6,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \"1\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [0, 2]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": 1, \"move_number\": 5, \"moves_remaining\": 15, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"up\", \"your_preference\": \"a\", \"your_player_id\": 0}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0\nmove_number=21\n__dict__=gASVKgEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSM/SMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \"1\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [0, 2]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": 1, \"move_number\": 5, \"moves_remaining\": 15, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"up\", \"your_preference\": \"b\", \"your_player_id\": 1}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0\nmove_number=21\n__dict__=gASVKgEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSM/SMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCgqUYnMu\n",
+          "legalActions": [0, 1, 2, 3, 4],
+          "legalActionStrings": ["up", "down", "left", "right", "stand"]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 7,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \"1\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [0, 2]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": 0, \"move_number\": 6, \"moves_remaining\": 14, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"up\", \"your_preference\": \"a\", \"your_player_id\": 0}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0\nmove_number=22\n__dict__=gASVLAEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSM/yMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKCpRicy4=\n",
+          "legalActions": [0, 1, 2, 3, 4],
+          "legalActionStrings": ["up", "down", "left", "right", "stand"]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 0,
+          "thoughts": "rho chi ember wonder iota omicron horizon explore"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 0,
+          "actionSubmittedToString": "up",
+          "actionApplied": 0,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \"1\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [0, 2]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": 0, \"move_number\": 6, \"moves_remaining\": 14, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"up\", \"your_preference\": \"b\", \"your_player_id\": 1}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0\nmove_number=22\n__dict__=gASVLAEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZSM/yMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKCpRicy4=\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 1,
+          "thoughts": "spark phi cascade imagine muse omega kappa delta"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 1,
+          "actionSubmittedToString": "down",
+          "actionApplied": 1,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 8,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \"1\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 0], \"1\": [0, 2]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": 1, \"move_number\": 7, \"moves_remaining\": 13, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"down\", \"your_preference\": \"a\", \"your_player_id\": 0}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1\nmove_number=23\n__dict__=gASVMQEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYAQEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoKlGJzLg==\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \"1\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 0], \"1\": [0, 2]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": 1, \"move_number\": 7, \"moves_remaining\": 13, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"down\", \"your_preference\": \"b\", \"your_player_id\": 1}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1\nmove_number=23\n__dict__=gASVMQEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYAQEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoKlGJzLg==\n",
+          "legalActions": [0, 1, 2, 3, 4],
+          "legalActionStrings": ["up", "down", "left", "right", "stand"]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 9,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"1\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 0], \"1\": [1, 2]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 1}}, \"current_player\": 0, \"move_number\": 8, \"moves_remaining\": 12, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"down\", \"your_preference\": \"a\", \"your_player_id\": 0}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1\nmove_number=24\n__dict__=gASVMwEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYAwEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCgqUYnMu\n",
+          "legalActions": [0, 1, 2, 3, 4],
+          "legalActionStrings": ["up", "down", "left", "right", "stand"]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 1,
+          "thoughts": "cascade phi shadow ember epsilon ponder wonder reflect"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 1,
+          "actionSubmittedToString": "down",
+          "actionApplied": 1,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"1\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 0], \"1\": [1, 2]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 1}}, \"current_player\": 0, \"move_number\": 8, \"moves_remaining\": 12, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"down\", \"your_preference\": \"b\", \"your_player_id\": 1}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1\nmove_number=24\n__dict__=gASVMwEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYAwEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 4,
+          "thoughts": "beta upsilon lambda shadow psi muse consider kappa"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 4,
+          "actionSubmittedToString": "stand",
+          "actionApplied": 4,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 10,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"1\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 0], \"1\": [1, 2]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 1}}, \"current_player\": 1, \"move_number\": 9, \"moves_remaining\": 11, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"stand\", \"your_preference\": \"a\", \"your_player_id\": 0}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1,0:4\nmove_number=25\n__dict__=gASVNQEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYBQEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCjQKCpRicy4=\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"1\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 0], \"1\": [1, 2]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 1}}, \"current_player\": 1, \"move_number\": 9, \"moves_remaining\": 11, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"stand\", \"your_preference\": \"b\", \"your_player_id\": 1}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1,0:4\nmove_number=25\n__dict__=gASVNQEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYBQEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCjQKCpRicy4=\n",
+          "legalActions": [0, 1, 2, 3, 4],
+          "legalActionStrings": ["up", "down", "left", "right", "stand"]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 11,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"1\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 0], \"1\": [2, 2]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 0, \"move_number\": 10, \"moves_remaining\": 10, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"down\", \"your_preference\": \"a\", \"your_player_id\": 0}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1,0:4,1:1\nmove_number=26\n__dict__=gASVNwEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYBwEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCjQKMQoKlGJzLg==\n",
+          "legalActions": [0, 1, 2, 3, 4],
+          "legalActionStrings": ["up", "down", "left", "right", "stand"]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 1,
+          "thoughts": "consider alpha shadow nu xi ripple zeta pi"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 1,
+          "actionSubmittedToString": "down",
+          "actionApplied": 1,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"1\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 0], \"1\": [2, 2]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 0, \"move_number\": 10, \"moves_remaining\": 10, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"down\", \"your_preference\": \"b\", \"your_player_id\": 1}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1,0:4,1:1\nmove_number=26\n__dict__=gASVNwEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYBwEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCjQKMQoKlGJzLg==\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 0,
+          "thoughts": "nu spark epsilon kappa cascade lambda spark echo"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 0,
+          "actionSubmittedToString": "up",
+          "actionApplied": 0,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 12,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"1\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [2, 2]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 1, \"move_number\": 11, \"moves_remaining\": 9, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"up\", \"your_preference\": \"a\", \"your_player_id\": 0}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1,0:4,1:1,0:0\nmove_number=27\n__dict__=gASVOQEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYCQEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCjQKMQowCgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"1\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [2, 2]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 1, \"move_number\": 11, \"moves_remaining\": 9, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"up\", \"your_preference\": \"b\", \"your_player_id\": 1}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1,0:4,1:1,0:0\nmove_number=27\n__dict__=gASVOQEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYCQEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCjQKMQowCgqUYnMu\n",
+          "legalActions": [0, 1, 2, 3, 4],
+          "legalActionStrings": ["up", "down", "left", "right", "stand"]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 13,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \"1\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [2, 1]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 0, \"move_number\": 12, \"moves_remaining\": 8, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"left\", \"your_preference\": \"a\", \"your_player_id\": 0}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1,0:4,1:1,0:0,1:2\nmove_number=28\n__dict__=gASVOwEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYCwEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCjQKMQowCjIKCpRicy4=\n",
+          "legalActions": [0, 1, 2, 3, 4],
+          "legalActionStrings": ["up", "down", "left", "right", "stand"]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 2,
+          "thoughts": "cascade alpha alpha nu kappa lambda sigma pi"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 2,
+          "actionSubmittedToString": "left",
+          "actionApplied": 2,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \"1\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [2, 1]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 0, \"move_number\": 12, \"moves_remaining\": 8, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"left\", \"your_preference\": \"b\", \"your_player_id\": 1}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1,0:4,1:1,0:0,1:2\nmove_number=28\n__dict__=gASVOwEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYCwEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCjQKMQowCjIKCpRicy4=\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 4,
+          "thoughts": "eta upsilon nu tau delta spark horizon sigma"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 4,
+          "actionSubmittedToString": "stand",
+          "actionApplied": 4,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 14,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \"1\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [2, 1]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 1, \"move_number\": 13, \"moves_remaining\": 7, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"stand\", \"your_preference\": \"a\", \"your_player_id\": 0}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1,0:4,1:1,0:0,1:2,0:4\nmove_number=29\n__dict__=gASVPQEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYDQEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCjQKMQowCjIKNAoKlGJzLg==\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \"1\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [2, 1]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 1, \"move_number\": 13, \"moves_remaining\": 7, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"stand\", \"your_preference\": \"b\", \"your_player_id\": 1}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1,0:4,1:1,0:0,1:2,0:4\nmove_number=29\n__dict__=gASVPQEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYDQEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCjQKMQowCjIKNAoKlGJzLg==\n",
+          "legalActions": [0, 1, 2, 3, 4],
+          "legalActionStrings": ["up", "down", "left", "right", "stand"]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 15,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\"1\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [2, 0]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 0, \"move_number\": 14, \"moves_remaining\": 6, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"left\", \"your_preference\": \"a\", \"your_player_id\": 0}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1,0:4,1:1,0:0,1:2,0:4,1:2\nmove_number=30\n__dict__=gASVPwEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYDwEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCjQKMQowCjIKNAoyCgqUYnMu\n",
+          "legalActions": [0, 1, 2, 3, 4],
+          "legalActionStrings": ["up", "down", "left", "right", "stand"]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 2,
+          "thoughts": "rho upsilon eta eta ripple mu cascade omega"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 2,
+          "actionSubmittedToString": "left",
+          "actionApplied": 2,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\"1\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [2, 0]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 0, \"move_number\": 14, \"moves_remaining\": 6, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"left\", \"your_preference\": \"b\", \"your_player_id\": 1}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1,0:4,1:1,0:0,1:2,0:4,1:2\nmove_number=30\n__dict__=gASVPwEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYDwEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCjQKMQowCjIKNAoyCgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 2,
+          "thoughts": "omega omega spark cascade eta shadow omicron muse"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 2,
+          "actionSubmittedToString": "left",
+          "actionApplied": 2,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 16,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\"1\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [2, 0]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 1, \"move_number\": 15, \"moves_remaining\": 5, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"left\", \"your_preference\": \"a\", \"your_player_id\": 0}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1,0:4,1:1,0:0,1:2,0:4,1:2,0:2\nmove_number=31\n__dict__=gASVQQEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYEQEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCjQKMQowCjIKNAoyCjIKCpRicy4=\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\"1\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [2, 0]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 1, \"move_number\": 15, \"moves_remaining\": 5, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"left\", \"your_preference\": \"b\", \"your_player_id\": 1}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1,0:4,1:1,0:0,1:2,0:4,1:2,0:2\nmove_number=31\n__dict__=gASVQQEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYEQEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCjQKMQowCjIKNAoyCjIKCpRicy4=\n",
+          "legalActions": [0, 1, 2, 3, 4],
+          "legalActionStrings": ["up", "down", "left", "right", "stand"]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 17,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\"1\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [2, 0]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 0, \"move_number\": 16, \"moves_remaining\": 4, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"down\", \"your_preference\": \"a\", \"your_player_id\": 0}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1,0:4,1:1,0:0,1:2,0:4,1:2,0:2,1:1\nmove_number=32\n__dict__=gASVQwEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYEwEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCjQKMQowCjIKNAoyCjIKMQoKlGJzLg==\n",
+          "legalActions": [0, 1, 2, 3, 4],
+          "legalActionStrings": ["up", "down", "left", "right", "stand"]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 1,
+          "thoughts": "zeta shadow omega rho explore kappa shadow cascade"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 1,
+          "actionSubmittedToString": "down",
+          "actionApplied": 1,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\"1\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [2, 0]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 0, \"move_number\": 16, \"moves_remaining\": 4, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"down\", \"your_preference\": \"b\", \"your_player_id\": 1}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1,0:4,1:1,0:0,1:2,0:4,1:2,0:2,1:1\nmove_number=32\n__dict__=gASVQwEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYEwEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCjQKMQowCjIKNAoyCjIKMQoKlGJzLg==\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 4,
+          "thoughts": "phi lantern sigma xi psi shadow ponder psi"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 4,
+          "actionSubmittedToString": "stand",
+          "actionApplied": 4,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 18,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\"1\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [2, 0]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 1, \"move_number\": 17, \"moves_remaining\": 3, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"stand\", \"your_preference\": \"a\", \"your_player_id\": 0}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1,0:4,1:1,0:0,1:2,0:4,1:2,0:2,1:1,0:4\nmove_number=33\n__dict__=gASVRQEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYFQEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCjQKMQowCjIKNAoyCjIKMQo0CgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\"1\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [2, 0]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 1, \"move_number\": 17, \"moves_remaining\": 3, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"stand\", \"your_preference\": \"b\", \"your_player_id\": 1}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1,0:4,1:1,0:0,1:2,0:4,1:2,0:2,1:1,0:4\nmove_number=33\n__dict__=gASVRQEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYFQEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCjQKMQowCjIKNAoyCjIKMQo0CgqUYnMu\n",
+          "legalActions": [0, 1, 2, 3, 4],
+          "legalActionStrings": ["up", "down", "left", "right", "stand"]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 19,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \"1\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [2, 1]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 0, \"move_number\": 18, \"moves_remaining\": 2, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"right\", \"your_preference\": \"a\", \"your_player_id\": 0}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1,0:4,1:1,0:0,1:2,0:4,1:2,0:2,1:1,0:4,1:3\nmove_number=34\n__dict__=gASVRwEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYFwEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCjQKMQowCjIKNAoyCjIKMQo0CjMKCpRicy4=\n",
+          "legalActions": [0, 1, 2, 3, 4],
+          "legalActionStrings": ["up", "down", "left", "right", "stand"]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 3,
+          "thoughts": "gamma rho delta chi omega sigma drift psi"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 3,
+          "actionSubmittedToString": "right",
+          "actionApplied": 3,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \"1\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [2, 1]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 0, \"move_number\": 18, \"moves_remaining\": 2, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"right\", \"your_preference\": \"b\", \"your_player_id\": 1}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1,0:4,1:1,0:0,1:2,0:4,1:2,0:2,1:1,0:4,1:3\nmove_number=34\n__dict__=gASVRwEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYFwEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCjQKMQowCjIKNAoyCjIKMQo0CjMKCpRicy4=\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 0,
+          "thoughts": "alpha consider ripple lantern beta nu reflect pi"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 0,
+          "actionSubmittedToString": "up",
+          "actionApplied": 0,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 20,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\"0\", \"1\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [2, 0], \"1\": [2, 1]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 1, \"move_number\": 19, \"moves_remaining\": 1, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"up\", \"your_preference\": \"a\", \"your_player_id\": 0}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1,0:4,1:1,0:0,1:2,0:4,1:2,0:2,1:1,0:4,1:3,0:0\nmove_number=35\n__dict__=gASVSQEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYGQEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCjQKMQowCjIKNAoyCjIKMQo0CjMKMAoKlGJzLg==\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\"0\", \"1\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [2, 0], \"1\": [2, 1]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 1, \"move_number\": 19, \"moves_remaining\": 1, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"up\", \"your_preference\": \"b\", \"your_player_id\": 1}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1,0:4,1:1,0:0,1:2,0:4,1:2,0:2,1:1,0:4,1:3,0:0\nmove_number=35\n__dict__=gASVSQEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYGQEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCjQKMQowCjIKNAoyCjIKMQo0CjMKMAoKlGJzLg==\n",
+          "legalActions": [0, 1, 2, 3, 4],
+          "legalActionStrings": ["up", "down", "left", "right", "stand"]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": 1.0,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 21,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\"0\", \"1\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [2, 0], \"1\": [2, 1]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": -4, \"move_number\": 20, \"moves_remaining\": 0, \"episode_length\": 20, \"is_terminal\": true, \"winner\": \"draw\", \"last_action\": \"left\", \"your_preference\": \"a\", \"your_player_id\": 0, \"returns\": [1.0, 1.0], \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+          "currentPlayer": -4,
+          "playerId": 0,
+          "isTerminal": true,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1,0:4,1:1,0:0,1:2,0:4,1:2,0:2,1:1,0:4,1:3,0:0,1:2\nmove_number=36\n__dict__=gASVSwEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYGwEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCjQKMQowCjIKNAoyCjIKMQo0CjMKMAoyCgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "DONE"
+      },
+      {
+        "action": {
+          "submission": 2,
+          "thoughts": "upsilon phi nu zeta sigma lantern consider lambda"
+        },
+        "reward": 1.0,
+        "info": {
+          "actionSubmitted": 2,
+          "actionSubmittedToString": "left",
+          "actionApplied": 2,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\"0\", \"1\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [2, 0], \"1\": [2, 1]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": -4, \"move_number\": 20, \"moves_remaining\": 0, \"episode_length\": 20, \"is_terminal\": true, \"winner\": \"draw\", \"last_action\": \"left\", \"your_preference\": \"b\", \"your_player_id\": 1, \"returns\": [1.0, 1.0], \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+          "currentPlayer": -4,
+          "playerId": 1,
+          "isTerminal": true,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\ncoin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)\n[State]\nhistory=-1:0,-1:1,-1:33,-1:4,-1:58,-1:18,-1:51,-1:54,-1:48,-1:32,-1:43,-1:44,-1:28,-1:10,-1:59,-1:11,0:2,1:2,0:2,1:2,0:0,1:0,0:1,1:1,0:4,1:1,0:0,1:2,0:4,1:2,0:2,1:1,0:4,1:3,0:0,1:2\nmove_number=36\n__dict__=gASVSwEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwFU3RhdGWUk5QpgZRYGwEAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCmNvaW5fZ2FtZShjb2x1bW5zPTgsZXBpc29kZV9sZW5ndGg9MjAsbnVtX2NvaW5zX3Blcl9jb2xvcj00LG51bV9leHRyYV9jb2luX2NvbG9ycz0xLHBsYXllcnM9Mixyb3dzPTgpCltTdGF0ZV0KMAoxCjMzCjQKNTgKMTgKNTEKNTQKNDgKMzIKNDMKNDQKMjgKMTAKNTkKMTEKMgoyCjIKMgowCjAKMQoxCjQKMQowCjIKNAoyCjIKMQo0CjMKMAoyCgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "DONE"
+      }
+    ]
+  ],
+  "rewards": [1.0, 1.0],
+  "statuses": ["DONE", "DONE"],
+  "schema_version": 1,
+  "info": {
+    "openSpielGameStringResolved": "coin_game_proxy(columns=8,episode_length=20,num_coins_per_color=4,num_extra_coin_colors=1,players=2,rows=8)",
+    "stateHistory": [
+      "{\"phase\": \"assignpreferences\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": null, \"1\": null}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 0, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": -1, \"move_number\": 0, \"moves_remaining\": 20, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": null, \"preferences\": {}}",
+      "{\"phase\": \"assignpreferences\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": null, \"1\": null}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 0, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": -1, \"move_number\": 0, \"moves_remaining\": 20, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": null, \"preferences\": {\"0\": \"a\"}}",
+      "{\"phase\": \"deployplayers\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": null, \"1\": null}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 0, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": -1, \"move_number\": 0, \"moves_remaining\": 20, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": null, \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"deployplayers\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \"0\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 1], \"1\": null}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 0, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": -1, \"move_number\": 0, \"moves_remaining\": 20, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": null, \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"deploycoins\", \"board\": [[\".\", \".\", \".\", \".\", \"1\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \"0\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 1], \"1\": [0, 4]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 0, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": -1, \"move_number\": 0, \"moves_remaining\": 20, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": null, \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"deploycoins\", \"board\": [[\".\", \".\", \".\", \".\", \"1\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \"0\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 1], \"1\": [0, 4]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 0, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": -1, \"move_number\": 0, \"moves_remaining\": 20, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": null, \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"deploycoins\", \"board\": [[\".\", \".\", \".\", \".\", \"1\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \"0\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 1], \"1\": [0, 4]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 0, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": -1, \"move_number\": 0, \"moves_remaining\": 20, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": null, \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"deploycoins\", \"board\": [[\".\", \".\", \".\", \".\", \"1\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \"0\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"a\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 1], \"1\": [0, 4]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 0, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": -1, \"move_number\": 0, \"moves_remaining\": 20, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": null, \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"deploycoins\", \"board\": [[\".\", \".\", \".\", \".\", \"1\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \"0\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 1], \"1\": [0, 4]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 0, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": -1, \"move_number\": 0, \"moves_remaining\": 20, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": null, \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"deploycoins\", \"board\": [[\".\", \".\", \".\", \".\", \"1\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \"0\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 1], \"1\": [0, 4]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 0, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": -1, \"move_number\": 0, \"moves_remaining\": 20, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": null, \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"deploycoins\", \"board\": [[\".\", \".\", \".\", \".\", \"1\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"b\", \"0\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 1], \"1\": [0, 4]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 0, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": -1, \"move_number\": 0, \"moves_remaining\": 20, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": null, \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"deploycoins\", \"board\": [[\".\", \".\", \".\", \".\", \"1\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"b\", \"0\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \".\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 1], \"1\": [0, 4]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 0, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": -1, \"move_number\": 0, \"moves_remaining\": 20, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": null, \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"deploycoins\", \"board\": [[\".\", \".\", \".\", \".\", \"1\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"b\", \"0\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 1], \"1\": [0, 4]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 0, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": -1, \"move_number\": 0, \"moves_remaining\": 20, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": null, \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"deploycoins\", \"board\": [[\".\", \".\", \".\", \".\", \"1\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"b\", \"0\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 1], \"1\": [0, 4]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 0, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": -1, \"move_number\": 0, \"moves_remaining\": 20, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": null, \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"deploycoins\", \"board\": [[\".\", \".\", \".\", \".\", \"1\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"b\", \"0\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 1], \"1\": [0, 4]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 0, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": -1, \"move_number\": 0, \"moves_remaining\": 20, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": null, \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"deploycoins\", \"board\": [[\".\", \".\", \".\", \".\", \"1\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"b\", \"0\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 1], \"1\": [0, 4]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 0, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": -1, \"move_number\": 0, \"moves_remaining\": 20, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": null, \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \"1\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"b\", \"0\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 1], \"1\": [0, 4]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 0, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": 0, \"move_number\": 0, \"moves_remaining\": 20, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": null, \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \"1\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 0], \"1\": [0, 4]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": 1, \"move_number\": 1, \"moves_remaining\": 19, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"left\", \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \"1\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 0], \"1\": [0, 3]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": 0, \"move_number\": 2, \"moves_remaining\": 18, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"left\", \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \"1\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 0], \"1\": [0, 3]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": 1, \"move_number\": 3, \"moves_remaining\": 17, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"left\", \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"play\", \"board\": [[\".\", \".\", \"1\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 0], \"1\": [0, 2]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": 0, \"move_number\": 4, \"moves_remaining\": 16, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"left\", \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"play\", \"board\": [[\".\", \".\", \"1\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [0, 2]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": 1, \"move_number\": 5, \"moves_remaining\": 15, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"up\", \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"play\", \"board\": [[\".\", \".\", \"1\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [0, 2]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": 0, \"move_number\": 6, \"moves_remaining\": 14, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"up\", \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"play\", \"board\": [[\".\", \".\", \"1\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"c\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 0], \"1\": [0, 2]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 0}}, \"current_player\": 1, \"move_number\": 7, \"moves_remaining\": 13, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"down\", \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"1\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 0], \"1\": [1, 2]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 1}}, \"current_player\": 0, \"move_number\": 8, \"moves_remaining\": 12, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"down\", \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"1\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"a\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 0], \"1\": [1, 2]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 0, \"b\": 0, \"c\": 1}}, \"current_player\": 1, \"move_number\": 9, \"moves_remaining\": 11, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"stand\", \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"1\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [4, 0], \"1\": [2, 2]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 0, \"move_number\": 10, \"moves_remaining\": 10, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"down\", \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"1\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [2, 2]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 1, \"move_number\": 11, \"moves_remaining\": 9, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"up\", \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \"1\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [2, 1]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 0, \"move_number\": 12, \"moves_remaining\": 8, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"left\", \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \"1\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [2, 1]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 1, \"move_number\": 13, \"moves_remaining\": 7, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"stand\", \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\"1\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [2, 0]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 0, \"move_number\": 14, \"moves_remaining\": 6, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"left\", \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\"1\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [2, 0]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 1, \"move_number\": 15, \"moves_remaining\": 5, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"left\", \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\"1\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [2, 0]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 0, \"move_number\": 16, \"moves_remaining\": 4, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"down\", \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\"1\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [2, 0]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 1, \"move_number\": 17, \"moves_remaining\": 3, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"stand\", \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\".\", \"1\", \".\", \".\", \".\", \".\", \".\", \".\"], [\"0\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [3, 0], \"1\": [2, 1]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 0, \"move_number\": 18, \"moves_remaining\": 2, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"right\", \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\"0\", \"1\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [2, 0], \"1\": [2, 1]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": 1, \"move_number\": 19, \"moves_remaining\": 1, \"episode_length\": 20, \"is_terminal\": false, \"winner\": null, \"last_action\": \"up\", \"preferences\": {\"0\": \"a\", \"1\": \"b\"}}",
+      "{\"phase\": \"play\", \"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"c\", \".\", \".\", \".\", \".\"], [\"0\", \"1\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \"c\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \"b\", \"b\", \".\", \".\", \".\"], [\"b\", \".\", \".\", \"a\", \".\", \".\", \"a\", \".\"], [\".\", \".\", \"a\", \"c\", \".\", \".\", \".\", \".\"]], \"num_rows\": 8, \"num_columns\": 8, \"coin_colors\": [\"a\", \"b\", \"c\"], \"player_positions\": {\"0\": [2, 0], \"1\": [2, 1]}, \"coins_collected\": {\"0\": {\"a\": 0, \"b\": 1, \"c\": 0}, \"1\": {\"a\": 1, \"b\": 0, \"c\": 1}}, \"current_player\": -4, \"move_number\": 20, \"moves_remaining\": 0, \"episode_length\": 20, \"is_terminal\": true, \"winner\": \"draw\", \"last_action\": \"left\", \"preferences\": {\"0\": \"a\", \"1\": \"b\"}, \"returns\": [1.0, 1.0]}"
+    ],
+    "actionHistory": [
+      "0",
+      "1",
+      "33",
+      "4",
+      "58",
+      "18",
+      "51",
+      "54",
+      "48",
+      "32",
+      "43",
+      "44",
+      "28",
+      "10",
+      "59",
+      "11",
+      "2",
+      "2",
+      "2",
+      "2",
+      "0",
+      "0",
+      "1",
+      "1",
+      "4",
+      "1",
+      "0",
+      "2",
+      "4",
+      "2",
+      "2",
+      "1",
+      "4",
+      "3",
+      "0",
+      "2"
+    ],
+    "moveDurations": [
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0
+    ]
+  }
+}
