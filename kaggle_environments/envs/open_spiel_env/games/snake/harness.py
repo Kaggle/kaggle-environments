@@ -29,13 +29,15 @@ dies if its new head:
   - collides head-to-head with another snake (both die).
 A snake that moves onto a food cell ("*") grows by one and earns one
 point. Food spawns in 180°-rotationally-symmetric pairs (one cell and
-its mirror through the board center), so both starting positions are
-equidistant from the nearest food. Every {food_respawn_interval} turns
-a fresh pair is spawned and any uneaten food is removed — there is no
-respawn when food is eaten. Snakes that do NOT eat lose their tail on
-the same turn. The game ends when at most one snake is alive (in a
-multi-player game) or after {max_turns} turns; the last snake standing
-wins, otherwise the highest score wins.
+its mirror through the board center). Every {food_respawn_interval}
+turns a fresh pair is spawned and any uneaten food on the board is
+removed -- there is NO respawn when food is eaten. Snakes that do NOT
+eat lose their tail on the same turn. The game ends when at most one
+snake is alive, or when the board has no room left for a new food pair.
+
+Your goal is to maximize your food score (1 point per food eaten).
+There is NO bonus for being the last snake standing -- surviving only
+ends the game; it does not boost your score.
 
 Coordinates are ``[row, column]`` with ``row=0`` at the top and
 ``column=0`` on the left. The board uses these characters:
@@ -43,15 +45,16 @@ Coordinates are ``[row, column]`` with ``row=0`` at the top and
   body, uppercase letter ({your_head_char}/etc.) snake head. Your snake
   uses letter "{your_letter}".
 
-The current game state is:
-{state_str}
+Current board:
+{board_str}
 
-You are player {player_id}. Your snake is at {your_body}{alive_note}.
+You are player {player_id}. Your snake body is at {your_body}{alive_note}
+(the first coordinate is your head).
 Your score: {your_score}. Food at: {food_str}.
 Next food respawn in {turns_until_respawn} turn(s).
 
-Moves you have played so far:
-{move_history}
+Recent rounds (most recent last; one line per simultaneous round):
+{round_history_str}
 
 It is now your turn. Choose your move.
 The move MUST be one of: UP, DOWN, LEFT, RIGHT.
@@ -100,6 +103,9 @@ The move you choose must also be legal in the current state.
 # --- Helpers ----------------------------------------------------------------
 
 
+_RECENT_ROUNDS_LIMIT = 10
+
+
 def _parse_observation(observation: Mapping[str, Any]) -> dict[str, Any]:
     """Parse the snake proxy's JSON observation, returning ``{}`` on error."""
     obs_str = observation.get("observationString", "")
@@ -109,6 +115,40 @@ def _parse_observation(observation: Mapping[str, Any]) -> dict[str, Any]:
         return json.loads(obs_str)
     except (json.JSONDecodeError, TypeError):
         return {}
+
+
+def _render_board(board: list[list[str]] | None) -> str:
+    """Render the proxy's 2D board array as a single ASCII grid."""
+    if not board:
+        return "(no board)"
+    return "\n".join("".join(row) for row in board)
+
+
+def _render_round_history(
+    round_history: list[list[str | None]] | None,
+    num_players: int,
+) -> str:
+    """Render the per-round action log shared by all players.
+
+    Lines are 1-indexed by round number, capped at the most recent
+    ``_RECENT_ROUNDS_LIMIT`` rounds so the prompt doesn't grow without
+    bound. ``None`` in a slot means the player didn't supply a move that
+    round (e.g. they were already dead).
+    """
+    if not round_history:
+        return "(no moves yet)"
+    total = len(round_history)
+    recent = round_history[-_RECENT_ROUNDS_LIMIT:]
+    start_idx = total - len(recent) + 1
+    lines = []
+    for i, round_moves in enumerate(recent):
+        round_num = start_idx + i
+        parts = [
+            f"P{p}={(round_moves[p] if p < len(round_moves) else None) or '-'}"
+            for p in range(num_players)
+        ]
+        lines.append(f"Round {round_num}: " + ", ".join(parts))
+    return "\n".join(lines)
 
 
 # --- Public functions (called by main.py) -----------------------------------
@@ -136,14 +176,13 @@ def generate_prompt(
     previous_action: str | None = None,
 ) -> str:
     """Build the LLM prompt for the current snake game state."""
-    obs_string = observation.get("observationString", "")
+    del move_history  # We render the proxy's full per-round history instead.
     player_id = int(observation.get("playerId", 0))
     parsed = _parse_observation(observation)
 
     rows = int(parsed.get("num_rows", 10))
     cols = int(parsed.get("num_columns", 10))
     num_players = int(parsed.get("num_players", 2))
-    max_turns = rows * cols * 2
 
     body_chars = ["a", "b", "c", "d"]
     head_chars = ["A", "B", "C", "D"]
@@ -156,7 +195,7 @@ def generate_prompt(
     your_body = your_snake["body"] if your_snake else "(unknown)"
     your_score = your_snake["score"] if your_snake else 0
     alive = bool(your_snake.get("alive", True)) if your_snake else True
-    alive_note = "" if alive else " (DEAD — you are out of the game)"
+    alive_note = "" if alive else " (DEAD -- you are out of the game)"
 
     foods = parsed.get("foods")
     if foods is None:
@@ -171,25 +210,27 @@ def generate_prompt(
     if turns_until_respawn is None and food_respawn_interval > 0:
         turns_until_respawn = food_respawn_interval - (turn % food_respawn_interval)
 
-    move_history_str = " ".join(move_history) if move_history else "None"
+    board_str = _render_board(parsed.get("board"))
+    round_history_str = _render_round_history(
+        parsed.get("round_history"), num_players,
+    )
 
     prompt = SNAKE_PROMPT_TEMPLATE.format(
         rows=rows,
         cols=cols,
         num_players=num_players,
-        max_turns=max_turns,
         food_respawn_interval=food_respawn_interval,
         turns_until_respawn=turns_until_respawn,
         your_letter=your_letter,
         your_body_char=your_body_char,
         your_head_char=your_head_char,
-        state_str=obs_string,
+        board_str=board_str,
         player_id=player_id,
         your_body=your_body,
         your_score=your_score,
         alive_note=alive_note,
         food_str=food_str,
-        move_history=move_history_str,
+        round_history_str=round_history_str,
     )
 
     prompt += render_rethink_suffix(

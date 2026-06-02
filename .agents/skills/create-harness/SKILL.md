@@ -127,81 +127,30 @@ cannot enumerate) — in that case, list only what the model cannot infer.
 
 ### Prompt template example
 
-```python
-GAME_PROMPT_TEMPLATE = """\
-You are playing {game_name}.
+Read `kaggle_environments/envs/open_spiel_env/games/checkers/harness.py` —
+it's the canonical shape: a single `*_PROMPT_TEMPLATE` constant with
+explicit `{field}` placeholders, plus two named rethink templates
+(`RETHINK_ILLEGAL`, `RETHINK_UNPARSABLE`) selected by
+`render_rethink_suffix` from `core_harness`.
 
-Rules: {rules_description}
+The required pieces:
 
-Current game state:
-{state_str}
+- A main template that interpolates game state, player identity, move
+  history, and a JSON output spec with a concrete `For example:` line.
+- `RETHINK_ILLEGAL` — fires when the parser extracted a move that wasn't
+  legal. Leads with `{previous_action}` ("You suggested … but this is
+  not a legal move"). Does NOT include the previous response.
+- `RETHINK_UNPARSABLE` — fires when the parser extracted nothing. Leads
+  with `{previous_response}` and restates the JSON format with a clean
+  placeholder + concrete example.
+- A `generate_prompt` that builds the main prompt and appends
+  `render_rethink_suffix(RETHINK_ILLEGAL, RETHINK_UNPARSABLE,
+  previous_response, previous_action)`. The helper returns `""` on the
+  first attempt, picks the right branch otherwise, and truncates
+  `previous_response` to the last 500 chars.
 
-Moves played so far: {move_history_str}
-
-You are player {player_id}.
-
-Your response should include your reasoning, then conclude with your move as JSON:
-
-```json
-{{"move": "<your_move>"}}
-```
-"""
-
-# Used when the parser extracted a move but it was illegal. Leads
-# with the model's attempted move (the most useful signal) and asks
-# for a legal one; we deliberately do NOT include the previous
-# response here -- the action string is what matters. A brief tail
-# reminds the model to keep using the same JSON format.
-RETHINK_ILLEGAL = """
-You suggested move "{previous_action}" but this is not a legal move.
-Reconsider the rules and the current state, then pick a legal move.
-
-(Keep using the same JSON output format as before -- only the move
-value needs to change.)
-"""
-
-# Used when the parser couldn't extract a move at all. There's no
-# previous_action to show, so we lead with the previous response (last
-# 500 chars -- the model's conclusion is what we want to see, not the
-# preamble) so the model can see what it tried, then restate the exact
-# JSON format with a concrete example so it's unambiguous.
-RETHINK_UNPARSABLE = """
-Your previous response ended with:
-{previous_response}
-
-No JSON answer could be parsed from that. Conclude your response with
-your final move as JSON in a ```json fenced block, exactly as the
-original instructions required:
-
-```json
-{{"move": "<your_move>"}}
-```
-
-For example: `{{"move": "<concrete_example_for_this_game>"}}`
-
-The move you choose must also be legal in the current state.
-"""
-```
-
-Then in `generate_prompt`, delegate the branching to
-`render_rethink_suffix` from `core_harness`:
-
-```python
-from kaggle_environments.core_harness import render_rethink_suffix
-
-def generate_prompt(observation, move_history,
-                    previous_response=None, previous_action=None):
-    prompt = ...  # build the main prompt as usual
-    prompt += render_rethink_suffix(
-        RETHINK_ILLEGAL, RETHINK_UNPARSABLE,
-        previous_response, previous_action,
-    )
-    return prompt
-```
-
-`render_rethink_suffix` returns an empty string on the first attempt
-(no prior response to react to) and otherwise picks the right template
-and truncates `previous_response` to the last 500 chars.
+For an imperfect-information variant (per-player observation, custom
+`matcher=`), use `dark_hex/harness.py` as the model instead.
 
 ### Prompt writing tips
 
@@ -222,6 +171,10 @@ and truncates `previous_response` to the last 500 chars.
   ```
   For example: `{"move": "24/23 24/22"}`
   ````
+- **Every concrete claim must trace to a code path.** Before you ship a prompt, take each specific field, rule, or value it references and walk it backwards: (a) which proxy `state_dict()` key produces it? (b) which engine call produces THAT? (c) what params is the env actually loaded with? If you can't trace a claim to a source, it's a phantom — either implement the missing path or delete the claim. The two recurring failure shapes are drift (the field was renamed or the env switched params underneath the prompt) and aspirational copy (the author described a feature they planned but never wired up — e.g. oshi-zumo's docstring once claimed opponent coin counts were "encoded as a hidden suffix" of `move_history` entries, but no code surfaced them). A prompt that lies is worse than one that says less.
+- **Cross-check rule claims against the env's *actual* `load_game` params.** Don't trust the game's name or docstring — read the env factory. Gin rummy's prompt described the "Oklahoma variant" because the author assumed the default, but the env loads `gin_rummy` with `oklahoma=false`. Whenever the prompt says "in this variant…" or names a ruleset, confirm the params at the `pyspiel.load_game(name, params)` call site match.
+- **Parameterize directional/orientation language on `player_id`.** Sentences like "lower is your goal", "toward the top edge", "first move", or "your stones are at the bottom" are almost always asymmetric — correct for one player and wrong for the other. Render the prompt for `player_id=0` AND `player_id=1` and diff them; any directional text that's byte-identical between the two is probably the bug. Factor through a per-player helper (e.g. `_player_info(player_id) -> (label, code, direction_text)` like dark_hex does) so the asymmetry is in one place. Oshi-zumo shipped with "lower is your goal" baked in once; 7.7% of P0 turns echoed the wrong direction.
+- **For multi-phase games, dispatch on an explicit phase identifier, not legals-shape.** When phases share `{Pass, Knock}`-shaped legals (gin rummy's Wall and Layoff) or any other coincidental legal-action signature, a legals-based fallback will silently misroute. Build a `{phase_name: template}` table keyed on the engine's own phase string/enum, assert at construction time that every engine phase is covered, and raise on an unknown phase instead of falling through to a default — a new phase should fail loudly, not silently get the wrong prompt.
 - **Move history formatting.** Show it as a readable list or "None" if empty. Don't let an empty string confuse the model.
 
 ```python
@@ -329,6 +282,18 @@ The matcher operates on the *raw value the model wrote inside the JSON*,
 never the full response. This is the one place where game-specific
 parsing logic belongs.
 
+**Pre-flight check before shipping the default matcher.** Print a handful
+of `state.action_to_string(...)` outputs at representative states
+(initial, mid-game, post-capture, multi-component turns). For every
+non-alphanumeric marker that appears — `*` (backgammon hit), `x`
+(checkers/chess capture), trailing `Pass` (backgammon per-die filler),
+`-` (move separator), `O-O` (castling) — ask: "would a model naturally
+omit or add this?" If yes, the default `_default_match` won't tolerate
+it and the rethink loop pays for every drift. Backgammon's audit found
+97.3% of episodes forfeited; adding just `*` and `Pass` tolerance via
+`matcher=` recovered 34.2% of forfeit turns. Build the tolerant
+normalization once, keep it in the matcher.
+
 #### Free-form harnesses
 
 For free-form turns (where `legal_action_strings is None`), don't use
@@ -430,229 +395,52 @@ For example:
 - Harness at `kaggle_environments/envs/open_spiel_env/games/myg/harness.py`
 - Tests at `tests/envs/open_spiel_env/games/myg/harness_test.py`
 
-### Test helpers
+Copy `tests/envs/open_spiel_env/games/checkers/harness_test.py` as the
+starting point. It's the canonical layout: a `_make_observation` helper
+that builds a harness-style obs dict from a proxy state, and four test
+classes that together cover the surface area.
 
-```python
-import unittest
-from unittest.mock import MagicMock, patch
+| Class | What it covers |
+|---|---|
+| `ParseResponseTest` | Parser in isolation. Cover at minimum: fenced JSON, bare JSON, case-insensitive match, illegal-move-returns-raw, prose-only-returns-None (no ghost fallback), multiple-JSON-last-wins. Add a `test_illegal_json_does_not_ghost_substitute_from_prose` regression — the model writes a legal token in prose, then commits to an illegal one in JSON; the parser must NOT silently substitute the prose token. |
+| `GeneratePromptTest` | Prompt contents from a real proxy state. Cover: rules keywords present, board orientation, player-asymmetric text differs between `player_id=0` and `player_id=1`, captures/phase flags render correctly, rethink suffixes appear under the right conditions, the JSON example format is unambiguous. If the harness has multi-branch prompts (roles/phases), assert each branch contains its required rules. |
+| `GetLegalMovesTest` | Round-trip from `legalActions` + `legalActionStrings`, fallback from `serializedGameAndState`, empty-obs returns `{}`. |
+| `AgentIntegrationTest` | Full harness through `create_agent_fn` with `litellm.completion` patched. Cover: successful move, retry-on-bad-parse, raise-after-two-failures, terminal-step-returns-inactive, and a short scripted game (first-legal-each-turn) that round-trips through pyspiel without raising. |
 
-from kaggle_environments.core_harness import ParseResult, create_agent_fn
-
-def _make_mock_response(content):
-    """Create a mock litellm response."""
-    resp = MagicMock()
-    resp.usage = MagicMock(prompt_tokens=10, completion_tokens=20)
-    resp.choices = [
-        MagicMock(
-            message=MagicMock(content=content),
-            finish_reason="stop",
-        )
-    ]
-    return resp
-
-_ENV = {
-    "MODEL_NAME": "test-model",
-    "MODEL_PROXY_KEY": "test-key",
-    "MODEL_PROXY_URL": "dummy_url",
-}
-```
-
-### Test class 1: ParseResponseTest
-
-Test the parser in isolation — no mocking needed.
-
-```python
-class ParseResponseTest(unittest.TestCase):
-    def test_json_block(self):
-        response = 'I think e5.\n```json\n{"move": "e5"}\n```'
-        result = parse_response(response, ["B e5", "W d4", "B Pass"])
-        self.assertEqual(result.legal_action, "B e5")
-
-    def test_case_insensitive(self):
-        response = '```json\n{"move": "E5"}\n```'
-        result = parse_response(response, ["B e5"])
-        self.assertEqual(result.legal_action, "B e5")
-
-    def test_fallback_text_scan(self):
-        response = "I'll play at e5 because it controls the center."
-        result = parse_response(response, ["B e5", "B d4"])
-        self.assertEqual(result.legal_action, "B e5")
-
-    def test_no_match_returns_none(self):
-        response = "I have no idea what to do."
-        result = parse_response(response, ["B e5", "B d4"])
-        self.assertIsNone(result.legal_action)
-```
-
-### Test class 2: GeneratePromptTest
-
-Test that prompts contain the right information.
-
-```python
-class GeneratePromptTest(unittest.TestCase):
-    def test_includes_rules(self):
-        obs = {"observationString": "...", "playerId": 0}
-        prompt = generate_prompt(obs, [])
-        self.assertIn("Rules", prompt)  # or a game-specific keyword
-
-    def test_rethink_suffix(self):
-        obs = {"observationString": "...", "playerId": 0}
-        prompt = generate_prompt(obs, [], previous_response="old", previous_action="bad")
-        self.assertIn("previous response", prompt.lower())
-        self.assertIn("bad", prompt)
-
-    def test_no_rethink_on_first_attempt(self):
-        obs = {"observationString": "...", "playerId": 0}
-        prompt = generate_prompt(obs, [])
-        self.assertNotIn("previous response", prompt.lower())
-```
-
-### Test class 3: GetLegalMovesTest
-
-```python
-class GetLegalMovesTest(unittest.TestCase):
-    def test_from_observation(self):
-        obs = {"legalActions": [0, 1], "legalActionStrings": ["a1", "b2"]}
-        result = get_legal_moves(obs)
-        self.assertEqual(result, {0: "a1", 1: "b2"})
-```
-
-### Test class 4: AgentIntegrationTest
-
-Test the full harness through `create_agent_fn`, mocking the LLM.
-
-```python
-class AgentIntegrationTest(unittest.TestCase):
-    @patch.dict("os.environ", _ENV)
-    @patch("kaggle_environments.core_harness.litellm")
-    def test_successful_move(self, mock_litellm):
-        mock_litellm.completion.return_value = _make_mock_response(
-            '```json\n{"move": "a1"}\n```'
-        )
-        agent = create_agent_fn(_MyGameHarness())
-        obs = {
-            "legalActions": [0, 1],
-            "legalActionStrings": ["a1", "b2"],
-            "currentPlayer": 0,
-            "playerId": 0,
-            "isTerminal": False,
-            "observationString": "...",
-        }
-        result = agent(obs, {})
-        self.assertEqual(result["status"], "OK")
-        self.assertEqual(result["submission"], 0)
-
-    @patch.dict("os.environ", _ENV)
-    @patch("kaggle_environments.core_harness.litellm")
-    def test_retry_then_succeed(self, mock_litellm):
-        mock_litellm.completion.side_effect = [
-            _make_mock_response("gibberish"),
-            _make_mock_response('```json\n{"move": "a1"}\n```'),
-        ]
-        agent = create_agent_fn(_MyGameHarness())
-        obs = {
-            "legalActions": [0, 1],
-            "legalActionStrings": ["a1", "b2"],
-            "currentPlayer": 0,
-            "playerId": 0,
-            "isTerminal": False,
-            "observationString": "...",
-        }
-        result = agent(obs, {})
-        self.assertEqual(result["status"], "OK")
-        self.assertEqual(mock_litellm.completion.call_count, 2)
-
-    @patch.dict("os.environ", _ENV)
-    @patch("kaggle_environments.core_harness.litellm")
-    def test_terminal_returns_inactive(self, mock_litellm):
-        agent = create_agent_fn(_MyGameHarness())
-        obs = {"isTerminal": True, "playerId": 0, "currentPlayer": 0}
-        result = agent(obs, {})
-        self.assertEqual(result["status"], "INACTIVE")
-        mock_litellm.completion.assert_not_called()
-```
+Mock helpers (`_StreamDelta`, `_StreamChoice`, `_StreamChunk`,
+`_make_mock_response`, `_ENV`) live at the top of checkers'
+`harness_test.py` — copy them verbatim; they're game-independent.
 
 ## Step 7: Write `test_llm_game.py`
 
-Every harness should include a `test_llm_game.py` script that runs a full game locally using a real LLM. This is invaluable for integration testing — it catches issues that unit tests with mocked LLMs miss (bad prompts, unparseable responses, environment interaction bugs).
+Every harness should include a `test_llm_game.py` script that runs a
+full game locally with a real LLM — catches issues mocked unit tests
+miss (bad prompts, unparseable responses, env interaction bugs).
 
-Place this file next to the harness module:
-- OpenSpiel: `kaggle_environments/envs/open_spiel_env/games/<name>/test_llm_game.py`
-- Non-OpenSpiel: `kaggle_environments/envs/<name>/test_llm_game.py`
-
-### Template
+Use `run_llm_game` from `kaggle_environments.local_harness_runner`. The
+helper handles API-key discovery, env-var defaults, `--model` /
+`--replay-path` CLI flags, game execution, per-step printing, and
+replay save. Per-game files are 3 lines plus a docstring:
 
 ```python
-"""Run a full game with LLM agents for local integration testing.
-
-Usage:
-    GEMINI_API_KEY=... uv run python -m \\
-        kaggle_environments.envs.<path>.test_llm_game
-"""
-
-import json
-import os
-
-from kaggle_environments import make
-
-
-def run_llm_game():
-    if not os.environ.get("GEMINI_API_KEY") and not os.environ.get("OPENAI_API_KEY"):
-        print("Set GEMINI_API_KEY or OPENAI_API_KEY to run this test.")
-        print("Example: export GEMINI_API_KEY=your_key")
-        return
-
-    # Set up environment variables for the harness
-    if "MODEL_NAME" not in os.environ:
-        os.environ["MODEL_NAME"] = "gemini-2.5-flash"
-    if "MODEL_PROXY_KEY" not in os.environ:
-        os.environ["MODEL_PROXY_KEY"] = os.environ.get(
-            "GEMINI_API_KEY", os.environ.get("OPENAI_API_KEY", "dummy")
-        )
-    if "MODEL_PROXY_URL" not in os.environ:
-        os.environ["MODEL_PROXY_URL"] = "dummy_url"
-
-    # Create the environment
-    env = make("<env_name>", debug=True)
-
-    # Point to the harness agent
-    dir_path = os.path.dirname(os.path.abspath(__file__))
-    agent_path = os.path.join(dir_path, "harness.py")  # or "harness/main.py"
-
-    # Run the game
-    print(f"Running game with LLM agents...")
-    env.run([agent_path, agent_path])
-
-    # Print step-by-step results
-    print("\n=== GAME STEPS ===")
-    for idx, step in enumerate(env.steps):
-        print(f"--- Step {idx} ---")
-        for agent_idx, agent_state in enumerate(step):
-            action = agent_state.action
-            status = agent_state.status
-            print(f"  Agent {agent_idx} ({status}): {action}")
-
-    # Print final results
-    print("\n=== RESULTS ===")
-    for i, state in enumerate(env.state):
-        print(f"Agent {i}: status={state.status}, reward={state.reward}")
-
-    # Save replay for visualizer debugging
-    replay_dir = os.path.join(dir_path, "visualizer", "default", "replays")
-    os.makedirs(replay_dir, exist_ok=True)
-    replay_path = os.path.join(replay_dir, "test-replay.json")
-    with open(replay_path, "w") as f:
-        json.dump(env.toJSON(), f)
-    print(f"\nReplay saved to {replay_path}")
-
+"""Run a full Checkers game with LLM agents for local integration testing."""
+from kaggle_environments.local_harness_runner import run_llm_game
 
 if __name__ == "__main__":
-    run_llm_game()
+    run_llm_game("open_spiel_checkers", caller_file=__file__)
 ```
 
-Adapt this template for your game: change `<env_name>`, adjust the number of agents, and add any game-specific configuration or result display.
+For games that need extra config, pass `configuration=`,
+`replay_filename=`, `num_agents=`, or `agent_module=`. See
+`havannah/test_llm_game.py` (custom board size), `word_association/test_llm_game.py`
+(4 agents, packaged harness, custom post-run output), and
+`python_ant_foraging/test_llm_game.py` (custom replay filename) for
+real examples. Capture the returned `env` if you need to print
+game-specific results after the run.
 
-See `kaggle_environments/envs/word_association/test_llm_game.py` and `kaggle_environments/envs/open_spiel_env/games/go/debug_match_runner.py` for real examples.
+Place it next to the harness module:
+- OpenSpiel: `kaggle_environments/envs/open_spiel_env/games/<name>/test_llm_game.py`
+- Non-OpenSpiel: `kaggle_environments/envs/<name>/test_llm_game.py`
 
 ## File organization
 
@@ -695,9 +483,12 @@ uv sync && uv run pytest tests/envs/open_spiel_env/games/<name>/harness_test.py 
 - [ ] `get_legal_moves` returns `dict[int, str]` or `None` as appropriate
 - [ ] Prompt includes: rules, state, move history, player identity, output format
 - [ ] Prompt does **not** enumerate the legal moves (let the model derive legality from the state and rules)
+- [ ] Every concrete field/value/rule in the prompt traces to a code path (no phantom claims; rules match the env's actual `load_game` params)
+- [ ] Prompt rendered for `player_id=0` and `player_id=1` — directional/orientation language mirrors correctly
+- [ ] Multi-phase games dispatch on the engine's explicit phase identifier, not legals-shape; unknown phase raises instead of silently falling through
 - [ ] Prompt has a rethink suffix for retries (uses `previous_response` and `previous_action`)
-- [ ] `parse_response` has multi-stage fallback (JSON block -> bare JSON -> text scan)
-- [ ] `parse_response` does case-insensitive matching
+- [ ] `parse_response` delegates to `parse_json_action` (uses last-mention-wins JSON extraction; no prose-scan fallback — that's the ghost-fallback anti-pattern)
+- [ ] `parse_response` does case-insensitive matching (default matcher) or passes a custom `matcher=` for notation tolerance (check `state.action_to_string` outputs for `*`, `x`, trailing `Pass`, `-`, etc. that models drop or add)
 - [ ] `ParseResult` fields are set correctly (enumerable: `legal_action`; free-form: `submission`)
 - [ ] Adapter class wraps functions into `GameHarness` protocol
 - [ ] `agent_fn = create_agent_fn(adapter)` is defined at module level
@@ -709,12 +500,13 @@ uv sync && uv run pytest tests/envs/open_spiel_env/games/<name>/harness_test.py 
 
 | File | What to learn from it |
 |------|----------------------|
-| `kaggle_environments/core_harness.py` | The framework — `GameHarness` protocol, `ParseResult`, `create_agent_fn` |
-| `kaggle_environments/envs/open_spiel_env/games/go/harness.py` | Full enumerable harness with coordinate parsing |
-| `kaggle_environments/envs/open_spiel_env/games/coin_game/harness.py` | Simple enumerable harness with keyword actions |
-| `kaggle_environments/envs/open_spiel_env/games/oshi_zumo/harness.py` | Numeric bid parsing with aggressive fallbacks |
-| `kaggle_environments/envs/word_association/harness/main.py` | Mixed harness — free-form clues + enumerable guesses |
+| `kaggle_environments/core_harness.py` | The framework — `GameHarness` protocol, `ParseResult`, `create_agent_fn`, `parse_json_action`, `render_rethink_suffix` |
+| **Canonical templates — start here:** | |
+| `kaggle_environments/envs/open_spiel_env/games/checkers/harness.py` | Modern enumerable shape: delegates to `parse_json_action`, branches `render_rethink_suffix`, demonstrates a phase-conditional prompt section (multi-jump continuation) |
+| `kaggle_environments/envs/open_spiel_env/games/dark_hex/harness.py` | Same modern shape with a custom `matcher=` callable for notation tolerance; per-player rendering for imperfect-information games |
+| `kaggle_environments/envs/word_association/harness/main.py` | Mixed free-form + enumerable harness (non-OpenSpiel) |
+| **Test patterns:** | |
+| `tests/envs/open_spiel_env/games/checkers/harness_test.py` | Full enumerable test suite (parser stress, prompt assertions, `create_agent_fn` integration with mocked LLM) |
 | `tests/core_harness_test.py` | Framework test patterns |
-| `tests/envs/open_spiel_env/games/go/harness_test.py` | Full harness test suite example |
+| `kaggle_environments/envs/open_spiel_env/games/checkers/test_llm_game.py` | LLM integration test script (OpenSpiel) |
 | `kaggle_environments/envs/word_association/test_llm_game.py` | LLM integration test script (non-OpenSpiel) |
-| `kaggle_environments/envs/open_spiel_env/games/go/debug_match_runner.py` | LLM integration test script (OpenSpiel) |

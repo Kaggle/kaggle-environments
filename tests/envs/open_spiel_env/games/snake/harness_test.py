@@ -107,9 +107,16 @@ class ParseResponseTest(absltest.TestCase):
 
 
 class GeneratePromptTest(absltest.TestCase):
-    def _obs(self, player_id=0):
+    def _obs(self, player_id=0, round_history=None):
+        # Minimal 10x10 board with P0 head at (1,1) and P1 head at (8,8).
+        board = [["." for _ in range(10)] for _ in range(10)]
+        board[1][1] = "A"
+        board[8][8] = "B"
+        board[3][4] = "*"
+        board[6][5] = "*"
         state = json.dumps(
             {
+                "board": board,
                 "num_rows": 10,
                 "num_columns": 10,
                 "num_players": 2,
@@ -124,6 +131,7 @@ class GeneratePromptTest(absltest.TestCase):
                 "scores": [0, 0],
                 "is_alive": [True, True],
                 "current_player": player_id,
+                "round_history": round_history or [],
                 "turn": 3,
                 "is_terminal": False,
                 "winner": None,
@@ -155,9 +163,36 @@ class GeneratePromptTest(absltest.TestCase):
         prompt = generate_prompt(self._obs(player_id=1), [])
         self.assertIn("[8, 8]", prompt)
 
-    def test_move_history_included(self):
+    def test_board_rendered_as_ascii_grid(self):
+        # The board must be a multi-line ASCII grid (not a raw JSON blob),
+        # so the model can read spatial structure directly.
+        prompt = generate_prompt(self._obs(), [])
+        # P0 head 'A' at (1,1) in our test obs.
+        self.assertIn(".A........", prompt)
+        # Multi-line: at least one bare row of '.' between markers.
+        self.assertIn("\n..........\n", prompt)
+        # And the raw JSON board array must NOT appear.
+        self.assertNotIn('"board":', prompt)
+
+    def test_round_history_renders_opponent_moves(self):
+        # The proxy's round_history is a list of per-round action lists,
+        # one entry per player. The prompt must surface BOTH players' moves
+        # so each side can see what the opponent did.
+        rounds = [["UP", "LEFT"], ["UP", "DOWN"]]
+        prompt = generate_prompt(self._obs(round_history=rounds), [])
+        self.assertIn("Round 1: P0=UP, P1=LEFT", prompt)
+        self.assertIn("Round 2: P0=UP, P1=DOWN", prompt)
+
+    def test_round_history_empty(self):
+        prompt = generate_prompt(self._obs(), [])
+        self.assertIn("(no moves yet)", prompt)
+
+    def test_ignores_framework_move_history(self):
+        # The harness reads round_history from the proxy, not the
+        # framework-supplied per-agent move_history (which has no
+        # opponent moves and would mislead in a simultaneous game).
         prompt = generate_prompt(self._obs(), ["UP", "RIGHT", "DOWN"])
-        self.assertIn("UP RIGHT DOWN", prompt)
+        self.assertNotIn("UP RIGHT DOWN", prompt)
 
     def test_rethink_suffix(self):
         prompt = generate_prompt(
