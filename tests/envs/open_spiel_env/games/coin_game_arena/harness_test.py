@@ -229,6 +229,40 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("You suggested", prompt)  # ILLEGAL leads with action
         self.assertIn("diagonal", prompt)
 
+    def test_per_board_moves_remaining(self):
+        # Per-board countdown is computed from the team's own move
+        # history length, NOT the engine's global moves_remaining (which
+        # counts both boards in the same units as episode_length=per-board
+        # and would mislead the model into thinking it has twice the
+        # runway it does).
+        s = _state(seed=7, episode_length=20)
+        # 2 of player 0's team's seats move on this board (1 per global
+        # tick alternating teams: actions 0 and 2 land on team A's board).
+        s.apply_action(3)  # player 0
+        s.apply_action(2)  # player 2
+        s.apply_action(1)  # player 1
+        s.apply_action(0)  # player 3
+        prompt = generate_prompt(_make_observation(s, 0), [])
+        self.assertIn("18 of 20 moves remain", prompt)
+
+    def test_no_op_rule_in_prompt(self):
+        prompt = generate_prompt(_make_observation(_state(seed=7), 0), [])
+        flat = " ".join(prompt.split())
+        self.assertIn("leave the board", flat)
+        self.assertIn("teammate's cell", flat)
+        self.assertIn("no-ops", flat)
+
+    def test_alternation_wording(self):
+        # The prompt must describe how the two boards advance unambiguously.
+        # "in parallel" was wrong (boards don't advance simultaneously);
+        # "lock-step" was a step better but still read as "both at once".
+        # The current wording explicitly says strict alternation.
+        prompt = generate_prompt(_make_observation(_state(seed=7), 0), [])
+        flat = " ".join(prompt.split())
+        self.assertIn("strict alternation", flat)
+        self.assertNotIn("lock-step", flat)
+        self.assertNotIn("in parallel", flat)
+
 
 class GetLegalMovesTest(absltest.TestCase):
 

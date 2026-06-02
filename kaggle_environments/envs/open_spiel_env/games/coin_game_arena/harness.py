@@ -27,9 +27,11 @@ from kaggle_environments.core_harness import ParseResult, parse_json_action, ren
 ARENA_PROMPT_TEMPLATE = """Let's play Coin Game Arena (2v2 team coin game).
 
 Setup: 2 teams of 2 players each. Each team plays its own private
-{rows}x{cols} board in parallel (the other team's board is HIDDEN from
-you). Within your team, you and your teammate take turns moving — on
-each step one seat moves on each board.
+{rows}x{cols} board (the other team's board is HIDDEN from you). The
+two boards advance in strict alternation: each global step, exactly
+ONE player moves, and the next global step the other team's board
+moves. Within a team, the two seats also alternate, so your team's
+sequence is [seat 0, seat 1, seat 0, ...] on your board.
 
 Important: every player on your team is another instance of YOU
 (same model, same submission), and the opposing team is two instances
@@ -73,6 +75,9 @@ Current state of your team's board (JSON):
 
 Move history on your team's board so far (most recent last):
 {move_history_str}
+
+{moves_remaining_this_board} of {episode_length} moves remain on
+your team's board.
 
 It is now your turn. Choose your move.
 The move MUST be one of: up, down, left, right, stand.
@@ -182,17 +187,22 @@ def generate_prompt(
     teammate_id = team_id * players_per_team + teammate_seat
 
     board = obs.get("board", {})
-    # Emit a compact subset of the board view to the model.
+    history = board.get("move_history") or []
+    # Per-board moves remaining (engine's obs.moves_remaining counts BOTH
+    # boards' steps, which mixes units with episode_length above). One
+    # entry in history per move taken on this board, so subtract.
+    moves_remaining_this_board = max(0, episode_length - len(history))
+    # Emit a compact subset of the board view to the model. No
+    # moves_remaining here — it's surfaced as a separate sentence below
+    # to avoid a unit mismatch with episode_length.
     board_view = {
         "board": board.get("board"),
         "player_positions": board.get("player_positions"),
         "coins_collected": board.get("coins_collected"),
         "coin_colors": board.get("coin_colors"),
-        "moves_remaining": obs.get("moves_remaining"),
     }
     board_str = json.dumps(board_view, indent=2)
 
-    history = board.get("move_history") or []
     if history:
         move_history_str = "\n".join(
             f"  move {idx + 1}: player {entry.get('player_id')} (seat {entry.get('seat')}) -> {entry.get('action')}"
@@ -213,6 +223,7 @@ def generate_prompt(
         your_pref=your_pref,
         board_str=board_str,
         move_history_str=move_history_str,
+        moves_remaining_this_board=moves_remaining_this_board,
     )
 
     prompt += render_rethink_suffix(

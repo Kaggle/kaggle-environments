@@ -125,14 +125,30 @@ class ParseResponseTest(absltest.TestCase):
 
 class GeneratePromptTest(absltest.TestCase):
 
-    def _obs(self, player_id=0, your_pref="a"):
+    def _obs(self, player_id=0, your_pref="a", move_history=None, board=None):
+        if board is None:
+            # Two players on row 0, a single coin in row 2.
+            board = [["."] * 8 for _ in range(8)]
+            board[0][0] = "0"
+            board[0][1] = "1"
+            board[2][3] = "a"
         state = json.dumps({
             "phase": "play",
             "num_rows": 8,
             "num_columns": 8,
             "episode_length": 20,
+            "move_number": len(move_history or []),
+            "moves_remaining": 20 - len(move_history or []),
             "your_preference": your_pref,
             "your_player_id": player_id,
+            "board": board,
+            "player_positions": {"0": [0, 0], "1": [0, 1]},
+            "coins_collected": {
+                "0": {"a": 0, "b": 0, "c": 0},
+                "1": {"a": 0, "b": 0, "c": 0},
+            },
+            "coin_colors": ["a", "b", "c"],
+            "move_history": move_history or [],
         })
         return {"observationString": state, "playerId": player_id}
 
@@ -155,9 +171,44 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("8x8", prompt)
         self.assertIn("20 moves", prompt)
 
-    def test_move_history_included(self):
+    def test_board_rendered_as_ascii_grid(self):
+        prompt = generate_prompt(self._obs(), [])
+        # Row 0: digits 0 and 1, then dots. Other rows mostly empty.
+        self.assertIn("01......", prompt)
+        # Coin at [2,3] should appear in row 2.
+        self.assertIn("...a....", prompt)
+        # Raw "board": JSON array key from the obs must NOT leak.
+        self.assertNotIn('"board":', prompt)
+
+    def test_move_history_renders_per_board_log(self):
+        history = [
+            {"move_number": 1, "player_id": 0, "action": "right"},
+            {"move_number": 2, "player_id": 1, "action": "left"},
+        ]
+        prompt = generate_prompt(self._obs(move_history=history), [])
+        self.assertIn("move 1: player 0 -> right", prompt)
+        self.assertIn("move 2: player 1 -> left", prompt)
+
+    def test_move_history_empty(self):
+        prompt = generate_prompt(self._obs(), [])
+        self.assertIn("(no moves yet)", prompt)
+
+    def test_ignores_framework_move_history(self):
+        # The framework supplies the calling player's OWN moves only; we
+        # render the proxy's global per-board history instead.
         prompt = generate_prompt(self._obs(), ["up", "right", "stand"])
-        self.assertIn("up right stand", prompt)
+        self.assertNotIn("up right stand", prompt)
+
+    def test_no_op_rule_in_prompt(self):
+        prompt = generate_prompt(self._obs(), [])
+        self.assertIn("leave the board", prompt)
+        self.assertIn("another player's cell", prompt)
+        self.assertIn("no-ops", prompt)
+
+    def test_moves_remaining_in_prompt(self):
+        history = [{"move_number": i + 1, "player_id": i % 2, "action": "up"} for i in range(5)]
+        prompt = generate_prompt(self._obs(move_history=history), [])
+        self.assertIn("15 of 20 moves remain", prompt)
 
     def test_rethink_suffix(self):
         prompt = generate_prompt(
