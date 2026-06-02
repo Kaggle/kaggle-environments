@@ -71,6 +71,9 @@ class ClobberState(proxy.State):
             elif returns[1] > returns[0]:
                 winner = _PIECE_BLACK
             else:
+                # Unreachable today (Clobber's engine never returns equal
+                # values at terminal), but kept so a future rules change
+                # doesn't silently fall through to winner=None.
                 winner = "draw"
 
         history = self.history()
