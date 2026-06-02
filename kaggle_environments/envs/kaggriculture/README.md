@@ -16,7 +16,7 @@ Each player starts with an empty farm and a small amount of income (seed money, 
 | **Strawberry** | Ongoing | 100 | 120 | 10 days | NA | every other day | 4 | 1 | 2 |
 | **Melon** | One-time | 80 | 250 | 10 days | 12 days | none | 6 | 1 | .5 |
 | **Goose/Egg** | Ongoing | 200 | 80 | 3 days | NA | every day | 4 | 1 \+ 1 (build coop) | 2 |
-| **Cow/Milk** | Ongoing | 500 | 240 | 6 days | NA | every two days | 6 | 1 \+ 1 (build pasture) | 1 |
+| **Cow/Milk** | Ongoing | 400 | 240 | 6 days | NA | every two days | 6 | 1 \+ 1 (build pasture) | 1 |
 | **Sheep/Wool** | Ongoing | 400 | 300 | 5 days | NA | every three days | 6 | 1 \+ 1 (build pasture) | .67 |
 | **Fertilizer** | NA | 100 | X |  | X | X |  | 1 |  |
 
@@ -200,18 +200,18 @@ price(inv) = base + sign · amp · f(|inv − I0|)
 
 Floored at `$1` and rounded to the nearest dollar.
 
-`T` is the production capacity of a single 5×5 field over a 24-day game at optimal watering with no fertilizer (animal totals are pre-discounted by 30% to account for wheat-feed overhead). `target` says "moving `T` units past `I0` shifts the price by `target × base`." Picking different `f` and `target` on each side lets resources with similar production profiles play very differently strategically — wheat panics on scarcity but absorbs gluts, carrot is the opposite; melon barely reacts to scarcity but crashes hard on overproduction; wool mirrors melon at a smaller scale.
+`T` is the production capacity of a single 5×5 field over a 24-day game at optimal watering with no fertilizer (animal totals are pre-discounted by 30% to account for wheat-feed overhead). `target` says "moving `T` units past `I0` shifts the price by `target × base`." Picking different `f` and `target` on each side lets resources with similar production profiles play very differently strategically — wheat panics on scarcity but absorbs gluts, carrot is the opposite; melon barely reacts to scarcity but crashes hard on overproduction; wool mirrors melon at a smaller scale. Premium resources (base > $100: strawberry, melon, milk, wool) use `above_target > 1`, so even modest gluts drive them straight to the $1 floor — bundling and timing sales matters more for these than for staples.
 
 | Resource | Base | I0 | T | Below func | Below target | Above func | Above target | P(I0−T) | P(I0+T) | P(I0+2T) |
 | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- |
 | **Wheat** | 25 | 10,000 | 400 | sqrt | 0.80 | log | 0.20 | $45 | $20 | $19 |
 | **Carrot** | 35 | 10,000 | 450 | log | 0.20 | sqrt | 0.70 | $42 | $10 | $1 |
 | **Tomato** | 60 | 10,000 | 200 | linear | 0.40 | sqrt | 0.60 | $84 | $24 | $9 |
-| **Strawberry** | 120 | 10,000 | 100 | sqrt | 0.70 | linear | 0.40 | $204 | $72 | $24 |
-| **Melon** | 250 | 10,000 | 300 | log | 0.20 | sq | 0.90 | $300 | $25 | $1 |
+| **Strawberry** | 120 | 10,000 | 100 | sqrt | 0.70 | linear | 1.60 | $204 | $1 | $1 |
+| **Melon** | 250 | 10,000 | 300 | log | 0.20 | sq | 3.60 | $300 | $1 | $1 |
 | **Egg** | 50 | 10,000 | 332 | linear | 0.40 | log | 0.20 | $70 | $40 | $39 |
-| **Milk** | 160 | 10,000 | 122 | sqrt | 0.60 | linear | 0.40 | $256 | $96 | $32 |
-| **Wool** | 200 | 10,000 | 105 | log | 0.20 | sq | 0.80 | $240 | $40 | $1 |
+| **Milk** | 160 | 10,000 | 122 | sqrt | 0.60 | linear | 1.60 | $256 | $1 | $1 |
+| **Wool** | 200 | 10,000 | 105 | log | 0.20 | sq | 3.20 | $240 | $1 | $1 |
 | **Fertilizer** | 100 | 10,000 | 200 | linear | 0.40 | linear | 0.40 | $140 | $60 | $20 |
 
 The defaults live in `MARKET_PARAMS` in `kaggriculture.py`. Per-resource overrides (sparse: any subset of `base`, `I0`, `T`, `below_func`, `below_target`, `above_func`, `above_target`) can be supplied at episode creation via `env.configuration["marketParams"]` without touching code, e.g. `{"WOOL": {"above_target": 0.95}}`.
