@@ -341,8 +341,19 @@ def _soft_parse_poker_action(
 # ---------------------------------------------------------------------------
 
 
+# Latest observation seen by get_legal_moves/generate_prompt for the current
+# turn. The poker soft-parser needs the pyspiel state to compute bet-size
+# offsets, but the GameHarness.parse_response protocol does not pass the
+# observation through. Production wrappers (and the local _PokerHarness) both
+# call get_legal_moves + generate_prompt before parse_response on every turn,
+# so caching here is sufficient. Process-local; one game at a time per process.
+_LATEST_OBSERVATION: Mapping[str, Any] | None = None
+
+
 def get_legal_moves(observation: Mapping[str, Any]) -> dict[int, str]:
     """Return ``{action_id: action_string}`` for the current state."""
+    global _LATEST_OBSERVATION
+    _LATEST_OBSERVATION = observation
     legal_actions = observation.get("legalActions")
     legal_action_strings = observation.get("legalActionStrings")
     if legal_actions and legal_action_strings:
@@ -391,6 +402,8 @@ def generate_prompt(
     ``RepeatedPokerRethinkAgent`` + ``REPEATED_POKER`` template +
     ``RETHINK_REPEATED_POKER`` strategy.
     """
+    global _LATEST_OBSERVATION
+    _LATEST_OBSERVATION = observation
     del move_history, previous_action  # not used in repeated_poker prompts
     state = _deserialize_state(observation)
     if state is None:
@@ -432,8 +445,12 @@ def parse_response(
     if raw is None:
         return ParseResult(legal_action=None, raw_action=None)
     if observation is None:
-        # Without state context we can only return what we extracted; the
-        # framework will treat this as an illegal-move retry.
+        # Fall back to the observation cached by get_legal_moves /
+        # generate_prompt. The production wrapper template calls the
+        # module-level parse_response without an observation arg, so this
+        # cache is the only way for the soft parser to get to the state.
+        observation = _LATEST_OBSERVATION
+    if observation is None:
         return ParseResult(legal_action=None, raw_action=raw)
     state = _deserialize_state(observation)
     if state is None:
@@ -449,15 +466,13 @@ def parse_response(
 class _PokerHarness:
     """Adapts module-level harness functions to the GameHarness protocol.
 
-    Stores the most recent observation so ``parse_response`` can reach the
-    pyspiel state it needs to compute bet-size offsets.
+    Mirrors the production wrapper template: a thin pass-through to the
+    module-level functions with no instance state. Observation flow goes
+    through the module-level ``_LATEST_OBSERVATION`` cache, so the parser
+    behaves identically whether invoked locally or via the prod wrapper.
     """
 
-    def __init__(self) -> None:
-        self._observation: Mapping[str, Any] | None = None
-
     def get_legal_moves(self, observation):
-        self._observation = observation
         return get_legal_moves(observation)
 
     def make_prompt(
@@ -467,15 +482,10 @@ class _PokerHarness:
         previous_response=None,
         previous_action=None,
     ):
-        self._observation = observation
         return generate_prompt(observation, move_history, previous_response, previous_action)
 
     def parse_response(self, response, legal_action_strings):
-        return parse_response(
-            response,
-            legal_action_strings,
-            observation=self._observation,
-        )
+        return parse_response(response, legal_action_strings)
 
 
 agent_fn = create_agent_fn(_PokerHarness())
