@@ -255,6 +255,39 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("d7", prompt)
         self.assertIn("barrier", prompt.lower())
 
+    def test_phase_shoot_instruction_calls_out_vacated_square(self):
+        """SHOOT prompt must explicitly name the just-vacated square as
+        a legal barrier target. Without the hint, models frequently miss
+        that the queen's previous square is empty again and reachable,
+        and overlook it as a candidate -- often a tactically useful one
+        (e.g. fully sealing the queen into its new square).
+        """
+        obs_str = _OBS_10X10_EMPTY.replace(
+            '"phase": "from"',
+            '"phase": "shoot", "from_action": 60, "to_action": 63',
+        )
+        observation = {"observationString": obs_str, "playerId": 0}
+        prompt = generate_prompt(observation, ["a7", "d7"])
+        # The named-squares branch must point at a7 (the from square)
+        # specifically and call it out as a legal barrier target.
+        flat = " ".join(prompt.split())
+        self.assertIn("INCLUDES a7", flat)
+        self.assertIn("just vacated", flat)
+
+    def test_phase_shoot_fallback_calls_out_vacated_square(self):
+        """Same vacated-square hint must appear on the fallback branch
+        (when neither proxy from_action/to_action nor enough move history
+        is available to name the squares).
+        """
+        # Phase=shoot with NO from_action/to_action and an empty history
+        # forces the fallback branch.
+        obs_str = _OBS_10X10_EMPTY.replace('"phase": "from"', '"phase": "shoot"')
+        observation = {"observationString": obs_str, "playerId": 0}
+        prompt = generate_prompt(observation, [])
+        flat = " ".join(prompt.split())
+        self.assertIn("just vacated", flat)
+        self.assertIn("legal barrier target", flat)
+
     def test_to_phase_falls_back_to_move_history(self):
         """When proxy didn't surface from_action, infer from history."""
         # Note: no "from_action" key in obs -- harness has to fall back to

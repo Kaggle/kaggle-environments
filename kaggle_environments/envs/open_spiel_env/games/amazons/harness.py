@@ -173,15 +173,19 @@ def _phase_instruction(
                 f"and is now sitting at {to_sq}. Place a barrier on any "
                 f"empty square reachable from {to_sq} by a queen-move "
                 "(any number of empty squares in a straight or diagonal "
-                "line). The chosen square is then permanently blocked "
-                "for the rest of the game: no piece may enter or cross "
-                "it."
+                f"line). This INCLUDES {from_sq}, the square the queen "
+                "just vacated -- it is empty again and reachable, so it "
+                "is a legal barrier target. The chosen square is then "
+                "permanently blocked for the rest of the game: no piece "
+                "may enter or cross it."
             )
         return (
             "Place a barrier from the queen you just moved. The barrier "
             "travels any number of empty squares from that queen's new "
             "square in a straight or diagonal line; the square it lands "
-            "on is permanently blocked for the rest of the game."
+            "on is permanently blocked for the rest of the game. The "
+            "square the queen just vacated this turn is empty again and "
+            "is a legal barrier target."
         )
     # FROM phase
     return (
