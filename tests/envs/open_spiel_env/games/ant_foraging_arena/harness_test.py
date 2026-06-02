@@ -153,6 +153,45 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertEqual(parsed["board"]["team_id"], 1)
         self.assertNotIn('"team_id": 0', prompt)
 
+    def test_off_board_moves_described_as_illegal(self):
+        # The prompt must not claim off-board moves are "silently blocked";
+        # the engine excludes them from legal_actions, so a model that
+        # picks an off-board direction will hit the rethink loop and
+        # waste a retry. The prompt should say off-board is illegal.
+        prompt = generate_prompt(_make_arena_observation(player_id=0), [])
+        flat = " ".join(prompt.split())
+        self.assertIn("Off-board moves are not legal", flat)
+        self.assertNotIn("silently blocked", flat)
+
+    def test_within_team_turn_order_stated(self):
+        # The within-team move order is the only timing fact that affects
+        # strategy (the opposing team plays in parallel on a hidden
+        # board, so cross-team interleaving doesn't matter). Make sure
+        # the prompt at least states who moves first within the team.
+        prompt = generate_prompt(_make_arena_observation(player_id=0), [])
+        flat = " ".join(prompt.split())
+        self.assertIn("seat 0 moves first, then seat 1", flat)
+
+    def test_progress_uses_round_units(self):
+        # The legacy "moves_remaining" field counted interleaved
+        # single-player steps, mismatched against max_turns which counts
+        # rounds. The prompt must surface round-based progress.
+        prompt = generate_prompt(_make_arena_observation(player_id=0), [])
+        self.assertIn("round 0 of 50", prompt)
+
+    def test_no_raw_board_json_dump(self):
+        # The earlier prompt embedded the whole board as a multi-page JSON
+        # dump (including dense pheromone matrices). The new prompt
+        # renders the grid as ASCII and pheromones sparsely.
+        prompt = generate_prompt(_make_arena_observation(player_id=0), [])
+        # No raw "grid": list-of-lists left in the prompt.
+        self.assertNotIn('"grid":', prompt)
+        # No dense pheromone matrix left in the prompt.
+        self.assertNotIn('"pheromone_to_food":', prompt)
+        # ASCII column header is present.
+        self.assertIn("0 1 2 3 4 5 6 7", prompt)
+
+
     def test_rethink_suffix_appended(self):
         prompt = generate_prompt(
             _make_arena_observation(player_id=0),
