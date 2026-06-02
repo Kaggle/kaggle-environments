@@ -50,6 +50,34 @@ class AmazonsState(proxy.State):
             return None
         return _PHASES[self.move_number() % 3]
 
+    def _sub_turn_actions(
+        self, phase: str | None,
+    ) -> tuple[int | None, int | None]:
+        """Return ``(from_action, to_action)`` for the current sub-turn.
+
+        OpenSpiel keeps the in-progress turn's ``from_``/``to_`` private, but
+        they're recoverable from the action history: the actions belonging to
+        the current sub-turn are the trailing entries since the last shoot.
+
+        - ``from`` phase: nothing chosen yet -> ``(None, None)``.
+        - ``to`` phase: ``from`` already played -> ``(history[-1], None)``.
+        - ``shoot`` phase: ``from`` and ``to`` already played ->
+          ``(history[-2], history[-1])``.
+
+        TO/SHOOT prompts need these so the model can be told which queen it
+        picked up; without them the source square is invisible (the engine
+        empties the ``from_`` cell as soon as it's selected).
+        """
+        if phase == "to":
+            history = self.history()
+            if history:
+                return history[-1], None
+        elif phase == "shoot":
+            history = self.history()
+            if len(history) >= 2:
+                return history[-2], history[-1]
+        return None, None
+
     def state_dict(self) -> dict[str, Any]:
         winner: str | None = None
         if self.is_terminal():
@@ -61,12 +89,16 @@ class AmazonsState(proxy.State):
             else:
                 winner = "draw"
         board = self._board()
+        phase = self._phase()
+        from_action, to_action = self._sub_turn_actions(phase)
         return {
             "board": board,
             "num_rows": len(board),
             "num_cols": len(board[0]) if board else 0,
             "current_player": self._player_string(self.current_player()),
-            "phase": self._phase(),
+            "phase": phase,
+            "from_action": from_action,
+            "to_action": to_action,
             "move_number": self.move_number(),
             "is_terminal": self.is_terminal(),
             "winner": winner,

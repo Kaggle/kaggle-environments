@@ -1,12 +1,21 @@
 """Tests for Game of the Amazons LLM harness.
 
-Includes regression tests for two bugs found in the May 2026 review:
+Includes regression tests for the bugs found in the May 2026 review:
 
 1. Fallback coord-scan iterated forward, picking earlier-mentioned (often
    rejected) cells instead of the model's final stated move.
 2. ``_CELL_RE`` used ``\\s*`` between the letter and digit groups, which
    crossed newlines and captured the rendered board's column-header line
    (``"... i j\\n 1"``) as a fake ``j1`` cell.
+
+Plus the June 2026 audit follow-ups:
+
+3. TO and SHOOT prompts hid the in-progress queen's source square -- the
+   model had to infer it from the bare move-history list, often wrongly.
+4. Move history was a flat list of cells with no phase / player markers,
+   making it ambiguous which cell was a "from" vs a "to" vs a barrier.
+5. Prompt vocabulary tripped some model-API safety filters (amazons /
+   shoot / arrow / burned) -- sterilized to queens / barriers / blocked.
 """
 
 from unittest.mock import MagicMock, patch
@@ -187,42 +196,105 @@ class GeneratePromptTest(absltest.TestCase):
     def test_basic_prompt_for_x(self):
         observation = {"observationString": _OBS_10X10_EMPTY, "playerId": 0}
         prompt = generate_prompt(observation, [])
-        self.assertIn("Amazons", prompt)
-        self.assertIn("Black", prompt)  # X = Black per the harness
-        self.assertIn("X", prompt)
+        self.assertIn("Player 1", prompt)  # was "Black" before sterilization
+        self.assertIn("(X)", prompt)
         self.assertIn("10x10", prompt)
-        self.assertIn("FROM", prompt)  # phase label
+        self.assertIn("PICK QUEEN", prompt)  # FROM phase label
+        self.assertIn("queens", prompt.lower())
+        self.assertIn("barrier", prompt.lower())
+        # Sterilization regression: weapon-adjacent vocabulary must NOT
+        # appear -- some model APIs refuse the prompt otherwise.
+        self.assertNotIn("amazon", prompt.lower())
+        self.assertNotIn("shoot", prompt.lower())
+        self.assertNotIn("arrow", prompt.lower())
+        self.assertNotIn("burned", prompt.lower())
 
     def test_prompt_for_o(self):
         obs_str = _OBS_10X10_EMPTY.replace('"current_player": "x"', '"current_player": "o"')
         observation = {"observationString": obs_str, "playerId": 1}
         prompt = generate_prompt(observation, [])
-        self.assertIn("White", prompt)
+        self.assertIn("Player 2", prompt)
+        self.assertIn("(O)", prompt)
 
-    def test_phase_to_instruction(self):
+    def test_from_phase_legality_hint(self):
+        """FROM-phase instruction must warn about trapped queens."""
+        observation = {"observationString": _OBS_10X10_EMPTY, "playerId": 0}
+        prompt = generate_prompt(observation, [])
+        self.assertIn("empty neighbouring square", prompt)
+
+    def test_phase_to_instruction_names_source_square(self):
+        """TO prompt must explicitly name the queen's source square.
+
+        Before the fix it said "you picked up an amazon" without revealing
+        which one; the model had to infer from move_history. Regression
+        for audit finding #1.
+        """
+        obs_str = _OBS_10X10_EMPTY.replace(
+            '"phase": "from"', '"phase": "to", "from_action": 60',
+        )
+        observation = {"observationString": obs_str, "playerId": 0}
+        prompt = generate_prompt(observation, ["a7"])
+        self.assertIn("MOVE QUEEN", prompt)
+        self.assertIn("a7", prompt)  # source square is named in the body
+        self.assertIn("queen-move", prompt.lower())
+
+    def test_phase_shoot_instruction_names_both_squares(self):
+        """SHOOT prompt must name both from and to squares this turn.
+
+        Regression for audit finding #1: a player with 4 queens of the
+        same colour couldn't tell which one had just moved.
+        """
+        obs_str = _OBS_10X10_EMPTY.replace(
+            '"phase": "from"',
+            '"phase": "shoot", "from_action": 60, "to_action": 63',
+        )
+        observation = {"observationString": obs_str, "playerId": 0}
+        prompt = generate_prompt(observation, ["a7", "d7"])
+        self.assertIn("PLACE BARRIER", prompt)
+        self.assertIn("a7", prompt)
+        self.assertIn("d7", prompt)
+        self.assertIn("barrier", prompt.lower())
+
+    def test_to_phase_falls_back_to_move_history(self):
+        """When proxy didn't surface from_action, infer from history."""
+        # Note: no "from_action" key in obs -- harness has to fall back to
+        # move_history[-1].
         obs_str = _OBS_10X10_EMPTY.replace('"phase": "from"', '"phase": "to"')
         observation = {"observationString": obs_str, "playerId": 0}
-        prompt = generate_prompt(observation, [])
-        self.assertIn("TO", prompt)
-        self.assertIn("chess queen", prompt.lower())  # 'to' phase instruction
+        prompt = generate_prompt(observation, ["g10"])
+        self.assertIn("g10", prompt)
 
-    def test_phase_shoot_instruction(self):
-        obs_str = _OBS_10X10_EMPTY.replace('"phase": "from"', '"phase": "shoot"')
-        observation = {"observationString": obs_str, "playerId": 0}
-        prompt = generate_prompt(observation, [])
-        self.assertIn("SHOOT", prompt)
-        self.assertIn("arrow", prompt.lower())
+    def test_move_history_grouped_per_turn(self):
+        """Each completed turn renders as `X: a -> b, barrier c`.
 
-    def test_move_history_rendered(self):
+        Regression for audit finding #2: bare flat list was ambiguous
+        about which cells were from / to / barriers.
+        """
         observation = {"observationString": _OBS_10X10_EMPTY, "playerId": 0}
-        prompt = generate_prompt(observation, ["a7", "a8", "b8"])
-        self.assertIn("a7", prompt)
-        self.assertIn("b8", prompt)
+        prompt = generate_prompt(
+            observation,
+            ["a7", "a8", "b8", "d1", "d2", "e2"],
+        )
+        self.assertIn("X: a7 -> a8, barrier b8", prompt)
+        self.assertIn("O: d1 -> d2, barrier e2", prompt)
+
+    def test_move_history_skips_partial_turn(self):
+        """Partial turn at the tail is omitted (already surfaced via prompt)."""
+        observation = {"observationString": _OBS_10X10_EMPTY, "playerId": 0}
+        prompt = generate_prompt(
+            observation,
+            # X has a complete turn; O has started but not finished.
+            ["a7", "a8", "b8", "d1"],
+        )
+        self.assertIn("X: a7 -> a8, barrier b8", prompt)
+        # The partial "O: d1 (moving...)" line would duplicate info that
+        # the phase instruction already conveys; skip it.
+        self.assertNotIn("O:", prompt)
 
     def test_empty_move_history(self):
         observation = {"observationString": _OBS_10X10_EMPTY, "playerId": 0}
         prompt = generate_prompt(observation, [])
-        self.assertIn("no moves yet", prompt)
+        self.assertIn("no completed turns yet", prompt)
 
     def test_rethink_suffix(self):
         observation = {"observationString": _OBS_10X10_EMPTY, "playerId": 0}

@@ -4,10 +4,16 @@ Drop the body of this file into the notebook attached to the competition via
 HarnessKernelId. The auto-generated ``main.py`` calls these three module-level
 functions: ``get_legal_moves``, ``generate_prompt``, ``parse_response``.
 
-Amazons turns decompose into three sub-actions: pick an amazon (``from``),
-move it like a queen (``to``), then shoot an arrow from the new square
-(``shoot``). Each sub-action is one LLM call. The proxy exposes the current
-phase and board in ``observationString`` as JSON.
+Amazons turns decompose into three sub-actions: pick a queen (``from``),
+move it like a chess queen (``to``), then place a barrier reachable from the
+new square (``shoot`` in the engine, presented to the model as a barrier
+placement). Each sub-action is one LLM call. The proxy exposes the current
+phase, board, and (for in-progress turns) the queen's source/destination in
+``observationString`` as JSON.
+
+The prompt avoids weapon-adjacent vocabulary so that model APIs with strict
+safety filters don't refuse to play: queens move, then place a barrier on a
+square that becomes blocked. The game mechanics are unchanged.
 """
 
 from __future__ import annotations
@@ -121,38 +127,86 @@ def _board_dims(state: Mapping[str, Any]) -> tuple[int, int]:
 # --- Prompt -----------------------------------------------------------------
 
 
-_PHASE_INSTRUCTION = {
-    "from": (
-        "Choose which of your amazons to move (one of your pieces on the "
-        "board)."
-    ),
-    "to": (
-        "You picked up an amazon. Choose where to move it. Amazons move like "
-        "chess queens (any number of empty squares in a straight or diagonal "
-        "line) and cannot pass through arrows or other pieces."
-    ),
-    "shoot": (
-        "Now shoot an arrow from your amazon's new square. The arrow flies "
-        "like a queen's move from that square. The square it lands on is "
-        "burned for the rest of the game and no piece may enter or cross it."
-    ),
+# Phase labels shown to the model. Sterilized from the engine's internal
+# names so safety filters don't flag the prompt ("shoot" -> "place barrier").
+_PHASE_LABEL = {
+    "from": "PICK QUEEN",
+    "to": "MOVE QUEEN",
+    "shoot": "PLACE BARRIER",
 }
 
 
-AMAZONS_PROMPT_TEMPLATE = """Let's play the Game of the Amazons on a {num_rows}x{num_cols} board.
+def _phase_instruction(
+    phase: str,
+    from_sq: str | None,
+    to_sq: str | None,
+) -> str:
+    """Per-phase instruction text. Names the in-progress squares when known.
 
-Pieces: X = Black amazons, O = White amazons, # = burned (arrow) squares,
-. = empty. Each turn has three steps: move one of your amazons like a chess
-queen (from -> to), then shoot an arrow from its new square (also like a
-queen). A player who cannot move on their turn loses.
+    The TO/SHOOT phases are the high-stakes ones: the engine has already
+    cleared the queen's source cell, so the board no longer reveals which
+    queen the player picked up. Without telling the model, it has to infer
+    the source from the move-history list -- which it usually gets wrong,
+    burning retries. We name ``from_sq`` / ``to_sq`` explicitly here.
+    """
+    if phase == "to":
+        if from_sq is not None:
+            return (
+                f"You picked up the queen previously at {from_sq} -- that "
+                f"square is now empty on the board. Choose where to move "
+                f"it: any empty square reachable from {from_sq} by a "
+                "queen-move (any number of empty squares in a straight or "
+                "diagonal line; the path may not cross another queen or a "
+                "blocked square)."
+            )
+        return (
+            "You picked up one of your queens earlier this turn -- its "
+            "previous square is now empty on the board. Choose where to "
+            "move it: queens move any number of empty squares in a "
+            "straight or diagonal line and cannot pass through other "
+            "pieces or blocked squares."
+        )
+    if phase == "shoot":
+        if from_sq is not None and to_sq is not None:
+            return (
+                f"Your queen moved from {from_sq} to {to_sq} this turn "
+                f"and is now sitting at {to_sq}. Place a barrier on any "
+                f"empty square reachable from {to_sq} by a queen-move "
+                "(any number of empty squares in a straight or diagonal "
+                "line). The chosen square is then permanently blocked "
+                "for the rest of the game: no piece may enter or cross "
+                "it."
+            )
+        return (
+            "Place a barrier from the queen you just moved. The barrier "
+            "travels any number of empty squares from that queen's new "
+            "square in a straight or diagonal line; the square it lands "
+            "on is permanently blocked for the rest of the game."
+        )
+    # FROM phase
+    return (
+        "Choose which of your queens to move. You may only pick a queen "
+        "that has at least one empty neighbouring square -- a queen with "
+        "no empty neighbour cannot move and is not a legal selection."
+    )
+
+
+AMAZONS_PROMPT_TEMPLATE = """Let's play a strategy game on a {num_rows}x{num_cols} grid.
+
+Pieces: X = Player 1's queens, O = Player 2's queens, # = blocked squares,
+. = empty. Each turn has three steps: move one of your queens like a chess
+queen (from -> to), then place a barrier on an empty square reachable by
+another queen-move from its new position. Barriers permanently block their
+square: no piece may enter or cross. A player who cannot move on their
+turn loses.
 
 You are playing as {player_name} ({player_glyph}).
-Current sub-action: {phase_upper}
+Current sub-action: {phase_label}
 
 Board:
 {board}
 
-Move history (last {history_max}):
+Move history (last {history_max_turns} completed turns):
 {move_history}
 
 {phase_instruction}
@@ -202,13 +256,31 @@ The move you choose must also be legal in the current state.
 """
 
 
-_HISTORY_MAX = 12
+_HISTORY_MAX_TURNS = 8
 
 
 def _format_history(move_history: list[str]) -> str:
-    if not move_history:
-        return "(no moves yet)"
-    return ", ".join(move_history[-_HISTORY_MAX:])
+    """Group the flat action list into 3-action turns labelled by player.
+
+    The framework stores ``move_history`` as a flat list of algebraic cells,
+    one per sub-action. Without grouping the model sees ``a7, d7, e7, c6,
+    c5, c4`` and has to remember "every three cells is one turn, players
+    alternate, X started" -- which is undocumented and easy to get wrong.
+    Render each completed turn as ``X: a7 -> d7, barrier e7`` instead. Skip
+    any partial trailing turn (its squares are surfaced by the prompt's
+    source-square disclosure instead, so showing it here would duplicate).
+    """
+    if len(move_history) < 3:
+        return "(no completed turns yet)"
+    full_turns = len(move_history) // 3
+    start = max(0, full_turns - _HISTORY_MAX_TURNS)
+    lines = []
+    for t in range(start, full_turns):
+        i = t * 3
+        from_sq, to_sq, barrier_sq = move_history[i:i + 3]
+        player = "X" if t % 2 == 0 else "O"
+        lines.append(f"{player}: {from_sq} -> {to_sq}, barrier {barrier_sq}")
+    return "\n".join(lines)
 
 
 # --- Public functions (called by main.py) -----------------------------------
@@ -242,6 +314,36 @@ def get_legal_moves(observation: Mapping[str, Any]) -> dict[int, str]:
     return {a: _action_to_algebraic(a, num_cols) for a in legal_actions}
 
 
+def _sub_turn_squares(
+    state: Mapping[str, Any],
+    move_history: list[str],
+    phase: str,
+    num_cols: int,
+) -> tuple[str | None, str | None]:
+    """Return ``(from_sq, to_sq)`` algebraic for the in-progress turn.
+
+    Prefers the action ids surfaced by the updated proxy (always accurate);
+    falls back to the trailing entries of ``move_history`` so the harness
+    still works when dropped into a notebook where the proxy module isn't
+    on the path (per ``deserialize_game_and_state`` comment at the top of
+    this file).
+    """
+    from_sq: str | None = None
+    to_sq: str | None = None
+    from_id = state.get("from_action")
+    to_id = state.get("to_action")
+    if isinstance(from_id, int):
+        from_sq = _action_to_algebraic(from_id, num_cols)
+    if isinstance(to_id, int):
+        to_sq = _action_to_algebraic(to_id, num_cols)
+    if from_sq is None and phase == "to" and move_history:
+        from_sq = move_history[-1]
+    elif from_sq is None and phase == "shoot" and len(move_history) >= 2:
+        from_sq = move_history[-2]
+        to_sq = to_sq if to_sq is not None else move_history[-1]
+    return from_sq, to_sq
+
+
 def generate_prompt(
     observation: Mapping[str, Any],
     move_history: list[str],
@@ -254,19 +356,20 @@ def generate_prompt(
     board = state.get("board") or [["." for _ in range(num_cols)] for _ in range(num_rows)]
     phase = state.get("phase") or "from"
     current = state.get("current_player", "x")
-    player_name = "Black" if current == "x" else "White"
+    player_name = "Player 1" if current == "x" else "Player 2"
     player_glyph = "X" if current == "x" else "O"
+    from_sq, to_sq = _sub_turn_squares(state, move_history, phase, num_cols)
 
     prompt = AMAZONS_PROMPT_TEMPLATE.format(
         num_rows=num_rows,
         num_cols=num_cols,
         player_name=player_name,
         player_glyph=player_glyph,
-        phase_upper=phase.upper(),
+        phase_label=_PHASE_LABEL.get(phase, phase.upper()),
         board=_render_board(board),
-        history_max=_HISTORY_MAX,
+        history_max_turns=_HISTORY_MAX_TURNS,
         move_history=_format_history(move_history),
-        phase_instruction=_PHASE_INSTRUCTION.get(phase, _PHASE_INSTRUCTION["from"]),
+        phase_instruction=_phase_instruction(phase, from_sq, to_sq),
     )
 
     prompt += render_rethink_suffix(
