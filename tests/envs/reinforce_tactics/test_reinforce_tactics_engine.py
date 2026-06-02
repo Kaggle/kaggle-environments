@@ -1,10 +1,10 @@
 """
-Engine-direct regression tests for the vendored Reinforce Tactics engine.
+Engine-direct regression tests for the vendored Kaggle engine.
 
-These tests exercise reinforce_tactics_engine without going through the
-kaggle-environments interpreter. They cover bugs that are not reachable
-from the interpreter's hot path (legal-action enumeration, direct
-save/load round-trips, fog-of-war memory clearing) so we don't
+These tests exercise reinforcetactics.kaggle.reinforce_tactics_engine without
+going through the kaggle-environments interpreter. They cover bugs that are
+not reachable from the interpreter's hot path (legal-action enumeration,
+direct save/load round-trips, fog-of-war memory clearing) so we don't
 re-introduce them when re-syncing the vendored engine in the future.
 """
 
@@ -13,8 +13,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from kaggle_environments.envs.reinforce_tactics.reinforce_tactics_engine import GameState
-from kaggle_environments.envs.reinforce_tactics.reinforce_tactics_engine.core.unit import Unit
+from reinforcetactics.kaggle.reinforce_tactics_engine import GameState
+from reinforcetactics.kaggle.reinforce_tactics_engine.core.unit import Unit
 
 
 def _small_map(width=10, height=10):

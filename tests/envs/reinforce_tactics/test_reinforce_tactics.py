@@ -1,22 +1,54 @@
 """
 Functional tests for the Reinforce Tactics Kaggle environment exercised
 through the public ``kaggle_environments.make()`` API.
+
+These tests mirror the suite that ships with the upstream
+``Kaggle/kaggle-environments`` PR so we can validate behaviour from the
+same surface that competition runners use. They are skipped if the
+``kaggle-environments`` package is not installed locally.
 """
+
 # pylint: disable=missing-function-docstring,redefined-outer-name
+import json as json_module
+from pathlib import Path
+
 import pytest
 
-from kaggle_environments import evaluate, make
+ke = pytest.importorskip("kaggle_environments")
+
+from reinforcetactics.kaggle import reinforce_tactics as rt_module  # noqa: E402
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _register_env():
+    """Register the local adapter under the ``reinforce_tactics`` name."""
+    spec_path = Path(rt_module.__file__).with_name("reinforce_tactics.json")
+    with open(spec_path, encoding="utf-8") as f:
+        spec = json_module.load(f)
+
+    ke.register(
+        "reinforce_tactics",
+        {
+            "specification": spec,
+            "interpreter": rt_module.interpreter,
+            "renderer": rt_module.renderer,
+            "html_renderer": rt_module.html_renderer,
+            "agents": rt_module.agents,
+        },
+    )
+    yield
 
 
 @pytest.fixture
 def make_env():
     """Factory: build an env with mapSeed defaulting to 42 for determinism."""
+
     def _make(configuration=None):
         if configuration is None:
             configuration = {"mapSeed": 42}
         elif "mapSeed" not in configuration:
             configuration["mapSeed"] = 42
-        return make("reinforce_tactics", configuration=configuration, debug=False)
+        return ke.make("reinforce_tactics", configuration=configuration, debug=False)
 
     return _make
 
@@ -186,7 +218,7 @@ def test_run_on_builtin_map(make_env):
 
 
 def test_can_evaluate():
-    rewards = evaluate(
+    rewards = ke.evaluate(
         "reinforce_tactics",
         ["random", "random"],
         num_episodes=2,
@@ -202,6 +234,7 @@ def test_can_evaluate():
 
 def test_invalid_action_dict_loses(make_env):
     """An agent returning an out-of-bounds move should lose immediately."""
+
     def bad_agent(_obs, _config):
         return [{"type": "move", "from_x": -99, "from_y": -99, "to_x": -1, "to_y": -1}]
 
