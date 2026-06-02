@@ -252,11 +252,15 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("teammate's cell", flat)
         self.assertIn("no-ops", flat)
 
-    def test_lockstep_wording(self):
+    def test_alternation_wording(self):
+        # The prompt must describe how the two boards advance unambiguously.
+        # "in parallel" was wrong (boards don't advance simultaneously);
+        # "lock-step" was a step better but still read as "both at once".
+        # The current wording explicitly says strict alternation.
         prompt = generate_prompt(_make_observation(_state(seed=7), 0), [])
         flat = " ".join(prompt.split())
-        self.assertIn("lock-step", flat)
-        # Old "in parallel" wording must be gone.
+        self.assertIn("strict alternation", flat)
+        self.assertNotIn("lock-step", flat)
         self.assertNotIn("in parallel", flat)
 
 

@@ -28,10 +28,10 @@ ARENA_PROMPT_TEMPLATE = """Let's play Coin Game Arena (2v2 team coin game).
 
 Setup: 2 teams of 2 players each. Each team plays its own private
 {rows}x{cols} board (the other team's board is HIDDEN from you). The
-two boards advance in lock-step: each global step, exactly ONE player
-moves, alternating between teams. Within a team, the two seats also
-alternate, so your team's sequence is [seat 0, seat 1, seat 0, ...]
-on your board.
+two boards advance in strict alternation: each global step, exactly
+ONE player moves, and the next global step the other team's board
+moves. Within a team, the two seats also alternate, so your team's
+sequence is [seat 0, seat 1, seat 0, ...] on your board.
 
 Important: every player on your team is another instance of YOU
 (same model, same submission), and the opposing team is two instances
