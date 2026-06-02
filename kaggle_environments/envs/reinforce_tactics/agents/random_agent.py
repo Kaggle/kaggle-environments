@@ -11,15 +11,17 @@ Usage as a Kaggle submission:
 
 import random
 
-# Unit costs for budget tracking
+# Unit costs, mirroring the environment's effective economy (engine constants
+# plus the v52a engine_overrides: Warrior is 300, not the default 200). These
+# must match what the env charges, or an "affordable" pick will be rejected.
 UNIT_COSTS = {
-    "W": 200,
+    "W": 300,
     "M": 300,
     "C": 200,
     "A": 250,
     "K": 350,
     "R": 350,
-    "S": 400,
+    "S": 350,
     "B": 400,
 }
 

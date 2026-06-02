@@ -178,10 +178,17 @@ def _process_turn(state, env, game, active_idx, key):
 
 def _run_actions(state, game, actions, active_idx, game_player):
     """
-    Execute all actions for the active agent.
+    Execute the active agent's action list for the turn.
 
-    Returns True if all actions were valid, False if the agent made an
-    invalid action (in which case the agent is marked as lost).
+    Well-formed but illegal actions (unaffordable, occupied tile, out of
+    range, at the per-player unit cap, unknown action/unit type) are skipped
+    as no-ops and the turn continues. This suits the multi-action-per-turn
+    API: one rejected action in a list shouldn't forfeit the whole episode,
+    and ``get_legal_actions`` already lets agents avoid illegal moves. Only a
+    malformed action (not a dict) is treated as a broken agent and forfeits.
+
+    Returns True normally, or False if the agent forfeited (malformed action),
+    in which case it has already been marked as lost.
     """
     for action in actions:
         if not isinstance(action, dict):
@@ -191,9 +198,9 @@ def _run_actions(state, game, actions, active_idx, game_player):
         if action.get("type", "") == "end_turn":
             break
 
+        # Illegal-but-well-formed action: skip it (no-op) and keep going.
         if not _execute_action(game, action, game_player):
-            _mark_agent_loss(state, active_idx)
-            return False
+            continue
 
         if game.game_over:
             break

@@ -232,8 +232,9 @@ def test_can_evaluate():
 # ---- Action handling --------------------------------------------------------
 
 
-def test_invalid_action_dict_loses(make_env):
-    """An agent returning an out-of-bounds move should lose immediately."""
+def test_illegal_action_is_skipped(make_env):
+    """A well-formed but illegal action (out-of-bounds move) is skipped as a
+    no-op; the offending agent is not forfeited."""
 
     def bad_agent(_obs, _config):
         return [{"type": "move", "from_x": -99, "from_y": -99, "to_x": -1, "to_y": -1}]
@@ -241,5 +242,7 @@ def test_invalid_action_dict_loses(make_env):
     env = make_env(configuration={"mapSeed": 42, "episodeSteps": 20})
     result = env.run([bad_agent, "random"])
     final = result[-1]
-    assert final[0].reward == -1
-    assert final[1].reward == 1
+    # The illegal move is ignored, so the game runs to the max-steps draw
+    # instead of an instant loss for the offending agent.
+    assert final[0].reward == 0
+    assert final[1].reward == 0

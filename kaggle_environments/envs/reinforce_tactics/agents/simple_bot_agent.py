@@ -11,23 +11,25 @@ Usage as a Kaggle submission:
     Copy this file and submit it.
 """
 
-# Unit costs for budget tracking
+# Unit costs, mirroring the environment's effective economy (engine constants
+# plus the v52a engine_overrides: Warrior is 300, not the default 200). These
+# must match what the env charges, or an "affordable" pick will be rejected.
 UNIT_COSTS = {
-    "W": 200,
+    "W": 300,
     "M": 300,
     "C": 200,
     "A": 250,
     "K": 350,
     "R": 350,
-    "S": 400,
+    "S": 350,
     "B": 400,
 }
 
-# Unit movement ranges
+# Unit movement ranges (must match the engine's UNIT_DATA movement values)
 UNIT_MOVEMENT = {
     "W": 3,
     "M": 2,
-    "C": 2,
+    "C": 3,
     "A": 3,
     "K": 4,
     "R": 4,
