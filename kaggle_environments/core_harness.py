@@ -847,7 +847,7 @@ def create_agent_fn(
 
         raise ValueError(
             f"Failed to parse a legal move after {max_retries} attempts. "
-            f"Last response: {last_content[:200]}"
+            f"End of last response: {last_content[-200:]}"
         )
 
     return agent_fn
