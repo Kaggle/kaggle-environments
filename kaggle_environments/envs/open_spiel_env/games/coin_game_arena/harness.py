@@ -71,8 +71,9 @@ Current state of your team's board (JSON):
 Move history on your team's board so far (most recent last):
 {move_history_str}
 
-{moves_remaining_this_board} of {episode_length} moves remain on
-your team's board.
+This is your move {your_move_number} of {seat_total} on your team's
+board. Your teammate has {teammate_remaining} moves remaining.
+(Your team's board has {episode_length} moves total; seats alternate.)
 
 It is now your turn. Choose your move.
 The move MUST be one of: up, down, left, right, stand.
@@ -183,13 +184,26 @@ def generate_prompt(
 
     board = obs.get("board", {})
     history = board.get("move_history") or []
-    # Per-board moves remaining (engine's obs.moves_remaining counts BOTH
-    # boards' steps, which mixes units with episode_length above). One
-    # entry in history per move taken on this board, so subtract.
-    moves_remaining_this_board = max(0, episode_length - len(history))
+    # Per-seat counts: the model is a single seat, so framing remaining
+    # moves as a per-board total (which the seats split) invites a 2x
+    # planning-horizon error. Surface this seat's and the teammate's
+    # personal horizons instead.
+    seat_played = sum(1 for entry in history if entry.get("seat") == seat)
+    teammate_played = sum(
+        1 for entry in history if entry.get("seat") == teammate_seat
+    )
+    seat_total = max(
+        0, (episode_length - seat + players_per_team - 1) // players_per_team
+    )
+    teammate_total = max(
+        0,
+        (episode_length - teammate_seat + players_per_team - 1) // players_per_team,
+    )
+    your_move_number = seat_played + 1
+    teammate_remaining = max(0, teammate_total - teammate_played)
     # Emit a compact subset of the board view to the model. No
-    # moves_remaining here — it's surfaced as a separate sentence below
-    # to avoid a unit mismatch with episode_length.
+    # moves_remaining here — it's surfaced as separate per-seat
+    # sentences below to avoid a unit mismatch with episode_length.
     board_view = {
         "board": board.get("board"),
         "player_positions": board.get("player_positions"),
@@ -218,7 +232,9 @@ def generate_prompt(
         your_pref=your_pref,
         board_str=board_str,
         move_history_str=move_history_str,
-        moves_remaining_this_board=moves_remaining_this_board,
+        your_move_number=your_move_number,
+        seat_total=seat_total,
+        teammate_remaining=teammate_remaining,
     )
 
     prompt += render_rethink_suffix(
