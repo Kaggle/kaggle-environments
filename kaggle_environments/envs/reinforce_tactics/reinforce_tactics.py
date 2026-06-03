@@ -680,7 +680,11 @@ def renderer(state, env):
 # HTML Renderer
 # ---------------------------------------------------------------------------
 def html_renderer():
-    """Return JavaScript for browser-based rendering (placeholder)."""
+    """Return the built visualizer HTML, or an empty string if not built yet."""
+    htmlpath = path.join(_dirpath, "visualizer", "default", "dist", "index.html")
+    if path.exists(htmlpath):
+        with open(htmlpath, encoding="utf-8") as f:
+            return f.read()
     return ""
 
 
