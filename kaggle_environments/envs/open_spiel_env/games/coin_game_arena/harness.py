@@ -57,11 +57,6 @@ collected by anyone on your board; bad_coins = coins of unowned colours
 (not preferred by either teammate) collected by anyone on your board.
 The team with the higher total reward wins. Ties are draws.
 
-Strategy: collect your preferred colour, leave your teammate's
-preference for them, and AVOID coins of unowned colours (each one
-collected hurts both of you quadratically). You don't know your
-teammate's preference up front — infer it from what they pick up.
-
 Cells are ``"."`` for empty, digits for players (the player ids shown
 below, not the seat indices), lowercase letters for coin colours.
 Coordinates are ``[row, column]`` with ``row=0`` at the top.
