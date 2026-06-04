@@ -1,0 +1,584 @@
+{
+  "id": "b93ea0ce-552d-11f1-8652-bae7cb43ed0b",
+  "name": "open_spiel_snake",
+  "title": "Open Spiel: snake",
+  "description": "Kaggle environment wrapper for OpenSpiel games.\nFor game implementation details see:\nhttps://github.com/google-deepmind/open_spiel/tree/master/open_spiel/games",
+  "version": "0.1.0",
+  "module_version": "1.18.0",
+  "configuration": {
+    "includeLegalActions": true,
+    "episodeSteps": 300,
+    "actTimeout": 3600,
+    "runTimeout": 172800,
+    "openSpielGameString": "snake_proxy(columns=10,players=2,rows=10)",
+    "openSpielGameName": "snake",
+    "openSpielGameParameters": {
+      "columns": 10,
+      "players": 2,
+      "rows": 10
+    },
+    "observationType": "observation",
+    "useOpenings": false,
+    "useImage": false,
+    "loadPresetHands": false,
+    "metadata": {},
+    "strictMode": false,
+    "savePrompt": true,
+    "freeForm": false,
+    "includeGenerateReturns": false,
+    "illegalMoveForfeit": true
+  },
+  "specification": {
+    "action": {
+      "description": "Action object MUST contain a field `submission`, and MAY contain arbitrary additional information.",
+      "type": "object",
+      "default": {
+        "submission": -1
+      }
+    },
+    "agents": [2],
+    "configuration": {
+      "episodeSteps": {
+        "description": "Maximum number of steps in the episode.",
+        "type": "integer",
+        "minimum": 1,
+        "default": 300
+      },
+      "actTimeout": {
+        "description": "Maximum runtime (seconds) to obtain an action from an agent.",
+        "type": "number",
+        "minimum": 0,
+        "default": 3600
+      },
+      "runTimeout": {
+        "description": "Maximum runtime (seconds) of an episode (not necessarily DONE).",
+        "type": "number",
+        "minimum": 0,
+        "default": 172800
+      },
+      "openSpielGameString": {
+        "description": "The full game string including parameters.",
+        "type": "string",
+        "default": "snake_proxy(columns=10,players=2,rows=10)"
+      },
+      "openSpielGameName": {
+        "description": "The short_name of the OpenSpiel game to load.",
+        "type": "string",
+        "default": "snake"
+      },
+      "openSpielGameParameters": {
+        "description": "Game parameters for Open Spiel game.",
+        "type": "object",
+        "default": {
+          "columns": 10,
+          "players": 2,
+          "rows": 10
+        },
+        "properties": {}
+      },
+      "observationType": {
+        "description": "Type of observation string: 'observation' or 'information_state'.",
+        "type": "string",
+        "default": "observation"
+      },
+      "useOpenings": {
+        "description": "Whether to start from a position in an opening book.",
+        "type": "boolean",
+        "default": false
+      },
+      "useImage": {
+        "description": "If true, indicates the observation is intended to be rendered as an image. Note that currently the agent harness is responsible for the actual rendering; no image is passed in the observation.",
+        "type": "boolean",
+        "default": false
+      },
+      "includeLegalActions": {
+        "description": "If true, include legalActions and legalActionStrings in observations. Defaults to false since these can be derived from serializedGameAndState.",
+        "type": "boolean",
+        "default": false
+      },
+      "seed": {
+        "description": "Integer used to select a starting position (when useOpenings is true) and to seed chance-node sampling so episodes are reproducible.",
+        "type": "number"
+      },
+      "initialActions": {
+        "description": "Actions applied to initial state before play begins to set up starting position.",
+        "type": "array"
+      },
+      "loadPresetHands": {
+        "description": "Repeated poker only. Load preset hand chance actions from preset_hands.jsonl.",
+        "type": "boolean",
+        "default": false
+      },
+      "presetHands": {
+        "description": "Repeated poker only. List of per-hand chance action sequences to use instead of random chance.",
+        "type": "array"
+      },
+      "metadata": {
+        "description": "Arbitrary metadata.",
+        "type": "object",
+        "default": {},
+        "properties": {}
+      },
+      "strictMode": {
+        "description": "If true, agents must return only {'submission': int} (no extra fields like 'thoughts'), and per-agent TIMEOUT/ERROR/INVALID counts as a loss for the offending agent only \u2014 other agents are marked DONE with a winning reward. The offender keeps its natural ERROR or TIMEOUT status (matching how every other Kaggle competition reports per-player failures). If false (default), any agent error halts and voids the entire episode, matching the lenient research-mode behavior.",
+        "type": "boolean",
+        "default": false
+      },
+      "savePrompt": {
+        "description": "If disabled, skip logging LLM prompts in the replay file.",
+        "type": "boolean",
+        "default": true
+      },
+      "freeForm": {
+        "description": "If true, the core harness allows free-form actions (get_legal_moves may return None) on turns where the action space is not enumerable. Defaults to false for OpenSpiel games.",
+        "type": "boolean",
+        "default": false
+      },
+      "includeGenerateReturns": {
+        "description": "If true, include a legacy generate_returns field on each action with per-LLM-call metadata (model, token counts, finish reason, duration). Useful for cost tracking and visualization pipelines.",
+        "type": "boolean",
+        "default": false
+      },
+      "illegalMoveForfeit": {
+        "description": "If true (default), when an LLM harness exhausts its retries without producing a legal move, it submits an invalid action so this player forfeits via the env's INVALID path (matching the game_arena convention). If false, the harness re-raises the parse failure, which voids the whole episode. Only affects exhaustion from illegal/unparsable moves; uncaught exceptions still propagate either way.",
+        "type": "boolean",
+        "default": true
+      }
+    },
+    "info": {},
+    "observation": {
+      "remainingOverageTime": {
+        "description": "Total remaining banked time (seconds) that can be used in excess of per-step actTimeouts -- agent is disqualified with TIMEOUT status when this drops below 0.",
+        "shared": false,
+        "type": "number",
+        "minimum": 0,
+        "default": 12
+      },
+      "step": {
+        "description": "Current step within the episode.",
+        "type": "integer",
+        "shared": true,
+        "minimum": 0,
+        "default": 0
+      },
+      "properties": {
+        "openSpielGameString": {
+          "description": "Full game string including parameters.",
+          "type": "string",
+          "default": "snake_proxy(columns=10,players=2,rows=10)"
+        },
+        "openSpielGameName": {
+          "description": "Short name of the OpenSpiel game.",
+          "type": "string",
+          "default": "snake"
+        },
+        "observationString": {
+          "description": "String representation of state.",
+          "type": "string"
+        },
+        "legalActions": {
+          "description": "List of OpenSpiel legal action integers. Only included if includeLegalActions is true.",
+          "type": "array"
+        },
+        "legalActionStrings": {
+          "description": "List of OpenSpiel legal action strings. Only included if includeLegalActions is true.",
+          "type": "array"
+        },
+        "currentPlayer": {
+          "description": "ID of player whose turn it is.",
+          "type": "integer"
+        },
+        "playerId": {
+          "description": "ID of the agent receiving this observation.",
+          "type": "integer"
+        },
+        "isTerminal": {
+          "description": "Boolean indicating game end.",
+          "type": "boolean"
+        },
+        "serializedGameAndState": {
+          "description": "Enables reconstructing the Game and State objects.",
+          "type": "string"
+        },
+        "remainingOverageTime": 60,
+        "step": 0
+      },
+      "default": {}
+    },
+    "reward": {
+      "type": ["number", "null"],
+      "default": 0.0
+    }
+  },
+  "steps": [
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": 0.0,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 0
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": 0.0,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": null,
+          "actionSubmittedToString": null,
+          "actionApplied": null,
+          "timeTaken": null,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 1,
+          "observationString": "{\"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \"A\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"*\", \".\", \".\", \".\", \".\", \".\", \"B\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 10, \"num_columns\": 10, \"num_players\": 2, \"food\": [8, 2], \"snakes\": [{\"player\": 0, \"body\": [[1, 1]], \"alive\": true, \"score\": 0.0}, {\"player\": 1, \"body\": [[8, 8]], \"alive\": true, \"score\": 0.0}], \"scores\": [0.0, 0.0], \"is_alive\": [true, true], \"current_player\": 0, \"pending_this_turn\": [], \"turn\": 0, \"is_terminal\": false, \"winner\": null, \"game_over_reason\": null}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nsnake_proxy(columns=10,players=2,rows=10)\n[State]\nhistory=\nmove_number=0\n__dict__=gASV7AIAAAAAAAB9lIwLX193cmFwcGVkX1+UjD5rYWdnbGVfZW52aXJvbm1lbnRzLmVudnMub3Blbl9zcGllbF9lbnYuZ2FtZXMuc25ha2Uuc25ha2VfZ2FtZZSMClNuYWtlU3RhdGWUk5QpgZRYgAIAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCnNuYWtlKGNvbHVtbnM9MTAscGxheWVycz0yLHJvd3M9MTApCltTdGF0ZV0KaGlzdG9yeT0KbW92ZV9udW1iZXI9MApfX2RpY3RfXz1nQVNWV2dFQUFBQUFBQUI5bENpTUJWOW5ZVzFsbEl3K2EyRm5aMnhsWDJWdWRtbHliMjV0Wlc1MGN5NWxiblp6TG05d1pXNWZjM0JwWld4ZlpXNTJMbWRoYldWekxuTnVZV3RsTG5OdVlXdGxYMmRoYldXVWpBbFRibUZyWlVkaGJXV1VrNVFwZ1pTTUkzTnVZV3RsS0dOdmJIVnRibk05TVRBc2NHeGhlV1Z5Y3oweUxISnZkM005TVRBcGxHS01CSEp2ZDNPVVN3cU1CR052YkhPVVN3cU1DMjUxYlY5d2JHRjVaWEp6bEVzQ2pBeGZhWE5mZEdWeWJXbHVZV3lVaVl3UlgyZGhiV1ZmYjNabGNsOXlaV0Z6YjI2VVRvd0djMjVoYTJWemxGMlVLRjJVU3dGTEFZYVVZVjJVU3doTENJYVVZV1dNQm5OamIzSmxjNVJkbENoSEFBQUFBQUFBQUFCSEFBQUFBQUFBQUFCbGpBaHBjMTloYkdsMlpaUmRsQ2lJaUdXTUJHWnZiMlNVU3doTEFvYVVqQVpmYzNSbGNIT1VTd0NNREY5dVpYaDBYM0JzWVhsbGNwUkxBSXdNWDIxdmRtVmZZblZtWm1WeWxGMlVLRTVPWlhVdQqUYnMu\n",
+          "legalActions": [0, 1, 2, 3],
+          "legalActionStrings": ["UP", "DOWN", "LEFT", "RIGHT"]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \"A\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"*\", \".\", \".\", \".\", \".\", \".\", \"B\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 10, \"num_columns\": 10, \"num_players\": 2, \"food\": [8, 2], \"snakes\": [{\"player\": 0, \"body\": [[1, 1]], \"alive\": true, \"score\": 0.0}, {\"player\": 1, \"body\": [[8, 8]], \"alive\": true, \"score\": 0.0}], \"scores\": [0.0, 0.0], \"is_alive\": [true, true], \"current_player\": 0, \"pending_this_turn\": [], \"turn\": 0, \"is_terminal\": false, \"winner\": null, \"game_over_reason\": null}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nsnake_proxy(columns=10,players=2,rows=10)\n[State]\nhistory=\nmove_number=0\n__dict__=gASV7AIAAAAAAAB9lIwLX193cmFwcGVkX1+UjD5rYWdnbGVfZW52aXJvbm1lbnRzLmVudnMub3Blbl9zcGllbF9lbnYuZ2FtZXMuc25ha2Uuc25ha2VfZ2FtZZSMClNuYWtlU3RhdGWUk5QpgZRYgAIAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCnNuYWtlKGNvbHVtbnM9MTAscGxheWVycz0yLHJvd3M9MTApCltTdGF0ZV0KaGlzdG9yeT0KbW92ZV9udW1iZXI9MApfX2RpY3RfXz1nQVNWV2dFQUFBQUFBQUI5bENpTUJWOW5ZVzFsbEl3K2EyRm5aMnhsWDJWdWRtbHliMjV0Wlc1MGN5NWxiblp6TG05d1pXNWZjM0JwWld4ZlpXNTJMbWRoYldWekxuTnVZV3RsTG5OdVlXdGxYMmRoYldXVWpBbFRibUZyWlVkaGJXV1VrNVFwZ1pTTUkzTnVZV3RsS0dOdmJIVnRibk05TVRBc2NHeGhlV1Z5Y3oweUxISnZkM005TVRBcGxHS01CSEp2ZDNPVVN3cU1CR052YkhPVVN3cU1DMjUxYlY5d2JHRjVaWEp6bEVzQ2pBeGZhWE5mZEdWeWJXbHVZV3lVaVl3UlgyZGhiV1ZmYjNabGNsOXlaV0Z6YjI2VVRvd0djMjVoYTJWemxGMlVLRjJVU3dGTEFZYVVZVjJVU3doTENJYVVZV1dNQm5OamIzSmxjNVJkbENoSEFBQUFBQUFBQUFCSEFBQUFBQUFBQUFCbGpBaHBjMTloYkdsMlpaUmRsQ2lJaUdXTUJHWnZiMlNVU3doTEFvYVVqQVpmYzNSbGNIT1VTd0NNREY5dVpYaDBYM0JzWVhsbGNwUkxBSXdNWDIxdmRtVmZZblZtWm1WeWxGMlVLRTVPWlhVdQqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 0,
+          "thoughts": "beta mu iota imagine consider shadow delta rho",
+          "actionString": "UP"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 0,
+          "actionSubmittedToString": "UP",
+          "actionApplied": 0,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 2,
+          "observationString": "{\"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \"A\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"*\", \".\", \".\", \".\", \".\", \".\", \"B\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 10, \"num_columns\": 10, \"num_players\": 2, \"food\": [8, 2], \"snakes\": [{\"player\": 0, \"body\": [[1, 1]], \"alive\": true, \"score\": 0.0}, {\"player\": 1, \"body\": [[8, 8]], \"alive\": true, \"score\": 0.0}], \"scores\": [0.0, 0.0], \"is_alive\": [true, true], \"current_player\": 1, \"pending_this_turn\": [0], \"turn\": 0, \"is_terminal\": false, \"winner\": null, \"game_over_reason\": null}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nsnake_proxy(columns=10,players=2,rows=10)\n[State]\nhistory=0:0\nmove_number=1\n__dict__=gASV8wIAAAAAAAB9lIwLX193cmFwcGVkX1+UjD5rYWdnbGVfZW52aXJvbm1lbnRzLmVudnMub3Blbl9zcGllbF9lbnYuZ2FtZXMuc25ha2Uuc25ha2VfZ2FtZZSMClNuYWtlU3RhdGWUk5QpgZRYhwIAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCnNuYWtlKGNvbHVtbnM9MTAscGxheWVycz0yLHJvd3M9MTApCltTdGF0ZV0KaGlzdG9yeT0wOjAKbW92ZV9udW1iZXI9MQpfX2RpY3RfXz1nQVNWV3dFQUFBQUFBQUI5bENpTUJWOW5ZVzFsbEl3K2EyRm5aMnhsWDJWdWRtbHliMjV0Wlc1MGN5NWxiblp6TG05d1pXNWZjM0JwWld4ZlpXNTJMbWRoYldWekxuTnVZV3RsTG5OdVlXdGxYMmRoYldXVWpBbFRibUZyWlVkaGJXV1VrNVFwZ1pTTUkzTnVZV3RsS0dOdmJIVnRibk05TVRBc2NHeGhlV1Z5Y3oweUxISnZkM005TVRBcGxHS01CSEp2ZDNPVVN3cU1CR052YkhPVVN3cU1DMjUxYlY5d2JHRjVaWEp6bEVzQ2pBeGZhWE5mZEdWeWJXbHVZV3lVaVl3UlgyZGhiV1ZmYjNabGNsOXlaV0Z6YjI2VVRvd0djMjVoYTJWemxGMlVLRjJVU3dGTEFZYVVZVjJVU3doTENJYVVZV1dNQm5OamIzSmxjNVJkbENoSEFBQUFBQUFBQUFCSEFBQUFBQUFBQUFCbGpBaHBjMTloYkdsMlpaUmRsQ2lJaUdXTUJHWnZiMlNVU3doTEFvYVVqQVpmYzNSbGNIT1VTd0NNREY5dVpYaDBYM0JzWVhsbGNwUkxBWXdNWDIxdmRtVmZZblZtWm1WeWxGMlVLRXNBVG1WMUxnPT0KlGJzLg==\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \"A\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"*\", \".\", \".\", \".\", \".\", \".\", \"B\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 10, \"num_columns\": 10, \"num_players\": 2, \"food\": [8, 2], \"snakes\": [{\"player\": 0, \"body\": [[1, 1]], \"alive\": true, \"score\": 0.0}, {\"player\": 1, \"body\": [[8, 8]], \"alive\": true, \"score\": 0.0}], \"scores\": [0.0, 0.0], \"is_alive\": [true, true], \"current_player\": 1, \"pending_this_turn\": [0], \"turn\": 0, \"is_terminal\": false, \"winner\": null, \"game_over_reason\": null}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nsnake_proxy(columns=10,players=2,rows=10)\n[State]\nhistory=0:0\nmove_number=1\n__dict__=gASV8wIAAAAAAAB9lIwLX193cmFwcGVkX1+UjD5rYWdnbGVfZW52aXJvbm1lbnRzLmVudnMub3Blbl9zcGllbF9lbnYuZ2FtZXMuc25ha2Uuc25ha2VfZ2FtZZSMClNuYWtlU3RhdGWUk5QpgZRYhwIAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCnNuYWtlKGNvbHVtbnM9MTAscGxheWVycz0yLHJvd3M9MTApCltTdGF0ZV0KaGlzdG9yeT0wOjAKbW92ZV9udW1iZXI9MQpfX2RpY3RfXz1nQVNWV3dFQUFBQUFBQUI5bENpTUJWOW5ZVzFsbEl3K2EyRm5aMnhsWDJWdWRtbHliMjV0Wlc1MGN5NWxiblp6TG05d1pXNWZjM0JwWld4ZlpXNTJMbWRoYldWekxuTnVZV3RsTG5OdVlXdGxYMmRoYldXVWpBbFRibUZyWlVkaGJXV1VrNVFwZ1pTTUkzTnVZV3RsS0dOdmJIVnRibk05TVRBc2NHeGhlV1Z5Y3oweUxISnZkM005TVRBcGxHS01CSEp2ZDNPVVN3cU1CR052YkhPVVN3cU1DMjUxYlY5d2JHRjVaWEp6bEVzQ2pBeGZhWE5mZEdWeWJXbHVZV3lVaVl3UlgyZGhiV1ZmYjNabGNsOXlaV0Z6YjI2VVRvd0djMjVoYTJWemxGMlVLRjJVU3dGTEFZYVVZVjJVU3doTENJYVVZV1dNQm5OamIzSmxjNVJkbENoSEFBQUFBQUFBQUFCSEFBQUFBQUFBQUFCbGpBaHBjMTloYkdsMlpaUmRsQ2lJaUdXTUJHWnZiMlNVU3doTEFvYVVqQVpmYzNSbGNIT1VTd0NNREY5dVpYaDBYM0JzWVhsbGNwUkxBWXdNWDIxdmRtVmZZblZtWm1WeWxGMlVLRXNBVG1WMUxnPT0KlGJzLg==\n",
+          "legalActions": [0, 1, 2, 3],
+          "legalActionStrings": ["UP", "DOWN", "LEFT", "RIGHT"]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 3,
+          "observationString": "{\"board\": [[\".\", \"A\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \"B\", \".\"], [\".\", \".\", \"*\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 10, \"num_columns\": 10, \"num_players\": 2, \"food\": [8, 2], \"snakes\": [{\"player\": 0, \"body\": [[0, 1]], \"alive\": true, \"score\": 0.0}, {\"player\": 1, \"body\": [[7, 8]], \"alive\": true, \"score\": 0.0}], \"scores\": [0.0, 0.0], \"is_alive\": [true, true], \"current_player\": 0, \"pending_this_turn\": [], \"turn\": 1, \"is_terminal\": false, \"winner\": null, \"game_over_reason\": null}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nsnake_proxy(columns=10,players=2,rows=10)\n[State]\nhistory=0:0,1:0\nmove_number=2\n__dict__=gASV8wIAAAAAAAB9lIwLX193cmFwcGVkX1+UjD5rYWdnbGVfZW52aXJvbm1lbnRzLmVudnMub3Blbl9zcGllbF9lbnYuZ2FtZXMuc25ha2Uuc25ha2VfZ2FtZZSMClNuYWtlU3RhdGWUk5QpgZRYhwIAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCnNuYWtlKGNvbHVtbnM9MTAscGxheWVycz0yLHJvd3M9MTApCltTdGF0ZV0KaGlzdG9yeT0wOjAsMTowCm1vdmVfbnVtYmVyPTIKX19kaWN0X189Z0FTVldnRUFBQUFBQUFCOWxDaU1CVjluWVcxbGxJdythMkZuWjJ4bFgyVnVkbWx5YjI1dFpXNTBjeTVsYm5aekxtOXdaVzVmYzNCcFpXeGZaVzUyTG1kaGJXVnpMbk51WVd0bExuTnVZV3RsWDJkaGJXV1VqQWxUYm1GclpVZGhiV1dVazVRcGdaU01JM051WVd0bEtHTnZiSFZ0Ym5NOU1UQXNjR3hoZVdWeWN6MHlMSEp2ZDNNOU1UQXBsR0tNQkhKdmQzT1VTd3FNQkdOdmJIT1VTd3FNQzI1MWJWOXdiR0Y1WlhKemxFc0NqQXhmYVhOZmRHVnliV2x1WVd5VWlZd1JYMmRoYldWZmIzWmxjbDl5WldGemIyNlVUb3dHYzI1aGEyVnpsRjJVS0YyVVN3QkxBWWFVWVYyVVN3ZExDSWFVWVdXTUJuTmpiM0psYzVSZGxDaEhBQUFBQUFBQUFBQkhBQUFBQUFBQUFBQmxqQWhwYzE5aGJHbDJaWlJkbENpSWlHV01CR1p2YjJTVVN3aExBb2FVakFaZmMzUmxjSE9VU3dHTURGOXVaWGgwWDNCc1lYbGxjcFJMQUl3TVgyMXZkbVZmWW5WbVptVnlsRjJVS0U1T1pYVXUKlGJzLg==\n",
+          "legalActions": [0, 1, 2, 3],
+          "legalActionStrings": ["UP", "DOWN", "LEFT", "RIGHT"]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 0,
+          "thoughts": "delta kappa ponder psi reflect reflect rho sigma",
+          "actionString": "UP"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 0,
+          "actionSubmittedToString": "UP",
+          "actionApplied": 0,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"board\": [[\".\", \"A\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \"B\", \".\"], [\".\", \".\", \"*\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 10, \"num_columns\": 10, \"num_players\": 2, \"food\": [8, 2], \"snakes\": [{\"player\": 0, \"body\": [[0, 1]], \"alive\": true, \"score\": 0.0}, {\"player\": 1, \"body\": [[7, 8]], \"alive\": true, \"score\": 0.0}], \"scores\": [0.0, 0.0], \"is_alive\": [true, true], \"current_player\": 0, \"pending_this_turn\": [], \"turn\": 1, \"is_terminal\": false, \"winner\": null, \"game_over_reason\": null}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nsnake_proxy(columns=10,players=2,rows=10)\n[State]\nhistory=0:0,1:0\nmove_number=2\n__dict__=gASV8wIAAAAAAAB9lIwLX193cmFwcGVkX1+UjD5rYWdnbGVfZW52aXJvbm1lbnRzLmVudnMub3Blbl9zcGllbF9lbnYuZ2FtZXMuc25ha2Uuc25ha2VfZ2FtZZSMClNuYWtlU3RhdGWUk5QpgZRYhwIAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCnNuYWtlKGNvbHVtbnM9MTAscGxheWVycz0yLHJvd3M9MTApCltTdGF0ZV0KaGlzdG9yeT0wOjAsMTowCm1vdmVfbnVtYmVyPTIKX19kaWN0X189Z0FTVldnRUFBQUFBQUFCOWxDaU1CVjluWVcxbGxJdythMkZuWjJ4bFgyVnVkbWx5YjI1dFpXNTBjeTVsYm5aekxtOXdaVzVmYzNCcFpXeGZaVzUyTG1kaGJXVnpMbk51WVd0bExuTnVZV3RsWDJkaGJXV1VqQWxUYm1GclpVZGhiV1dVazVRcGdaU01JM051WVd0bEtHTnZiSFZ0Ym5NOU1UQXNjR3hoZVdWeWN6MHlMSEp2ZDNNOU1UQXBsR0tNQkhKdmQzT1VTd3FNQkdOdmJIT1VTd3FNQzI1MWJWOXdiR0Y1WlhKemxFc0NqQXhmYVhOZmRHVnliV2x1WVd5VWlZd1JYMmRoYldWZmIzWmxjbDl5WldGemIyNlVUb3dHYzI1aGEyVnpsRjJVS0YyVVN3QkxBWWFVWVYyVVN3ZExDSWFVWVdXTUJuTmpiM0psYzVSZGxDaEhBQUFBQUFBQUFBQkhBQUFBQUFBQUFBQmxqQWhwYzE5aGJHbDJaWlJkbENpSWlHV01CR1p2YjJTVVN3aExBb2FVakFaZmMzUmxjSE9VU3dHTURGOXVaWGgwWDNCc1lYbGxjcFJMQUl3TVgyMXZkbVZmWW5WbVptVnlsRjJVS0U1T1pYVXUKlGJzLg==\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 2,
+          "thoughts": "spark alpha spark consider xi eta cascade xi",
+          "actionString": "LEFT"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 2,
+          "actionSubmittedToString": "LEFT",
+          "actionApplied": 2,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 4,
+          "observationString": "{\"board\": [[\".\", \"A\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \"B\", \".\"], [\".\", \".\", \"*\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 10, \"num_columns\": 10, \"num_players\": 2, \"food\": [8, 2], \"snakes\": [{\"player\": 0, \"body\": [[0, 1]], \"alive\": true, \"score\": 0.0}, {\"player\": 1, \"body\": [[7, 8]], \"alive\": true, \"score\": 0.0}], \"scores\": [0.0, 0.0], \"is_alive\": [true, true], \"current_player\": 1, \"pending_this_turn\": [0], \"turn\": 1, \"is_terminal\": false, \"winner\": null, \"game_over_reason\": null}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nsnake_proxy(columns=10,players=2,rows=10)\n[State]\nhistory=0:0,1:0,0:2\nmove_number=3\n__dict__=gASV+wIAAAAAAAB9lIwLX193cmFwcGVkX1+UjD5rYWdnbGVfZW52aXJvbm1lbnRzLmVudnMub3Blbl9zcGllbF9lbnYuZ2FtZXMuc25ha2Uuc25ha2VfZ2FtZZSMClNuYWtlU3RhdGWUk5QpgZRYjwIAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCnNuYWtlKGNvbHVtbnM9MTAscGxheWVycz0yLHJvd3M9MTApCltTdGF0ZV0KaGlzdG9yeT0wOjAsMTowLDA6Mgptb3ZlX251bWJlcj0zCl9fZGljdF9fPWdBU1ZXd0VBQUFBQUFBQjlsQ2lNQlY5bllXMWxsSXcrYTJGbloyeGxYMlZ1ZG1seWIyNXRaVzUwY3k1bGJuWnpMbTl3Wlc1ZmMzQnBaV3hmWlc1MkxtZGhiV1Z6TG5OdVlXdGxMbk51WVd0bFgyZGhiV1dVakFsVGJtRnJaVWRoYldXVWs1UXBnWlNNSTNOdVlXdGxLR052YkhWdGJuTTlNVEFzY0d4aGVXVnljejB5TEhKdmQzTTlNVEFwbEdLTUJISnZkM09VU3dxTUJHTnZiSE9VU3dxTUMyNTFiVjl3YkdGNVpYSnpsRXNDakF4ZmFYTmZkR1Z5YldsdVlXeVVpWXdSWDJkaGJXVmZiM1psY2w5eVpXRnpiMjZVVG93R2MyNWhhMlZ6bEYyVUtGMlVTd0JMQVlhVVlWMlVTd2RMQ0lhVVlXV01Cbk5qYjNKbGM1UmRsQ2hIQUFBQUFBQUFBQUJIQUFBQUFBQUFBQUJsakFocGMxOWhiR2wyWlpSZGxDaUlpR1dNQkdadmIyU1VTd2hMQW9hVWpBWmZjM1JsY0hPVVN3R01ERjl1WlhoMFgzQnNZWGxsY3BSTEFZd01YMjF2ZG1WZlluVm1abVZ5bEYyVUtFc0NUbVYxTGc9PQqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"board\": [[\".\", \"A\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \"B\", \".\"], [\".\", \".\", \"*\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 10, \"num_columns\": 10, \"num_players\": 2, \"food\": [8, 2], \"snakes\": [{\"player\": 0, \"body\": [[0, 1]], \"alive\": true, \"score\": 0.0}, {\"player\": 1, \"body\": [[7, 8]], \"alive\": true, \"score\": 0.0}], \"scores\": [0.0, 0.0], \"is_alive\": [true, true], \"current_player\": 1, \"pending_this_turn\": [0], \"turn\": 1, \"is_terminal\": false, \"winner\": null, \"game_over_reason\": null}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nsnake_proxy(columns=10,players=2,rows=10)\n[State]\nhistory=0:0,1:0,0:2\nmove_number=3\n__dict__=gASV+wIAAAAAAAB9lIwLX193cmFwcGVkX1+UjD5rYWdnbGVfZW52aXJvbm1lbnRzLmVudnMub3Blbl9zcGllbF9lbnYuZ2FtZXMuc25ha2Uuc25ha2VfZ2FtZZSMClNuYWtlU3RhdGWUk5QpgZRYjwIAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCnNuYWtlKGNvbHVtbnM9MTAscGxheWVycz0yLHJvd3M9MTApCltTdGF0ZV0KaGlzdG9yeT0wOjAsMTowLDA6Mgptb3ZlX251bWJlcj0zCl9fZGljdF9fPWdBU1ZXd0VBQUFBQUFBQjlsQ2lNQlY5bllXMWxsSXcrYTJGbloyeGxYMlZ1ZG1seWIyNXRaVzUwY3k1bGJuWnpMbTl3Wlc1ZmMzQnBaV3hmWlc1MkxtZGhiV1Z6TG5OdVlXdGxMbk51WVd0bFgyZGhiV1dVakFsVGJtRnJaVWRoYldXVWs1UXBnWlNNSTNOdVlXdGxLR052YkhWdGJuTTlNVEFzY0d4aGVXVnljejB5TEhKdmQzTTlNVEFwbEdLTUJISnZkM09VU3dxTUJHTnZiSE9VU3dxTUMyNTFiVjl3YkdGNVpYSnpsRXNDakF4ZmFYTmZkR1Z5YldsdVlXeVVpWXdSWDJkaGJXVmZiM1psY2w5eVpXRnpiMjZVVG93R2MyNWhhMlZ6bEYyVUtGMlVTd0JMQVlhVVlWMlVTd2RMQ0lhVVlXV01Cbk5qYjNKbGM1UmRsQ2hIQUFBQUFBQUFBQUJIQUFBQUFBQUFBQUJsakFocGMxOWhiR2wyWlpSZGxDaUlpR1dNQkdadmIyU1VTd2hMQW9hVWpBWmZjM1JsY0hPVVN3R01ERjl1WlhoMFgzQnNZWGxsY3BSTEFZd01YMjF2ZG1WZlluVm1abVZ5bEYyVUtFc0NUbVYxTGc9PQqUYnMu\n",
+          "legalActions": [0, 1, 2, 3],
+          "legalActionStrings": ["UP", "DOWN", "LEFT", "RIGHT"]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 5,
+          "observationString": "{\"board\": [[\"A\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \"B\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"*\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 10, \"num_columns\": 10, \"num_players\": 2, \"food\": [8, 2], \"snakes\": [{\"player\": 0, \"body\": [[0, 0]], \"alive\": true, \"score\": 0.0}, {\"player\": 1, \"body\": [[6, 8]], \"alive\": true, \"score\": 0.0}], \"scores\": [0.0, 0.0], \"is_alive\": [true, true], \"current_player\": 0, \"pending_this_turn\": [], \"turn\": 2, \"is_terminal\": false, \"winner\": null, \"game_over_reason\": null}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nsnake_proxy(columns=10,players=2,rows=10)\n[State]\nhistory=0:0,1:0,0:2,1:0\nmove_number=4\n__dict__=gASV+wIAAAAAAAB9lIwLX193cmFwcGVkX1+UjD5rYWdnbGVfZW52aXJvbm1lbnRzLmVudnMub3Blbl9zcGllbF9lbnYuZ2FtZXMuc25ha2Uuc25ha2VfZ2FtZZSMClNuYWtlU3RhdGWUk5QpgZRYjwIAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCnNuYWtlKGNvbHVtbnM9MTAscGxheWVycz0yLHJvd3M9MTApCltTdGF0ZV0KaGlzdG9yeT0wOjAsMTowLDA6MiwxOjAKbW92ZV9udW1iZXI9NApfX2RpY3RfXz1nQVNWV2dFQUFBQUFBQUI5bENpTUJWOW5ZVzFsbEl3K2EyRm5aMnhsWDJWdWRtbHliMjV0Wlc1MGN5NWxiblp6TG05d1pXNWZjM0JwWld4ZlpXNTJMbWRoYldWekxuTnVZV3RsTG5OdVlXdGxYMmRoYldXVWpBbFRibUZyWlVkaGJXV1VrNVFwZ1pTTUkzTnVZV3RsS0dOdmJIVnRibk05TVRBc2NHeGhlV1Z5Y3oweUxISnZkM005TVRBcGxHS01CSEp2ZDNPVVN3cU1CR052YkhPVVN3cU1DMjUxYlY5d2JHRjVaWEp6bEVzQ2pBeGZhWE5mZEdWeWJXbHVZV3lVaVl3UlgyZGhiV1ZmYjNabGNsOXlaV0Z6YjI2VVRvd0djMjVoYTJWemxGMlVLRjJVU3dCTEFJYVVZVjJVU3daTENJYVVZV1dNQm5OamIzSmxjNVJkbENoSEFBQUFBQUFBQUFCSEFBQUFBQUFBQUFCbGpBaHBjMTloYkdsMlpaUmRsQ2lJaUdXTUJHWnZiMlNVU3doTEFvYVVqQVpmYzNSbGNIT1VTd0tNREY5dVpYaDBYM0JzWVhsbGNwUkxBSXdNWDIxdmRtVmZZblZtWm1WeWxGMlVLRTVPWlhVdQqUYnMu\n",
+          "legalActions": [0, 1, 2, 3],
+          "legalActionStrings": ["UP", "DOWN", "LEFT", "RIGHT"]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 0,
+          "thoughts": "pi omicron xi lambda beta tau epsilon horizon",
+          "actionString": "UP"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 0,
+          "actionSubmittedToString": "UP",
+          "actionApplied": 0,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"board\": [[\"A\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \"B\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"*\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 10, \"num_columns\": 10, \"num_players\": 2, \"food\": [8, 2], \"snakes\": [{\"player\": 0, \"body\": [[0, 0]], \"alive\": true, \"score\": 0.0}, {\"player\": 1, \"body\": [[6, 8]], \"alive\": true, \"score\": 0.0}], \"scores\": [0.0, 0.0], \"is_alive\": [true, true], \"current_player\": 0, \"pending_this_turn\": [], \"turn\": 2, \"is_terminal\": false, \"winner\": null, \"game_over_reason\": null}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nsnake_proxy(columns=10,players=2,rows=10)\n[State]\nhistory=0:0,1:0,0:2,1:0\nmove_number=4\n__dict__=gASV+wIAAAAAAAB9lIwLX193cmFwcGVkX1+UjD5rYWdnbGVfZW52aXJvbm1lbnRzLmVudnMub3Blbl9zcGllbF9lbnYuZ2FtZXMuc25ha2Uuc25ha2VfZ2FtZZSMClNuYWtlU3RhdGWUk5QpgZRYjwIAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCnNuYWtlKGNvbHVtbnM9MTAscGxheWVycz0yLHJvd3M9MTApCltTdGF0ZV0KaGlzdG9yeT0wOjAsMTowLDA6MiwxOjAKbW92ZV9udW1iZXI9NApfX2RpY3RfXz1nQVNWV2dFQUFBQUFBQUI5bENpTUJWOW5ZVzFsbEl3K2EyRm5aMnhsWDJWdWRtbHliMjV0Wlc1MGN5NWxiblp6TG05d1pXNWZjM0JwWld4ZlpXNTJMbWRoYldWekxuTnVZV3RsTG5OdVlXdGxYMmRoYldXVWpBbFRibUZyWlVkaGJXV1VrNVFwZ1pTTUkzTnVZV3RsS0dOdmJIVnRibk05TVRBc2NHeGhlV1Z5Y3oweUxISnZkM005TVRBcGxHS01CSEp2ZDNPVVN3cU1CR052YkhPVVN3cU1DMjUxYlY5d2JHRjVaWEp6bEVzQ2pBeGZhWE5mZEdWeWJXbHVZV3lVaVl3UlgyZGhiV1ZmYjNabGNsOXlaV0Z6YjI2VVRvd0djMjVoYTJWemxGMlVLRjJVU3dCTEFJYVVZVjJVU3daTENJYVVZV1dNQm5OamIzSmxjNVJkbENoSEFBQUFBQUFBQUFCSEFBQUFBQUFBQUFCbGpBaHBjMTloYkdsMlpaUmRsQ2lJaUdXTUJHWnZiMlNVU3doTEFvYVVqQVpmYzNSbGNIT1VTd0tNREY5dVpYaDBYM0JzWVhsbGNwUkxBSXdNWDIxdmRtVmZZblZtWm1WeWxGMlVLRTVPWlhVdQqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 0,
+          "thoughts": "psi ripple ponder echo omega reflect beta kappa",
+          "actionString": "UP"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 0,
+          "actionSubmittedToString": "UP",
+          "actionApplied": 0,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 6,
+          "observationString": "{\"board\": [[\"A\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \"B\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"*\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 10, \"num_columns\": 10, \"num_players\": 2, \"food\": [8, 2], \"snakes\": [{\"player\": 0, \"body\": [[0, 0]], \"alive\": true, \"score\": 0.0}, {\"player\": 1, \"body\": [[6, 8]], \"alive\": true, \"score\": 0.0}], \"scores\": [0.0, 0.0], \"is_alive\": [true, true], \"current_player\": 1, \"pending_this_turn\": [0], \"turn\": 2, \"is_terminal\": false, \"winner\": null, \"game_over_reason\": null}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nsnake_proxy(columns=10,players=2,rows=10)\n[State]\nhistory=0:0,1:0,0:2,1:0,0:0\nmove_number=5\n__dict__=gASVAwMAAAAAAAB9lIwLX193cmFwcGVkX1+UjD5rYWdnbGVfZW52aXJvbm1lbnRzLmVudnMub3Blbl9zcGllbF9lbnYuZ2FtZXMuc25ha2Uuc25ha2VfZ2FtZZSMClNuYWtlU3RhdGWUk5QpgZRYlwIAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCnNuYWtlKGNvbHVtbnM9MTAscGxheWVycz0yLHJvd3M9MTApCltTdGF0ZV0KaGlzdG9yeT0wOjAsMTowLDA6MiwxOjAsMDowCm1vdmVfbnVtYmVyPTUKX19kaWN0X189Z0FTVld3RUFBQUFBQUFCOWxDaU1CVjluWVcxbGxJdythMkZuWjJ4bFgyVnVkbWx5YjI1dFpXNTBjeTVsYm5aekxtOXdaVzVmYzNCcFpXeGZaVzUyTG1kaGJXVnpMbk51WVd0bExuTnVZV3RsWDJkaGJXV1VqQWxUYm1GclpVZGhiV1dVazVRcGdaU01JM051WVd0bEtHTnZiSFZ0Ym5NOU1UQXNjR3hoZVdWeWN6MHlMSEp2ZDNNOU1UQXBsR0tNQkhKdmQzT1VTd3FNQkdOdmJIT1VTd3FNQzI1MWJWOXdiR0Y1WlhKemxFc0NqQXhmYVhOZmRHVnliV2x1WVd5VWlZd1JYMmRoYldWZmIzWmxjbDl5WldGemIyNlVUb3dHYzI1aGEyVnpsRjJVS0YyVVN3QkxBSWFVWVYyVVN3WkxDSWFVWVdXTUJuTmpiM0psYzVSZGxDaEhBQUFBQUFBQUFBQkhBQUFBQUFBQUFBQmxqQWhwYzE5aGJHbDJaWlJkbENpSWlHV01CR1p2YjJTVVN3aExBb2FVakFaZmMzUmxjSE9VU3dLTURGOXVaWGgwWDNCc1lYbGxjcFJMQVl3TVgyMXZkbVZmWW5WbVptVnlsRjJVS0VzQVRtVjFMZz09CpRicy4=\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"board\": [[\"A\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \"B\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"*\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 10, \"num_columns\": 10, \"num_players\": 2, \"food\": [8, 2], \"snakes\": [{\"player\": 0, \"body\": [[0, 0]], \"alive\": true, \"score\": 0.0}, {\"player\": 1, \"body\": [[6, 8]], \"alive\": true, \"score\": 0.0}], \"scores\": [0.0, 0.0], \"is_alive\": [true, true], \"current_player\": 1, \"pending_this_turn\": [0], \"turn\": 2, \"is_terminal\": false, \"winner\": null, \"game_over_reason\": null}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nsnake_proxy(columns=10,players=2,rows=10)\n[State]\nhistory=0:0,1:0,0:2,1:0,0:0\nmove_number=5\n__dict__=gASVAwMAAAAAAAB9lIwLX193cmFwcGVkX1+UjD5rYWdnbGVfZW52aXJvbm1lbnRzLmVudnMub3Blbl9zcGllbF9lbnYuZ2FtZXMuc25ha2Uuc25ha2VfZ2FtZZSMClNuYWtlU3RhdGWUk5QpgZRYlwIAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCnNuYWtlKGNvbHVtbnM9MTAscGxheWVycz0yLHJvd3M9MTApCltTdGF0ZV0KaGlzdG9yeT0wOjAsMTowLDA6MiwxOjAsMDowCm1vdmVfbnVtYmVyPTUKX19kaWN0X189Z0FTVld3RUFBQUFBQUFCOWxDaU1CVjluWVcxbGxJdythMkZuWjJ4bFgyVnVkbWx5YjI1dFpXNTBjeTVsYm5aekxtOXdaVzVmYzNCcFpXeGZaVzUyTG1kaGJXVnpMbk51WVd0bExuTnVZV3RsWDJkaGJXV1VqQWxUYm1GclpVZGhiV1dVazVRcGdaU01JM051WVd0bEtHTnZiSFZ0Ym5NOU1UQXNjR3hoZVdWeWN6MHlMSEp2ZDNNOU1UQXBsR0tNQkhKdmQzT1VTd3FNQkdOdmJIT1VTd3FNQzI1MWJWOXdiR0Y1WlhKemxFc0NqQXhmYVhOZmRHVnliV2x1WVd5VWlZd1JYMmRoYldWZmIzWmxjbDl5WldGemIyNlVUb3dHYzI1aGEyVnpsRjJVS0YyVVN3QkxBSWFVWVYyVVN3WkxDSWFVWVdXTUJuTmpiM0psYzVSZGxDaEhBQUFBQUFBQUFBQkhBQUFBQUFBQUFBQmxqQWhwYzE5aGJHbDJaWlJkbENpSWlHV01CR1p2YjJTVVN3aExBb2FVakFaZmMzUmxjSE9VU3dLTURGOXVaWGgwWDNCc1lYbGxjcFJMQVl3TVgyMXZkbVZmWW5WbVptVnlsRjJVS0VzQVRtVjFMZz09CpRicy4=\n",
+          "legalActions": [0, 1, 2, 3],
+          "legalActionStrings": ["UP", "DOWN", "LEFT", "RIGHT"]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": 0.0,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 7,
+          "observationString": "{\"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \"B\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"*\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 10, \"num_columns\": 10, \"num_players\": 2, \"food\": [8, 2], \"snakes\": [{\"player\": 0, \"body\": [], \"alive\": false, \"score\": 0.0}, {\"player\": 1, \"body\": [[6, 7]], \"alive\": true, \"score\": 0.0}], \"scores\": [0.0, 0.0], \"is_alive\": [false, true], \"current_player\": -4, \"pending_this_turn\": [], \"turn\": 3, \"is_terminal\": true, \"winner\": 1, \"game_over_reason\": null}",
+          "currentPlayer": -4,
+          "playerId": 0,
+          "isTerminal": true,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nsnake_proxy(columns=10,players=2,rows=10)\n[State]\nhistory=0:0,1:0,0:2,1:0,0:0,1:2\nmove_number=6\n__dict__=gASV+wIAAAAAAAB9lIwLX193cmFwcGVkX1+UjD5rYWdnbGVfZW52aXJvbm1lbnRzLmVudnMub3Blbl9zcGllbF9lbnYuZ2FtZXMuc25ha2Uuc25ha2VfZ2FtZZSMClNuYWtlU3RhdGWUk5QpgZRYjwIAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCnNuYWtlKGNvbHVtbnM9MTAscGxheWVycz0yLHJvd3M9MTApCltTdGF0ZV0KaGlzdG9yeT0wOjAsMTowLDA6MiwxOjAsMDowLDE6Mgptb3ZlX251bWJlcj02Cl9fZGljdF9fPWdBU1ZVd0VBQUFBQUFBQjlsQ2lNQlY5bllXMWxsSXcrYTJGbloyeGxYMlZ1ZG1seWIyNXRaVzUwY3k1bGJuWnpMbTl3Wlc1ZmMzQnBaV3hmWlc1MkxtZGhiV1Z6TG5OdVlXdGxMbk51WVd0bFgyZGhiV1dVakFsVGJtRnJaVWRoYldXVWs1UXBnWlNNSTNOdVlXdGxLR052YkhWdGJuTTlNVEFzY0d4aGVXVnljejB5TEhKdmQzTTlNVEFwbEdLTUJISnZkM09VU3dxTUJHTnZiSE9VU3dxTUMyNTFiVjl3YkdGNVpYSnpsRXNDakF4ZmFYTmZkR1Z5YldsdVlXeVVpSXdSWDJkaGJXVmZiM1psY2w5eVpXRnpiMjZVVG93R2MyNWhhMlZ6bEYyVUtGMlVYWlJMQmtzSGhwUmhaWXdHYzJOdmNtVnpsRjJVS0VjQUFBQUFBQUFBQUVjQUFBQUFBQUFBQUdXTUNHbHpYMkZzYVhabGxGMlVLSW1JWll3RVptOXZaSlJMQ0VzQ2hwU01CbDl6ZEdWd2M1UkxBNHdNWDI1bGVIUmZjR3hoZVdWeWxFc0FqQXhmYlc5MlpWOWlkV1ptWlhLVVhaUW9UazVsZFM0PQqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "DONE"
+      },
+      {
+        "action": {
+          "submission": 2,
+          "thoughts": "ember echo echo pi tau ripple eta omicron",
+          "actionString": "LEFT"
+        },
+        "reward": 0.0,
+        "info": {
+          "actionSubmitted": 2,
+          "actionSubmittedToString": "LEFT",
+          "actionApplied": 2,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \"B\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"*\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 10, \"num_columns\": 10, \"num_players\": 2, \"food\": [8, 2], \"snakes\": [{\"player\": 0, \"body\": [], \"alive\": false, \"score\": 0.0}, {\"player\": 1, \"body\": [[6, 7]], \"alive\": true, \"score\": 0.0}], \"scores\": [0.0, 0.0], \"is_alive\": [false, true], \"current_player\": -4, \"pending_this_turn\": [], \"turn\": 3, \"is_terminal\": true, \"winner\": 1, \"game_over_reason\": null}",
+          "currentPlayer": -4,
+          "playerId": 1,
+          "isTerminal": true,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nsnake_proxy(columns=10,players=2,rows=10)\n[State]\nhistory=0:0,1:0,0:2,1:0,0:0,1:2\nmove_number=6\n__dict__=gASV+wIAAAAAAAB9lIwLX193cmFwcGVkX1+UjD5rYWdnbGVfZW52aXJvbm1lbnRzLmVudnMub3Blbl9zcGllbF9lbnYuZ2FtZXMuc25ha2Uuc25ha2VfZ2FtZZSMClNuYWtlU3RhdGWUk5QpgZRYjwIAACMgQXV0b21hdGljYWxseSBnZW5lcmF0ZWQgYnkgT3BlblNwaWVsIFNlcmlhbGl6ZUdhbWVBbmRTdGF0ZQpbTWV0YV0KVmVyc2lvbjogMQoKW0dhbWVdCnNuYWtlKGNvbHVtbnM9MTAscGxheWVycz0yLHJvd3M9MTApCltTdGF0ZV0KaGlzdG9yeT0wOjAsMTowLDA6MiwxOjAsMDowLDE6Mgptb3ZlX251bWJlcj02Cl9fZGljdF9fPWdBU1ZVd0VBQUFBQUFBQjlsQ2lNQlY5bllXMWxsSXcrYTJGbloyeGxYMlZ1ZG1seWIyNXRaVzUwY3k1bGJuWnpMbTl3Wlc1ZmMzQnBaV3hmWlc1MkxtZGhiV1Z6TG5OdVlXdGxMbk51WVd0bFgyZGhiV1dVakFsVGJtRnJaVWRoYldXVWs1UXBnWlNNSTNOdVlXdGxLR052YkhWdGJuTTlNVEFzY0d4aGVXVnljejB5TEhKdmQzTTlNVEFwbEdLTUJISnZkM09VU3dxTUJHTnZiSE9VU3dxTUMyNTFiVjl3YkdGNVpYSnpsRXNDakF4ZmFYTmZkR1Z5YldsdVlXeVVpSXdSWDJkaGJXVmZiM1psY2w5eVpXRnpiMjZVVG93R2MyNWhhMlZ6bEYyVUtGMlVYWlJMQmtzSGhwUmhaWXdHYzJOdmNtVnpsRjJVS0VjQUFBQUFBQUFBQUVjQUFBQUFBQUFBQUdXTUNHbHpYMkZzYVhabGxGMlVLSW1JWll3RVptOXZaSlJMQ0VzQ2hwU01CbDl6ZEdWd2M1UkxBNHdNWDI1bGVIUmZjR3hoZVdWeWxFc0FqQXhmYlc5MlpWOWlkV1ptWlhLVVhaUW9UazVsZFM0PQqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "DONE"
+      }
+    ]
+  ],
+  "rewards": [0.0, 0.0],
+  "statuses": ["DONE", "DONE"],
+  "schema_version": 1,
+  "info": {
+    "openSpielGameStringResolved": "snake_proxy(columns=10,players=2,rows=10)",
+    "stateHistory": [
+      "{\"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \"A\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"*\", \".\", \".\", \".\", \".\", \".\", \"B\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 10, \"num_columns\": 10, \"num_players\": 2, \"food\": [8, 2], \"snakes\": [{\"player\": 0, \"body\": [[1, 1]], \"alive\": true, \"score\": 0.0}, {\"player\": 1, \"body\": [[8, 8]], \"alive\": true, \"score\": 0.0}], \"scores\": [0.0, 0.0], \"is_alive\": [true, true], \"current_player\": 0, \"pending_this_turn\": [], \"turn\": 0, \"is_terminal\": false, \"winner\": null, \"game_over_reason\": null}",
+      "{\"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \"A\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"*\", \".\", \".\", \".\", \".\", \".\", \"B\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 10, \"num_columns\": 10, \"num_players\": 2, \"food\": [8, 2], \"snakes\": [{\"player\": 0, \"body\": [[1, 1]], \"alive\": true, \"score\": 0.0}, {\"player\": 1, \"body\": [[8, 8]], \"alive\": true, \"score\": 0.0}], \"scores\": [0.0, 0.0], \"is_alive\": [true, true], \"current_player\": 1, \"pending_this_turn\": [0], \"turn\": 0, \"is_terminal\": false, \"winner\": null, \"game_over_reason\": null}",
+      "{\"board\": [[\".\", \"A\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \"B\", \".\"], [\".\", \".\", \"*\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 10, \"num_columns\": 10, \"num_players\": 2, \"food\": [8, 2], \"snakes\": [{\"player\": 0, \"body\": [[0, 1]], \"alive\": true, \"score\": 0.0}, {\"player\": 1, \"body\": [[7, 8]], \"alive\": true, \"score\": 0.0}], \"scores\": [0.0, 0.0], \"is_alive\": [true, true], \"current_player\": 0, \"pending_this_turn\": [], \"turn\": 1, \"is_terminal\": false, \"winner\": null, \"game_over_reason\": null}",
+      "{\"board\": [[\".\", \"A\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \"B\", \".\"], [\".\", \".\", \"*\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 10, \"num_columns\": 10, \"num_players\": 2, \"food\": [8, 2], \"snakes\": [{\"player\": 0, \"body\": [[0, 1]], \"alive\": true, \"score\": 0.0}, {\"player\": 1, \"body\": [[7, 8]], \"alive\": true, \"score\": 0.0}], \"scores\": [0.0, 0.0], \"is_alive\": [true, true], \"current_player\": 1, \"pending_this_turn\": [0], \"turn\": 1, \"is_terminal\": false, \"winner\": null, \"game_over_reason\": null}",
+      "{\"board\": [[\"A\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \"B\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"*\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 10, \"num_columns\": 10, \"num_players\": 2, \"food\": [8, 2], \"snakes\": [{\"player\": 0, \"body\": [[0, 0]], \"alive\": true, \"score\": 0.0}, {\"player\": 1, \"body\": [[6, 8]], \"alive\": true, \"score\": 0.0}], \"scores\": [0.0, 0.0], \"is_alive\": [true, true], \"current_player\": 0, \"pending_this_turn\": [], \"turn\": 2, \"is_terminal\": false, \"winner\": null, \"game_over_reason\": null}",
+      "{\"board\": [[\"A\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \"B\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"*\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 10, \"num_columns\": 10, \"num_players\": 2, \"food\": [8, 2], \"snakes\": [{\"player\": 0, \"body\": [[0, 0]], \"alive\": true, \"score\": 0.0}, {\"player\": 1, \"body\": [[6, 8]], \"alive\": true, \"score\": 0.0}], \"scores\": [0.0, 0.0], \"is_alive\": [true, true], \"current_player\": 1, \"pending_this_turn\": [0], \"turn\": 2, \"is_terminal\": false, \"winner\": null, \"game_over_reason\": null}",
+      "{\"board\": [[\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \"B\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \"*\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"], [\".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\", \".\"]], \"num_rows\": 10, \"num_columns\": 10, \"num_players\": 2, \"food\": [8, 2], \"snakes\": [{\"player\": 0, \"body\": [], \"alive\": false, \"score\": 0.0}, {\"player\": 1, \"body\": [[6, 7]], \"alive\": true, \"score\": 0.0}], \"scores\": [0.0, 0.0], \"is_alive\": [false, true], \"current_player\": -4, \"pending_this_turn\": [], \"turn\": 3, \"is_terminal\": true, \"winner\": 1, \"game_over_reason\": null}"
+    ],
+    "actionHistory": ["0", "0", "2", "0", "0", "2"],
+    "moveDurations": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  }
+}

@@ -87,11 +87,15 @@ export const connectFourTransformer = (environment: any) => {
   // stateHistory[0] = initial board, stateHistory[n] = board after move n
   let moveCount = 0;
 
-  connectFourReplay.steps.forEach((step) => {
-    // Check if this step contains an actual move (submission !== -1)
-    const hasMove = step.some((player) => player.action?.submission !== undefined && player.action?.submission !== -1);
+  const isRealMove = (submission: unknown): boolean =>
+    submission !== undefined && submission !== null && submission !== -1;
 
-    // Skip setup steps that don't have any actual moves
+  connectFourReplay.steps.forEach((step) => {
+    // Skip setup / inactive steps (no real submission from either player).
+    // core_harness emits submission=null for inactive turns; the older
+    // game_arena harness emitted -1. Treat both as "no move".
+    const hasMove = step.some((player) => isRealMove(player.action?.submission));
+
     if (!hasMove) {
       return;
     }
@@ -104,7 +108,7 @@ export const connectFourTransformer = (environment: any) => {
         id: playerIndex,
         name: agents[playerIndex] || `Player ${playerIndex + 1}`,
         thumbnail: '',
-        isTurn: player.action?.submission !== undefined && player.action?.submission !== -1,
+        isTurn: isRealMove(player.action?.submission),
         actionDisplayText: player.action?.actionString ?? '',
         thoughts: player.action?.thoughts ?? '',
         reward: player.reward,

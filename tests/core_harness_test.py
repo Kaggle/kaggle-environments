@@ -9,6 +9,8 @@ from kaggle_environments import core_harness
 from kaggle_environments.core_harness import (
     ParseResult,
     create_agent_fn,
+    extract_last_json_object,
+    render_rethink_suffix,
     set_telemetry_exporter,
 )
 
@@ -41,27 +43,62 @@ class _SimpleHarness:
         return ParseResult(legal_action=None, raw_action=response or None)
 
 
-def _fake_completion(content: str):
-    """Build a mock litellm.completion return value with given content."""
+class _Usage:
+    prompt_tokens = 1
+    completion_tokens = 1
+    total_tokens = 2
+    completion_tokens_details = None
 
-    class _Msg:
-        def __init__(self, c):
-            self.content = c
 
-    class _Choice:
-        def __init__(self, c):
-            self.message = _Msg(c)
+class _Delta:
+    def __init__(self, content):
+        self.content = content
 
-    class _Usage:
-        prompt_tokens = 1
-        completion_tokens = 1
 
-    class _Resp:
-        def __init__(self, c):
-            self.choices = [_Choice(c)]
-            self.usage = _Usage()
+class _ChunkChoice:
+    def __init__(self, content, finish_reason=None):
+        self.delta = _Delta(content)
+        self.finish_reason = finish_reason
 
-    return _Resp(content)
+
+class _Chunk:
+    def __init__(self, choices, usage=None):
+        self.choices = choices
+        self.usage = usage
+
+
+def _fake_completion(
+    content: str,
+    *,
+    pieces: int = 2,
+    finish_reason: str | None = "stop",
+):
+    """Build a mock streaming litellm.completion iterator.
+
+    Splits ``content`` into ``pieces`` delta chunks, followed by an empty
+    chunk carrying ``finish_reason`` and a final usage-only chunk —
+    mirroring litellm's stream when ``stream_options={"include_usage": True}``.
+
+    Passing ``finish_reason=None`` suppresses the finish-reason chunk so tests
+    can simulate a truncated stream.
+    """
+    if pieces < 1:
+        raise ValueError("pieces must be >= 1")
+    n = len(content)
+    if n == 0 or pieces == 1:
+        slices = [content]
+    else:
+        step = max(1, n // pieces)
+        slices = [content[i:i + step] for i in range(0, n, step)]
+
+    def _gen():
+        for s in slices:
+            yield _Chunk([_ChunkChoice(s)])
+        if finish_reason is not None:
+            yield _Chunk([_ChunkChoice("", finish_reason=finish_reason)])
+        yield _Chunk([], usage=_Usage())
+
+    return _gen()
 
 
 _ENV = {
@@ -116,16 +153,99 @@ class CoreHarnessTest(absltest.TestCase):
         # Second prompt should reflect rethink context.
         self.assertIn("prev=garbage", harness.prompts[1])
 
-    def test_all_attempts_fail_raises(self):
+    def _parse_failure_events(self):
+        return [e["parse_failure"] for e in self.events if "parse_failure" in e]
+
+    def test_parse_failure_telemetry_illegal(self):
+        # _SimpleHarness echoes whatever the model said back as raw_action
+        # when the response doesn't match a legal move -- a non-empty
+        # but unmatched response classifies as ILLEGAL.
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=1)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion",
+            return_value=_fake_completion("not_a_legal_move"),
+        ):
+            agent({}, {"illegalMoveForfeit": True})
+        failures = self._parse_failure_events()
+        self.assertEqual(failures[-1]["category"], "ILLEGAL")
+        self.assertEqual(failures[-1]["raw_action"], "not_a_legal_move")
+        # Final-attempts telemetry reports the same category.
+        finals = [e for e in self.events if "all_attempts_failed" in e]
+        self.assertEqual(finals[-1]["final_failure_category"], "ILLEGAL")
+
+    def test_parse_failure_telemetry_unparsable(self):
+        # Stub parse_response to return raw_action=None for non-empty
+        # content -- mimics a parser that couldn't extract anything.
+        harness = _SimpleHarness()
+        harness.parse_response = lambda r, l: ParseResult(legal_action=None, raw_action=None)
+        agent = create_agent_fn(harness, max_retries=1)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion",
+            return_value=_fake_completion("just some prose"),
+        ):
+            agent({}, {"illegalMoveForfeit": True})
+        failures = self._parse_failure_events()
+        self.assertEqual(failures[-1]["category"], "UNPARSABLE")
+        self.assertIsNone(failures[-1]["raw_action"])
+
+    def test_parse_failure_telemetry_empty(self):
+        # _call_llm normally raises on empty content, so EMPTY can't be
+        # reached through the litellm path. We stub _call_llm so the
+        # classifier sees an empty string and emits the EMPTY category.
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=1)
+        empty_call_details = {
+            "prompt_tokens": 0, "generation_tokens": 0,
+            "total_tokens": 0, "finish_reason": "stop", "duration_secs": 0.0,
+        }
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness, "_call_llm", return_value=("", empty_call_details),
+        ):
+            agent({}, {"illegalMoveForfeit": True})
+        failures = self._parse_failure_events()
+        self.assertEqual(failures[-1]["category"], "EMPTY")
+
+
+    def test_all_attempts_fail_forfeits_when_opted_in(self):
         harness = _SimpleHarness()
         agent = create_agent_fn(harness, max_retries=2)
         with patch.dict("os.environ", _ENV, clear=False), patch.object(
             core_harness.litellm,
             "completion",
-            return_value=_fake_completion("nope"),
+            side_effect=lambda *a, **kw: _fake_completion("nope"),
+        ):
+            result = agent({}, {"illegalMoveForfeit": True})
+
+        self.assertEqual(result["submission"], -1)
+        self.assertEqual(result["actionString"], "nope")
+        self.assertIn("forfeiting", result["status"])
+        self.assertTrue(
+            any("illegal_move_forfeit" in e for e in self.events),
+            "expected illegal_move_forfeit telemetry event",
+        )
+
+    def test_all_attempts_fail_raises_by_default(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=2)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            side_effect=lambda *a, **kw: _fake_completion("nope"),
         ):
             with self.assertRaisesRegex(ValueError, "Failed to parse"):
                 agent({}, {})
+
+    def test_all_attempts_fail_raises_when_forfeit_explicitly_disabled(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=2)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            side_effect=lambda *a, **kw: _fake_completion("nope"),
+        ):
+            with self.assertRaisesRegex(ValueError, "Failed to parse"):
+                agent({}, {"illegalMoveForfeit": False})
 
     def test_no_legal_moves_raises(self):
         harness = _SimpleHarness(num_actions=0)
@@ -188,7 +308,7 @@ class CoreHarnessTest(absltest.TestCase):
         self.assertIn("calling_llm", kinds)
         self.assertIn("action_is_legal", kinds)
 
-    def test_save_prompt_includes_prompt_in_action(self):
+    def test_save_prompt_in_call_details(self):
         harness = _SimpleHarness()
         agent = create_agent_fn(harness)
         with patch.dict("os.environ", _ENV, clear=False), patch.object(
@@ -199,9 +319,10 @@ class CoreHarnessTest(absltest.TestCase):
             result = agent({}, {"savePrompt": True})
 
         self.assertEqual(result["submission"], 1)
-        self.assertEqual(result["prompt"], harness.prompts[-1])
+        self.assertIn("prompt", result["call_details"][0])
+        self.assertEqual(result["call_details"][0]["prompt"], harness.prompts[-1])
 
-    def test_save_prompt_omitted_by_default(self):
+    def test_prompt_included_in_call_details_by_default(self):
         harness = _SimpleHarness()
         agent = create_agent_fn(harness)
         with patch.dict("os.environ", _ENV, clear=False), patch.object(
@@ -211,7 +332,278 @@ class CoreHarnessTest(absltest.TestCase):
         ):
             result = agent({}, {})
 
-        self.assertNotIn("prompt", result)
+        self.assertIn("prompt", result["call_details"][0])
+
+    def test_prompt_omitted_when_save_prompt_false(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("move_1"),
+        ):
+            result = agent({}, {"savePrompt": False})
+
+        self.assertNotIn("prompt", result["call_details"][0])
+
+    def test_call_details_present_on_success(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("move_1"),
+        ):
+            result = agent({}, {})
+
+        self.assertIn("call_details", result)
+        self.assertLen(result["call_details"], 1)
+        cd = result["call_details"][0]
+        self.assertEqual(cd["generation_tokens"], 1)
+        self.assertEqual(cd["prompt_tokens"], 1)
+        self.assertEqual(cd["total_tokens"], 2)
+        self.assertNotIn("reasoning_tokens", cd)
+        self.assertEqual(cd["finish_reason"], "stop")
+        self.assertEqual(cd["response"], "move_1")
+        self.assertEqual(cd["model"], "test-model")
+        self.assertIn("prompt", cd)
+
+    def test_call_details_includes_prompt_when_save_prompt(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("move_1"),
+        ):
+            result = agent({}, {"savePrompt": True})
+
+        cd = result["call_details"][0]
+        self.assertIn("prompt", cd)
+        self.assertEqual(cd["prompt"], harness.prompts[-1])
+
+    def test_response_included_in_call_details_by_default(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("move_1"),
+        ):
+            result = agent({}, {})
+
+        self.assertEqual(result["call_details"][0]["response"], "move_1")
+
+    def test_response_omitted_when_save_response_false(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("move_1"),
+        ):
+            result = agent({}, {"saveResponse": False})
+
+        cd = result["call_details"][0]
+        self.assertNotIn("response", cd)
+        # Thoughts (typically everything but the move tag) are still logged
+        # on the action itself, so the legal response is effectively preserved.
+        self.assertEqual(result["thoughts"], "move_1")
+
+    def test_call_details_per_retry(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=3)
+        responses = [_fake_completion("garbage"), _fake_completion("move_2")]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=responses,
+        ):
+            result = agent({}, {})
+
+        self.assertLen(result["call_details"], 2)
+        self.assertEqual(result["call_details"][0]["response"], "garbage")
+        self.assertEqual(result["call_details"][1]["response"], "move_2")
+
+    def test_include_generate_returns(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("move_0"),
+        ):
+            result = agent({}, {"includeGenerateReturns": True})
+
+        import json
+        self.assertIn("generate_returns", result)
+        self.assertLen(result["generate_returns"], 1)
+        gr = json.loads(result["generate_returns"][0])
+        self.assertEqual(gr["request_for_logging"]["model"], "test-model")
+        self.assertEqual(gr["generation_tokens"], 1)
+        self.assertEqual(gr["prompt_tokens"], 1)
+        self.assertEqual(gr["total_tokens"], 2)
+
+    def test_generate_returns_omitted_by_default(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("move_0"),
+        ):
+            result = agent({}, {})
+
+        self.assertNotIn("generate_returns", result)
+
+    def test_streaming_assembles_chunks_and_passes_stream_kwargs(self):
+        """Verify litellm is invoked with stream=True and chunks are concatenated."""
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        # Use enough pieces that the move string is split across chunks.
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("move_1", pieces=3),
+        ) as mock_call:
+            result = agent({}, {})
+
+        self.assertEqual(result["submission"], 1)
+        self.assertEqual(result["actionString"], "move_1")
+        # litellm was asked to stream and to include usage in the final chunk.
+        _, kwargs = mock_call.call_args
+        self.assertTrue(kwargs.get("stream"))
+        self.assertEqual(kwargs.get("stream_options"), {"include_usage": True})
+        # The streamed call still produces full usage details.
+        cd = result["call_details"][0]
+        self.assertEqual(cd["response"], "move_1")
+        self.assertEqual(cd["finish_reason"], "stop")
+        self.assertEqual(cd["prompt_tokens"], 1)
+        self.assertEqual(cd["generation_tokens"], 1)
+        # Streaming surfaces a first-token latency on each call_detail entry.
+        self.assertIn("first_token_secs", cd)
+        self.assertIsInstance(cd["first_token_secs"], float)
+        self.assertGreaterEqual(cd["first_token_secs"], 0.0)
+        self.assertLessEqual(cd["first_token_secs"], cd["duration_secs"])
+
+    def test_empty_stream_raises(self):
+        """A stream that delivers no content should raise, not silently succeed."""
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("", pieces=1),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "no content"):
+                agent({}, {})
+
+        # The exception path should record an llm_call_exception telemetry event.
+        kinds = {k for e in self.events for k in e if k != "module"}
+        self.assertIn("llm_call_exception", kinds)
+
+    def test_missing_finish_reason_raises(self):
+        """A stream that ends without a finish_reason should raise."""
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion("move_1", finish_reason=None),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "finish_reason"):
+                agent({}, {})
+
+        kinds = {k for e in self.events for k in e if k != "module"}
+        self.assertIn("llm_call_exception", kinds)
+
+    def test_retry_on_llm_exception_then_succeeds(self):
+        """A raised exception during _call_llm should consume a retry, not abort."""
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=3)
+        side_effects = [
+            RuntimeError("transient network error"),
+            _fake_completion("move_1"),
+        ]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=side_effects,
+        ) as mock_call:
+            result = agent({}, {})
+
+        self.assertEqual(result["submission"], 1)
+        self.assertEqual(mock_call.call_count, 2)
+        # Only the successful call should appear in call_details.
+        self.assertLen(result["call_details"], 1)
+        self.assertEqual(result["call_details"][0]["response"], "move_1")
+
+    def test_retry_on_parse_exception_then_succeeds(self):
+        """An exception raised inside parse_response should consume a retry."""
+
+        class _FlakyParseHarness(_SimpleHarness):
+            def __init__(self):
+                super().__init__()
+                self.parse_calls = 0
+
+            def parse_response(self, response, legal_action_strings):
+                self.parse_calls += 1
+                if self.parse_calls == 1:
+                    raise RuntimeError("parser blew up")
+                return super().parse_response(response, legal_action_strings)
+
+        harness = _FlakyParseHarness()
+        agent = create_agent_fn(harness, max_retries=3)
+        responses = [_fake_completion("move_0"), _fake_completion("move_2")]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=responses,
+        ) as mock_call:
+            result = agent({}, {})
+
+        self.assertEqual(result["submission"], 2)
+        self.assertEqual(mock_call.call_count, 2)
+        self.assertEqual(harness.parse_calls, 2)
+
+    def test_all_attempts_exception_reraises_last(self):
+        """When every attempt raises, the final exception should be re-raised verbatim."""
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=2)
+        side_effects = [
+            RuntimeError("first failure"),
+            RuntimeError("second failure"),
+        ]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=side_effects,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "second failure"):
+                agent({}, {})
+
+    def test_exception_then_parse_failure_forfeits_when_opted_in(self):
+        """If the last attempt was a parse failure (not an exception), the
+        forfeit path applies — last_exception should not leak through."""
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=2)
+        side_effects = [
+            RuntimeError("first attempt blew up"),
+            _fake_completion("garbage"),  # parses to None → parse failure
+        ]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=side_effects,
+        ):
+            result = agent({}, {"illegalMoveForfeit": True})
+
+        self.assertEqual(result["submission"], -1)
+        self.assertEqual(result["actionString"], "garbage")
+        self.assertIn("forfeiting", result["status"])
+
+    def test_exception_then_parse_failure_raises_by_default(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=2)
+        side_effects = [
+            RuntimeError("first attempt blew up"),
+            _fake_completion("garbage"),
+        ]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=side_effects,
+        ):
+            with self.assertRaisesRegex(ValueError, "Failed to parse"):
+                agent({}, {})
 
     def test_move_history_accumulates_across_calls(self):
         harness = _SimpleHarness()
@@ -227,17 +619,382 @@ class CoreHarnessTest(absltest.TestCase):
         self.assertIn("move_0", harness.prompts[1])
 
 
+class RenderRethinkSuffixTest(absltest.TestCase):
+    """Behaviour spec for the shared rethink-suffix helper."""
+
+    ILLEGAL = "ILLEGAL: act={previous_action}"
+    UNPARSABLE = "UNPARSABLE: resp={previous_response}"
+
+    def test_no_prior_attempt_returns_empty(self):
+        self.assertEqual(
+            render_rethink_suffix(self.ILLEGAL, self.UNPARSABLE, None, None),
+            "",
+        )
+
+    def test_illegal_branch_uses_action_template(self):
+        out = render_rethink_suffix(
+            self.ILLEGAL, self.UNPARSABLE,
+            previous_response="some prose",
+            previous_action="z99",
+        )
+        self.assertEqual(out, "ILLEGAL: act=z99")
+        # Crucially, previous_response does NOT appear in the illegal branch.
+        self.assertNotIn("some prose", out)
+
+    def test_unparsable_branch_uses_response_template(self):
+        out = render_rethink_suffix(
+            self.ILLEGAL, self.UNPARSABLE,
+            previous_response="prose with no JSON",
+            previous_action=None,
+        )
+        self.assertEqual(out, "UNPARSABLE: resp=prose with no JSON")
+
+    def test_unparsable_truncates_response_to_last_500(self):
+        long = "X" * 600 + "END_MARKER"
+        out = render_rethink_suffix(
+            self.ILLEGAL, self.UNPARSABLE,
+            previous_response=long,
+            previous_action=None,
+        )
+        # 500-char tail kept; the prefix X-run is dropped.
+        self.assertIn("END_MARKER", out)
+        self.assertEqual(len(out), len("UNPARSABLE: resp=") + 500)
+
+    def test_no_prior_attempt_when_action_is_empty_string(self):
+        # previous_response None AND previous_action falsy ("") -> no-op.
+        out = render_rethink_suffix(
+            self.ILLEGAL, self.UNPARSABLE, None, "",
+        )
+        self.assertEqual(out, "")
+
+
+class _FreeFormHarness:
+    """Harness that returns None from get_legal_moves (free-form actions)."""
+
+    def __init__(self):
+        self.prompts: list[str] = []
+
+    def get_legal_moves(self, observation):
+        return None
+
+    def make_prompt(self, observation, move_history, previous_response=None, previous_action=None):
+        prompt = f"history={move_history} prev={previous_action}"
+        self.prompts.append(prompt)
+        return prompt
+
+    def parse_response(self, response, legal_action_strings):
+        assert legal_action_strings is None
+        try:
+            import json
+            parsed = json.loads(response)
+            if "clue" in parsed:
+                return ParseResult(
+                    submission={"clue": parsed["clue"], "number": parsed["number"]},
+                    raw_action=response,
+                )
+        except Exception:
+            pass
+        return ParseResult(raw_action=response)
+
+
+class _MixedHarness:
+    """Harness that alternates between free-form and enumerable each call."""
+
+    def __init__(self):
+        self.call_count = 0
+        self.prompts: list[str] = []
+
+    def get_legal_moves(self, observation):
+        self.call_count += 1
+        if self.call_count % 2 == 1:
+            return None  # odd calls: free-form
+        return {0: "PASS", 1: "word_A", 2: "word_B"}  # even calls: enumerable
+
+    def make_prompt(self, observation, move_history, previous_response=None, previous_action=None):
+        prompt = f"history={move_history} prev={previous_action}"
+        self.prompts.append(prompt)
+        return prompt
+
+    def parse_response(self, response, legal_action_strings):
+        if legal_action_strings is None:
+            try:
+                import json
+                parsed = json.loads(response)
+                return ParseResult(submission=parsed, raw_action=response)
+            except Exception:
+                return ParseResult(raw_action=response)
+        else:
+            response = response.strip()
+            if response in legal_action_strings:
+                return ParseResult(legal_action=response, raw_action=response)
+            return ParseResult(raw_action=response)
+
+
+class FreeFormHarnessTest(absltest.TestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.events: list[dict] = []
+        set_telemetry_exporter(
+            lambda module, **kw: self.events.append({"module": module, **kw})
+        )
+
+    def tearDown(self):
+        set_telemetry_exporter(lambda module, **kwargs: None)
+        super().tearDown()
+
+    def test_free_form_succeeds(self):
+        harness = _FreeFormHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion('{"clue": "ANIMAL", "number": 2}'),
+        ):
+            result = agent({}, {"freeForm": True})
+
+        self.assertEqual(result["submission"], {"clue": "ANIMAL", "number": 2})
+        self.assertEqual(result["status"], "OK")
+
+    def test_free_form_retry_then_succeeds(self):
+        harness = _FreeFormHarness()
+        agent = create_agent_fn(harness, max_retries=3)
+        responses = [
+            _fake_completion("not json"),
+            _fake_completion('{"clue": "OCEAN", "number": 3}'),
+        ]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=responses,
+        ) as mock_call:
+            result = agent({}, {"freeForm": True})
+
+        self.assertEqual(result["submission"], {"clue": "OCEAN", "number": 3})
+        self.assertEqual(mock_call.call_count, 2)
+        self.assertIn("prev=not json", harness.prompts[1])
+
+    def test_free_form_all_attempts_fail_forfeits_when_opted_in(self):
+        harness = _FreeFormHarness()
+        agent = create_agent_fn(harness, max_retries=2)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            side_effect=lambda *a, **kw: _fake_completion("garbage"),
+        ):
+            result = agent({}, {"freeForm": True, "illegalMoveForfeit": True})
+
+        self.assertEqual(result["submission"], -1)
+        self.assertIn("forfeiting", result["status"])
+
+    def test_free_form_all_attempts_fail_raises_by_default(self):
+        harness = _FreeFormHarness()
+        agent = create_agent_fn(harness, max_retries=2)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            side_effect=lambda *a, **kw: _fake_completion("garbage"),
+        ):
+            with self.assertRaisesRegex(ValueError, "Failed to parse"):
+                agent({}, {"freeForm": True})
+
+    def test_free_form_move_history_accumulates(self):
+        harness = _FreeFormHarness()
+        agent = create_agent_fn(harness)
+        responses = [
+            _fake_completion('{"clue": "ANIMAL", "number": 2}'),
+            _fake_completion('{"clue": "OCEAN", "number": 1}'),
+        ]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=responses,
+        ):
+            agent({}, {"freeForm": True})
+            agent({}, {"freeForm": True})
+
+        self.assertIn("ANIMAL", harness.prompts[1])
+
+    def test_mixed_harness_alternates_modes(self):
+        """Free-form on first call, enumerable on second."""
+        harness = _MixedHarness()
+        agent = create_agent_fn(harness)
+        responses = [
+            _fake_completion('{"clue": "ANIMAL", "number": 2}'),
+            _fake_completion("word_A"),
+        ]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=responses,
+        ):
+            r1 = agent({}, {"freeForm": True})
+            r2 = agent({}, {"freeForm": True})
+
+        # First call: free-form → submission is the dict
+        self.assertEqual(r1["submission"], {"clue": "ANIMAL", "number": 2})
+        # Second call: enumerable → submission is the action id (int)
+        self.assertEqual(r2["submission"], 1)
+        self.assertEqual(r2["actionString"], "word_A")
+
+    def test_free_form_save_prompt(self):
+        harness = _FreeFormHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm,
+            "completion",
+            return_value=_fake_completion('{"clue": "FIRE", "number": 1}'),
+        ):
+            result = agent({}, {"freeForm": True, "savePrompt": True})
+
+        self.assertIn("prompt", result["call_details"][0])
+        self.assertEqual(result["call_details"][0]["prompt"], harness.prompts[-1])
+
+    def test_none_legal_moves_without_free_form_config_returns_inactive(self):
+        """get_legal_moves() returns None but freeForm not in config → empty-obs path."""
+        harness = _FreeFormHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion",
+        ) as mock_call:
+            # No playerId/currentPlayer → treated as empty obs
+            result = agent({"remainingOverageTime": 60, "step": 0}, {})
+        self.assertEqual(result, {"submission": None, "status": "INACTIVE"})
+        mock_call.assert_not_called()
+
+    def test_none_legal_moves_without_free_form_config_raises(self):
+        """get_legal_moves() returns None but freeForm not in config → error when active."""
+        harness = _FreeFormHarness()
+        agent = create_agent_fn(harness)
+        active_obs = {"playerId": 0, "currentPlayer": 0, "isTerminal": False}
+        with patch.dict("os.environ", _ENV, clear=False):
+            with self.assertRaisesRegex(ValueError, "No legal actions"):
+                agent(active_obs, {})
+
+
 class ParseResultTest(absltest.TestCase):
 
     def test_defaults(self):
         r = ParseResult()
         self.assertIsNone(r.legal_action)
         self.assertIsNone(r.raw_action)
+        self.assertIsNone(r.submission)
 
     def test_frozen(self):
         r = ParseResult(legal_action="a", raw_action="a")
         with self.assertRaises(dataclasses.FrozenInstanceError):
             r.legal_action = "b"  # type: ignore[misc]
+
+    def test_submission_field(self):
+        r = ParseResult(submission={"clue": "test", "number": 1})
+        self.assertEqual(r.submission, {"clue": "test", "number": 1})
+
+
+class ExtractLastJsonObjectTest(absltest.TestCase):
+    """Shared helper for last-wins JSON extraction across harnesses."""
+
+    def test_single_fenced_block(self):
+        self.assertEqual(
+            extract_last_json_object('```json\n{"move": "e5"}\n```'),
+            {"move": "e5"},
+        )
+
+    def test_picks_last_of_multiple_fenced_blocks(self):
+        """Regression: models self-correct mid-response. The first block
+        is the rejected answer; the final block is the model's intent."""
+        response = (
+            'First attempt:\n```json\n{"move": "a1"}\n```\n'
+            'On second thought:\n```json\n{"move": "e5"}\n```'
+        )
+        self.assertEqual(
+            extract_last_json_object(response),
+            {"move": "e5"},
+        )
+
+    def test_skips_unparseable_fenced_block(self):
+        """If a later fenced block fails to parse, fall back to the prior
+        parseable one rather than dropping to bare-JSON strategy."""
+        response = (
+            '```json\n{"move": "e5"}\n```\n'
+            '```json\n{this is not valid json}\n```'
+        )
+        self.assertEqual(
+            extract_last_json_object(response),
+            {"move": "e5"},
+        )
+
+    def test_bare_json_when_no_fence(self):
+        self.assertEqual(
+            extract_last_json_object('I will play {"move": "e5"} now.'),
+            {"move": "e5"},
+        )
+
+    def test_picks_last_bare_json(self):
+        response = 'Considered {"move": "a1"}, but going with {"move": "e5"}.'
+        self.assertEqual(
+            extract_last_json_object(response),
+            {"move": "e5"},
+        )
+
+    def test_handles_nested_json(self):
+        """``json.JSONDecoder.raw_decode`` handles nesting; the old
+        ``_BARE_JSON_RE = r"\\{[^{}]*\\}"`` pattern could not."""
+        response = 'Result: {"move": "e5", "meta": {"depth": 3}}'
+        self.assertEqual(
+            extract_last_json_object(response),
+            {"move": "e5", "meta": {"depth": 3}},
+        )
+
+    def test_required_keys_filters_unrelated_objects(self):
+        """When required_keys is given, unrelated JSON in the model's
+        reasoning is ignored so the action object wins."""
+        response = (
+            'My plan: {"phase": "midgame"} then I will play '
+            '{"move": "e5"}.'
+        )
+        self.assertEqual(
+            extract_last_json_object(response, required_keys=("move",)),
+            {"move": "e5"},
+        )
+
+    def test_required_keys_returns_none_when_no_match(self):
+        response = '{"phase": "midgame"} {"other": 1}'
+        self.assertIsNone(
+            extract_last_json_object(response, required_keys=("move",)),
+        )
+
+    def test_required_keys_accepts_any_listed_key(self):
+        """Harnesses that look at multiple action fields (e.g. word
+        association: ``clue`` or ``guess``) pass them all."""
+        response = '{"guess": 3}'
+        self.assertEqual(
+            extract_last_json_object(response, required_keys=("clue", "guess")),
+            {"guess": 3},
+        )
+
+    def test_fenced_takes_priority_over_bare(self):
+        """Bare-JSON strategy only runs when no fenced block parses."""
+        response = (
+            '{"move": "a1"}\n\n'
+            '```json\n{"move": "e5"}\n```'
+        )
+        self.assertEqual(
+            extract_last_json_object(response),
+            {"move": "e5"},
+        )
+
+    def test_returns_none_on_empty_response(self):
+        self.assertIsNone(extract_last_json_object(""))
+        self.assertIsNone(extract_last_json_object("no json here at all"))
+
+    def test_unlabelled_fence(self):
+        """Some models use ``` ``` ``` ``` without the ``json`` language tag."""
+        self.assertEqual(
+            extract_last_json_object('```\n{"move": "e5"}\n```'),
+            {"move": "e5"},
+        )
+
+    def test_skips_non_dict_top_level(self):
+        """Top-level lists/strings/numbers are not action objects."""
+        response = '```json\n[1, 2, 3]\n```\n{"move": "e5"}'
+        self.assertEqual(
+            extract_last_json_object(response),
+            {"move": "e5"},
+        )
 
 
 if __name__ == "__main__":

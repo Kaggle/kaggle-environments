@@ -299,6 +299,47 @@ class TestOrbitWars(unittest.TestCase):
             for i in range(1, 4)
         ]
 
+    def test_fleet_does_not_tunnel_through_rotating_planet(self):
+        # Both fleet and planet move during the tick. The fleet's path and the
+        # planet's path each pass through (50, 50) with the closest approach
+        # to the *other* object's start/end snapshot exactly equal to the
+        # planet radius. Treating either body as static for the full tick
+        # (the original two-phase check) misses a collision that the swept
+        # pair check catches at t=0.5.
+        #
+        # Setup:
+        #   shipSpeed=2, ships=1000  -> fleet speed = 2.0 exactly
+        #   Fleet path: (49, 50) -> (51, 50)
+        #   angular_velocity=pi, step=1  -> planet rotates pi rad
+        #   Planet path: (50, 52) -> (50, 48)  (orbital r=2, initial angle pi/2)
+        #   Planet radius = 1.0
+        # Phase-1 check: dist((50,52), segment (49,50)-(51,50)) = 2.0 > 1.0 (miss)
+        # Phase-2 check: dist((51,50), segment (50,52)-(50,48)) = 1.0, not < 1.0 (miss)
+        # Swept-pair: |D(t)|^2 = 20t^2 - 20t + 5; |D(0.5)| = 0 (overlap)
+        planets = [[0, -1, 50.0, 52.0, 1.0, 10, 0]]
+        fleets = [[0, 0, 49.0, 50.0, 0.0, 1, 1000]]
+        state = self._make_state(planets, fleets, step=1)
+        state[0].observation.angular_velocity = math.pi
+
+        env = SimpleNamespace(
+            configuration=SimpleNamespace(
+                shipSpeed=2, episodeSteps=500, cometSpeed=4
+            ),
+            done=False,
+        )
+
+        new_state = interpreter(state, env)
+        obs = new_state[0].observation
+
+        # Fleet should have collided with the planet, not tunneled past it.
+        self.assertEqual(
+            len(obs.fleets), 0, "fleet tunneled through rotating planet"
+        )
+        # Planet was neutral with 10 ships; 1000 attackers capture it,
+        # leaving 990 ships under player 0.
+        self.assertEqual(obs.planets[0][1], 0)
+        self.assertEqual(obs.planets[0][5], 990)
+
     def test_rewards_set_at_max_steps(self):
         # When the game reaches episodeSteps without elimination,
         # rewards should reflect each player's total ships.

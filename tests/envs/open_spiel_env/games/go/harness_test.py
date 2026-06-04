@@ -1,5 +1,6 @@
 """Tests for Go LLM harness."""
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pyspiel
@@ -54,12 +55,15 @@ class ParseResponseTest(absltest.TestCase):
         self.assertEqual(result.legal_action, "B E5")
         self.assertEqual(result.raw_action, "e5")
 
-    def test_parse_fallback_coordinate(self):
-        """Falls back to searching for coordinates in response text."""
+    def test_prose_only_response_triggers_rethink(self):
+        # No structured JSON. The parser must NOT guess at intent from a
+        # coord in the prose -- return None and let rethink ask the model
+        # to use the required JSON format.
         legal = ["B a1", "B b2", "B e5"]
         response = "I think e5 is the best move here."
         result = parse_response(response, legal)
-        self.assertEqual(result.legal_action, "B e5")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_no_match_returns_none(self):
         legal = ["B a1", "B b2"]
@@ -68,11 +72,15 @@ class ParseResponseTest(absltest.TestCase):
         self.assertIsNone(result.legal_action)
         self.assertEqual(result.raw_action, "z9")
 
-    def test_parse_malformed_json_falls_back(self):
+    def test_malformed_json_triggers_rethink(self):
+        # Bad JSON: stage-1 extracts nothing. The parser must NOT
+        # silently rescue a coord from the prose -- return None so the
+        # rethink loop can ask the model to fix its format.
         legal = ["B a1", "B e5"]
         response = "```json\n{bad json}\n```\nI play e5."
         result = parse_response(response, legal)
-        self.assertEqual(result.legal_action, "B e5")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_no_json_no_coord_returns_none(self):
         legal = ["B a1", "B b2"]
@@ -94,6 +102,19 @@ class ParseResponseTest(absltest.TestCase):
         legal = ["B a1"]
         result = parse_response('```json\n{"move": "a1"}\n```', legal)
         self.assertIsInstance(result, ParseResult)
+
+    def test_illegal_json_does_not_ghost_substitute_from_prose(self):
+        # The model's JSON answer (z99) isn't legal. The parser must NOT
+        # silently substitute a legal coord from the prose -- return None
+        # so the rethink loop asks the model to fix its answer.
+        legal = ["B a1", "B e5"]
+        response = (
+            "I considered e5 but ruled it out.\n"
+            '```json\n{"move": "z99"}\n```'
+        )
+        result = parse_response(response, legal)
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "z99")
 
 
 class GeneratePromptTest(absltest.TestCase):
@@ -136,9 +157,9 @@ class GeneratePromptTest(absltest.TestCase):
             previous_response="I play z9",
             previous_action="z9",
         )
-        self.assertIn("Your previous response was", prompt)
+        self.assertIn("You suggested", prompt)  # ILLEGAL leads with action
         self.assertIn("z9", prompt)
-        self.assertIn("not in the legal moves list", prompt)
+        self.assertIn("not a legal", prompt)
 
     def test_no_rethink_on_first_attempt(self):
         observation = {
@@ -184,17 +205,36 @@ class GetLegalMovesTest(absltest.TestCase):
             self.assertIsInstance(v, str)
 
 
+class _StreamDelta:
+    def __init__(self, content):
+        self.content = content
+
+
+class _StreamChoice:
+    def __init__(self, content, finish_reason=None):
+        self.delta = _StreamDelta(content)
+        self.finish_reason = finish_reason
+
+
+class _StreamChunk:
+    def __init__(self, choices, usage=None):
+        self.choices = choices
+        self.usage = usage
+
+
 def _make_mock_response(content):
-    """Create a mock LiteLLM response."""
-    resp = MagicMock()
-    resp.usage = MagicMock(prompt_tokens=10, completion_tokens=20)
-    resp.choices = [
-        MagicMock(
-            message=MagicMock(content=content),
-            finish_reason="stop",
-        )
+    """Build a streaming-style mock LLM response (a re-iterable chunk list)."""
+    usage = MagicMock(
+        prompt_tokens=10,
+        completion_tokens=20,
+        total_tokens=30,
+        completion_tokens_details=None,
+    )
+    return [
+        _StreamChunk([_StreamChoice(content)]),
+        _StreamChunk([_StreamChoice("", finish_reason="stop")]),
+        _StreamChunk([], usage=usage),
     ]
-    return resp
 
 
 class _GoHarness:
@@ -312,6 +352,104 @@ class AgentIntegrationTest(absltest.TestCase):
             agent(observation, {})
 
         self.assertEqual(mock_litellm.completion.call_count, 2)
+
+
+    @patch.dict(
+        "os.environ",
+        {
+            "MODEL_NAME": "test-model",
+            "MODEL_PROXY_KEY": "test-key",
+            "MODEL_PROXY_URL": "dummy_url",
+        },
+    )
+    @patch("kaggle_environments.core_harness.litellm")
+    def test_call_details_present(self, mock_litellm):
+        """Action includes call_details with usage information."""
+        mock_litellm.drop_params = True
+        mock_litellm.completion.return_value = _make_mock_response(
+            '```json\n{"move": "e5"}\n```',
+        )
+
+        agent = create_agent_fn(_GoHarness())
+
+        game = go_proxy.GoGame({"board_size": 9, "komi": 7.5})
+        state = game.new_initial_state()
+        observation = _make_observation(state, game)
+
+        result = agent(observation, {})
+
+        self.assertIn("call_details", result)
+        self.assertLen(result["call_details"], 1)
+        cd = result["call_details"][0]
+        self.assertEqual(cd["generation_tokens"], 20)
+        self.assertEqual(cd["prompt_tokens"], 10)
+        self.assertEqual(cd["total_tokens"], 30)
+        self.assertEqual(cd["finish_reason"], "stop")
+        self.assertIn("move", cd["response"])
+        self.assertIn("prompt", cd)  # savePrompt defaults to True
+
+
+    @patch.dict(
+        "os.environ",
+        {
+            "MODEL_NAME": "test-model",
+            "MODEL_PROXY_KEY": "test-key",
+            "MODEL_PROXY_URL": "dummy_url",
+        },
+    )
+    @patch("kaggle_environments.core_harness.litellm")
+    def test_generate_returns_present(self, mock_litellm):
+        """Action includes legacy generate_returns without raw prompts/responses."""
+        mock_litellm.drop_params = True
+        mock_litellm.completion.return_value = _make_mock_response(
+            '```json\n{"move": "e5"}\n```',
+        )
+
+        agent = create_agent_fn(_GoHarness())
+
+        game = go_proxy.GoGame({"board_size": 9, "komi": 7.5})
+        state = game.new_initial_state()
+        observation = _make_observation(state, game)
+
+        result = agent(observation, {"includeGenerateReturns": True})
+
+        self.assertIn("generate_returns", result)
+        self.assertLen(result["generate_returns"], 1)
+        gr = json.loads(result["generate_returns"][0])
+        self.assertEqual(gr["generation_tokens"], 20)
+        self.assertEqual(gr["prompt_tokens"], 10)
+        self.assertEqual(gr["total_tokens"], 30)
+        self.assertEqual(gr["request_for_logging"]["model"], "test-model")
+        self.assertEqual(gr["response_for_logging"]["finish_reason"], "stop")
+        # No raw content duplicated
+        self.assertNotIn("main_response", gr)
+        self.assertNotIn("messages", gr["request_for_logging"])
+        self.assertNotIn("content", gr["response_for_logging"])
+
+    @patch.dict(
+        "os.environ",
+        {
+            "MODEL_NAME": "test-model",
+            "MODEL_PROXY_KEY": "test-key",
+            "MODEL_PROXY_URL": "dummy_url",
+        },
+    )
+    @patch("kaggle_environments.core_harness.litellm")
+    def test_generate_returns_omitted_by_default(self, mock_litellm):
+        mock_litellm.drop_params = True
+        mock_litellm.completion.return_value = _make_mock_response(
+            '```json\n{"move": "e5"}\n```',
+        )
+
+        agent = create_agent_fn(_GoHarness())
+
+        game = go_proxy.GoGame({"board_size": 9, "komi": 7.5})
+        state = game.new_initial_state()
+        observation = _make_observation(state, game)
+
+        result = agent(observation, {})
+
+        self.assertNotIn("generate_returns", result)
 
 
 if __name__ == "__main__":

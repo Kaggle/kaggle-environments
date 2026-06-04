@@ -2,9 +2,12 @@
 
 OpenSpiel encodes one Amazons turn as three sub-actions: pick an amazon to
 move (from), pick its destination (to), and pick a square to burn with an
-arrow (shoot). Each sub-action is an integer ``row * 10 + col`` on the 10x10
-board. The proxy exposes the board grid, whose turn it is, and which of the
-three sub-actions is expected next so agents do not need to parse the ASCII
+arrow (shoot). Each sub-action is an integer ``row * num_cols + col``. The
+board size depends on the OpenSpiel build (older builds default to 6x6, the
+current source defaults to 10x10) so the proxy reads dimensions from the
+wrapped state's ``to_string()`` rather than hardcoding them. The proxy
+exposes the board grid, whose turn it is, and which of the three
+sub-actions is expected next so agents do not need to parse the ASCII
 observation string.
 """
 
@@ -15,7 +18,6 @@ import pyspiel
 
 from ... import proxy
 
-_BOARD_SIZE = 10
 _PHASES = ("from", "to", "shoot")
 
 
@@ -35,6 +37,14 @@ class AmazonsState(proxy.State):
         rows = self.to_string().strip().split("\n")
         return [list(row) for row in rows]
 
+    def _num_cols(self) -> int:
+        # OpenSpiel encodes actions as ``row * num_cols + col``, so we need
+        # the live column count to convert action ids to coordinates. Read it
+        # from the wrapped state instead of hardcoding because different
+        # OpenSpiel builds ship different default board sizes.
+        board = self._board()
+        return len(board[0]) if board else 0
+
     def _phase(self) -> str | None:
         if self.is_terminal():
             return None
@@ -50,9 +60,11 @@ class AmazonsState(proxy.State):
                 winner = "o"
             else:
                 winner = "draw"
+        board = self._board()
         return {
-            "board": self._board(),
-            "board_size": _BOARD_SIZE,
+            "board": board,
+            "num_rows": len(board),
+            "num_cols": len(board[0]) if board else 0,
             "current_player": self._player_string(self.current_player()),
             "phase": self._phase(),
             "move_number": self.move_number(),
@@ -64,13 +76,14 @@ class AmazonsState(proxy.State):
         return json.dumps(self.state_dict())
 
     def action_to_dict(self, action: int) -> dict[str, Any]:
-        return {"row": action // _BOARD_SIZE, "col": action % _BOARD_SIZE}
+        cols = self._num_cols()
+        return {"row": action // cols, "col": action % cols}
 
     def action_to_json(self, action: int) -> str:
         return json.dumps(self.action_to_dict(action))
 
     def dict_to_action(self, action_dict: dict[str, Any]) -> int:
-        return int(action_dict["row"]) * _BOARD_SIZE + int(action_dict["col"])
+        return int(action_dict["row"]) * self._num_cols() + int(action_dict["col"])
 
     def json_to_action(self, action_json: str) -> int:
         return self.dict_to_action(json.loads(action_json))

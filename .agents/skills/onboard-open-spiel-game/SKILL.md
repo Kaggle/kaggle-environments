@@ -502,37 +502,58 @@ A transformer is not required -- simpler games can parse observation strings dir
 
 ## Step 5: Add tests
 
-Add test cases to `tests/envs/open_spiel_env/test_open_spiel_env.py`. The tests use `absltest` (not pytest directly). Follow the existing patterns:
+Per-game env tests live in their own file alongside each game, at
+`tests/envs/open_spiel_env/games/<name>/env_test.py`. Create that file (and
+the `games/<name>/__init__.py` next to it, if missing). The tests use
+`absltest` (not pytest directly). Framework-level behavior (env registration,
+strict mode, agent error, game-parameter overrides, simultaneous dispatch)
+stays in `tests/envs/open_spiel_env/test_open_spiel_env.py` -- do NOT add
+game-specific cases there.
 
 ```python
-def test_<name>_agent_playthrough(self):
-    """Test that random agents can play a full game."""
-    env = make("open_spiel_<name>", debug=True)
-    env.run(["random", "random"])
-    json = env.toJSON()
-    self.assertEqual(json["name"], "open_spiel_<name>")
-    self.assertTrue(all(status == "DONE" for status in json["statuses"]))
+"""Env-level tests for open_spiel_<name>."""
 
-def test_<name>_manual_playthrough(self):
-    """Test manual step-by-step play."""
-    env = make("open_spiel_<name>", debug=True)
-    env.reset()
-    env.step([{"submission": -1}, {"submission": -1}])  # Setup step (always required)
-    # Sequential game: only the current player submits, others send -1
-    env.step([{"submission": 0}, {"submission": -1}])   # Player 0 acts
-    env.step([{"submission": -1}, {"submission": 0}])   # Player 1 acts
-    # ...continue until done...
-    self.assertTrue(env.done)
+import json
 
-def test_<name>_invalid_action(self):
-    """Test that invalid actions are handled correctly."""
-    env = make("open_spiel_<name>", debug=True)
-    env.reset()
-    env.step([{"submission": -1}, {"submission": -1}])  # Setup step
-    env.step([{"submission": 999}, {"submission": -1}])  # Invalid action
-    self.assertTrue(env.done)
-    json = env.toJSON()
-    self.assertEqual(json["rewards"][0], open_spiel_env.DEFAULT_INVALID_ACTION_REWARD)  # -1
+from absl.testing import absltest
+
+from kaggle_environments import make
+from kaggle_environments.envs.open_spiel_env import open_spiel_env
+
+
+class <Name>EnvTest(absltest.TestCase):
+    def test_<name>_agent_playthrough(self):
+        """Test that random agents can play a full game."""
+        env = make("open_spiel_<name>", debug=True)
+        env.run(["random", "random"])
+        playthrough = env.toJSON()
+        self.assertEqual(playthrough["name"], "open_spiel_<name>")
+        self.assertTrue(all(status == "DONE" for status in playthrough["statuses"]))
+
+    def test_<name>_manual_playthrough(self):
+        """Test manual step-by-step play."""
+        env = make("open_spiel_<name>", debug=True)
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Setup step (always required)
+        # Sequential game: only the current player submits, others send -1
+        env.step([{"submission": 0}, {"submission": -1}])   # Player 0 acts
+        env.step([{"submission": -1}, {"submission": 0}])   # Player 1 acts
+        # ...continue until done...
+        self.assertTrue(env.done)
+
+    def test_<name>_invalid_action(self):
+        """Test that invalid actions are handled correctly."""
+        env = make("open_spiel_<name>", debug=True)
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Setup step
+        env.step([{"submission": 999}, {"submission": -1}])  # Invalid action
+        self.assertTrue(env.done)
+        playthrough = env.toJSON()
+        self.assertEqual(playthrough["rewards"][0], open_spiel_env.DEFAULT_INVALID_ACTION_REWARD)  # -1
+
+
+if __name__ == "__main__":
+    absltest.main()
 ```
 
 **Key testing patterns:**
@@ -546,7 +567,7 @@ def test_<name>_invalid_action(self):
 
 ```bash
 # Run the OpenSpiel tests
-uv sync && uv run pytest tests/envs/open_spiel_env/test_open_spiel_env.py -v -k "<name>"
+uv sync && uv run pytest tests/envs/open_spiel_env/games/<name>/env_test.py -v
 
 # Quick smoke test
 uv run python -c "
@@ -575,7 +596,7 @@ uv run ruff check --fix . && uv run ruff format .
 - [ ] `make("open_spiel_<name>")` loads without error
 - [ ] Random agent playthrough completes with `"DONE"` statuses
 - [ ] Invalid action handling works correctly
-- [ ] Tests added to `test_open_spiel_env.py`
+- [ ] Tests added to `tests/envs/open_spiel_env/games/<name>/env_test.py` (game-specific) — framework-level behavior stays in `test_open_spiel_env.py`
 - [ ] If visualizer: correct relative paths to `web/` configs (7 levels deep)
 - [ ] If transformer: registered in `web/core/src/transformers.ts` switch statements
 - [ ] Linting passes
@@ -587,6 +608,7 @@ uv run ruff check --fix . && uv run ruff format .
 - `kaggle_environments/envs/open_spiel_env/games/*/` -- existing game proxies (`*_proxy.py`), custom games (`*_game.py`), and visualizers (`visualizer/default/`)
 - `web/core/src/transformers.ts` -- transformer registry
 - `web/core/src/transformers/*/` -- existing transformer implementations
-- `tests/envs/open_spiel_env/test_open_spiel_env.py` -- all existing tests
+- `tests/envs/open_spiel_env/test_open_spiel_env.py` -- framework-level tests (env registration, strict mode, agent error, game params, simultaneous dispatch)
+- `tests/envs/open_spiel_env/games/<existing_game>/env_test.py` -- per-game env tests (e.g. `games/coin_game/env_test.py`, `games/havannah/env_test.py`)
 - `../open_spiel/open_spiel/games/<name>/` -- OpenSpiel C++ source (header files have struct definitions that define the JSON schema)
 - [OpenSpiel documentation](https://github.com/google-deepmind/open_spiel) -- game types, API reference

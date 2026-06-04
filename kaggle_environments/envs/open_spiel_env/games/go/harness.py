@@ -13,11 +13,7 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult
-
-_JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
-_BARE_JSON_RE = re.compile(r"\{[^{}]*\"move\"\s*:\s*\"([^\"]+)\"[^{}]*\}", re.DOTALL)
-
+from kaggle_environments.core_harness import ParseResult, parse_json_action, render_rethink_suffix
 
 # --- Prompt ---
 
@@ -57,36 +53,34 @@ Begin!
 """
 
 
-RETHINK_SUFFIX = """
+RETHINK_ILLEGAL = """
 
-Your previous response was:
+You suggested move "{previous_action}" but this is not a legal move.
+Reconsider the rules and the current state, then pick a legal move.
+
+(Keep using the same JSON output format as before -- only the move value needs to change.)
+"""
+
+RETHINK_UNPARSABLE = """
+
+Your previous response ended with:
 {previous_response}
 
-You suggested move "{previous_action}" but this is not in the legal moves list.
-Reconsider and play a legal move.
+No JSON answer could be parsed from that. Conclude your response
+with your final move as JSON in a ```json fenced block, exactly
+as the original instructions required:
+
+```json
+{{"move": "<coordinate>"}}
+```
+
+For example: `{{"move": "a1"}}`
+
+The move you choose must also be legal in the current state.
 """
 
 
 # --- Helpers ----------------------------------------------------------------
-
-
-def _extract_move_from_json(response: str) -> str | None:
-    """Try to extract a move string from a JSON code block or bare JSON."""
-    match = _JSON_BLOCK_RE.search(response)
-    if match:
-        try:
-            data = json.loads(match.group(1))
-            move = data.get("move", "").strip()
-            if move:
-                return move
-        except json.JSONDecodeError:
-            pass
-
-    bare = _BARE_JSON_RE.search(response)
-    if bare:
-        return bare.group(1).strip()
-
-    return None
 
 
 def _match_move_to_legal(
@@ -149,11 +143,10 @@ def generate_prompt(
         player_code=player_code,
     )
 
-    if previous_response is not None:
-        prompt += RETHINK_SUFFIX.format(
-            previous_response=previous_response[:500],
-            previous_action=previous_action or "(could not parse)",
-        )
+    prompt += render_rethink_suffix(
+        RETHINK_ILLEGAL, RETHINK_UNPARSABLE,
+        previous_response, previous_action,
+    )
 
     return prompt
 
@@ -161,24 +154,5 @@ def generate_prompt(
 def parse_response(
     response: str, legal_action_strings: Sequence[str],
 ) -> ParseResult:
-    """Extract a legal Go move from the model response.
-
-    Tries to extract move from JSON block first, then falls back to
-    searching for coordinates in the response text.
-    """
-    raw = _extract_move_from_json(response)
-    if raw is not None:
-        matched = _match_move_to_legal(raw, legal_action_strings)
-        if matched is not None:
-            return ParseResult(legal_action=matched, raw_action=raw)
-
-    # Fallback: search for coordinates in response
-    response_lower = response.lower()
-    for legal in legal_action_strings:
-        parts = legal.split()
-        if len(parts) == 2:
-            coord = parts[1].lower()
-            if coord in response_lower:
-                return ParseResult(legal_action=legal, raw_action=raw or coord)
-
-    return ParseResult(legal_action=None, raw_action=raw)
+    """Trust the model's JSON answer; let the rethink loop fix anything else."""
+    return parse_json_action(response, legal_action_strings, matcher=_match_move_to_legal)

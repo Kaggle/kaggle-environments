@@ -1,4 +1,5 @@
 import * as React from 'react';
+import useMediaQuery from '@mui/material/useMediaQuery';
 export interface PlaybackControlsProps {
   // State
   playing: boolean;
@@ -87,6 +88,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
 }) => {
   const maxStep = totalSteps > 0 ? totalSteps - 1 : 0;
   const [copied, setCopied] = React.useState(false);
+  const isMobile = useMediaQuery((theme: any) => theme.breakpoints.down('phone'));
 
   const handleCopySeed = async () => {
     if (seed === undefined || seed === null) return;
@@ -137,9 +139,13 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
 
   const stepDisplay = `${currentStep + 1} / ${totalSteps}`;
 
+  const sizedButtonStyles: React.CSSProperties = isMobile ? { ...buttonStyles, padding: '4px' } : buttonStyles;
+  const smallIconSize = isMobile ? 16 : 20;
+  const playIconSize = isMobile ? 20 : 24;
+
   return (
     <div className={className} style={{ ...controlsStyles, ...style }}>
-      {seed !== undefined && seed !== null && (
+      {seed !== undefined && seed !== null && !isMobile && (
         <button
           type="button"
           style={seedBadgeStyles}
@@ -164,49 +170,79 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           </svg>
         </button>
       )}
-      <button style={buttonStyles} onClick={handleRestartClick} title="Restart" aria-label="Restart">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+      <button style={sizedButtonStyles} onClick={handleRestartClick} title="Restart" aria-label="Restart">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width={smallIconSize}
+          height={smallIconSize}
+          viewBox="0 0 24 24"
+          fill="currentColor"
+        >
           <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" />
         </svg>
       </button>
 
       <button
-        style={buttonStyles}
+        style={sizedButtonStyles}
         onClick={handlePrevClick}
         disabled={currentStep === 0}
         title="Previous step"
         aria-label="Previous step"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width={smallIconSize}
+          height={smallIconSize}
+          viewBox="0 0 24 24"
+          fill="currentColor"
+        >
           <path d="M6 18V6h2v12H6zm3.5-6L18 6v12l-8.5-6z" />
         </svg>
       </button>
 
       <button
-        style={buttonStyles}
+        style={sizedButtonStyles}
         onClick={handlePlayPauseClick}
         title={playing ? 'Pause' : 'Play'}
         aria-label={playing ? 'Pause' : 'Play'}
       >
         {playing ? (
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width={playIconSize}
+            height={playIconSize}
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          >
             <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
           </svg>
         ) : (
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width={playIconSize}
+            height={playIconSize}
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          >
             <path d="M8 5v14l11-7z" />
           </svg>
         )}
       </button>
 
       <button
-        style={buttonStyles}
+        style={sizedButtonStyles}
         onClick={handleNextClick}
         disabled={currentStep === maxStep}
         title="Next step"
         aria-label="Next step"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width={smallIconSize}
+          height={smallIconSize}
+          viewBox="0 0 24 24"
+          fill="currentColor"
+        >
           <path d="M7 18l8.5-6L7 6v12zM15 6v12h2V6h-2z" />
         </svg>
       </button>
@@ -229,7 +265,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
       </div>
       <span style={stepCounterStyles}>{stepDisplay}</span>
 
-      {onSpeedChange && (
+      {onSpeedChange && !isMobile && (
         <select
           style={speedSelectStyles}
           value={speedModifier}

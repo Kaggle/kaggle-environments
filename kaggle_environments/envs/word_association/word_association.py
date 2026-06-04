@@ -16,9 +16,23 @@ def initialize_game(state, config):
     with open(words_path, "r") as f:
         all_words = [line.strip().upper() for line in f.readlines() if line.strip()]
         
-    # Setup deterministic random generator if seed is provided
+    # Setup deterministic random generator if seed is provided.
+    # When games_per_episode > 1, derive a fresh per-game seed from the base
+    # seed so each game uses different words while the full sequence stays
+    # reproducible from the original seed alone.
     seed = config.get("seed")
-    rng = random.Random(seed) if seed is not None else random
+    current_game = state[0].observation.get("current_game", 0)
+    if seed is not None:
+        if current_game == 0:
+            rng = random.Random(seed)
+        else:
+            master_rng = random.Random(seed)
+            game_seed = 0
+            for _ in range(current_game):
+                game_seed = master_rng.randrange(2**32)
+            rng = random.Random(game_seed)
+    else:
+        rng = random
         
     sampled_words = rng.sample(all_words, board_size)
     
@@ -46,7 +60,7 @@ def initialize_game(state, config):
         agent_state.observation.clue = ""
         agent_state.observation.guesses_remaining = 0
         agent_state.observation.clue_number = 0
-        
+
         initialize_memory(agent_state.observation, board_size)
 
 def update_visibility(state):
@@ -66,6 +80,11 @@ def process_action(state, config):
     current_turn = state[0].observation.current_turn
     active_agent = state[current_turn]
     action = active_agent.action
+
+    # core_harness wraps the real action inside {"submission": ...}.
+    # Extract it so the rest of the interpreter sees the unwrapped value.
+    if isinstance(action, dict) and "submission" in action:
+        action = action["submission"]
     
     # helper to end game
     def end_game(winner=None):
@@ -73,11 +92,17 @@ def process_action(state, config):
             if state[i].status != "INVALID":
                 state[i].status = "DONE"
             if winner == "blue":
-                state[i].reward = 1 if i in [0, 1] else -1
+                if i in [0, 1]:
+                    state[i].reward = (state[i].reward or 0) + 1
+                else:
+                    state[i].reward = state[i].reward or 0
             elif winner == "yellow":
-                state[i].reward = 1 if i in [2, 3] else -1
+                if i in [2, 3]:
+                    state[i].reward = (state[i].reward or 0) + 1
+                else:
+                    state[i].reward = state[i].reward or 0
             else:
-                state[i].reward = 0
+                state[i].reward = state[i].reward or 0
 
     # Handle Agent Failure / Invalid Action
     if action is None:
@@ -241,6 +266,9 @@ def interpreter(state, env):
     if env.done:
         return state
 
+    prev_blue_reward = state[0].reward or 0
+    prev_yellow_reward = state[2].reward or 0
+
     process_action(state, env.configuration)
     update_visibility(state)
     
@@ -256,27 +284,42 @@ def interpreter(state, env):
         is_done = all(s.status in ["DONE", "INVALID"] for s in state)
         if is_done:
             winner = None
-            if state[0].reward == 1: winner = "blue"
-            elif state[2].reward == 1: winner = "yellow"
+            if (state[0].reward or 0) > prev_blue_reward: winner = "blue"
+            elif (state[2].reward or 0) > prev_yellow_reward: winner = "yellow"
+            
+            # Update wins in observation
+            if winner == "blue":
+                for s in state:
+                    s.observation.blue_wins += 1
+            elif winner == "yellow":
+                for s in state:
+                    s.observation.yellow_wins += 1
             
             window_size = env.configuration.get("memory_window_size", 0)
-            save_game_to_history(obs, winner, window_size)
-            
+            # Per-game memory lives on every agent's observation (track_turn
+            # writes to all four), so save/reset must touch all of them — not
+            # just state[0] — or subsequent prompts will leak prior-game turns.
+            for s in state:
+                save_game_to_history(s.observation, winner, window_size)
+
             if obs.current_game + 1 < games_per_episode:
-                # Continue to next game
-                obs.current_game += 1
-                obs.current_game_turns = []
-                obs._last_clue = ""
-                obs._last_revealed = [False] * len(obs.revealed)
-                
+                for s in state:
+                    s.observation.current_game += 1
+                    s.observation.current_game_turns = []
+                    s.observation._last_clue = ""
+                    s.observation._last_revealed = [False] * len(s.observation.revealed)
+
                 # Reset board (re-init)
                 initialize_game(state, env.configuration)
-                
+
+                # initialize_game writes full roles to every agent; mask them
+                # again for the guessers before the new game's snapshot is
+                # returned, mirroring the first-game init path.
+                update_visibility(state)
+
                 # Reset agent statuses based on new current_turn
-                active_agent = state[0].observation.current_turn
                 for i in range(4):
                     state[i].status = "ACTIVE" if i == state[0].observation.current_turn else "INACTIVE"
-                    state[i].reward = 0
                     
     return state
 

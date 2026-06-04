@@ -42,6 +42,7 @@
     "vite": "^5.0.0",
     "vite-plugin-checker": "^0.11.0",
     "vite-plugin-css-injected-by-js": "^3.5.2",
+    "vite-plugin-singlefile": "^2.0.0",
     "vite-tsconfig-paths": "^5.1.4"
   },
   "dependencies": {

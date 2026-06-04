@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80" viewBox="0 0 120 80">
+  <rect width="120" height="80" fill="#e8d2a6"/>
+  <g stroke="#c9a978" stroke-width="0.8" opacity="0.55" fill="none">
+    <path d="M0 20 L120 20"/>
+    <path d="M0 40 L120 40"/>
+    <path d="M0 60 L120 60"/>
+  </g>
+  <g stroke="#b8965f" stroke-width="0.6" opacity="0.35" fill="none">
+    <path d="M10 4 q40 8 0 16"/>
+    <path d="M70 4 q30 8 0 16"/>
+    <path d="M30 24 q40 6 0 16"/>
+    <path d="M90 24 q20 6 0 16"/>
+    <path d="M5 44 q50 7 0 16"/>
+    <path d="M75 44 q35 7 0 16"/>
+    <path d="M20 64 q45 6 0 16"/>
+    <path d="M85 64 q25 6 0 16"/>
+  </g>
+  <g fill="#b8965f" opacity="0.5">
+    <circle cx="22" cy="10" r="0.7"/>
+    <circle cx="58" cy="14" r="0.6"/>
+    <circle cx="100" cy="8" r="0.7"/>
+    <circle cx="14" cy="32" r="0.6"/>
+    <circle cx="64" cy="30" r="0.7"/>
+    <circle cx="108" cy="34" r="0.6"/>
+    <circle cx="40" cy="50" r="0.7"/>
+    <circle cx="86" cy="54" r="0.6"/>
+    <circle cx="28" cy="72" r="0.7"/>
+    <circle cx="96" cy="70" r="0.6"/>
+  </g>
+</svg>

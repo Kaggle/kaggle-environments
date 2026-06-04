@@ -93,6 +93,9 @@ importers:
       vite-plugin-css-injected-by-js:
         specifier: ^3.5.2
         version: 3.5.2(vite@5.4.21(@types/node@25.2.1))
+      vite-plugin-singlefile:
+        specifier: ^2.0.0
+        version: 2.3.3(vite@5.4.21(@types/node@25.2.1))
       vite-tsconfig-paths:
         specifier: ^5.1.4
         version: 5.1.4(typescript@5.9.3)(vite@5.4.21(@types/node@25.2.1))
@@ -184,6 +187,66 @@ importers:
         version: 5.4.21(@types/node@25.2.1)
 
   kaggle_environments/envs/hungry_geese/visualizer/default:
+    dependencies:
+      '@kaggle-environments/core':
+        specifier: workspace:*
+        version: link:../../../../../web/core
+    devDependencies:
+      cross-env:
+        specifier: ^10.1.0
+        version: 10.1.0
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.21(@types/node@25.2.1)
+
+  kaggle_environments/envs/kaggriculture/visualizer/default:
+    dependencies:
+      '@kaggle-environments/core':
+        specifier: workspace:*
+        version: link:../../../../../web/core
+    devDependencies:
+      cross-env:
+        specifier: ^10.1.0
+        version: 10.1.0
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.21(@types/node@25.2.1)
+
+  kaggle_environments/envs/kaggriculture/visualizer/playable:
+    dependencies:
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.2.0
+        version: 18.3.1(react@18.3.1)
+    devDependencies:
+      '@types/react':
+        specifier: ^18.2.0
+        version: 18.3.28
+      '@types/react-dom':
+        specifier: ^18.2.0
+        version: 18.3.7(@types/react@18.3.28)
+      '@vitejs/plugin-react':
+        specifier: ^4.0.0
+        version: 4.7.0(vite@5.4.21(@types/node@25.2.1))
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.21(@types/node@25.2.1)
+      vitest:
+        specifier: ^2.1.4
+        version: 2.1.9(@types/node@25.2.1)(happy-dom@20.8.9)(jsdom@25.0.1)
+
+  kaggle_environments/envs/kaggriculture_beginner/visualizer/default:
     dependencies:
       '@kaggle-environments/core':
         specifier: workspace:*
@@ -311,6 +374,54 @@ importers:
         specifier: ^5.0.0
         version: 5.4.21(@types/node@25.2.1)
 
+  kaggle_environments/envs/open_spiel_env/games/ant_foraging_arena/visualizer/default:
+    dependencies:
+      '@kaggle-environments/core':
+        specifier: workspace:*
+        version: link:../../../../../../../web/core
+    devDependencies:
+      cross-env:
+        specifier: ^10.1.0
+        version: 10.1.0
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.21(@types/node@25.2.1)
+
+  kaggle_environments/envs/open_spiel_env/games/backgammon/visualizer/default:
+    dependencies:
+      '@kaggle-environments/core':
+        specifier: workspace:*
+        version: link:../../../../../../../web/core
+    devDependencies:
+      cross-env:
+        specifier: ^10.1.0
+        version: 10.1.0
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.21(@types/node@25.2.1)
+
+  kaggle_environments/envs/open_spiel_env/games/checkers/visualizer/default:
+    dependencies:
+      '@kaggle-environments/core':
+        specifier: workspace:*
+        version: link:../../../../../../../web/core
+    devDependencies:
+      cross-env:
+        specifier: ^10.1.0
+        version: 10.1.0
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.21(@types/node@25.2.1)
+
   kaggle_environments/envs/open_spiel_env/games/chess/visualizer/default:
     dependencies:
       '@kaggle-environments/core':
@@ -349,6 +460,54 @@ importers:
         specifier: ^5.0.0
         version: 5.4.21(@types/node@25.2.1)
 
+  kaggle_environments/envs/open_spiel_env/games/clobber/visualizer/default:
+    dependencies:
+      '@kaggle-environments/core':
+        specifier: workspace:*
+        version: link:../../../../../../../web/core
+    devDependencies:
+      cross-env:
+        specifier: ^10.1.0
+        version: 10.1.0
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.21(@types/node@25.2.1)
+
+  kaggle_environments/envs/open_spiel_env/games/coin_game/visualizer/default:
+    dependencies:
+      '@kaggle-environments/core':
+        specifier: workspace:*
+        version: link:../../../../../../../web/core
+    devDependencies:
+      cross-env:
+        specifier: ^10.1.0
+        version: 10.1.0
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.21(@types/node@25.2.1)
+
+  kaggle_environments/envs/open_spiel_env/games/coin_game_arena/visualizer/default:
+    dependencies:
+      '@kaggle-environments/core':
+        specifier: workspace:*
+        version: link:../../../../../../../web/core
+    devDependencies:
+      cross-env:
+        specifier: ^10.1.0
+        version: 10.1.0
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.21(@types/node@25.2.1)
+
   kaggle_environments/envs/open_spiel_env/games/connect_four/visualizer/default:
     dependencies:
       '@kaggle-environments/core':
@@ -366,6 +525,22 @@ importers:
         version: 5.4.21(@types/node@25.2.1)
 
   kaggle_environments/envs/open_spiel_env/games/dark_hex/visualizer/default:
+    dependencies:
+      '@kaggle-environments/core':
+        specifier: workspace:*
+        version: link:../../../../../../../web/core
+    devDependencies:
+      cross-env:
+        specifier: ^10.1.0
+        version: 10.1.0
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.21(@types/node@25.2.1)
+
+  kaggle_environments/envs/open_spiel_env/games/dots_and_boxes/visualizer/default:
     dependencies:
       '@kaggle-environments/core':
         specifier: workspace:*
@@ -471,6 +646,120 @@ importers:
         specifier: ^5.0.0
         version: 5.4.21(@types/node@25.2.1)
 
+  kaggle_environments/envs/open_spiel_env/games/havannah/visualizer/default:
+    dependencies:
+      '@kaggle-environments/core':
+        specifier: workspace:*
+        version: link:../../../../../../../web/core
+    devDependencies:
+      cross-env:
+        specifier: ^10.1.0
+        version: 10.1.0
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.21(@types/node@25.2.1)
+
+  kaggle_environments/envs/open_spiel_env/games/lines_of_action/visualizer/default:
+    dependencies:
+      '@kaggle-environments/core':
+        specifier: workspace:*
+        version: link:../../../../../../../web/core
+    devDependencies:
+      cross-env:
+        specifier: ^10.1.0
+        version: 10.1.0
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.21(@types/node@25.2.1)
+
+  kaggle_environments/envs/open_spiel_env/games/mancala/visualizer/default:
+    dependencies:
+      '@kaggle-environments/core':
+        specifier: workspace:*
+        version: link:../../../../../../../web/core
+      motion:
+        specifier: ^12.38.0
+        version: 12.38.0(@emotion/is-prop-valid@1.4.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.2.0
+        version: 18.3.1(react@18.3.1)
+    devDependencies:
+      '@types/react':
+        specifier: ^18.2.0
+        version: 18.3.28
+      '@types/react-dom':
+        specifier: ^18.2.0
+        version: 18.3.7(@types/react@18.3.28)
+      '@vitejs/plugin-react':
+        specifier: ^5.1.2
+        version: 5.2.0(vite@5.4.21(@types/node@25.2.1))
+      cross-env:
+        specifier: ^10.1.0
+        version: 10.1.0
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.21(@types/node@25.2.1)
+
+  kaggle_environments/envs/open_spiel_env/games/negotiation/visualizer/default:
+    dependencies:
+      '@kaggle-environments/core':
+        specifier: workspace:*
+        version: link:../../../../../../../web/core
+    devDependencies:
+      cross-env:
+        specifier: ^10.1.0
+        version: 10.1.0
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.21(@types/node@25.2.1)
+
+  kaggle_environments/envs/open_spiel_env/games/oshi_zumo/visualizer/default:
+    dependencies:
+      '@kaggle-environments/core':
+        specifier: workspace:*
+        version: link:../../../../../../../web/core
+    devDependencies:
+      cross-env:
+        specifier: ^10.1.0
+        version: 10.1.0
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.21(@types/node@25.2.1)
+
+  kaggle_environments/envs/open_spiel_env/games/python_ant_foraging/visualizer/default:
+    dependencies:
+      '@kaggle-environments/core':
+        specifier: workspace:*
+        version: link:../../../../../../../web/core
+    devDependencies:
+      cross-env:
+        specifier: ^10.1.0
+        version: 10.1.0
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.21(@types/node@25.2.1)
+
   kaggle_environments/envs/open_spiel_env/games/repeated_game/visualizer/ipd:
     dependencies:
       '@kaggle-environments/core':
@@ -498,6 +787,22 @@ importers:
       json-formatter-js:
         specifier: ^2.5.23
         version: 2.5.23
+    devDependencies:
+      cross-env:
+        specifier: ^10.1.0
+        version: 10.1.0
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.21(@types/node@25.2.1)
+
+  kaggle_environments/envs/open_spiel_env/games/snake/visualizer/default:
+    dependencies:
+      '@kaggle-environments/core':
+        specifier: workspace:*
+        version: link:../../../../../../../web/core
     devDependencies:
       cross-env:
         specifier: ^10.1.0
@@ -3857,6 +4162,16 @@ packages:
       vite: '*'
     peerDependenciesMeta:
       vite:
+        optional: true
+
+  vite-plugin-singlefile@2.3.3:
+    resolution: {integrity: sha512-XVnGH0QzbOa8fxRSsHdCarVN1BSBXNi7uLMQYlrGRN5apdHkk62XQWRJhVever0lnfuyBkwn+kvVChdm/OoOUg==}
+    engines: {node: '>18.0.0'}
+    peerDependencies:
+      rollup: ^4.59.0
+      vite: ^5.4.21 || ^6.0.0 || ^7.0.0 || ^8.0.0
+    peerDependenciesMeta:
+      rollup:
         optional: true
 
   vite-plugin-static-copy@3.2.0:
@@ -7635,6 +7950,11 @@ snapshots:
       - '@types/node'
       - rollup
       - supports-color
+
+  vite-plugin-singlefile@2.3.3(vite@5.4.21(@types/node@25.2.1)):
+    dependencies:
+      micromatch: 4.0.8
+      vite: 5.4.21(@types/node@25.2.1)
 
   vite-plugin-static-copy@3.2.0(vite@5.4.21(@types/node@25.2.1)):
     dependencies:

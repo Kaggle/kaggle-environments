@@ -1,0 +1,16 @@
+"""Run a full Chess game with LLM agents for local integration testing.
+
+Usage:
+    GEMINI_API_KEY=... uv run python -m \\
+        kaggle_environments.envs.open_spiel_env.games.chess.test_llm_game
+"""
+
+from kaggle_environments.local_harness_runner import run_llm_game
+
+if __name__ == "__main__":
+    # Cap episode length so a stuck game doesn't run forever.
+    run_llm_game(
+        "open_spiel_chess",
+        caller_file=__file__,
+        configuration={"episodeSteps": 200},
+    )
