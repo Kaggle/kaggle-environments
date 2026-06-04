@@ -1,4 +1,5 @@
 import type { RendererOptions } from '@kaggle-environments/core';
+import { getStructureSprite, getTerrainSprite, getUnitSprite, isReady, onSpritesLoad } from './sprites';
 
 interface Unit {
   type: string;
@@ -73,6 +74,12 @@ const STRUCT_NAMES: Record<string, string> = {
   b: '■',
   t: '▲',
 };
+
+// Latest renderer options, used to re-render once async sprite loads finish.
+let lastOptions: RendererOptions | null = null;
+onSpritesLoad(() => {
+  if (lastOptions) renderer(lastOptions);
+});
 
 function getObservation(step: RTStep | undefined): RTObservation | null {
   if (!step || !step[0]) return null;
@@ -179,6 +186,7 @@ function buildHighlights(prevObs: RTObservation | null, curObs: RTObservation, a
 }
 
 export function renderer(options: RendererOptions) {
+  lastOptions = options;
   const { step, replay, parent } = options;
   const steps = (replay.steps as unknown as RTStep[]) || [];
   const curStep = steps[step];
@@ -262,15 +270,22 @@ export function renderer(options: RendererOptions) {
   const structByPos = new Map<string, Structure>();
   for (const s of curObs.structures) structByPos.set(`${s.x},${s.y}`, s);
 
-  // Draw terrain
+  // Draw terrain — sprite per tile, with the solid color as a fallback
+  // while images are still loading.
+  c.imageSmoothingEnabled = true;
+  c.imageSmoothingQuality = 'medium';
   for (let y = 0; y < mapH; y++) {
     for (let x = 0; x < mapW; x++) {
       const tile = curObs.board[y]?.[x] ?? 'o';
-      const base = TERRAIN_COLORS[tile] ?? '#cccccc';
       const px = xOff + x * cell;
       const py = yOff + y * cell;
-      c.fillStyle = base;
-      c.fillRect(px, py, cell, cell);
+      const terrain = getTerrainSprite(tile);
+      if (isReady(terrain)) {
+        c.drawImage(terrain!, px, py, cell, cell);
+      } else {
+        c.fillStyle = TERRAIN_COLORS[tile] ?? '#cccccc';
+        c.fillRect(px, py, cell, cell);
+      }
 
       // Ownership tint for capturable structures
       const struct = structByPos.get(`${x},${y}`);
@@ -301,18 +316,24 @@ export function renderer(options: RendererOptions) {
   c.stroke();
   c.globalAlpha = 1;
 
-  // Structure labels (HQ flag, tower marker, etc.)
+  // Structure sprites (HQ, building, tower). Falls back to a glyph if the
+  // PNG hasn't finished loading yet.
+  const structSize = cell * 0.78;
   c.font = `${Math.max(8, Math.floor(cell * 0.36))}px 'Inter', sans-serif`;
   c.textAlign = 'center';
   c.textBaseline = 'middle';
   for (const s of curObs.structures) {
-    const px = xOff + s.x * cell + cell / 2;
-    const py = yOff + s.y * cell + cell / 2;
-    const label = STRUCT_NAMES[s.type] ?? '';
-    if (label) {
-      const owner = s.owner;
-      c.fillStyle = owner ? PLAYER_COLORS[owner] : '#555';
-      c.fillText(label, px, py);
+    const cx = xOff + s.x * cell + cell / 2;
+    const cy = yOff + s.y * cell + cell / 2;
+    const sprite = getStructureSprite(s.type);
+    if (isReady(sprite)) {
+      c.drawImage(sprite!, cx - structSize / 2, cy - structSize / 2, structSize, structSize);
+    } else {
+      const label = STRUCT_NAMES[s.type] ?? '';
+      if (label) {
+        c.fillStyle = s.owner ? PLAYER_COLORS[s.owner] : '#555';
+        c.fillText(label, cx, cy);
+      }
     }
   }
 
@@ -371,15 +392,17 @@ export function renderer(options: RendererOptions) {
     c.strokeRect(px + 1, py + 1, cell - 2, cell - 2);
   }
 
-  // Units
+  // Units — player-colored disc as ownership indicator, then sprite on top.
+  // Falls back to the letter glyph while sprites are still loading.
   const unitRadius = cell * 0.4;
+  const spriteSize = cell * 0.78;
   const unitFont = Math.max(9, Math.floor(cell * 0.55));
   for (const u of curObs.units) {
     const px = xOff + u.x * cell + cell / 2;
     const py = yOff + u.y * cell + cell / 2;
     const color = PLAYER_COLORS[u.owner] ?? '#666';
 
-    // body
+    // Ownership disc
     c.fillStyle = color;
     c.beginPath();
     c.arc(px, py, unitRadius, 0, Math.PI * 2);
@@ -388,12 +411,17 @@ export function renderer(options: RendererOptions) {
     c.strokeStyle = '#050001';
     c.stroke();
 
-    // letter
-    c.fillStyle = '#ffffff';
-    c.font = `700 ${unitFont}px 'Inter', sans-serif`;
-    c.textAlign = 'center';
-    c.textBaseline = 'middle';
-    c.fillText(u.type, px, py + 1);
+    const sprite = getUnitSprite(u.type);
+    if (isReady(sprite)) {
+      c.drawImage(sprite!, px - spriteSize / 2, py - spriteSize / 2, spriteSize, spriteSize);
+    } else {
+      // Letter fallback
+      c.fillStyle = '#ffffff';
+      c.font = `700 ${unitFont}px 'Inter', sans-serif`;
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.fillText(u.type, px, py + 1);
+    }
 
     // HP bar
     const hpFrac = Math.max(0, Math.min(1, u.hp / Math.max(1, u.maxHp)));
