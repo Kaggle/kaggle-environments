@@ -654,39 +654,58 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
     const blueWon = blueReward > yellowReward;
     const yellowWon = yellowReward > blueReward;
 
-    if (trapRevealed) {
-      if (blueWon) {
-        winnerText = (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.2' }}>
-            <span style={{ color: '#20BEFF' }}>🔷 BLUE WINS! 🔷</span>
-            <span style={{ fontSize: '14px', color: '#aaaaaa', marginTop: '4px', fontWeight: 'normal' }}>
-              (Yellow picked the Trap)
-            </span>
-          </div>
-        );
-      } else if (yellowWon) {
-        winnerText = (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.2' }}>
-            <span style={{ color: '#E5CF4A' }}>⬜ YELLOW WINS! ⬜</span>
-            <span style={{ fontSize: '14px', color: '#aaaaaa', marginTop: '4px', fontWeight: 'normal' }}>
-              (Blue picked the Trap)
-            </span>
-          </div>
-        );
-      } else {
-        winnerText = 'TIE GAME';
-      }
+    const gamesPerEpisode = (replay.configuration as any)?.games_per_episode || 1;
+
+    if (gamesPerEpisode > 1) {
+      winnerText = (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.2' }}>
+          {blueWon ? (
+            <span style={{ color: '#20BEFF' }}>🔷 BLUE WINS THE MATCH! 🔷</span>
+          ) : yellowWon ? (
+            <span style={{ color: '#E5CF4A' }}>⬜ YELLOW WINS THE MATCH! ⬜</span>
+          ) : (
+            <span>TIE MATCH</span>
+          )}
+          <span style={{ fontSize: '14px', color: '#aaaaaa', marginTop: '4px', fontWeight: 'normal' }}>
+            Final Match Score: {renderState.blue_wins || 0} - {renderState.yellow_wins || 0}
+          </span>
+        </div>
+      );
     } else {
-      if (blueWon) {
-        winnerText = <span style={{ color: '#20BEFF' }}>🔷 BLUE WINS! 🔷</span>;
-      } else if (yellowWon) {
-        winnerText = <span style={{ color: '#E5CF4A' }}>⬜ YELLOW WINS! ⬜</span>;
-      } else if (blueRemaining === 0) {
-        winnerText = <span style={{ color: '#20BEFF' }}>🔷 BLUE WINS! 🔷</span>;
-      } else if (yellowRemaining === 0) {
-        winnerText = <span style={{ color: '#E5CF4A' }}>⬜ YELLOW WINS! ⬜</span>;
+      if (trapRevealed) {
+        if (blueWon) {
+          winnerText = (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.2' }}>
+              <span style={{ color: '#20BEFF' }}>🔷 BLUE WINS! 🔷</span>
+              <span style={{ fontSize: '14px', color: '#aaaaaa', marginTop: '4px', fontWeight: 'normal' }}>
+                (Yellow picked the Trap)
+              </span>
+            </div>
+          );
+        } else if (yellowWon) {
+          winnerText = (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.2' }}>
+              <span style={{ color: '#E5CF4A' }}>⬜ YELLOW WINS! ⬜</span>
+              <span style={{ fontSize: '14px', color: '#aaaaaa', marginTop: '4px', fontWeight: 'normal' }}>
+                (Blue picked the Trap)
+              </span>
+            </div>
+          );
+        } else {
+          winnerText = 'TIE GAME';
+        }
       } else {
-        winnerText = 'TIE GAME';
+        if (blueWon) {
+          winnerText = <span style={{ color: '#20BEFF' }}>🔷 BLUE WINS! 🔷</span>;
+        } else if (yellowWon) {
+          winnerText = <span style={{ color: '#E5CF4A' }}>⬜ YELLOW WINS! ⬜</span>;
+        } else if (blueRemaining === 0) {
+          winnerText = <span style={{ color: '#20BEFF' }}>🔷 BLUE WINS! 🔷</span>;
+        } else if (yellowRemaining === 0) {
+          winnerText = <span style={{ color: '#E5CF4A' }}>⬜ YELLOW WINS! ⬜</span>;
+        } else {
+          winnerText = 'TIE GAME';
+        }
       }
     }
   }
