@@ -274,7 +274,8 @@ def generate_prompt(
         last_move = "(none yet)"
         last_move_label = "Previous move"
 
-    move_history_str = ", ".join(move_history) if move_history else "None"
+    normalized_history = [_normalize_legal(m) or m for m in move_history]
+    move_history_str = ", ".join(normalized_history) if normalized_history else "None"
 
     prompt = DOTS_AND_BOXES_PROMPT_TEMPLATE.format(
         num_rows=num_rows,
