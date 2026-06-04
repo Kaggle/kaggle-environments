@@ -9,6 +9,7 @@ import { trackEvent } from '../utils/analytics';
 type Notation = { term: string; title: string; text: string };
 
 const LONG_THINKING_MINUTES = 5;
+const LAST_SENTENCE_MAX_LENGTH = 70;
 
 // const THOUGHT_ANNOTATIONS: { term: string; label: string | null; description: string }[] = [
 //   { term: 'rethink', label: null, description: 'rethinks their decision.' },
@@ -98,6 +99,8 @@ function resolveAnnotation(
 
   const lastParagraph = paragraphs.pop();
 
+  // console.log('last paragraph',lastParagraph)
+
   const sentences = lastParagraph?.replaceAll('**', '')?.split(/\n|(?<!etc)[.!?:]\s/);
 
   const lastSentence = sentences
@@ -109,10 +112,10 @@ function resolveAnnotation(
     ?.concat('.')
     ?.replaceAll('..', '.');
 
-  // console.log(thoughts);
-  // console.log(lastSentence);
+  // console.log('sentences',sentences);
+  // console.log('last sentence',lastSentence);
 
-  if (lastSentence) {
+  if (lastSentence && lastSentence.length <= LAST_SENTENCE_MAX_LENGTH) {
     return { term: '', title: `${agent}:`, text: `"${lastSentence}"` };
   }
 
