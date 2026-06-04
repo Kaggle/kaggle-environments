@@ -134,6 +134,25 @@ def test_can_run_simple_bot_agents(make_env):
     assert final[1].status == "DONE"
 
 
+@pytest.mark.parametrize("agent_filename", ["random_agent.py", "simple_bot_agent.py"])
+def test_builtin_agent_files_loadable_as_submission(make_env, agent_filename):
+    """Regression: Kaggle loads submitted agent files via get_last_callable,
+    which picks the LAST callable defined in the module. If helper functions
+    are defined after ``agent``, the wrong callable is selected and the
+    submission fails with a TypeError at runtime. Load each shipped agent
+    file the same way Kaggle does and ensure it can actually play a turn."""
+    agents_dir = Path(rt_module.__file__).parent / "agents"
+    agent_path = agents_dir / agent_filename
+    assert agent_path.exists(), f"missing agent file: {agent_path}"
+
+    env = make_env(configuration={"mapSeed": 42, "episodeSteps": 10})
+    # Passing the path string mirrors how a Kaggle submission file is loaded.
+    result = env.run([str(agent_path), "random"])
+    final = result[-1]
+    assert final[0].status == "DONE", f"agent file {agent_filename} errored: {final[0].status}"
+    assert final[1].status == "DONE"
+
+
 def test_draw_on_max_steps(make_env):
     env = make_env(configuration={"mapSeed": 42, "episodeSteps": 5})
     result = env.run(["random", "random"])
