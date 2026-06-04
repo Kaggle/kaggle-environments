@@ -1030,6 +1030,7 @@ GAMES_LIST = [
     "havannah(board_size=8)",
     "hearts",
     "hex",
+    "hive",
     "lines_of_action",
     "mancala",
     "matching_pennies_3p",
