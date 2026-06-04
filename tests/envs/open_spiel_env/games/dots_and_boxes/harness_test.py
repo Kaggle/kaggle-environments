@@ -171,6 +171,13 @@ class GeneratePromptTest(absltest.TestCase):
         prompt = generate_prompt(obs, ["h 0 0", "v 0 0"])
         self.assertIn("h 0 0, v 0 0", prompt)
 
+    def test_move_history_normalized_from_openspiel_format(self):
+        obs = _make_observation(self.state, self.game, player_id=0)
+        prompt = generate_prompt(obs, ["P1(h,0,0)", "P2(v,1,2)"])
+        self.assertIn("h 0 0, v 1 2", prompt)
+        self.assertNotIn("P1(h,0,0)", prompt)
+        self.assertNotIn("P2(v,1,2)", prompt)
+
     def test_move_history_none_when_empty(self):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [])
