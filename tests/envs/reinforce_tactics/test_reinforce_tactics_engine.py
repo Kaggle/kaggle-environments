@@ -1,7 +1,7 @@
 """
 Engine-direct regression tests for the vendored Kaggle engine.
 
-These tests exercise reinforcetactics.kaggle.reinforce_tactics_engine without
+These tests exercise kaggle_environments.envs.reinforce_tactics.reinforce_tactics_engine without
 going through the kaggle-environments interpreter. They cover bugs that are
 not reachable from the interpreter's hot path (legal-action enumeration,
 direct save/load round-trips, fog-of-war memory clearing) so we don't
