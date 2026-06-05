@@ -74,6 +74,13 @@ const STRUCT_NAMES: Record<string, string> = {
   t: '▲',
 };
 
+function escapeHtml(s: string): string {
+  return s.replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string
+  );
+}
+
 function getObservation(step: RTStep | undefined): RTObservation | null {
   if (!step || !step[0]) return null;
   const obs = step[0].observation as RTObservation | undefined;
@@ -179,7 +186,7 @@ function buildHighlights(prevObs: RTObservation | null, curObs: RTObservation, a
 }
 
 export function renderer(options: RendererOptions) {
-  const { step, replay, parent } = options;
+  const { step, replay, parent, agents } = options;
   const steps = (replay.steps as unknown as RTStep[]) || [];
   const curStep = steps[step];
   const prevStep = step > 0 ? steps[step - 1] : null;
@@ -218,8 +225,9 @@ export function renderer(options: RendererOptions) {
     const card = document.createElement('div');
     card.className = `player-card sketched-border${activeIdx === i && !finalStep ? ' active' : ''}`;
     const nameColor = PLAYER_COLORS[i + 1];
+    const displayName = agents?.[i]?.name || `Player ${i + 1}`;
     card.innerHTML = `
-      <div class="player-name" style="color: ${nameColor};">Player ${i + 1}</div>
+      <div class="player-name" style="color: ${nameColor};">${escapeHtml(displayName)}</div>
       <div class="player-stats">
         <span>${gold[i]}g</span>
         <span>${unitCounts[i]} units</span>

@@ -1,5 +1,6 @@
 import { createReplayVisualizer, ReplayAdapter } from '@kaggle-environments/core';
 import { renderer } from './renderer';
+import { getReinforceTacticsStepRenderTime } from './timing';
 import './style.css';
 
 const app = document.getElementById('app');
@@ -16,6 +17,8 @@ createReplayVisualizer(
   new ReplayAdapter({
     gameName: 'reinforce_tactics',
     renderer: renderer as any,
-    ui: 'side-panel',
+    ui: 'inline',
+    getStepRenderTime: (step, replayMode, speedModifier) =>
+      getReinforceTacticsStepRenderTime(step, replayMode, speedModifier),
   })
 );
