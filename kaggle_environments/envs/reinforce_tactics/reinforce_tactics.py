@@ -426,7 +426,11 @@ def _exec_attack(game, action, player):
     target = game.get_unit_at_position(to_x, to_y)
     if attacker is None or target is None:
         return False
-    if attacker.player != player or target.player == player:
+    # ``not attacker.can_attack`` mirrors get_legal_actions (which only offers
+    # attack/seize/abilities while can_attack) and prevents a unit from acting
+    # more than once per turn -- e.g. attacking twice or seizing a structure
+    # to completion in a single turn.
+    if attacker.player != player or target.player == player or not attacker.can_attack:
         return False
     game.attack(attacker, target)
     return True
@@ -437,7 +441,10 @@ def _exec_seize(game, action, player):
     x = int(action.get("x", -1))
     y = int(action.get("y", -1))
     unit = game.get_unit_at_position(x, y)
-    if unit is None or unit.player != player:
+    # ``not unit.can_attack`` keeps a unit to one action per turn: without it a
+    # unit could seize a structure repeatedly in a single turn (each seize deals
+    # its HP as damage), capturing a tower/HQ far faster than intended.
+    if unit is None or unit.player != player or not unit.can_attack:
         return False
     tile = game.grid.get_tile(x, y)
     if tile is None or not tile.is_capturable() or tile.player == player:
@@ -508,7 +515,10 @@ def _get_source_target(game, action, player, required_type):
     target = game.get_unit_at_position(to_x, to_y)
     if source is None or target is None:
         return None, None
-    if source.player != player or source.type != required_type:
+    # ``not source.can_attack``: heal/cure/paralyze/haste/buffs all consume the
+    # unit's action (like attack/seize), so gate them the same way the action
+    # mask does -- one such action per unit per turn.
+    if source.player != player or source.type != required_type or not source.can_attack:
         return None, None
     return source, target
 
