@@ -119,7 +119,7 @@ export function renderer(options: RendererOptions) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
-  ctx.fillStyle = "black";
+  ctx.fillStyle = 'black';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   ctx.strokeStyle = '#ccc';
