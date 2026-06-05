@@ -363,13 +363,13 @@ class TestEngineBehavior:
     """Verify the engine semantics that diverged from the initial adapter."""
 
     def test_mountain_is_walkable(self):
-        from reinforcetactics.kaggle.reinforce_tactics_engine.constants import TileType
+        from kaggle_environments.envs.reinforce_tactics.reinforce_tactics_engine.constants import TileType
 
         assert TileType.MOUNTAIN.is_walkable() is True
 
     def test_mountain_grants_vision_bonus(self):
         """A unit on a mountain should see farther than the same unit on grass."""
-        from reinforcetactics.kaggle.reinforce_tactics_engine.core.visibility import (
+        from kaggle_environments.envs.reinforce_tactics.reinforce_tactics_engine.core.visibility import (
             calculate_vision_radius,
         )
 
@@ -462,7 +462,7 @@ class TestSerialisation:
         game.create_unit("W", 1, 1, player=1)
         game.create_unit("W", 8, 8, player=2)
         # Initialize visibility maps
-        from reinforcetactics.kaggle.reinforce_tactics_engine.core.visibility import VisibilityMap
+        from kaggle_environments.envs.reinforce_tactics.reinforce_tactics_engine.core.visibility import VisibilityMap
 
         game.visibility_maps = {
             1: VisibilityMap(game.grid.width, game.grid.height, 1),
@@ -1159,7 +1159,7 @@ class TestStandaloneAgents:
     """Tests for the standalone agent files."""
 
     def test_random_agent_module(self):
-        from reinforcetactics.kaggle.agents.random_agent import agent
+        from kaggle_environments.envs.reinforce_tactics.agents.random_agent import agent
 
         obs = _make_observation()
         config = _make_config()
@@ -1168,7 +1168,7 @@ class TestStandaloneAgents:
         assert result[-1]["type"] == "end_turn"
 
     def test_simple_bot_agent_module(self):
-        from reinforcetactics.kaggle.agents.simple_bot_agent import agent
+        from kaggle_environments.envs.reinforce_tactics.agents.simple_bot_agent import agent
 
         obs = _make_observation(
             board=[["p" for _ in range(10)] for _ in range(10)],
@@ -1192,7 +1192,7 @@ class TestStandaloneAgents:
 
     def test_simple_bot_attacks(self):
         """Simple bot should attack enemies within range."""
-        from reinforcetactics.kaggle.agents.simple_bot_agent import agent
+        from kaggle_environments.envs.reinforce_tactics.agents.simple_bot_agent import agent
 
         obs = _make_observation(
             board=[["p" for _ in range(10)] for _ in range(10)],
@@ -1241,7 +1241,7 @@ class TestStandaloneAgents:
 
     def test_simple_bot_seizes(self):
         """Simple bot should seize enemy structures it stands on."""
-        from reinforcetactics.kaggle.agents.simple_bot_agent import agent
+        from kaggle_environments.envs.reinforce_tactics.agents.simple_bot_agent import agent
 
         obs = _make_observation(
             board=[["p" for _ in range(10)] for _ in range(10)],
