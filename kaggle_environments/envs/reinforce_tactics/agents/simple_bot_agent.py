@@ -41,53 +41,6 @@ UNIT_MOVEMENT = {
 UNIT_PRIORITY = ["W", "A", "K", "B", "R", "M", "C", "S"]
 
 
-def _find_nearest_enemy(ux, uy, enemy_units):
-    """Find the nearest enemy unit by Manhattan distance."""
-    return min(enemy_units, key=lambda e: abs(ux - e["x"]) + abs(uy - e["y"]))
-
-
-def _get_attack_range(unit_type):
-    """Return (min_range, max_range) for a unit type."""
-    if unit_type in ("M", "S"):
-        return (1, 2)
-    if unit_type == "A":
-        return (2, 3)
-    return (1, 1)
-
-
-def _get_structure_at(structures, x, y):
-    """Find a structure at the given position."""
-    for s in structures:
-        if s["x"] == x and s["y"] == y:
-            return s
-    return None
-
-
-def _step_toward(from_x, from_y, to_x, to_y, board, occupied, map_w, map_h):
-    """
-    Return the best adjacent position that moves toward the target.
-    Uses simple greedy Manhattan distance minimisation.
-    """
-    best_pos = None
-    best_dist = abs(from_x - to_x) + abs(from_y - to_y)
-
-    non_walkable = {"w", "o"}
-
-    for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
-        nx, ny = from_x + dx, from_y + dy
-        if 0 <= nx < map_w and 0 <= ny < map_h:
-            if (nx, ny) not in occupied:
-                tile = board[ny][nx] if ny < len(board) and nx < len(board[ny]) else "o"
-                if tile not in non_walkable:
-                    dist = abs(nx - to_x) + abs(ny - to_y)
-                    if dist < best_dist:
-                        best_dist = dist
-                        best_pos = (nx, ny)
-
-    return best_pos
-
-
-# NOTE: ``agent`` must remain the LAST callable defined; the Kaggle loader picks the last callable in the module.
 def agent(observation, configuration):
     """
     Simple strategic bot that creates units, attacks, and captures.
@@ -212,3 +165,49 @@ def agent(observation, configuration):
 
     actions.append({"type": "end_turn"})
     return actions
+
+
+def _find_nearest_enemy(ux, uy, enemy_units):
+    """Find the nearest enemy unit by Manhattan distance."""
+    return min(enemy_units, key=lambda e: abs(ux - e["x"]) + abs(uy - e["y"]))
+
+
+def _get_attack_range(unit_type):
+    """Return (min_range, max_range) for a unit type."""
+    if unit_type in ("M", "S"):
+        return (1, 2)
+    if unit_type == "A":
+        return (2, 3)
+    return (1, 1)
+
+
+def _get_structure_at(structures, x, y):
+    """Find a structure at the given position."""
+    for s in structures:
+        if s["x"] == x and s["y"] == y:
+            return s
+    return None
+
+
+def _step_toward(from_x, from_y, to_x, to_y, board, occupied, map_w, map_h):
+    """
+    Return the best adjacent position that moves toward the target.
+    Uses simple greedy Manhattan distance minimisation.
+    """
+    best_pos = None
+    best_dist = abs(from_x - to_x) + abs(from_y - to_y)
+
+    non_walkable = {"w", "o"}
+
+    for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
+        nx, ny = from_x + dx, from_y + dy
+        if 0 <= nx < map_w and 0 <= ny < map_h:
+            if (nx, ny) not in occupied:
+                tile = board[ny][nx] if ny < len(board) and nx < len(board[ny]) else "o"
+                if tile not in non_walkable:
+                    dist = abs(nx - to_x) + abs(ny - to_y)
+                    if dist < best_dist:
+                        best_dist = dist
+                        best_pos = (nx, ny)
+
+    return best_pos
