@@ -339,9 +339,10 @@ class TestCLI:
 
     def test_cli_evaluate(self):
         """Test CLI evaluate command."""
+        import sys
         result = subprocess.run(
             [
-                "python",
+                sys.executable,
                 "-m",
                 "kaggle_environments.main",
                 "evaluate",

@@ -1,5 +1,6 @@
 from kaggle_environments import make
 from kaggle_environments.envs.rps.agents import agents, paper, rock
+from kaggle_environments.errors import DeadlineExceeded
 
 
 def negative_move_agent(observation, configuration):
@@ -97,6 +98,58 @@ def test_too_big_move():
     json = env.toJSON()
     assert json["rewards"] == [1, None]
     assert json["statuses"] == ["DONE", "INVALID"]
+
+
+def test_replay_records_invalid_action_error():
+    def out_of_range_agent(observation, configuration):
+        return 3
+
+    env = make("rps", configuration={"episodeSteps": 10, "tieRewardThreshold": 1})
+    env.run([out_of_range_agent, rock])
+    json = env.toJSON()
+    assert json["statuses"] == ["INVALID", "DONE"]
+    assert json["errors"][0]["type"] == "INVALID"
+    # The rps interpreter passes a concrete reason through env.set_error rather
+    # than the generic "marked INVALID" fallback.
+    assert "out of range" in json["errors"][0]["message"]
+    assert json["errors"][1] is None
+
+
+def test_replay_records_exception_error():
+    def raising_agent(observation, configuration):
+        raise ValueError("boom from agent")
+
+    env = make("rps", configuration={"episodeSteps": 10, "tieRewardThreshold": 1})
+    env.run([raising_agent, rock])
+    json = env.toJSON()
+    # The granular errors field captures the underlying ValueError even though
+    # the rps interpreter ultimately marks the agent INVALID for not producing
+    # a valid integer action.
+    err = json["errors"][0]
+    assert err["type"] == "ERROR"
+    assert err["message"] == "ValueError: boom from agent"
+    assert "raising_agent" in err["traceback"]
+    assert "ValueError: boom from agent" in err["traceback"]
+    assert json["errors"][1] is None
+
+
+def test_replay_records_timeout_error():
+    def timeout_agent(observation, configuration):
+        return DeadlineExceeded("took too long")
+
+    env = make("rps", configuration={"episodeSteps": 10, "tieRewardThreshold": 1})
+    env.run([timeout_agent, rock])
+    json = env.toJSON()
+    assert json["errors"][0] == {"type": "TIMEOUT", "message": "took too long"}
+    assert json["errors"][1] is None
+
+
+def test_replay_errors_none_for_clean_episode():
+    env = make("rps", configuration={"episodeSteps": 3, "tieRewardThreshold": 1})
+    env.run([rock, paper])
+    json = env.toJSON()
+    assert json["statuses"] == ["DONE", "DONE"]
+    assert json["errors"] == [None, None]
 
 
 def test_agent_reward():

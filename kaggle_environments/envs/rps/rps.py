@@ -13,26 +13,34 @@ def interpreter(state, env):
     if env.done:
         return state
 
-    def is_valid_action(player, sign_count):
-        return player.action is not None and isinstance(player.action, int) and 0 <= player.action < sign_count
+    def invalid_reason(player, sign_count):
+        action = player.action
+        if action is None:
+            return "Agent did not produce an action."
+        if not isinstance(action, int) or isinstance(action, bool):
+            return f"Action {action!r} is not an integer."
+        if not 0 <= action < sign_count:
+            return f"Action {action} is out of range [0, {sign_count})."
+        return None
 
-    # Check for validity of actions
-    is_player1_valid = is_valid_action(player1, env.configuration.signs)
-    is_player2_valid = is_valid_action(player2, env.configuration.signs)
-    if not is_player2_valid:
+    reason1 = invalid_reason(player1, env.configuration.signs)
+    reason2 = invalid_reason(player2, env.configuration.signs)
+    if reason2 is not None:
         player2.status = "INVALID"
         player2.reward = 0
+        env.set_error(1, reason2)
 
-        if is_player1_valid:
+        if reason1 is None:
             player1.status = "DONE"
             player1.reward = 1
             return state
 
-    if not is_player1_valid:
+    if reason1 is not None:
         player1.status = "INVALID"
         player1.reward = 0
+        env.set_error(0, reason1)
 
-        if is_player2_valid:
+        if reason2 is None:
             player2.status = "DONE"
             player2.reward = 1
             return state
