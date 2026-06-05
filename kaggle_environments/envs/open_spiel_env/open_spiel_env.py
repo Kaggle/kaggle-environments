@@ -1037,6 +1037,7 @@ GAMES_LIST = [
     "negotiation",
     "oshi_zumo",
     "othello",
+    "quoridor",
     "repeated_game(stage_game=matrix_pd(),num_repetitions=100)",
     "tic_tac_toe",
     "ultimate_tic_tac_toe",
