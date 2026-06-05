@@ -218,3 +218,63 @@ class TestResign:
         assert game.winner == 2
         assert all(u.player != 1 for u in game.units)
         assert len(game.units) == 1
+
+
+# ---------------------------------------------------------------------------
+# Seize gating: a unit can only seize once per turn, and freshly-spawned
+# units (can_attack defaults False on creation) cannot seize on the spawn
+# turn. Regression for the turn-1 HQ-instawin bug.
+# ---------------------------------------------------------------------------
+
+
+class TestSeizeGating:
+    def _unit_on_enemy_hq(self):
+        """Place a player-1 warrior on player-2's HQ (9, 9) with a full action."""
+        game = _new_game()
+        enemy_hq = game.grid.get_tile(9, 9)
+        assert enemy_hq.type == "h" and enemy_hq.player == 2
+        unit = game.create_unit("W", 9, 9, player=1)
+        unit.can_move = True
+        unit.can_attack = True
+        return game, unit, enemy_hq
+
+    def test_second_seize_in_same_turn_is_blocked(self):
+        game, unit, hq = self._unit_on_enemy_hq()
+        starting_hp = hq.health
+
+        first = game.seize(unit)
+        assert first["damage"] == unit.health
+        assert hq.health == starting_hp - unit.health
+        assert unit.can_attack is False  # seize consumed the action
+
+        # A second seize in the same turn must be a no-op -- without the
+        # gate the unit could grind HQ HP to zero in a single turn.
+        hp_after_first = hq.health
+        second = game.seize(unit)
+        assert second["captured"] is False
+        assert "damage" not in second  # failure-shape result
+        assert hq.health == hp_after_first
+        assert game.game_over is False
+
+    def test_freshly_spawned_unit_cannot_seize(self):
+        """create_unit leaves can_attack=False, so a spawn-then-seize chain fails."""
+        game = _new_game()
+        hq = game.grid.get_tile(9, 9)
+        starting_hp = hq.health
+        unit = game.create_unit("W", 9, 9, player=1)
+        assert unit.can_attack is False
+
+        result = game.seize(unit)
+        assert result["captured"] is False
+        assert hq.health == starting_hp
+        assert game.game_over is False
+
+    def test_legal_actions_omits_seize_for_exhausted_unit(self):
+        game, unit, _ = self._unit_on_enemy_hq()
+        actions_before = game.get_legal_actions(player=1)
+        assert any(s["unit"] is unit for s in actions_before["seize"])
+
+        game.seize(unit)
+
+        actions_after = game.get_legal_actions(player=1)
+        assert not any(s["unit"] is unit for s in actions_after["seize"])

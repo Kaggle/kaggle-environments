@@ -880,6 +880,13 @@ class GameState:
             tile = self.grid.get_tile(unit.x, unit.y)
             return {"captured": False, "game_over": False, "structure_type": tile.type}
         tile = self.grid.get_tile(unit.x, unit.y)
+        # Seize consumes the unit's turn action, so block repeats and
+        # block units that have already acted (or were just spawned, since
+        # spawn defaults can_attack=False). Without this a unit dropped on
+        # an enemy HQ could issue 5 consecutive seize actions in one turn
+        # and instantly win.
+        if not unit.can_attack:
+            return {"captured": False, "game_over": False, "structure_type": tile.type}
         result = self.mechanics.seize_structure(unit, tile)
 
         # Record action. tile_hp_after / tile_owner_after let the v2
@@ -1211,9 +1218,10 @@ class GameState:
                         for ally in buffable_allies:
                             legal_actions["attack_buff"].append({"sorcerer": unit, "target": ally})
 
-                    tile = self.grid.get_tile(unit.x, unit.y)
-                    if tile.is_capturable() and tile.player != player:
-                        legal_actions["seize"].append({"unit": unit, "tile": tile})
+                    if unit.can_attack:
+                        tile = self.grid.get_tile(unit.x, unit.y)
+                        if tile.is_capturable() and tile.player != player:
+                            legal_actions["seize"].append({"unit": unit, "tile": tile})
 
         if self._legal_actions_cache_valid:
             self._legal_actions_cache[player] = legal_actions
