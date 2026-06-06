@@ -906,6 +906,22 @@ importers:
         specifier: ^2.1.4
         version: 2.1.9(@types/node@25.2.1)(happy-dom@20.8.9)(jsdom@25.0.1)
 
+  kaggle_environments/envs/planet_wars/visualizer/default:
+    dependencies:
+      '@kaggle-environments/core':
+        specifier: workspace:*
+        version: link:../../../../../web/core
+    devDependencies:
+      cross-env:
+        specifier: ^10.1.0
+        version: 10.1.0
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.21(@types/node@25.2.1)
+
   kaggle_environments/envs/reinforce_tactics/visualizer/default:
     dependencies:
       '@kaggle-environments/core':

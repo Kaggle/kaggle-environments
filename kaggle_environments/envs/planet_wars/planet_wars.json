@@ -1,0 +1,65 @@
+{
+  "name": "planet_wars",
+  "title": "Planet Wars",
+  "description": "Bit-exact port of the 2009/2010 Google AI Challenge Planet Wars competition. Two players battle for control of a galaxy of planets by sending fleets of ships across point-symmetric maps.",
+  "version": "1.0.0",
+  "agents": [2],
+  "configuration": {
+    "episodeSteps": {
+      "description": "Maximum number of turns. Game ends and the player with more total ships wins.",
+      "type": "integer",
+      "minimum": 2,
+      "default": 200
+    },
+    "actTimeout": 1,
+    "agentTimeout": {
+      "description": "Obsolete field kept for backwards compatibility, please use observation.remainingOverageTime.",
+      "type": "number",
+      "minimum": 0,
+      "default": 2
+    },
+    "map": {
+      "description": "Either \"random\" (procedurally generate a map from the seed) or a raw map text starting with \"P \" using the original Planet Wars Point-in-Time format.",
+      "type": "string",
+      "default": "random"
+    },
+    "seed": {
+      "description": "Seed for procedural map generation. If null, the interpreter resolves it to a random integer and writes it back into configuration.seed for reproducibility. The seed is intentionally NOT hidden: the map is fully observable in observation.planets from turn 0, so there is nothing to conceal.",
+      "type": ["integer", "null"],
+      "default": null
+    }
+  },
+  "reward": {
+    "description": "Final outcome: 1 for the winner, -1 for the loser, 0 for a draw. Forfeits (invalid actions) get reward null.",
+    "type": "number",
+    "default": 0
+  },
+  "observation": {
+    "planets": {
+      "description": "List of planets: [id, x, y, owner, num_ships, growth_rate]. owner is 0 (neutral), 1, or 2.",
+      "type": "array",
+      "shared": true,
+      "default": []
+    },
+    "fleets": {
+      "description": "List of in-flight fleets: [owner, num_ships, source_planet, dest_planet, total_trip, turns_remaining].",
+      "type": "array",
+      "shared": true,
+      "default": []
+    },
+    "player": {
+      "description": "This agent's owner id in the global state. Agent 0 plays as owner 1, agent 1 plays as owner 2.",
+      "type": "integer",
+      "defaults": [1, 2]
+    },
+    "remainingOverageTime": 60
+  },
+  "action": {
+    "description": "List of fleet orders. Each order is [source_planet_id, dest_planet_id, num_ships]. Empty list is a legal no-op turn.",
+    "type": "array",
+    "default": []
+  },
+  "status": {
+    "defaults": ["ACTIVE", "ACTIVE"]
+  }
+}
