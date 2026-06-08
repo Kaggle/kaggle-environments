@@ -1,3 +1,8 @@
+---
+name: onboard-open-spiel-game
+description: "Onboard a new OpenSpiel game into kaggle-environments, including optional proxy, visualizer, and transformer. Use when the user wants to add a new game from Google's OpenSpiel library, integrate an OpenSpiel game, create a game proxy for structured JSON observations, or register a custom Python game with pyspiel. Also use when the user mentions GAMES_LIST, open_spiel_env.py, proxy.py, *_proxy.py, *_game.py, or asks how to add a board game, card game, or strategy game to Kaggle."
+---
+
 # Onboard a New OpenSpiel Game
 
 The OpenSpiel integration (`kaggle_environments/envs/open_spiel_env/`) provides a unified framework that wraps games from Google's [OpenSpiel library](https://github.com/google-deepmind/open_spiel) into Kaggle environments. A shared interpreter handles all games -- you do NOT write a per-game interpreter. Instead, you configure the game and optionally add a proxy, visualizer, or custom game implementation.
@@ -169,18 +174,10 @@ Also create an empty `games/<name>/__init__.py`.
 
 The parsing approach depends on the game type (grid games, pit/mancala games, coordinate-based board games, imperfect information games, etc.). Browse existing proxies in `kaggle_environments/envs/open_spiel_env/games/` for examples of each pattern.
 
-### How discovery works
-
-The framework auto-imports all `*_proxy.py` files from the `games/` directory via glob at module load time. When `_build_env()` encounters a game whose `short_name` has a matching proxy file at `games/<short_name>/<short_name>_proxy.py`, it loads the proxy version instead.
-
 ### Key proxy base classes (from `proxy.py`)
 
 - `proxy.State` wraps `pyspiel.State` -- all methods delegate to `self.__wrapped__` by default. Override `observation_string()`, `__str__()`, etc. to customize. `__getattr__` falls through to the wrapped state for any method you don't override.
 - `proxy.Game` wraps `pyspiel.Game` -- override `new_initial_state()` to return your custom State class.
-
-### Reference implementations
-
-Browse the existing proxies in `kaggle_environments/envs/open_spiel_env/games/*/` for reference. Look at `*_proxy.py` files for examples covering grid games, coordinate-based boards, pit games, imperfect information games, and more.
 
 ## Step 2 (alternative): Create a custom game
 
@@ -308,9 +305,13 @@ pyspiel.register_game(_GAME_TYPE, <Name>Game)
 
 Also create an empty `games/<name>/__init__.py`.
 
-**How discovery works:** The framework auto-imports all `*_game.py` files from `games/` via glob at module load time. The `pyspiel.register_game()` call makes the game available to `pyspiel.load_game("<name>")`, which `_build_env()` calls when processing `GAMES_LIST`.
+### How discovery works
 
-**Reference:** Browse `kaggle_environments/envs/open_spiel_env/games/*/` for existing `*_game.py` custom game implementations.
+The framework auto-imports all `*_proxy.py` and `*_game.py` files from the `games/` directory via glob at module load time. For proxies, when `_build_env()` encounters a game whose `short_name` has a matching file at `games/<short_name>/<short_name>_proxy.py`, it loads the proxy version instead. For custom games, the `pyspiel.register_game()` call makes the game available to `pyspiel.load_game("<name>")`.
+
+### Reference implementations
+
+Browse `kaggle_environments/envs/open_spiel_env/games/*/` for existing proxies (`*_proxy.py`) and custom games (`*_game.py`).
 
 ## Step 3 (optional): Add support files
 
@@ -334,175 +335,17 @@ Create `games/<name>/preset_hands.jsonl` for deterministic card dealing. Selecte
 
 ## Step 4 (optional): Create a visualizer
 
-Visualizers live at `games/<name>/visualizer/default/` within the pnpm workspace.
+Follow the `create-visualizer` skill for the complete guide. Key OpenSpiel-specific notes:
 
-### Project structure
-
-```
-games/<name>/visualizer/default/
-├── package.json
-├── vite.config.ts
-├── tsconfig.json
-├── index.html
-└── src/
-    ├── main.ts
-    ├── renderer.ts
-    └── style.css (optional)
-```
-
-### Boilerplate files
-
-**`package.json`:**
-```json
-{
-  "name": "@kaggle-environments/<name>-visualizer",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview"
-  },
-  "devDependencies": {
-    "cross-env": "^10.1.0",
-    "typescript": "^5.0.0",
-    "vite": "^5.0.0"
-  },
-  "dependencies": {
-    "@kaggle-environments/core": "workspace:*"
-  }
-}
-```
-
-**`vite.config.ts`:**
-```typescript
-import { defineConfig, mergeConfig } from "vite";
-// Note: path depth is deeper than regular envs due to games/ subdirectory
-import baseConfig from "../../../../../../../web/vite.config.base";
-
-export default mergeConfig(baseConfig, defineConfig({}));
-```
-
-**`tsconfig.json`:**
-```json
-{
-  "extends": "../../../../../../../web/tsconfig.base.json",
-  "compilerOptions": {
-    "allowJs": true
-  },
-  "include": ["src"]
-}
-```
-
-Note the path depth: OpenSpiel visualizers are 2 levels deeper than regular env visualizers (`open_spiel_env/games/<name>/visualizer/default/` vs `<name>/visualizer/default/`), so the relative paths to `web/` use `../../../../../../../` instead of `../../../../../`.
-
-**`index.html`:**
-```html
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title><Name> Visualizer</title>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.ts"></script>
-  </body>
-</html>
-```
-
-### Entry point (`src/main.ts`)
-
-```typescript
-import { createReplayVisualizer, ReplayAdapter } from "@kaggle-environments/core";
-import { renderer } from "./renderer";
-
-const app = document.getElementById("app");
-if (!app) {
-  throw new Error("Could not find app element");
-}
-
-if (import.meta.env?.DEV && import.meta.hot) {
-  import.meta.hot.accept();
-}
-
-createReplayVisualizer(
-  app,
-  new ReplayAdapter({
-    gameName: "open_spiel_<name>",  // must match the registered env name
-    renderer: renderer as any,
-    ui: "side-panel",               // "side-panel" (with reasoning logs) or "inline"
-  })
-);
-```
-
-### Renderer (`src/renderer.ts`)
-
-The renderer receives replay data. For OpenSpiel games, the raw step data comes from the unified interpreter and has this shape per step:
-
-```typescript
-// Each step in replay.steps is an array of player observations:
-// replay.steps[stepIndex][playerIndex].observation.observationString
-// replay.steps[stepIndex][playerIndex].action.submission
-// replay.steps[stepIndex][playerIndex].reward
-// replay.steps[stepIndex][playerIndex].status
-```
-
-If you added a proxy that returns JSON observation strings, parse them in the renderer:
-
-```typescript
-import type { RendererOptions } from "@kaggle-environments/core";
-
-export function renderer(options: RendererOptions) {
-  const { replay, parent, step } = options;
-  const currentStep = replay.steps[step];
-
-  // Parse JSON observation from proxy
-  const obs = JSON.parse(currentStep[0].observation.observationString);
-  const board = obs.board;
-
-  // Create/update DOM in parent...
-}
-```
-
-### Optional: Add a transformer
-
-If your game needs data preprocessing (e.g., parsing observation strings into structured step objects), add a transformer in `web/core/src/transformers/`.
-
-1. Create `web/core/src/transformers/<name>/`:
-   - `<name>ReplayTypes.ts` -- TypeScript types for raw and transformed steps
-   - `<name>Transformer.ts` -- transform function and step label/description helpers
-
-2. Register it in `web/core/src/transformers.ts`:
-   ```typescript
-   import { myGameTransformer, getMyGameStepLabel, getMyGameStepDescription } from './transformers/<name>/<name>Transformer';
-   import { MyGameStep } from './transformers/<name>/<name>ReplayTypes';
-
-   // In processEpisodeData switch:
-   case 'open_spiel_<name>':
-     transformedSteps = myGameTransformer(environment);
-     break;
-
-   // In getGameStepLabel switch:
-   case 'open_spiel_<name>':
-     return getMyGameStepLabel(gameStep as MyGameStep);
-
-   // In getGameStepDescription switch:
-   case 'open_spiel_<name>':
-     return getMyGameStepDescription(gameStep as MyGameStep);
-   ```
-
-3. Then use the transformed data in your renderer instead of parsing raw observations.
-
-**Reference transformers:** Browse `web/core/src/transformers/` for existing transformer implementations.
-
-A transformer is not required -- simpler games can parse observation strings directly in the renderer.
+- Visualizer directory: `games/<name>/visualizer/default/`
+- Use `gameName: "open_spiel_<name>"` in the `ReplayAdapter`
+- Relative paths to `web/` configs are 7 levels deep (`../../../../../../../`) -- 2 deeper than regular envs
+- If the game has a proxy, parse JSON observations in the renderer via `JSON.parse(currentStep[0].observation.observationString)`
+- Optionally add a transformer in `web/core/src/transformers/` for data preprocessing (not required -- simpler games can parse observations directly in the renderer)
 
 ## Step 5: Add tests
 
-Add test cases to `tests/envs/open_spiel_env/test_open_spiel_env.py`. The tests use `absltest` (not pytest directly). Follow the existing patterns:
+Create a per-game test file at `tests/envs/open_spiel_env/games/<name>/<name>_env_test.py` (or add to `tests/envs/open_spiel_env/test_open_spiel_env.py` for shared framework tests). The tests use `absltest` (not pytest directly). Follow the existing patterns:
 
 ```python
 def test_<name>_agent_playthrough(self):
@@ -545,8 +388,8 @@ def test_<name>_invalid_action(self):
 ## Step 6: Verify
 
 ```bash
-# Run the OpenSpiel tests
-uv sync && uv run pytest tests/envs/open_spiel_env/test_open_spiel_env.py -v -k "<name>"
+# Run the per-game tests
+uv sync && uv run pytest tests/envs/open_spiel_env/games/<name>/ -v
 
 # Quick smoke test
 uv run python -c "
@@ -575,7 +418,7 @@ uv run ruff check --fix . && uv run ruff format .
 - [ ] `make("open_spiel_<name>")` loads without error
 - [ ] Random agent playthrough completes with `"DONE"` statuses
 - [ ] Invalid action handling works correctly
-- [ ] Tests added to `test_open_spiel_env.py`
+- [ ] Tests added to `tests/envs/open_spiel_env/games/<name>/`
 - [ ] If visualizer: correct relative paths to `web/` configs (7 levels deep)
 - [ ] If transformer: registered in `web/core/src/transformers.ts` switch statements
 - [ ] Linting passes
@@ -587,6 +430,7 @@ uv run ruff check --fix . && uv run ruff format .
 - `kaggle_environments/envs/open_spiel_env/games/*/` -- existing game proxies (`*_proxy.py`), custom games (`*_game.py`), and visualizers (`visualizer/default/`)
 - `web/core/src/transformers.ts` -- transformer registry
 - `web/core/src/transformers/*/` -- existing transformer implementations
-- `tests/envs/open_spiel_env/test_open_spiel_env.py` -- all existing tests
+- `tests/envs/open_spiel_env/games/*/` -- per-game tests (proxy tests, harness tests, game tests)
+- `tests/envs/open_spiel_env/test_open_spiel_env.py` -- shared framework tests
 - `../open_spiel/open_spiel/games/<name>/` -- OpenSpiel C++ source (header files have struct definitions that define the JSON schema)
 - [OpenSpiel documentation](https://github.com/google-deepmind/open_spiel) -- game types, API reference
