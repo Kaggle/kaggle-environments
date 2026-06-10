@@ -1,5 +1,6 @@
 import { GameAdapter } from '../adapter';
 import { BaseGameStep, ReplayData } from '../types';
+import { applyAgentNamesToReplay } from '../utils/utils';
 import './style.css';
 
 /**
@@ -169,8 +170,12 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
   };
 
   private setData(replay: ReplayData<TSteps>, agents: any[] = []) {
+    // Override info.TeamNames with host-supplied agents[].name before transforming so
+    // any downstream consumer that reads info.TeamNames picks up the canonical label.
+    const reconciled = applyAgentNamesToReplay(replay, agents);
+
     // Apply the transformer if one is provided
-    const transformedReplay = this.transformer ? this.transformer(replay) : replay;
+    const transformedReplay = this.transformer ? this.transformer(reconciled) : reconciled;
 
     this.replay = transformedReplay as ReplayData<TSteps>;
     this.agents = agents;
