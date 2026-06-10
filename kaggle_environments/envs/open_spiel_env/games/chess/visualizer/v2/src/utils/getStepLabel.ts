@@ -1,6 +1,12 @@
 import { BaseGameStep } from '@kaggle-environments/core';
 import { ChessStep } from '../transformers/chessReplayTypes';
 
+const FORFEIT_REASONS: Record<string, string> = {
+  TIMEOUT: 'ran out of time',
+  INVALID: 'submitted an illegal move',
+  ERROR: 'failed to produce valid input',
+};
+
 export function getStepLabel(step: BaseGameStep) {
   const player = step.players.find((p) => p.isTurn);
 
@@ -20,7 +26,15 @@ export function getStepLabel(step: BaseGameStep) {
   // Game Over
   const winner = (step as ChessStep).winner;
   if (winner) {
-    return `${winner === 'black' ? blackName : whiteName} wins`;
+    const winnerName = winner === 'black' ? blackName : whiteName;
+    const loserName = winner === 'black' ? whiteName : blackName;
+    const baseLabel = `${winnerName} wins`;
+    const status = (step as ChessStep).status;
+    const reason = status ? FORFEIT_REASONS[status] : undefined;
+    if (reason) {
+      return `${baseLabel}\n${loserName} ${reason}. ${winnerName} wins by default.`;
+    }
+    return baseLabel;
   }
 
   if ((step as ChessStep).isTerminal) {
