@@ -94,7 +94,10 @@ describe('applyAgentNamesToReplay', () => {
 
   it('respects agent.index for sparse / out-of-order agents', () => {
     const replay = makeReplay({ info: { TeamNames: ['x', 'y', 'z'] } });
-    const result = applyAgentNamesToReplay(replay, [{ name: 'Z', index: 2 }, { name: 'X', index: 0 }]);
+    const result = applyAgentNamesToReplay(replay, [
+      { name: 'Z', index: 2 },
+      { name: 'X', index: 0 },
+    ]);
     expect(result.info?.TeamNames).toEqual(['X', 'y', 'Z']);
   });
 
