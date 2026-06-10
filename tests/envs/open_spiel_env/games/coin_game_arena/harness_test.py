@@ -229,21 +229,32 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("You suggested", prompt)  # ILLEGAL leads with action
         self.assertIn("diagonal", prompt)
 
-    def test_per_board_moves_remaining(self):
-        # Per-board countdown is computed from the team's own move
-        # history length, NOT the engine's global moves_remaining (which
-        # counts both boards in the same units as episode_length=per-board
-        # and would mislead the model into thinking it has twice the
-        # runway it does).
+    def test_per_seat_move_horizon(self):
+        # The model is a single seat, so the prompt must surface its
+        # personal move horizon -- not the per-board total, which the
+        # two seats split. Misframing as per-board invites a 2x
+        # planning-horizon error ("I have 20 moves" when really 10).
         s = _state(seed=7, episode_length=20)
-        # 2 of player 0's team's seats move on this board (1 per global
-        # tick alternating teams: actions 0 and 2 land on team A's board).
-        s.apply_action(3)  # player 0
-        s.apply_action(2)  # player 2
-        s.apply_action(1)  # player 1
-        s.apply_action(0)  # player 3
+        # Drive one full round: each seat on each board moves once.
+        s.apply_action(3)  # player 0 (team A seat 0)
+        s.apply_action(2)  # player 2 (team B seat 0)
+        s.apply_action(1)  # player 1 (team A seat 1)
+        s.apply_action(0)  # player 3 (team B seat 1)
+        # Now player 0 is up again -- their second personal move; their
+        # teammate has 9 personal moves remaining.
         prompt = generate_prompt(_make_observation(s, 0), [])
-        self.assertIn("18 of 20 moves remain", prompt)
+        flat = " ".join(prompt.split())
+        self.assertIn("your move 2 of 10", flat)
+        self.assertIn("teammate has 9 moves remaining", flat)
+        self.assertIn("20 moves total", flat)
+
+    def test_first_move_shows_full_personal_horizon(self):
+        # Sanity: at the very start, the first mover sees "move 1 of 10".
+        s = _state(seed=7, episode_length=20)
+        prompt = generate_prompt(_make_observation(s, 0), [])
+        flat = " ".join(prompt.split())
+        self.assertIn("your move 1 of 10", flat)
+        self.assertIn("teammate has 10 moves remaining", flat)
 
     def test_no_op_rule_in_prompt(self):
         prompt = generate_prompt(_make_observation(_state(seed=7), 0), [])

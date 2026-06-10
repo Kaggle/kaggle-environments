@@ -13,6 +13,7 @@ export function renderer(options: RendererOptions<ChessStep[]>) {
   let currentBoardElement: HTMLElement | null = null;
   let currentStatusTextElement: HTMLParagraphElement | null = null;
   let currentWinnerTextElement: HTMLElement | null = null;
+  let currentForfeitReasonElement: HTMLElement | null = null;
   let currentRendererContainer: HTMLElement | null = null;
   let currentBoardContainer: HTMLElement | null = null;
   let currentTitleElement: HTMLElement | null = null;
@@ -189,8 +190,26 @@ export function renderer(options: RendererOptions<ChessStep[]>) {
       fontSize: isMobile ? '0.9rem' : '1.1rem',
       fontWeight: '700',
       margin: '5px 0 0 0',
+      overflowWrap: 'break-word',
+      wordBreak: 'break-word',
     });
     statusContainer.appendChild(currentWinnerTextElement);
+
+    // Forfeit reason lives in its own sibling div so it can render as a
+    // block (a div inside a <p> would auto-close the <p> in browsers, and
+    // it lets us style/wrap it independently of the winner heading).
+    currentForfeitReasonElement = document.createElement('div');
+    Object.assign(currentForfeitReasonElement.style, {
+      fontSize: isMobile ? '0.75rem' : '0.85rem',
+      fontWeight: '400',
+      fontStyle: 'italic',
+      color: '#666',
+      marginTop: '4px',
+      lineHeight: '1.3',
+      overflowWrap: 'break-word',
+      wordBreak: 'break-word',
+    });
+    statusContainer.appendChild(currentForfeitReasonElement);
 
     return true;
   }
@@ -213,8 +232,8 @@ export function renderer(options: RendererOptions<ChessStep[]>) {
     const containerHeight = currentBoardContainer?.clientHeight ?? height;
     let smallestContainerEdge = Math.min(containerWidth, containerHeight);
     // This is greedily trying to take as much space as possible, which can cause some conflict with flex box calculations for other elements
-    // we are going to take 24px off (arbitrary) to give the flex box renderer a bit of space to work with. Without it we will get some clipping.
-    smallestContainerEdge = smallestContainerEdge > 200 ? smallestContainerEdge - 24 : smallestContainerEdge;
+    // We reserve 64px so the status banner below (which grows on the terminal step to show the winner + forfeit reason) always fits without resizing the board.
+    smallestContainerEdge = smallestContainerEdge > 200 ? smallestContainerEdge - 64 : smallestContainerEdge;
     const newSquareSize = Math.floor(smallestContainerEdge / displayCols);
 
     if (newSquareSize !== squareSize) {
@@ -264,18 +283,18 @@ export function renderer(options: RendererOptions<ChessStep[]>) {
     // Render status text
     currentStatusTextElement.innerHTML = '';
     currentWinnerTextElement.innerHTML = '';
+    if (currentForfeitReasonElement) currentForfeitReasonElement.textContent = '';
     if (chessStep.isTerminal) {
-      const escapeHtml = (s: string) =>
-        s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-      const forfeitHtml = chessStep.forfeitReason
-        ? `<div style="font-size: ${isMobile ? '0.75rem' : '0.85rem'}; font-weight: 400; font-style: italic; color: #666; margin-top: 4px; max-width: 600px;">${escapeHtml(chessStep.forfeitReason)}</div>`
-        : '';
       if (isMobile) {
         currentStatusTextElement.innerHTML = `<div style="font-size: 0.9rem; color: #666;">Winner</div>`;
-        currentWinnerTextElement.innerHTML = `<div style="font-size: 1.1rem; font-weight: bold;">${chessStep.winner}</div>${forfeitHtml}`;
+        currentWinnerTextElement.innerHTML = `<div style="font-size: 1.1rem; font-weight: bold;">${chessStep.winner}</div>`;
       } else {
         currentStatusTextElement.textContent = '';
-        currentWinnerTextElement.innerHTML = `<span style="font-weight: bold; color: black;">${chessStep.winner}</span>${forfeitHtml}`;
+        currentWinnerTextElement.innerHTML = `<span style="font-weight: bold; color: black;">${chessStep.winner}</span>`;
+      }
+      if (currentForfeitReasonElement && chessStep.forfeitReason) {
+        // textContent (not innerHTML) — escapes any markup in the reason.
+        currentForfeitReasonElement.textContent = chessStep.forfeitReason;
       }
     } else {
       const currentPlayer = chessStep.players.find((player) => player.isTurn);
