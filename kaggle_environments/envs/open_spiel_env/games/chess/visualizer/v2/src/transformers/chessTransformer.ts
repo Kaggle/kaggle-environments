@@ -93,9 +93,8 @@ export const chessTransformer = (environment: any): ChessStep[] => {
         name: environment.info.TeamNames[index],
         thumbnail: '',
         // A turn requires submission to be a real action id. -1 means the player
-        // didn't act this step (inactive or forfeited); null/undefined shows up
-        // in pre-game init steps where the harness pings agents without
-        // requesting a move — we don't want those rendered as spurious turns.
+        // didn't act this step (inactive or forfeited). null/undefined shows up
+        // in init steps, we don't need those rendered.
         isTurn: typeof submission === 'number' && submission !== -1,
         actionDisplayText: player.action?.actionString ?? '',
         thoughts: player.action?.thoughts ?? '',
