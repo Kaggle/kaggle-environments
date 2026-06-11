@@ -255,14 +255,29 @@ class Environment:
             if isinstance(action, DeadlineExceeded):
                 self.debug_print(f"Timeout: {str(action)}")
                 action_state[index]["status"] = "TIMEOUT"
+                action_state[index]["error"] = {
+                    "type": "TIMEOUT",
+                    "message": str(action),
+                }
             elif isinstance(action, BaseException):
-                self.debug_print(f"Error: {traceback.format_exception(None, action, action.__traceback__)}")
+                tb = "".join(traceback.format_exception(None, action, action.__traceback__))
+                self.debug_print(f"Error: {tb}")
                 action_state[index]["status"] = "ERROR"
+                action_state[index]["error"] = {
+                    "type": "ERROR",
+                    "message": str(action),
+                    "traceback": tb,
+                }
             else:
                 err, data = process_schema(self.__state_schema.properties.action, action)
                 if err:
                     self.debug_print(f"Invalid Action: {str(err)}")
                     action_state[index]["status"] = "INVALID"
+                    action_state[index]["error"] = {
+                        "type": "INVALID",
+                        "message": str(err),
+                        "raw_action": repr(action),
+                    }
                 else:
                     action_state[index]["action"] = data
 
