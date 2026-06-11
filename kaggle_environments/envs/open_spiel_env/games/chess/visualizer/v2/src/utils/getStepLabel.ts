@@ -1,5 +1,5 @@
 import { BaseGameStep } from '@kaggle-environments/core';
-import { ChessStep } from '../transformers/chessReplayTypes';
+import { ChessPlayer, ChessStep } from '../transformers/chessReplayTypes';
 
 const FORFEIT_REASONS: Record<string, string> = {
   TIMEOUT: 'ran out of time',
@@ -8,9 +8,12 @@ const FORFEIT_REASONS: Record<string, string> = {
 };
 
 export function getStepLabel(step: BaseGameStep) {
-  const player = step.players.find((p) => p.isTurn);
+  const player = step.players.find((p) => p.isTurn) as ChessPlayer | undefined;
 
   if (player) {
+    if (player.forfeited) {
+      return player.forfeitLastAttempt ? `Forfeits (attempted ${player.forfeitLastAttempt})` : 'Forfeits';
+    }
     const move = player.actionDisplayText ?? '';
     return `Plays ${move}`;
   }

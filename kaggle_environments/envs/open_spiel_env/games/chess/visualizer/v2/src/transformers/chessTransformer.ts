@@ -68,6 +68,55 @@ function deriveWinner(step: ChessReplayStep[]): string | null {
 }
 
 /**
+ * Render a player's per-attempt LLM calls as markdown. When there's only one
+ * attempt this collapses to just the response (the legacy behavior). When
+ * there are retries each attempt gets a header showing its outcome:
+ *   - intermediate attempts → ❌ Attempt N (illegal — retried)
+ *   - final attempt on a successful turn → ✅ Attempt N (submitted)
+ *   - all attempts on a forfeit → ❌ Attempt N (illegal — forfeited on last)
+ *
+ * Falls back to player.thoughts if call_details aren't available (older
+ * replays from before the harness wrote call_details).
+ */
+export function renderAttemptsMarkdown(player: ChessPlayer): string {
+  const attempts = player.attempts ?? [];
+  const fallback = player.thoughts ?? '';
+
+  if (attempts.length === 0) return fallback;
+
+  if (attempts.length === 1 && !player.forfeited) {
+    // Single legal attempt — keep the original clean rendering.
+    return attempts[0].response || fallback;
+  }
+
+  const total = attempts.length;
+  const lines: string[] = [];
+
+  if (player.forfeited) {
+    const lastMove = player.forfeitLastAttempt ? ` \`${player.forfeitLastAttempt}\`` : '';
+    lines.push(`⚠️ **Forfeited after ${total} attempt${total === 1 ? '' : 's'}.** Last attempt:${lastMove}`);
+    lines.push('');
+  } else {
+    lines.push(`> 🔁 **Took ${total} attempts** to find a legal move.`);
+    lines.push('');
+  }
+
+  attempts.forEach((attempt, i) => {
+    const isLast = i === attempts.length - 1;
+    const ok = isLast && !player.forfeited;
+    const tag = ok
+      ? `✅ **Attempt ${i + 1} of ${total}** (submitted)`
+      : `❌ **Attempt ${i + 1} of ${total}** (illegal — ${isLast ? 'forfeited' : 'retried'})`;
+    lines.push(`### ${tag}`);
+    lines.push('');
+    lines.push(attempt.response || '_(empty response)_');
+    lines.push('');
+  });
+
+  return lines.join('\n').trim();
+}
+
+/**
  * Detect the forfeit status from the terminal replay step, or null if no
  * single player unambiguously forfeited.
  *
@@ -129,17 +178,24 @@ export const chessTransformer = (environment: any): ChessStep[] => {
   for (const step of chessReplay.steps) {
     // Each step contains a tuple of players, one who acted and one who's waiting
     const stepPlayers: ChessPlayer[] = step.map((player, index): ChessPlayer => {
+      const submission = player.action?.submission;
       const attempts: ChessAttempt[] = player.action?.call_details?.map((c) => ({ response: c.response ?? '' })) ?? [];
       // A forfeit step is one where the player submitted -1 *and* the harness
       // wrote a self-reported status (action.status). Inactive turns also
       // have submission === -1 but with null action.status.
-      const forfeited = player.action?.submission === -1 && !!player.action?.status;
+      const forfeited = submission === -1 && !!player.action?.status;
       return {
         id: index,
         name: environment.info.TeamNames[index],
         thumbnail: '',
-        isTurn: player.action?.submission !== -1,
-        actionDisplayText: player.action?.actionString ?? '',
+        // Treat forfeits as the player's "turn" too so the step survives the
+        // setup-step filter below and the slider lands on the moment of forfeit.
+        isTurn: submission !== -1 || forfeited,
+        // Keep actionDisplayText empty for forfeits — actionString here is the
+        // rejected (illegal) move, and GameRenderer/getStepRenderTime feed this
+        // into chess.js. The rejected move is surfaced via forfeitLastAttempt
+        // for label/UI use instead.
+        actionDisplayText: forfeited ? '' : (player.action?.actionString ?? ''),
         thoughts: player.action?.thoughts ?? '',
         reward: player.reward,
         generateReturns: player.action?.generate_returns ?? null,

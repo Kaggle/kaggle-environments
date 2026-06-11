@@ -14,15 +14,24 @@ export interface Game {
   destroy: () => void;
 }
 
-function detectSnap(eng: Engine, step: number, reducedMotion: boolean, isTerminal: boolean, now: number): boolean {
+function detectSnap(
+  eng: Engine,
+  step: number,
+  reducedMotion: boolean,
+  isTerminal: boolean,
+  historyLength: number,
+  now: number
+): boolean {
   const isFirstUpdate = eng.lastUpdateTime === 0;
   const timeSinceLastUpdate = now - eng.lastUpdateTime;
   // Re-runs at the same step (e.g. preference toggles) shouldn't replay the move animation.
   const isAdvancing = step > eng.lastStep;
   const scrubbingForward = !isFirstUpdate && timeSinceLastUpdate < SCRUB_THRESHOLD_MS;
-  // The terminal step doesn't add a new move — board state matches the prior step.
-  // Snapping avoids replaying the last move's animation when the game-over modal opens.
-  return reducedMotion || !isAdvancing || scrubbingForward || isTerminal;
+  // The terminal and forfeit steps don't add a new move — chess.js history is
+  // unchanged from the prior step. Snap to avoid re-animating the last legal
+  // move when the user advances to one of these.
+  const noNewMove = historyLength === eng.lastHistoryLength;
+  return reducedMotion || !isAdvancing || scrubbingForward || isTerminal || noNewMove;
 }
 
 export async function createGame(canvas: HTMLCanvasElement): Promise<Game> {
@@ -47,9 +56,11 @@ export async function createGame(canvas: HTMLCanvasElement): Promise<Game> {
       eng.animations.clear();
 
       const now = performance.now();
-      const snap = detectSnap(eng, step, prefs.reducedMotion, isTerminal, now);
+      const historyLength = chess.history().length;
+      const snap = detectSnap(eng, step, prefs.reducedMotion, isTerminal, historyLength, now);
       eng.lastUpdateTime = now;
       eng.lastStep = step;
+      eng.lastHistoryLength = historyLength;
 
       trails.clear();
 

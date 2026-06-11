@@ -23,6 +23,7 @@ export function engine() {
     // Scrub bookkeeping + in-flight animations for syncPieces.
     lastUpdateTime: 0,
     lastStep: -1,
+    lastHistoryLength: -1,
     animations: new Set<{ stop: () => void }>(),
   };
 }
