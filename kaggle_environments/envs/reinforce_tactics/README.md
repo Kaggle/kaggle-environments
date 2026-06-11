@@ -111,17 +111,21 @@ Each turn, an agent returns a list of action dicts:
 | Parameter      | Default            | Description |
 |----------------|--------------------|-------------|
 | `episodeSteps` | 200                | Max turns before draw |
-| `mapName`      | `"beginner"`       | Built-in map name (see below), or empty for random generation |
-| `mapWidth`     | 20                 | Map width (10-40) &mdash; only used when `mapName` is empty |
-| `mapHeight`    | 20                 | Map height (10-40) &mdash; only used when `mapName` is empty |
-| `mapSeed`      | -1 (random)        | Seed for map generation &mdash; only used when `mapName` is empty |
+| `mapName`      | `""` (seed picks)  | Built-in map name (see below). When empty, `seed` deterministically picks one from the catalog. |
+| `seed`         | `null` (random)    | Episode seed. Selects a built-in map (when `mapName` is empty) and drives a few symmetric terrain flips so layouts vary across episodes. Scrubbed from `configuration` after init and stored on `env.info["seed"]` so agents can't read it but the replay can. |
 | `enabledUnits` | `W,M,C,A,K,R,S,B` | Which unit types are available |
 | `fogOfWar`     | false              | Enable fog of war |
 | `startingGold` | 250                | Starting gold per player |
 
 ### Map Selection
 
-You can play on a **built-in map** or a **randomly generated** one.
+Every episode plays on a **built-in map**. Either name one explicitly via
+`mapName`, or leave `mapName` empty and let `seed` pick one for you
+(`seed % N` over the catalog sorted alphabetically). Whichever map is chosen,
+`seed` then applies a small number of point-symmetric terrain flips
+(plain/forest/mountain only — structural tiles like HQs, buildings, towers,
+roads, and water are preserved) so two episodes on the same map are not
+byte-identical.
 
 #### Built-in maps
 
@@ -157,26 +161,12 @@ All two-player (1v1) maps from the main repository are vendored here.
 ```python
 # Play on the "beginner" built-in map
 env = make("reinforce_tactics", configuration={"mapName": "beginner"})
-```
 
-#### Random generation
+# Let the seed pick a map and apply symmetric mutations (reproducible)
+env = make("reinforce_tactics", configuration={"seed": 42})
 
-When `mapName` is set to an empty string, a random map is generated using
-`mapWidth`, `mapHeight`, and `mapSeed`. The random generator places terrain
-features (forests ~10%, mountains ~5%, water ~3%), two headquarters with
-adjacent buildings, and four neutral towers near the centre.
-
-```python
-# Random map with a fixed seed for reproducibility
-env = make("reinforce_tactics", configuration={
-    "mapName": "",
-    "mapWidth": 20,
-    "mapHeight": 20,
-    "mapSeed": 42,
-})
-
-# Fully random map (different each run)
-env = make("reinforce_tactics", configuration={"mapName": ""})
+# Pin the map name but vary the mutations across episodes
+env = make("reinforce_tactics", configuration={"mapName": "crossroads", "seed": 7})
 ```
 
 #### Map format reference
@@ -195,8 +185,8 @@ from kaggle_environments import make
 # Create the environment with a built-in map
 env = make("reinforce_tactics", configuration={"mapName": "beginner"})
 
-# -- or with random generation --
-# env = make("reinforce_tactics", configuration={"mapSeed": 42})
+# -- or let the seed pick a map for you --
+# env = make("reinforce_tactics", configuration={"seed": 42})
 
 # Run with built-in agents
 result = env.run(["random", "aggressive"])
