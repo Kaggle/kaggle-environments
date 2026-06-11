@@ -24,10 +24,12 @@ export function getStepLabel(step: BaseGameStep) {
     const winnerName = winner === 'black' ? blackName : whiteName;
     const loserName = winner === 'black' ? whiteName : blackName;
     const baseLabel = `${winnerName} wins`;
+
+    // Check for forfeits
     const status = (step as ChessStep).status;
-    const reason = status ? FORFEIT_REASONS[status] : undefined;
-    if (reason) {
-      return `${baseLabel}\n${loserName} ${reason}. ${winnerName} wins by default.`;
+    const forfeitReason = status ? FORFEIT_REASONS[status] : undefined;
+    if (forfeitReason) {
+      return `${loserName} ${forfeitReason}. ${winnerName} wins by default.`;
     }
     return baseLabel;
   }

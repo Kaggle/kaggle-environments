@@ -117,9 +117,9 @@ export const chessTransformer = (environment: any): ChessStep[] => {
     // Each step contains a tuple of players, one who acted and one who's waiting
     const stepPlayers: ChessPlayer[] = step.map((player, index): ChessPlayer => {
       const attempts: ChessAttempt[] = player.action?.call_details?.map((c) => ({ response: c.response ?? '' })) ?? [];
-      // A forfeit step is one where the player submitted -1 *and* the harness
-      // wrote a self-reported status (action.status). Inactive turns also
-      // have submission === -1 but with null action.status.
+      // A forfeit step is one where the player submitted -1 *and* we have a
+      // non-null action.status. Inactive turns also have submission === -1
+      // but with null action.status.
       const forfeited = player.action?.submission === -1 && !!player.action?.status;
       return {
         id: index,
