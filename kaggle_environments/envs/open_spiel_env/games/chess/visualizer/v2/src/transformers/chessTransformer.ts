@@ -1,19 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { ChessAttempt, ChessReplay, ChessPlayer, ChessStep, FenState, ChessReplayStep } from './chessReplayTypes';
-
-/**
- * Statuses set by open_spiel_env when an agent fails to produce a valid action:
- *   TIMEOUT — exceeded the per-move / overage time budget
- *   ERROR   — agent crashed or response was unparsable / cut off
- *   INVALID — submitted an illegal move
- * In all three cases the opponent wins by default.
- *
- * Note: when illegalMoveForfeit:true and the env's INVALID branch runs, both
- * players' top-level status gets overwritten to DONE — the per-player forfeit
- * is only visible via action.submission === -1 + a non-null action.status on
- * the offender. deriveStatus() below handles that case.
- */
-const FORFEIT_STATUSES = new Set(['TIMEOUT', 'ERROR', 'INVALID']);
+import { FORFEIT_STATUSES } from './forfeit';
 
 function parseFen(fen?: string): FenState {
   if (!fen || typeof fen !== 'string') {

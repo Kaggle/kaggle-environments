@@ -1,11 +1,6 @@
 import { BaseGameStep } from '@kaggle-environments/core';
 import { ChessStep } from '../transformers/chessReplayTypes';
-
-const FORFEIT_REASONS: Record<string, string> = {
-  TIMEOUT: 'ran out of time',
-  INVALID: 'submitted an illegal move',
-  ERROR: 'failed to produce valid input',
-};
+import { FORFEIT_REASONS } from '../transformers/forfeit';
 
 export function getStepLabel(step: BaseGameStep) {
   const player = step.players.find((p) => p.isTurn);
