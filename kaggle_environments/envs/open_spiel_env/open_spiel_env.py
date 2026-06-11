@@ -1015,6 +1015,7 @@ GAMES_LIST = [
     "amazons",
     "ant_foraging_arena",
     "backgammon",
+    "bargaining",
     "python_ant_foraging",
     "checkers",
     "chess",
