@@ -211,6 +211,13 @@ class Agent:
             "stderr": err,
         }
 
+        if isinstance(action, BaseException):
+            log["error"] = {
+                "type": type(action).__name__,
+                "message": str(action),
+                "traceback": traceback.format_exception(None, action, action.__traceback__),
+            }
+
         if self.debug:
             if not log["stdout"].isspace():
                 print(log["stdout"], end="")
