@@ -1,0 +1,796 @@
+{
+  "id": "2e424a38-65e1-11f1-ac76-f2084fffbf52",
+  "name": "open_spiel_bargaining",
+  "title": "Open Spiel: bargaining",
+  "description": "Kaggle environment wrapper for OpenSpiel games.\nFor game implementation details see:\nhttps://github.com/google-deepmind/open_spiel/tree/master/open_spiel/games",
+  "version": "0.1.0",
+  "module_version": "1.30.1",
+  "configuration": {
+    "includeLegalActions": true,
+    "episodeSteps": 119,
+    "actTimeout": 3600,
+    "runTimeout": 172800,
+    "openSpielGameString": "bargaining_proxy(discount=1.0,instances_file=,max_num_instances=1000,max_turns=10,prob_end=0.0)",
+    "openSpielGameName": "bargaining",
+    "openSpielGameParameters": {
+      "discount": 1.0,
+      "instances_file": "",
+      "max_num_instances": 1000,
+      "max_turns": 10,
+      "prob_end": 0.0
+    },
+    "observationType": "observation",
+    "useOpenings": false,
+    "useImage": false,
+    "loadPresetHands": false,
+    "metadata": {},
+    "strictMode": false,
+    "savePrompt": true,
+    "saveResponse": true,
+    "freeForm": false,
+    "includeGenerateReturns": false,
+    "illegalMoveForfeit": true
+  },
+  "specification": {
+    "action": {
+      "description": "Action object MUST contain a field `submission`, and MAY contain arbitrary additional information.",
+      "type": "object",
+      "default": {
+        "submission": -1
+      }
+    },
+    "agents": [2],
+    "configuration": {
+      "episodeSteps": {
+        "description": "Maximum number of steps in the episode.",
+        "type": "integer",
+        "minimum": 1,
+        "default": 119
+      },
+      "actTimeout": {
+        "description": "Maximum runtime (seconds) to obtain an action from an agent.",
+        "type": "number",
+        "minimum": 0,
+        "default": 3600
+      },
+      "runTimeout": {
+        "description": "Maximum runtime (seconds) of an episode (not necessarily DONE).",
+        "type": "number",
+        "minimum": 0,
+        "default": 172800
+      },
+      "openSpielGameString": {
+        "description": "The full game string including parameters.",
+        "type": "string",
+        "default": "bargaining_proxy(discount=1.0,instances_file=,max_num_instances=1000,max_turns=10,prob_end=0.0)"
+      },
+      "openSpielGameName": {
+        "description": "The short_name of the OpenSpiel game to load.",
+        "type": "string",
+        "default": "bargaining"
+      },
+      "openSpielGameParameters": {
+        "description": "Game parameters for Open Spiel game.",
+        "type": "object",
+        "default": {
+          "discount": 1.0,
+          "instances_file": "",
+          "max_num_instances": 1000,
+          "max_turns": 10,
+          "prob_end": 0.0
+        },
+        "properties": {}
+      },
+      "observationType": {
+        "description": "Type of observation string: 'observation' or 'information_state'.",
+        "type": "string",
+        "default": "observation"
+      },
+      "useOpenings": {
+        "description": "Whether to start from a position in an opening book.",
+        "type": "boolean",
+        "default": false
+      },
+      "useImage": {
+        "description": "If true, indicates the observation is intended to be rendered as an image. Note that currently the agent harness is responsible for the actual rendering; no image is passed in the observation.",
+        "type": "boolean",
+        "default": false
+      },
+      "includeLegalActions": {
+        "description": "If true, include legalActions and legalActionStrings in observations. Defaults to false since these can be derived from serializedGameAndState.",
+        "type": "boolean",
+        "default": false
+      },
+      "seed": {
+        "description": "Integer used to select a starting position (when useOpenings is true) and to seed chance-node sampling so episodes are reproducible.",
+        "type": "number"
+      },
+      "initialActions": {
+        "description": "Actions applied to initial state before play begins to set up starting position.",
+        "type": "array"
+      },
+      "loadPresetHands": {
+        "description": "Repeated poker only. Load preset hand chance actions from preset_hands.jsonl.",
+        "type": "boolean",
+        "default": false
+      },
+      "presetHands": {
+        "description": "Repeated poker only. List of per-hand chance action sequences to use instead of random chance.",
+        "type": "array"
+      },
+      "metadata": {
+        "description": "Arbitrary metadata.",
+        "type": "object",
+        "default": {},
+        "properties": {}
+      },
+      "strictMode": {
+        "description": "If true, agents must return only {'submission': int} (no extra fields like 'thoughts'), and per-agent TIMEOUT/ERROR/INVALID counts as a loss for the offending agent only \u2014 other agents are marked DONE with a winning reward. The offender keeps its natural ERROR or TIMEOUT status (matching how every other Kaggle competition reports per-player failures). If false (default), any agent error halts and voids the entire episode, matching the lenient research-mode behavior.",
+        "type": "boolean",
+        "default": false
+      },
+      "savePrompt": {
+        "description": "If disabled, skip logging LLM prompts in the replay file.",
+        "type": "boolean",
+        "default": true
+      },
+      "saveResponse": {
+        "description": "If disabled, skip logging raw LLM responses in the replay file. Extracted thoughts (which typically contain everything but the final move tag) are still logged on the action, so the legal response is effectively preserved.",
+        "type": "boolean",
+        "default": true
+      },
+      "freeForm": {
+        "description": "If true, the core harness allows free-form actions (get_legal_moves may return None) on turns where the action space is not enumerable. Defaults to false for OpenSpiel games.",
+        "type": "boolean",
+        "default": false
+      },
+      "includeGenerateReturns": {
+        "description": "If true, include a legacy generate_returns field on each action with per-LLM-call metadata (model, token counts, finish reason, duration). Useful for cost tracking and visualization pipelines.",
+        "type": "boolean",
+        "default": false
+      },
+      "illegalMoveForfeit": {
+        "description": "If true (default), when an LLM harness exhausts its retries without producing a legal move, it submits an invalid action so this player forfeits via the env's INVALID path (matching the game_arena convention). If false, the harness re-raises the parse failure, which voids the whole episode. Only affects exhaustion from illegal/unparsable moves; uncaught exceptions still propagate either way.",
+        "type": "boolean",
+        "default": true
+      }
+    },
+    "info": {},
+    "observation": {
+      "remainingOverageTime": {
+        "description": "Total remaining banked time (seconds) that can be used in excess of per-step actTimeouts -- agent is disqualified with TIMEOUT status when this drops below 0.",
+        "shared": false,
+        "type": "number",
+        "minimum": 0,
+        "default": 12
+      },
+      "step": {
+        "description": "Current step within the episode.",
+        "type": "integer",
+        "shared": true,
+        "minimum": 0,
+        "default": 0
+      },
+      "properties": {
+        "openSpielGameString": {
+          "description": "Full game string including parameters.",
+          "type": "string",
+          "default": "bargaining_proxy(discount=1.0,instances_file=,max_num_instances=1000,max_turns=10,prob_end=0.0)"
+        },
+        "openSpielGameName": {
+          "description": "Short name of the OpenSpiel game.",
+          "type": "string",
+          "default": "bargaining"
+        },
+        "observationString": {
+          "description": "String representation of state.",
+          "type": "string"
+        },
+        "legalActions": {
+          "description": "List of OpenSpiel legal action integers. Only included if includeLegalActions is true.",
+          "type": "array"
+        },
+        "legalActionStrings": {
+          "description": "List of OpenSpiel legal action strings. Only included if includeLegalActions is true.",
+          "type": "array"
+        },
+        "currentPlayer": {
+          "description": "ID of player whose turn it is.",
+          "type": "integer"
+        },
+        "playerId": {
+          "description": "ID of the agent receiving this observation.",
+          "type": "integer"
+        },
+        "isTerminal": {
+          "description": "Boolean indicating game end.",
+          "type": "boolean"
+        },
+        "serializedGameAndState": {
+          "description": "Enables reconstructing the Game and State objects.",
+          "type": "string"
+        },
+        "remainingOverageTime": 60,
+        "step": 0
+      },
+      "default": {}
+    },
+    "reward": {
+      "type": ["number", "null"],
+      "default": 0.0
+    }
+  },
+  "steps": [
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": 0.0,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 0
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": 0.0,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 1,
+          "observationString": "{\"current_player\": 0, \"viewing_player\": 0, \"is_terminal\": false, \"agreement_reached\": false, \"max_turns\": 10, \"num_offers\": 0, \"pool\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}, \"my_values\": {\"book\": 2, \"hat\": 2, \"basketball\": 2}, \"offer_history\": [], \"last_offer\": null, \"returns\": null, \"params\": {\"max_turns\": 10, \"discount\": 1.0, \"prob_end\": 0.0, \"agree_action\": 120}}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nbargaining_proxy(discount=1.0,instances_file=,max_num_instances=1000,max_turns=10,prob_end=0.0)\n[State]\nhistory=-1:236\nmove_number=1\n__dict__=gASV9QAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwPQmFyZ2FpbmluZ1N0YXRllJOUKYGUjL4jIEF1dG9tYXRpY2FsbHkgZ2VuZXJhdGVkIGJ5IE9wZW5TcGllbCBTZXJpYWxpemVHYW1lQW5kU3RhdGUKW01ldGFdClZlcnNpb246IDEKCltHYW1lXQpiYXJnYWluaW5nKGRpc2NvdW50PTEuMCxpbnN0YW5jZXNfZmlsZT0sbWF4X251bV9pbnN0YW5jZXM9MTAwMCxtYXhfdHVybnM9MTAscHJvYl9lbmQ9MC4wKQpbU3RhdGVdCjIzNgoKlGJzLg==\n",
+          "legalActions": [
+            0, 1, 8, 9, 15, 16, 36, 37, 43, 44, 49, 50, 64, 65, 70, 71, 75, 76
+          ],
+          "legalActionStrings": [
+            "Offer: Book: 0, Hat: 0, Basketball: 0",
+            "Offer: Book: 1, Hat: 0, Basketball: 0",
+            "Offer: Book: 0, Hat: 1, Basketball: 0",
+            "Offer: Book: 1, Hat: 1, Basketball: 0",
+            "Offer: Book: 0, Hat: 2, Basketball: 0",
+            "Offer: Book: 1, Hat: 2, Basketball: 0",
+            "Offer: Book: 0, Hat: 0, Basketball: 1",
+            "Offer: Book: 1, Hat: 0, Basketball: 1",
+            "Offer: Book: 0, Hat: 1, Basketball: 1",
+            "Offer: Book: 1, Hat: 1, Basketball: 1",
+            "Offer: Book: 0, Hat: 2, Basketball: 1",
+            "Offer: Book: 1, Hat: 2, Basketball: 1",
+            "Offer: Book: 0, Hat: 0, Basketball: 2",
+            "Offer: Book: 1, Hat: 0, Basketball: 2",
+            "Offer: Book: 0, Hat: 1, Basketball: 2",
+            "Offer: Book: 1, Hat: 1, Basketball: 2",
+            "Offer: Book: 0, Hat: 2, Basketball: 2",
+            "Offer: Book: 1, Hat: 2, Basketball: 2"
+          ]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": 0, \"viewing_player\": 1, \"is_terminal\": false, \"agreement_reached\": false, \"max_turns\": 10, \"num_offers\": 0, \"pool\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}, \"my_values\": {\"book\": 2, \"hat\": 2, \"basketball\": 2}, \"offer_history\": [], \"last_offer\": null, \"returns\": null, \"params\": {\"max_turns\": 10, \"discount\": 1.0, \"prob_end\": 0.0, \"agree_action\": 120}}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nbargaining_proxy(discount=1.0,instances_file=,max_num_instances=1000,max_turns=10,prob_end=0.0)\n[State]\nhistory=-1:236\nmove_number=1\n__dict__=gASV9QAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwPQmFyZ2FpbmluZ1N0YXRllJOUKYGUjL4jIEF1dG9tYXRpY2FsbHkgZ2VuZXJhdGVkIGJ5IE9wZW5TcGllbCBTZXJpYWxpemVHYW1lQW5kU3RhdGUKW01ldGFdClZlcnNpb246IDEKCltHYW1lXQpiYXJnYWluaW5nKGRpc2NvdW50PTEuMCxpbnN0YW5jZXNfZmlsZT0sbWF4X251bV9pbnN0YW5jZXM9MTAwMCxtYXhfdHVybnM9MTAscHJvYl9lbmQ9MC4wKQpbU3RhdGVdCjIzNgoKlGJzLg==\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 76,
+          "thoughts": "omega consider wonder zeta omega alpha gamma muse",
+          "actionString": "Offer: Book: 1, Hat: 2, Basketball: 2"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 76,
+          "actionSubmittedToString": "Offer: Book: 1, Hat: 2, Basketball: 2",
+          "actionApplied": 76,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 2,
+          "observationString": "{\"current_player\": 1, \"viewing_player\": 0, \"is_terminal\": false, \"agreement_reached\": false, \"max_turns\": 10, \"num_offers\": 1, \"pool\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}, \"my_values\": {\"book\": 2, \"hat\": 2, \"basketball\": 2}, \"offer_history\": [{\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}}], \"last_offer\": {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}}, \"returns\": null, \"params\": {\"max_turns\": 10, \"discount\": 1.0, \"prob_end\": 0.0, \"agree_action\": 120}}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nbargaining_proxy(discount=1.0,instances_file=,max_num_instances=1000,max_turns=10,prob_end=0.0)\n[State]\nhistory=-1:236,0:76\nmove_number=2\n__dict__=gASV+AAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwPQmFyZ2FpbmluZ1N0YXRllJOUKYGUjMEjIEF1dG9tYXRpY2FsbHkgZ2VuZXJhdGVkIGJ5IE9wZW5TcGllbCBTZXJpYWxpemVHYW1lQW5kU3RhdGUKW01ldGFdClZlcnNpb246IDEKCltHYW1lXQpiYXJnYWluaW5nKGRpc2NvdW50PTEuMCxpbnN0YW5jZXNfZmlsZT0sbWF4X251bV9pbnN0YW5jZXM9MTAwMCxtYXhfdHVybnM9MTAscHJvYl9lbmQ9MC4wKQpbU3RhdGVdCjIzNgo3NgoKlGJzLg==\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": 1, \"viewing_player\": 1, \"is_terminal\": false, \"agreement_reached\": false, \"max_turns\": 10, \"num_offers\": 1, \"pool\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}, \"my_values\": {\"book\": 2, \"hat\": 2, \"basketball\": 2}, \"offer_history\": [{\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}}], \"last_offer\": {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}}, \"returns\": null, \"params\": {\"max_turns\": 10, \"discount\": 1.0, \"prob_end\": 0.0, \"agree_action\": 120}}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nbargaining_proxy(discount=1.0,instances_file=,max_num_instances=1000,max_turns=10,prob_end=0.0)\n[State]\nhistory=-1:236,0:76\nmove_number=2\n__dict__=gASV+AAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwPQmFyZ2FpbmluZ1N0YXRllJOUKYGUjMEjIEF1dG9tYXRpY2FsbHkgZ2VuZXJhdGVkIGJ5IE9wZW5TcGllbCBTZXJpYWxpemVHYW1lQW5kU3RhdGUKW01ldGFdClZlcnNpb246IDEKCltHYW1lXQpiYXJnYWluaW5nKGRpc2NvdW50PTEuMCxpbnN0YW5jZXNfZmlsZT0sbWF4X251bV9pbnN0YW5jZXM9MTAwMCxtYXhfdHVybnM9MTAscHJvYl9lbmQ9MC4wKQpbU3RhdGVdCjIzNgo3NgoKlGJzLg==\n",
+          "legalActions": [
+            0, 1, 8, 9, 15, 16, 36, 37, 43, 44, 49, 50, 64, 65, 70, 71, 75, 76,
+            120
+          ],
+          "legalActionStrings": [
+            "Offer: Book: 0, Hat: 0, Basketball: 0",
+            "Offer: Book: 1, Hat: 0, Basketball: 0",
+            "Offer: Book: 0, Hat: 1, Basketball: 0",
+            "Offer: Book: 1, Hat: 1, Basketball: 0",
+            "Offer: Book: 0, Hat: 2, Basketball: 0",
+            "Offer: Book: 1, Hat: 2, Basketball: 0",
+            "Offer: Book: 0, Hat: 0, Basketball: 1",
+            "Offer: Book: 1, Hat: 0, Basketball: 1",
+            "Offer: Book: 0, Hat: 1, Basketball: 1",
+            "Offer: Book: 1, Hat: 1, Basketball: 1",
+            "Offer: Book: 0, Hat: 2, Basketball: 1",
+            "Offer: Book: 1, Hat: 2, Basketball: 1",
+            "Offer: Book: 0, Hat: 0, Basketball: 2",
+            "Offer: Book: 1, Hat: 0, Basketball: 2",
+            "Offer: Book: 0, Hat: 1, Basketball: 2",
+            "Offer: Book: 1, Hat: 1, Basketball: 2",
+            "Offer: Book: 0, Hat: 2, Basketball: 2",
+            "Offer: Book: 1, Hat: 2, Basketball: 2",
+            "Agree"
+          ]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 3,
+          "observationString": "{\"current_player\": 0, \"viewing_player\": 0, \"is_terminal\": false, \"agreement_reached\": false, \"max_turns\": 10, \"num_offers\": 2, \"pool\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}, \"my_values\": {\"book\": 2, \"hat\": 2, \"basketball\": 2}, \"offer_history\": [{\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 2}}], \"last_offer\": {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 2}}, \"returns\": null, \"params\": {\"max_turns\": 10, \"discount\": 1.0, \"prob_end\": 0.0, \"agree_action\": 120}}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nbargaining_proxy(discount=1.0,instances_file=,max_num_instances=1000,max_turns=10,prob_end=0.0)\n[State]\nhistory=-1:236,0:76,1:70\nmove_number=3\n__dict__=gASV+wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwPQmFyZ2FpbmluZ1N0YXRllJOUKYGUjMQjIEF1dG9tYXRpY2FsbHkgZ2VuZXJhdGVkIGJ5IE9wZW5TcGllbCBTZXJpYWxpemVHYW1lQW5kU3RhdGUKW01ldGFdClZlcnNpb246IDEKCltHYW1lXQpiYXJnYWluaW5nKGRpc2NvdW50PTEuMCxpbnN0YW5jZXNfZmlsZT0sbWF4X251bV9pbnN0YW5jZXM9MTAwMCxtYXhfdHVybnM9MTAscHJvYl9lbmQ9MC4wKQpbU3RhdGVdCjIzNgo3Ngo3MAoKlGJzLg==\n",
+          "legalActions": [
+            0, 1, 8, 9, 15, 16, 36, 37, 43, 44, 49, 50, 64, 65, 70, 71, 75, 76,
+            120
+          ],
+          "legalActionStrings": [
+            "Offer: Book: 0, Hat: 0, Basketball: 0",
+            "Offer: Book: 1, Hat: 0, Basketball: 0",
+            "Offer: Book: 0, Hat: 1, Basketball: 0",
+            "Offer: Book: 1, Hat: 1, Basketball: 0",
+            "Offer: Book: 0, Hat: 2, Basketball: 0",
+            "Offer: Book: 1, Hat: 2, Basketball: 0",
+            "Offer: Book: 0, Hat: 0, Basketball: 1",
+            "Offer: Book: 1, Hat: 0, Basketball: 1",
+            "Offer: Book: 0, Hat: 1, Basketball: 1",
+            "Offer: Book: 1, Hat: 1, Basketball: 1",
+            "Offer: Book: 0, Hat: 2, Basketball: 1",
+            "Offer: Book: 1, Hat: 2, Basketball: 1",
+            "Offer: Book: 0, Hat: 0, Basketball: 2",
+            "Offer: Book: 1, Hat: 0, Basketball: 2",
+            "Offer: Book: 0, Hat: 1, Basketball: 2",
+            "Offer: Book: 1, Hat: 1, Basketball: 2",
+            "Offer: Book: 0, Hat: 2, Basketball: 2",
+            "Offer: Book: 1, Hat: 2, Basketball: 2",
+            "Agree"
+          ]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 70,
+          "thoughts": "ember theta beta cascade upsilon drift echo tau",
+          "actionString": "Offer: Book: 0, Hat: 1, Basketball: 2"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 70,
+          "actionSubmittedToString": "Offer: Book: 0, Hat: 1, Basketball: 2",
+          "actionApplied": 70,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": 0, \"viewing_player\": 1, \"is_terminal\": false, \"agreement_reached\": false, \"max_turns\": 10, \"num_offers\": 2, \"pool\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}, \"my_values\": {\"book\": 2, \"hat\": 2, \"basketball\": 2}, \"offer_history\": [{\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 2}}], \"last_offer\": {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 2}}, \"returns\": null, \"params\": {\"max_turns\": 10, \"discount\": 1.0, \"prob_end\": 0.0, \"agree_action\": 120}}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nbargaining_proxy(discount=1.0,instances_file=,max_num_instances=1000,max_turns=10,prob_end=0.0)\n[State]\nhistory=-1:236,0:76,1:70\nmove_number=3\n__dict__=gASV+wAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwPQmFyZ2FpbmluZ1N0YXRllJOUKYGUjMQjIEF1dG9tYXRpY2FsbHkgZ2VuZXJhdGVkIGJ5IE9wZW5TcGllbCBTZXJpYWxpemVHYW1lQW5kU3RhdGUKW01ldGFdClZlcnNpb246IDEKCltHYW1lXQpiYXJnYWluaW5nKGRpc2NvdW50PTEuMCxpbnN0YW5jZXNfZmlsZT0sbWF4X251bV9pbnN0YW5jZXM9MTAwMCxtYXhfdHVybnM9MTAscHJvYl9lbmQ9MC4wKQpbU3RhdGVdCjIzNgo3Ngo3MAoKlGJzLg==\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 9,
+          "thoughts": "ember horizon imagine echo muse eta zeta beta",
+          "actionString": "Offer: Book: 1, Hat: 1, Basketball: 0"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 9,
+          "actionSubmittedToString": "Offer: Book: 1, Hat: 1, Basketball: 0",
+          "actionApplied": 9,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 4,
+          "observationString": "{\"current_player\": 1, \"viewing_player\": 0, \"is_terminal\": false, \"agreement_reached\": false, \"max_turns\": 10, \"num_offers\": 3, \"pool\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}, \"my_values\": {\"book\": 2, \"hat\": 2, \"basketball\": 2}, \"offer_history\": [{\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 2}}, {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 1, \"basketball\": 0}}], \"last_offer\": {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 1, \"basketball\": 0}}, \"returns\": null, \"params\": {\"max_turns\": 10, \"discount\": 1.0, \"prob_end\": 0.0, \"agree_action\": 120}}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nbargaining_proxy(discount=1.0,instances_file=,max_num_instances=1000,max_turns=10,prob_end=0.0)\n[State]\nhistory=-1:236,0:76,1:70,0:9\nmove_number=4\n__dict__=gASV/QAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwPQmFyZ2FpbmluZ1N0YXRllJOUKYGUjMYjIEF1dG9tYXRpY2FsbHkgZ2VuZXJhdGVkIGJ5IE9wZW5TcGllbCBTZXJpYWxpemVHYW1lQW5kU3RhdGUKW01ldGFdClZlcnNpb246IDEKCltHYW1lXQpiYXJnYWluaW5nKGRpc2NvdW50PTEuMCxpbnN0YW5jZXNfZmlsZT0sbWF4X251bV9pbnN0YW5jZXM9MTAwMCxtYXhfdHVybnM9MTAscHJvYl9lbmQ9MC4wKQpbU3RhdGVdCjIzNgo3Ngo3MAo5CgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": 1, \"viewing_player\": 1, \"is_terminal\": false, \"agreement_reached\": false, \"max_turns\": 10, \"num_offers\": 3, \"pool\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}, \"my_values\": {\"book\": 2, \"hat\": 2, \"basketball\": 2}, \"offer_history\": [{\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 2}}, {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 1, \"basketball\": 0}}], \"last_offer\": {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 1, \"basketball\": 0}}, \"returns\": null, \"params\": {\"max_turns\": 10, \"discount\": 1.0, \"prob_end\": 0.0, \"agree_action\": 120}}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nbargaining_proxy(discount=1.0,instances_file=,max_num_instances=1000,max_turns=10,prob_end=0.0)\n[State]\nhistory=-1:236,0:76,1:70,0:9\nmove_number=4\n__dict__=gASV/QAAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwPQmFyZ2FpbmluZ1N0YXRllJOUKYGUjMYjIEF1dG9tYXRpY2FsbHkgZ2VuZXJhdGVkIGJ5IE9wZW5TcGllbCBTZXJpYWxpemVHYW1lQW5kU3RhdGUKW01ldGFdClZlcnNpb246IDEKCltHYW1lXQpiYXJnYWluaW5nKGRpc2NvdW50PTEuMCxpbnN0YW5jZXNfZmlsZT0sbWF4X251bV9pbnN0YW5jZXM9MTAwMCxtYXhfdHVybnM9MTAscHJvYl9lbmQ9MC4wKQpbU3RhdGVdCjIzNgo3Ngo3MAo5CgqUYnMu\n",
+          "legalActions": [
+            0, 1, 8, 9, 15, 16, 36, 37, 43, 44, 49, 50, 64, 65, 70, 71, 75, 76,
+            120
+          ],
+          "legalActionStrings": [
+            "Offer: Book: 0, Hat: 0, Basketball: 0",
+            "Offer: Book: 1, Hat: 0, Basketball: 0",
+            "Offer: Book: 0, Hat: 1, Basketball: 0",
+            "Offer: Book: 1, Hat: 1, Basketball: 0",
+            "Offer: Book: 0, Hat: 2, Basketball: 0",
+            "Offer: Book: 1, Hat: 2, Basketball: 0",
+            "Offer: Book: 0, Hat: 0, Basketball: 1",
+            "Offer: Book: 1, Hat: 0, Basketball: 1",
+            "Offer: Book: 0, Hat: 1, Basketball: 1",
+            "Offer: Book: 1, Hat: 1, Basketball: 1",
+            "Offer: Book: 0, Hat: 2, Basketball: 1",
+            "Offer: Book: 1, Hat: 2, Basketball: 1",
+            "Offer: Book: 0, Hat: 0, Basketball: 2",
+            "Offer: Book: 1, Hat: 0, Basketball: 2",
+            "Offer: Book: 0, Hat: 1, Basketball: 2",
+            "Offer: Book: 1, Hat: 1, Basketball: 2",
+            "Offer: Book: 0, Hat: 2, Basketball: 2",
+            "Offer: Book: 1, Hat: 2, Basketball: 2",
+            "Agree"
+          ]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 5,
+          "observationString": "{\"current_player\": 0, \"viewing_player\": 0, \"is_terminal\": false, \"agreement_reached\": false, \"max_turns\": 10, \"num_offers\": 4, \"pool\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}, \"my_values\": {\"book\": 2, \"hat\": 2, \"basketball\": 2}, \"offer_history\": [{\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 2}}, {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 1, \"basketball\": 0}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 1}}], \"last_offer\": {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 1}}, \"returns\": null, \"params\": {\"max_turns\": 10, \"discount\": 1.0, \"prob_end\": 0.0, \"agree_action\": 120}}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nbargaining_proxy(discount=1.0,instances_file=,max_num_instances=1000,max_turns=10,prob_end=0.0)\n[State]\nhistory=-1:236,0:76,1:70,0:9,1:36\nmove_number=5\n__dict__=gASVAAEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwPQmFyZ2FpbmluZ1N0YXRllJOUKYGUjMkjIEF1dG9tYXRpY2FsbHkgZ2VuZXJhdGVkIGJ5IE9wZW5TcGllbCBTZXJpYWxpemVHYW1lQW5kU3RhdGUKW01ldGFdClZlcnNpb246IDEKCltHYW1lXQpiYXJnYWluaW5nKGRpc2NvdW50PTEuMCxpbnN0YW5jZXNfZmlsZT0sbWF4X251bV9pbnN0YW5jZXM9MTAwMCxtYXhfdHVybnM9MTAscHJvYl9lbmQ9MC4wKQpbU3RhdGVdCjIzNgo3Ngo3MAo5CjM2CgqUYnMu\n",
+          "legalActions": [
+            0, 1, 8, 9, 15, 16, 36, 37, 43, 44, 49, 50, 64, 65, 70, 71, 75, 76,
+            120
+          ],
+          "legalActionStrings": [
+            "Offer: Book: 0, Hat: 0, Basketball: 0",
+            "Offer: Book: 1, Hat: 0, Basketball: 0",
+            "Offer: Book: 0, Hat: 1, Basketball: 0",
+            "Offer: Book: 1, Hat: 1, Basketball: 0",
+            "Offer: Book: 0, Hat: 2, Basketball: 0",
+            "Offer: Book: 1, Hat: 2, Basketball: 0",
+            "Offer: Book: 0, Hat: 0, Basketball: 1",
+            "Offer: Book: 1, Hat: 0, Basketball: 1",
+            "Offer: Book: 0, Hat: 1, Basketball: 1",
+            "Offer: Book: 1, Hat: 1, Basketball: 1",
+            "Offer: Book: 0, Hat: 2, Basketball: 1",
+            "Offer: Book: 1, Hat: 2, Basketball: 1",
+            "Offer: Book: 0, Hat: 0, Basketball: 2",
+            "Offer: Book: 1, Hat: 0, Basketball: 2",
+            "Offer: Book: 0, Hat: 1, Basketball: 2",
+            "Offer: Book: 1, Hat: 1, Basketball: 2",
+            "Offer: Book: 0, Hat: 2, Basketball: 2",
+            "Offer: Book: 1, Hat: 2, Basketball: 2",
+            "Agree"
+          ]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 36,
+          "thoughts": "sigma echo delta omicron ripple zeta horizon nu",
+          "actionString": "Offer: Book: 0, Hat: 0, Basketball: 1"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 36,
+          "actionSubmittedToString": "Offer: Book: 0, Hat: 0, Basketball: 1",
+          "actionApplied": 36,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": 0, \"viewing_player\": 1, \"is_terminal\": false, \"agreement_reached\": false, \"max_turns\": 10, \"num_offers\": 4, \"pool\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}, \"my_values\": {\"book\": 2, \"hat\": 2, \"basketball\": 2}, \"offer_history\": [{\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 2}}, {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 1, \"basketball\": 0}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 1}}], \"last_offer\": {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 1}}, \"returns\": null, \"params\": {\"max_turns\": 10, \"discount\": 1.0, \"prob_end\": 0.0, \"agree_action\": 120}}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nbargaining_proxy(discount=1.0,instances_file=,max_num_instances=1000,max_turns=10,prob_end=0.0)\n[State]\nhistory=-1:236,0:76,1:70,0:9,1:36\nmove_number=5\n__dict__=gASVAAEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwPQmFyZ2FpbmluZ1N0YXRllJOUKYGUjMkjIEF1dG9tYXRpY2FsbHkgZ2VuZXJhdGVkIGJ5IE9wZW5TcGllbCBTZXJpYWxpemVHYW1lQW5kU3RhdGUKW01ldGFdClZlcnNpb246IDEKCltHYW1lXQpiYXJnYWluaW5nKGRpc2NvdW50PTEuMCxpbnN0YW5jZXNfZmlsZT0sbWF4X251bV9pbnN0YW5jZXM9MTAwMCxtYXhfdHVybnM9MTAscHJvYl9lbmQ9MC4wKQpbU3RhdGVdCjIzNgo3Ngo3MAo5CjM2CgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 64,
+          "thoughts": "nu wonder horizon rho pi cascade eta epsilon",
+          "actionString": "Offer: Book: 0, Hat: 0, Basketball: 2"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 64,
+          "actionSubmittedToString": "Offer: Book: 0, Hat: 0, Basketball: 2",
+          "actionApplied": 64,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 6,
+          "observationString": "{\"current_player\": 1, \"viewing_player\": 0, \"is_terminal\": false, \"agreement_reached\": false, \"max_turns\": 10, \"num_offers\": 5, \"pool\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}, \"my_values\": {\"book\": 2, \"hat\": 2, \"basketball\": 2}, \"offer_history\": [{\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 2}}, {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 1, \"basketball\": 0}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 1}}, {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 2}}], \"last_offer\": {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 2}}, \"returns\": null, \"params\": {\"max_turns\": 10, \"discount\": 1.0, \"prob_end\": 0.0, \"agree_action\": 120}}",
+          "currentPlayer": 1,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nbargaining_proxy(discount=1.0,instances_file=,max_num_instances=1000,max_turns=10,prob_end=0.0)\n[State]\nhistory=-1:236,0:76,1:70,0:9,1:36,0:64\nmove_number=6\n__dict__=gASVAwEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwPQmFyZ2FpbmluZ1N0YXRllJOUKYGUjMwjIEF1dG9tYXRpY2FsbHkgZ2VuZXJhdGVkIGJ5IE9wZW5TcGllbCBTZXJpYWxpemVHYW1lQW5kU3RhdGUKW01ldGFdClZlcnNpb246IDEKCltHYW1lXQpiYXJnYWluaW5nKGRpc2NvdW50PTEuMCxpbnN0YW5jZXNfZmlsZT0sbWF4X251bV9pbnN0YW5jZXM9MTAwMCxtYXhfdHVybnM9MTAscHJvYl9lbmQ9MC4wKQpbU3RhdGVdCjIzNgo3Ngo3MAo5CjM2CjY0CgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": 1, \"viewing_player\": 1, \"is_terminal\": false, \"agreement_reached\": false, \"max_turns\": 10, \"num_offers\": 5, \"pool\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}, \"my_values\": {\"book\": 2, \"hat\": 2, \"basketball\": 2}, \"offer_history\": [{\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 2}}, {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 1, \"basketball\": 0}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 1}}, {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 2}}], \"last_offer\": {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 2}}, \"returns\": null, \"params\": {\"max_turns\": 10, \"discount\": 1.0, \"prob_end\": 0.0, \"agree_action\": 120}}",
+          "currentPlayer": 1,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nbargaining_proxy(discount=1.0,instances_file=,max_num_instances=1000,max_turns=10,prob_end=0.0)\n[State]\nhistory=-1:236,0:76,1:70,0:9,1:36,0:64\nmove_number=6\n__dict__=gASVAwEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwPQmFyZ2FpbmluZ1N0YXRllJOUKYGUjMwjIEF1dG9tYXRpY2FsbHkgZ2VuZXJhdGVkIGJ5IE9wZW5TcGllbCBTZXJpYWxpemVHYW1lQW5kU3RhdGUKW01ldGFdClZlcnNpb246IDEKCltHYW1lXQpiYXJnYWluaW5nKGRpc2NvdW50PTEuMCxpbnN0YW5jZXNfZmlsZT0sbWF4X251bV9pbnN0YW5jZXM9MTAwMCxtYXhfdHVybnM9MTAscHJvYl9lbmQ9MC4wKQpbU3RhdGVdCjIzNgo3Ngo3MAo5CjM2CjY0CgqUYnMu\n",
+          "legalActions": [
+            0, 1, 8, 9, 15, 16, 36, 37, 43, 44, 49, 50, 64, 65, 70, 71, 75, 76,
+            120
+          ],
+          "legalActionStrings": [
+            "Offer: Book: 0, Hat: 0, Basketball: 0",
+            "Offer: Book: 1, Hat: 0, Basketball: 0",
+            "Offer: Book: 0, Hat: 1, Basketball: 0",
+            "Offer: Book: 1, Hat: 1, Basketball: 0",
+            "Offer: Book: 0, Hat: 2, Basketball: 0",
+            "Offer: Book: 1, Hat: 2, Basketball: 0",
+            "Offer: Book: 0, Hat: 0, Basketball: 1",
+            "Offer: Book: 1, Hat: 0, Basketball: 1",
+            "Offer: Book: 0, Hat: 1, Basketball: 1",
+            "Offer: Book: 1, Hat: 1, Basketball: 1",
+            "Offer: Book: 0, Hat: 2, Basketball: 1",
+            "Offer: Book: 1, Hat: 2, Basketball: 1",
+            "Offer: Book: 0, Hat: 0, Basketball: 2",
+            "Offer: Book: 1, Hat: 0, Basketball: 2",
+            "Offer: Book: 0, Hat: 1, Basketball: 2",
+            "Offer: Book: 1, Hat: 1, Basketball: 2",
+            "Offer: Book: 0, Hat: 2, Basketball: 2",
+            "Offer: Book: 1, Hat: 2, Basketball: 2",
+            "Agree"
+          ]
+        },
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": null,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 7,
+          "observationString": "{\"current_player\": 0, \"viewing_player\": 0, \"is_terminal\": false, \"agreement_reached\": false, \"max_turns\": 10, \"num_offers\": 6, \"pool\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}, \"my_values\": {\"book\": 2, \"hat\": 2, \"basketball\": 2}, \"offer_history\": [{\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 2}}, {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 1, \"basketball\": 0}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 1}}, {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 2}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 1}}], \"last_offer\": {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 1}}, \"returns\": null, \"params\": {\"max_turns\": 10, \"discount\": 1.0, \"prob_end\": 0.0, \"agree_action\": 120}}",
+          "currentPlayer": 0,
+          "playerId": 0,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nbargaining_proxy(discount=1.0,instances_file=,max_num_instances=1000,max_turns=10,prob_end=0.0)\n[State]\nhistory=-1:236,0:76,1:70,0:9,1:36,0:64,1:43\nmove_number=7\n__dict__=gASVBgEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwPQmFyZ2FpbmluZ1N0YXRllJOUKYGUjM8jIEF1dG9tYXRpY2FsbHkgZ2VuZXJhdGVkIGJ5IE9wZW5TcGllbCBTZXJpYWxpemVHYW1lQW5kU3RhdGUKW01ldGFdClZlcnNpb246IDEKCltHYW1lXQpiYXJnYWluaW5nKGRpc2NvdW50PTEuMCxpbnN0YW5jZXNfZmlsZT0sbWF4X251bV9pbnN0YW5jZXM9MTAwMCxtYXhfdHVybnM9MTAscHJvYl9lbmQ9MC4wKQpbU3RhdGVdCjIzNgo3Ngo3MAo5CjM2CjY0CjQzCgqUYnMu\n",
+          "legalActions": [
+            0, 1, 8, 9, 15, 16, 36, 37, 43, 44, 49, 50, 64, 65, 70, 71, 75, 76,
+            120
+          ],
+          "legalActionStrings": [
+            "Offer: Book: 0, Hat: 0, Basketball: 0",
+            "Offer: Book: 1, Hat: 0, Basketball: 0",
+            "Offer: Book: 0, Hat: 1, Basketball: 0",
+            "Offer: Book: 1, Hat: 1, Basketball: 0",
+            "Offer: Book: 0, Hat: 2, Basketball: 0",
+            "Offer: Book: 1, Hat: 2, Basketball: 0",
+            "Offer: Book: 0, Hat: 0, Basketball: 1",
+            "Offer: Book: 1, Hat: 0, Basketball: 1",
+            "Offer: Book: 0, Hat: 1, Basketball: 1",
+            "Offer: Book: 1, Hat: 1, Basketball: 1",
+            "Offer: Book: 0, Hat: 2, Basketball: 1",
+            "Offer: Book: 1, Hat: 2, Basketball: 1",
+            "Offer: Book: 0, Hat: 0, Basketball: 2",
+            "Offer: Book: 1, Hat: 0, Basketball: 2",
+            "Offer: Book: 0, Hat: 1, Basketball: 2",
+            "Offer: Book: 1, Hat: 1, Basketball: 2",
+            "Offer: Book: 0, Hat: 2, Basketball: 2",
+            "Offer: Book: 1, Hat: 2, Basketball: 2",
+            "Agree"
+          ]
+        },
+        "status": "ACTIVE"
+      },
+      {
+        "action": {
+          "submission": 43,
+          "thoughts": "spark eta epsilon echo nu chi epsilon nu",
+          "actionString": "Offer: Book: 0, Hat: 1, Basketball: 1"
+        },
+        "reward": null,
+        "info": {
+          "actionSubmitted": 43,
+          "actionSubmittedToString": "Offer: Book: 0, Hat: 1, Basketball: 1",
+          "actionApplied": 43,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": 0, \"viewing_player\": 1, \"is_terminal\": false, \"agreement_reached\": false, \"max_turns\": 10, \"num_offers\": 6, \"pool\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}, \"my_values\": {\"book\": 2, \"hat\": 2, \"basketball\": 2}, \"offer_history\": [{\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 2}}, {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 1, \"basketball\": 0}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 1}}, {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 2}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 1}}], \"last_offer\": {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 1}}, \"returns\": null, \"params\": {\"max_turns\": 10, \"discount\": 1.0, \"prob_end\": 0.0, \"agree_action\": 120}}",
+          "currentPlayer": 0,
+          "playerId": 1,
+          "isTerminal": false,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nbargaining_proxy(discount=1.0,instances_file=,max_num_instances=1000,max_turns=10,prob_end=0.0)\n[State]\nhistory=-1:236,0:76,1:70,0:9,1:36,0:64,1:43\nmove_number=7\n__dict__=gASVBgEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwPQmFyZ2FpbmluZ1N0YXRllJOUKYGUjM8jIEF1dG9tYXRpY2FsbHkgZ2VuZXJhdGVkIGJ5IE9wZW5TcGllbCBTZXJpYWxpemVHYW1lQW5kU3RhdGUKW01ldGFdClZlcnNpb246IDEKCltHYW1lXQpiYXJnYWluaW5nKGRpc2NvdW50PTEuMCxpbnN0YW5jZXNfZmlsZT0sbWF4X251bV9pbnN0YW5jZXM9MTAwMCxtYXhfdHVybnM9MTAscHJvYl9lbmQ9MC4wKQpbU3RhdGVdCjIzNgo3Ngo3MAo5CjM2CjY0CjQzCgqUYnMu\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": {
+          "submission": 120,
+          "thoughts": "wonder ponder ripple kappa muse gamma cascade ember",
+          "actionString": "Agree"
+        },
+        "reward": 6.0,
+        "info": {
+          "actionSubmitted": 120,
+          "actionSubmittedToString": "Agree",
+          "actionApplied": 120,
+          "timeTaken": 0.0,
+          "agentSelfReportedStatus": null
+        },
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 8,
+          "observationString": "{\"current_player\": -4, \"viewing_player\": 0, \"is_terminal\": true, \"agreement_reached\": true, \"max_turns\": 10, \"num_offers\": 6, \"pool\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}, \"my_values\": {\"book\": 2, \"hat\": 2, \"basketball\": 2}, \"offer_history\": [{\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 2}}, {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 1, \"basketball\": 0}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 1}}, {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 2}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 1}}, {\"player\": 0, \"type\": \"agree\"}], \"last_offer\": {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 1}}, \"returns\": [6.0, 4.0], \"params\": {\"max_turns\": 10, \"discount\": 1.0, \"prob_end\": 0.0, \"agree_action\": 120}}",
+          "currentPlayer": -4,
+          "playerId": 0,
+          "isTerminal": true,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nbargaining_proxy(discount=1.0,instances_file=,max_num_instances=1000,max_turns=10,prob_end=0.0)\n[State]\nhistory=-1:236,0:76,1:70,0:9,1:36,0:64,1:43,0:120\nmove_number=8\n__dict__=gASVCgEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwPQmFyZ2FpbmluZ1N0YXRllJOUKYGUjNMjIEF1dG9tYXRpY2FsbHkgZ2VuZXJhdGVkIGJ5IE9wZW5TcGllbCBTZXJpYWxpemVHYW1lQW5kU3RhdGUKW01ldGFdClZlcnNpb246IDEKCltHYW1lXQpiYXJnYWluaW5nKGRpc2NvdW50PTEuMCxpbnN0YW5jZXNfZmlsZT0sbWF4X251bV9pbnN0YW5jZXM9MTAwMCxtYXhfdHVybnM9MTAscHJvYl9lbmQ9MC4wKQpbU3RhdGVdCjIzNgo3Ngo3MAo5CjM2CjY0CjQzCjEyMAoKlGJzLg==\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "DONE"
+      },
+      {
+        "action": {
+          "submission": -1
+        },
+        "reward": 4.0,
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "observationString": "{\"current_player\": -4, \"viewing_player\": 1, \"is_terminal\": true, \"agreement_reached\": true, \"max_turns\": 10, \"num_offers\": 6, \"pool\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}, \"my_values\": {\"book\": 2, \"hat\": 2, \"basketball\": 2}, \"offer_history\": [{\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 2}}, {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 1, \"basketball\": 0}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 1}}, {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 2}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 1}}, {\"player\": 0, \"type\": \"agree\"}], \"last_offer\": {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 1}}, \"returns\": [6.0, 4.0], \"params\": {\"max_turns\": 10, \"discount\": 1.0, \"prob_end\": 0.0, \"agree_action\": 120}}",
+          "currentPlayer": -4,
+          "playerId": 1,
+          "isTerminal": true,
+          "serializedGameAndState": "# Automatically generated by OpenSpiel SerializeGameAndState\n[Meta]\nVersion: 1\n\n[Game]\nbargaining_proxy(discount=1.0,instances_file=,max_num_instances=1000,max_turns=10,prob_end=0.0)\n[State]\nhistory=-1:236,0:76,1:70,0:9,1:36,0:64,1:43,0:120\nmove_number=8\n__dict__=gASVCgEAAAAAAAB9lIwLX193cmFwcGVkX1+UjAdweXNwaWVslIwPQmFyZ2FpbmluZ1N0YXRllJOUKYGUjNMjIEF1dG9tYXRpY2FsbHkgZ2VuZXJhdGVkIGJ5IE9wZW5TcGllbCBTZXJpYWxpemVHYW1lQW5kU3RhdGUKW01ldGFdClZlcnNpb246IDEKCltHYW1lXQpiYXJnYWluaW5nKGRpc2NvdW50PTEuMCxpbnN0YW5jZXNfZmlsZT0sbWF4X251bV9pbnN0YW5jZXM9MTAwMCxtYXhfdHVybnM9MTAscHJvYl9lbmQ9MC4wKQpbU3RhdGVdCjIzNgo3Ngo3MAo5CjM2CjY0CjQzCjEyMAoKlGJzLg==\n",
+          "legalActions": [],
+          "legalActionStrings": []
+        },
+        "status": "DONE"
+      }
+    ]
+  ],
+  "rewards": [6.0, 4.0],
+  "statuses": ["DONE", "DONE"],
+  "schema_version": 1,
+  "info": {
+    "openSpielGameStringResolved": "bargaining_proxy(discount=1.0,instances_file=,max_num_instances=1000,max_turns=10,prob_end=0.0)",
+    "stateHistory": [
+      "{\"current_player\": -1, \"viewing_player\": 0, \"is_terminal\": false, \"agreement_reached\": false, \"max_turns\": 10, \"num_offers\": 0, \"pool\": {\"book\": 0, \"hat\": 0, \"basketball\": 0}, \"my_values\": {\"book\": 0, \"hat\": 0, \"basketball\": 0}, \"offer_history\": [], \"last_offer\": null, \"returns\": null, \"params\": {\"max_turns\": 10, \"discount\": 1.0, \"prob_end\": 0.0, \"agree_action\": 120}}",
+      "{\"current_player\": 0, \"viewing_player\": 0, \"is_terminal\": false, \"agreement_reached\": false, \"max_turns\": 10, \"num_offers\": 0, \"pool\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}, \"my_values\": {\"book\": 2, \"hat\": 2, \"basketball\": 2}, \"offer_history\": [], \"last_offer\": null, \"returns\": null, \"params\": {\"max_turns\": 10, \"discount\": 1.0, \"prob_end\": 0.0, \"agree_action\": 120}}",
+      "{\"current_player\": 1, \"viewing_player\": 0, \"is_terminal\": false, \"agreement_reached\": false, \"max_turns\": 10, \"num_offers\": 1, \"pool\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}, \"my_values\": {\"book\": 2, \"hat\": 2, \"basketball\": 2}, \"offer_history\": [{\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}}], \"last_offer\": {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}}, \"returns\": null, \"params\": {\"max_turns\": 10, \"discount\": 1.0, \"prob_end\": 0.0, \"agree_action\": 120}}",
+      "{\"current_player\": 0, \"viewing_player\": 0, \"is_terminal\": false, \"agreement_reached\": false, \"max_turns\": 10, \"num_offers\": 2, \"pool\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}, \"my_values\": {\"book\": 2, \"hat\": 2, \"basketball\": 2}, \"offer_history\": [{\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 2}}], \"last_offer\": {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 2}}, \"returns\": null, \"params\": {\"max_turns\": 10, \"discount\": 1.0, \"prob_end\": 0.0, \"agree_action\": 120}}",
+      "{\"current_player\": 1, \"viewing_player\": 0, \"is_terminal\": false, \"agreement_reached\": false, \"max_turns\": 10, \"num_offers\": 3, \"pool\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}, \"my_values\": {\"book\": 2, \"hat\": 2, \"basketball\": 2}, \"offer_history\": [{\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 2}}, {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 1, \"basketball\": 0}}], \"last_offer\": {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 1, \"basketball\": 0}}, \"returns\": null, \"params\": {\"max_turns\": 10, \"discount\": 1.0, \"prob_end\": 0.0, \"agree_action\": 120}}",
+      "{\"current_player\": 0, \"viewing_player\": 0, \"is_terminal\": false, \"agreement_reached\": false, \"max_turns\": 10, \"num_offers\": 4, \"pool\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}, \"my_values\": {\"book\": 2, \"hat\": 2, \"basketball\": 2}, \"offer_history\": [{\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 2}}, {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 1, \"basketball\": 0}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 1}}], \"last_offer\": {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 1}}, \"returns\": null, \"params\": {\"max_turns\": 10, \"discount\": 1.0, \"prob_end\": 0.0, \"agree_action\": 120}}",
+      "{\"current_player\": 1, \"viewing_player\": 0, \"is_terminal\": false, \"agreement_reached\": false, \"max_turns\": 10, \"num_offers\": 5, \"pool\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}, \"my_values\": {\"book\": 2, \"hat\": 2, \"basketball\": 2}, \"offer_history\": [{\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 2}}, {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 1, \"basketball\": 0}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 1}}, {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 2}}], \"last_offer\": {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 2}}, \"returns\": null, \"params\": {\"max_turns\": 10, \"discount\": 1.0, \"prob_end\": 0.0, \"agree_action\": 120}}",
+      "{\"current_player\": 0, \"viewing_player\": 0, \"is_terminal\": false, \"agreement_reached\": false, \"max_turns\": 10, \"num_offers\": 6, \"pool\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}, \"my_values\": {\"book\": 2, \"hat\": 2, \"basketball\": 2}, \"offer_history\": [{\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 2}}, {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 1, \"basketball\": 0}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 1}}, {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 2}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 1}}], \"last_offer\": {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 1}}, \"returns\": null, \"params\": {\"max_turns\": 10, \"discount\": 1.0, \"prob_end\": 0.0, \"agree_action\": 120}}",
+      "{\"current_player\": -4, \"viewing_player\": 0, \"is_terminal\": true, \"agreement_reached\": true, \"max_turns\": 10, \"num_offers\": 6, \"pool\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}, \"my_values\": {\"book\": 2, \"hat\": 2, \"basketball\": 2}, \"offer_history\": [{\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 2, \"basketball\": 2}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 2}}, {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 1, \"hat\": 1, \"basketball\": 0}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 1}}, {\"player\": 0, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 0, \"basketball\": 2}}, {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 1}}, {\"player\": 0, \"type\": \"agree\"}], \"last_offer\": {\"player\": 1, \"type\": \"offer\", \"items\": {\"book\": 0, \"hat\": 1, \"basketball\": 1}}, \"returns\": [6.0, 4.0], \"params\": {\"max_turns\": 10, \"discount\": 1.0, \"prob_end\": 0.0, \"agree_action\": 120}}"
+    ],
+    "actionHistory": ["236", "76", "70", "9", "36", "64", "43", "120"],
+    "moveDurations": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  }
+}
