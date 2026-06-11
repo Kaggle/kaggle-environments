@@ -4,6 +4,8 @@ from collections import namedtuple
 from os import path
 import random
 
+from kaggle_environments.utils import resolve_episode_seed
+
 # Named tuples for agent convenience.
 # Planets and fleets share a common [id, owner, x, y, ...] prefix.
 Planet = namedtuple(
@@ -342,25 +344,10 @@ def interpreter(state, env):
     # the seed is scrubbed from configuration before the first agent.act()
     # call — otherwise agents would see the seed on turn 0.
     if not hasattr(obs0, "planets") or not obs0.planets:
-        # Resolve episode seed and stash it on env.info so it persists into
-        # the replay but stays out of `configuration`, which is visible to
-        # agents. Agents must not be able to reconstruct the comet schedule.
-        if not hasattr(env, "info") or env.info is None:
-            env.info = {}
-        # Reuse the previously-resolved seed if env.reset() runs twice
-        # (e.g. make() + run() both trigger reset). Otherwise read from
-        # configuration, then fall back to a random one.
-        seed = env.info.get("seed")
-        if seed is None:
-            seed = get(configuration, "seed", None)
-        if seed is None:
-            seed = random.randrange(2**31)
-        # Scrub seed from configuration so agents can't read it.
-        try:
-            configuration.seed = None
-        except (AttributeError, TypeError):
-            configuration["seed"] = None
-        env.info["seed"] = seed
+        # Agents must not be able to reconstruct the comet schedule, so
+        # resolve_episode_seed scrubs the seed from configuration before the
+        # first agent.act() call and stashes it on env.info for the replay.
+        seed = resolve_episode_seed(env)
         init_rng = random.Random(seed)
 
         angular_velocity = init_rng.uniform(0.025, 0.05)
