@@ -23,12 +23,12 @@
       "default": 1200
     },
     "seed": {
-      "description": "Optional input seed used to deterministically pick one of the built-in maps when mapName is empty (selection is seed % N over the catalog sorted by name). The interpreter clears this from configuration after reading and stores the resolved seed on env.info['seed'] so it stays out of agent observations but is still recorded in the replay.",
+      "description": "Optional input seed. When mapName is empty, the seed deterministically picks one of the built-in maps (seed % N over the catalog sorted by name). The seed also drives a few symmetric terrain flips (plain/forest/mountain only) so the chosen layout is not byte-identical across episodes. The interpreter clears this from configuration after reading and stores the resolved seed on env.info['seed'] so it stays out of agent observations but is still recorded in the replay.",
       "type": ["integer", "null"],
       "default": null
     },
     "mapName": {
-      "description": "Name of a built-in map to use (e.g. 'beginner', 'crossroads', 'tower_rush'). Leave empty to let the seed pick from the built-in catalog.",
+      "description": "Name of a built-in map to use (e.g. 'beginner', 'crossroads', 'tower_rush'). Leave empty to let the seed pick from the built-in catalog. The seed still mutates the chosen map slightly so layouts vary across episodes.",
       "type": "string",
       "default": ""
     },

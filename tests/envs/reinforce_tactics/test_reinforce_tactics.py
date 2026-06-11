@@ -18,6 +18,7 @@ from kaggle_environments.envs.reinforce_tactics.reinforce_tactics import (
     _games,
     _get_active_index,
     _init_game,
+    _mutate_map,
     _pad_map,
     _serialize_board,
     _serialize_structures,
@@ -362,6 +363,73 @@ class TestBuiltinMaps:
         big = [["p"] * 20 for _ in range(20)]
         padded = _pad_map(big, min_size=20)
         assert padded.shape == (20, 20)
+
+
+# ---------------------------------------------------------------------------
+# Test: Map Mutation
+# ---------------------------------------------------------------------------
+
+
+class TestMutateMap:
+    """Tests for _mutate_map (seed-driven, symmetric terrain flips)."""
+
+    def _diff_positions(self, before, after):
+        return [
+            (x, y)
+            for y in range(len(before))
+            for x in range(len(before[0]))
+            if before[y][x] != after[y][x]
+        ]
+
+    def test_deterministic_for_same_seed(self):
+        base = BUILTIN_MAPS["beginner"]
+        a = _mutate_map(base, seed=7)
+        b = _mutate_map(base, seed=7)
+        assert a == b
+
+    def test_different_seeds_produce_different_maps(self):
+        base = BUILTIN_MAPS["crossroads"]
+        # Probe a handful of seeds; at least two should diverge.
+        outputs = {tuple(tuple(r) for r in _mutate_map(base, seed=s)) for s in range(8)}
+        assert len(outputs) >= 2
+
+    def test_preserves_structural_tiles(self):
+        # HQs, player buildings, towers, roads, water, ocean must never be
+        # rewritten -- only p/f/m can move around.
+        protected = {"h_1", "h_2", "b_1", "b_2", "t", "t_1", "t_2", "r", "w", "o", "b"}
+        for name, base in BUILTIN_MAPS.items():
+            mutated = _mutate_map(base, seed=123)
+            for y, row in enumerate(base):
+                for x, cell in enumerate(row):
+                    if cell in protected:
+                        assert mutated[y][x] == cell, f"{name}: protected tile changed at ({x},{y})"
+
+    def test_only_flips_mutable_terrain(self):
+        base = BUILTIN_MAPS["last_stand"]
+        mutated = _mutate_map(base, seed=42)
+        for y, row in enumerate(base):
+            for x, cell in enumerate(row):
+                if mutated[y][x] != cell:
+                    # Both the original and new tile must be in the mutable set.
+                    assert cell in {"p", "f", "m"}
+                    assert mutated[y][x] in {"p", "f", "m"}
+
+    def test_mutations_are_point_symmetric(self):
+        base = BUILTIN_MAPS["mage_showdown"]
+        mutated = _mutate_map(base, seed=99)
+        h = len(mutated)
+        w = len(mutated[0])
+        diffs = self._diff_positions(base, mutated)
+        assert diffs, "expected at least one mutation"
+        for x, y in diffs:
+            mx, my = w - 1 - x, h - 1 - y
+            assert mutated[my][mx] == mutated[y][x], f"mirror ({mx},{my}) of ({x},{y}) not matched"
+
+    def test_actually_mutates(self):
+        # With a sane seed and a roomy map, at least one tile should change.
+        base = BUILTIN_MAPS["cleric_vigil"]
+        diffs = self._diff_positions(base, _mutate_map(base, seed=1))
+        assert len(diffs) > 0
 
 
 # ---------------------------------------------------------------------------
