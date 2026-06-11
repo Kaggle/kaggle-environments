@@ -14,6 +14,7 @@ Required exports for kaggle-environments:
 
 import json
 import logging
+import random
 from os import path
 
 import numpy as np
@@ -118,12 +119,36 @@ def interpreter(state, env):
 
 def _interpreter_init(state, env, key):
     """Handle the first interpreter call (game initialisation)."""
-    game = _init_game(env.configuration)
+    seed = _resolve_seed(env)
+    game = _init_game(env.configuration, seed)
     _games[key] = game
     _update_observations(state, game, env.configuration)
     state[0].status = "ACTIVE"
     state[1].status = "INACTIVE"
     return state
+
+
+def _resolve_seed(env):
+    """Resolve the episode seed from env.info / configuration, then scrub.
+
+    Mirrors crawl/kaggriculture/orbit_wars: read env.info["seed"] first (the
+    harness may have set it), then configuration.seed, then fall back to a
+    random value. Clear configuration.seed so agents can't read it, and stash
+    the resolved value on env.info["seed"] so it persists into the replay.
+    """
+    if not hasattr(env, "info") or env.info is None:
+        env.info = {}
+    seed = env.info.get("seed")
+    if seed is None:
+        seed = getattr(env.configuration, "seed", None)
+    if seed is None:
+        seed = random.randrange(2**31)
+    try:
+        env.configuration.seed = None
+    except (AttributeError, TypeError):
+        env.configuration["seed"] = None
+    env.info["seed"] = seed
+    return seed
 
 
 def _process_turn(state, env, game, active_idx, key):
@@ -252,92 +277,28 @@ def _pad_map(map_rows, min_size=20):
 
 
 # ---------------------------------------------------------------------------
-# Map Generation (inlined to avoid pygame dependency from utils package)
-# ---------------------------------------------------------------------------
-def _generate_map(width, height, num_players=2):
-    """
-    Generate a random map as a pandas DataFrame.
-
-    This mirrors ``FileIO.generate_random_map`` but is self-contained so the
-    kaggle adapter does not need to import the ``reinforcetactics.utils``
-    package (which transitively pulls in pygame via ReplayPlayer).
-    """
-    import pandas as pd
-
-    width = max(width, 20)
-    height = max(height, 20)
-
-    map_data = np.full((height, width), "o", dtype=object)
-
-    num_tiles = width * height
-
-    # Forests (10%)
-    for _ in range(num_tiles // 10):
-        x, y = np.random.randint(0, width), np.random.randint(0, height)
-        map_data[y, x] = "f"
-
-    # Mountains (5%)
-    for _ in range(num_tiles // 20):
-        x, y = np.random.randint(0, width), np.random.randint(0, height)
-        map_data[y, x] = "m"
-
-    # Water (3%)
-    for _ in range(num_tiles // 33):
-        x, y = np.random.randint(0, width), np.random.randint(0, height)
-        map_data[y, x] = "w"
-
-    # Player headquarters and buildings
-    if num_players >= 1:
-        map_data[1, 1] = "h_1"
-        map_data[1, 2] = "b_1"
-        map_data[2, 1] = "b_1"
-
-    if num_players >= 2:
-        map_data[height - 2, width - 2] = "h_2"
-        map_data[height - 2, width - 3] = "b_2"
-        map_data[height - 3, width - 2] = "b_2"
-
-    if num_players >= 3:
-        map_data[1, width - 2] = "h_3"
-        map_data[1, width - 3] = "b_3"
-        map_data[2, width - 2] = "b_3"
-
-    if num_players >= 4:
-        map_data[height - 2, 1] = "h_4"
-        map_data[height - 2, 2] = "b_4"
-        map_data[height - 3, 1] = "b_4"
-
-    # Neutral towers in centre
-    cx, cy = width // 2, height // 2
-    for dx, dy in [(0, 0), (3, 0), (0, 3), (3, 3)]:
-        x, y = cx + dx - 2, cy + dy - 2
-        if 0 <= x < width and 0 <= y < height:
-            if map_data[y, x] == "p":
-                map_data[y, x] = "t"
-
-    return pd.DataFrame(map_data)
-
-
-# ---------------------------------------------------------------------------
 # Game Initialisation
 # ---------------------------------------------------------------------------
-def _init_game(config):
-    """Create a new GameState from the Kaggle configuration."""
+def _select_map_by_seed(seed):
+    """Pick a built-in map name. None picks randomly; otherwise deterministic."""
+    names = sorted(BUILTIN_MAPS)
+    if seed is None:
+        return names[np.random.randint(0, len(names))]
+    return names[int(seed) % len(names)]
+
+
+def _init_game(config, seed=None):
+    """Create a new GameState from the Kaggle configuration.
+
+    If ``mapName`` is set and matches a built-in, that map is used. Otherwise
+    ``seed`` deterministically selects a map from BUILTIN_MAPS (sorted by name).
+    """
     map_name = getattr(config, "mapName", "")
 
-    if map_name and map_name in BUILTIN_MAPS:
-        # Use a built-in map (padded to minimum 20x20)
-        map_data = _pad_map(BUILTIN_MAPS[map_name])
-    else:
-        # Random generation
-        width = config.mapWidth
-        height = config.mapHeight
-        seed = config.mapSeed
+    if not map_name or map_name not in BUILTIN_MAPS:
+        map_name = _select_map_by_seed(seed)
 
-        if seed >= 0:
-            np.random.seed(seed)
-
-        map_data = _generate_map(width, height, num_players=2)
+    map_data = _pad_map(BUILTIN_MAPS[map_name])
 
     enabled_units = [u.strip() for u in config.enabledUnits.split(",") if u.strip()]
     fog_of_war = bool(config.fogOfWar)

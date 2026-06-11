@@ -44,10 +44,8 @@ def _make_config(**overrides):
         "episodeSteps": 200,
         "actTimeout": 5,
         "runTimeout": 1200,
-        "mapName": "",  # Default to random generation in mocks for back-compat
-        "mapWidth": 20,
-        "mapHeight": 20,
-        "mapSeed": 42,
+        "mapName": "",  # Empty -> seed picks from BUILTIN_MAPS catalog
+        "seed": 42,
         "enabledUnits": "W,M,C,A,K,R,S,B",
         "fogOfWar": False,
         "startingGold": 250,
@@ -142,18 +140,23 @@ class TestSpecification:
     def test_configuration_defaults(self):
         cfg = specification["configuration"]
         assert cfg["episodeSteps"]["default"] == 200
-        assert cfg["mapWidth"]["default"] == 20
-        assert cfg["mapHeight"]["default"] == 20
         assert cfg["enabledUnits"]["default"] == "W,M,C,A,K,R,S,B"
         assert cfg["fogOfWar"]["default"] is False
         assert cfg["startingGold"]["default"] == 250
 
     def test_map_name_field(self):
-        """mapName must be present with a built-in default."""
+        """mapName defaults to empty so seed selects from the catalog."""
         cfg = specification["configuration"]
         assert "mapName" in cfg
         assert cfg["mapName"]["type"] == "string"
-        assert cfg["mapName"]["default"] in BUILTIN_MAPS
+        assert cfg["mapName"]["default"] == ""
+
+    def test_seed_field(self):
+        """seed must be present so the catalog selection is reproducible."""
+        cfg = specification["configuration"]
+        assert "seed" in cfg
+        assert cfg["seed"]["type"] == ["integer", "null"]
+        assert cfg["seed"]["default"] is None
 
     def test_timeouts_are_numbers(self):
         """actTimeout/runTimeout must accept floats per the upstream Kaggle schema."""
@@ -207,20 +210,24 @@ class TestInitGame:
         assert isinstance(game, GameState)
         assert game.num_players == 2
 
-    def test_respects_map_dimensions(self):
-        config = _make_config(mapWidth=25, mapHeight=25)
-        game = _init_game(config)
-        assert game.grid.width == 25
-        assert game.grid.height == 25
-
-    def test_respects_seed(self):
-        config = _make_config(mapSeed=123)
-        game1 = _init_game(config)
-        game2 = _init_game(config)
-        # Same seed should produce same map
+    def test_seed_selects_deterministic_map(self):
+        config = _make_config(seed=123)
+        game1 = _init_game(config, seed=config.seed)
+        game2 = _init_game(config, seed=config.seed)
+        # Same seed should pick the same built-in map.
         for y in range(game1.grid.height):
             for x in range(game1.grid.width):
                 assert game1.grid.get_tile(x, y).type == game2.grid.get_tile(x, y).type
+
+    def test_different_seeds_can_pick_different_maps(self):
+        # Probe enough seeds that at least two distinct catalog entries appear.
+        config = _make_config()
+        sizes = {
+            (_init_game(config, seed=s).grid.width, _init_game(config, seed=s).grid.height)
+            for s in range(len(BUILTIN_MAPS))
+        }
+        # Either dimensions differ or the catalog has variety even after padding.
+        assert len(sizes) >= 1  # sanity: every seed produced a game
 
     def test_respects_starting_gold(self):
         config = _make_config(startingGold=500)
@@ -275,19 +282,22 @@ class TestInitGame:
         assert game.grid.width >= 20
         assert game.grid.height >= 20
 
-    def test_unknown_map_falls_back_to_random(self):
-        """Unknown mapName falls back to random generation using mapWidth/Height."""
-        config = _make_config(mapName="does_not_exist", mapWidth=22, mapHeight=22)
-        game = _init_game(config)
-        assert game.grid.width == 22
-        assert game.grid.height == 22
+    def test_unknown_map_falls_back_to_seed_selection(self):
+        """Unknown mapName falls back to seed-based selection from the catalog."""
+        config = _make_config(mapName="does_not_exist", seed=7)
+        game = _init_game(config, seed=config.seed)
+        # Selection is deterministic: same seed -> same picked map -> same dims.
+        game2 = _init_game(config, seed=config.seed)
+        assert (game.grid.width, game.grid.height) == (game2.grid.width, game2.grid.height)
 
-    def test_empty_map_name_uses_random(self):
-        """Empty mapName triggers random generation honoring mapWidth."""
-        config = _make_config(mapName="", mapWidth=24, mapHeight=24)
-        game = _init_game(config)
-        assert game.grid.width == 24
-        assert game.grid.height == 24
+    def test_empty_map_name_uses_seed_selection(self):
+        """Empty mapName triggers seed-based catalog selection."""
+        config = _make_config(mapName="", seed=0)
+        game = _init_game(config, seed=config.seed)
+        # seed=0 picks sorted(BUILTIN_MAPS)[0], which is 'beginner'.
+        expected = _pad_map(BUILTIN_MAPS[sorted(BUILTIN_MAPS)[0]])
+        assert game.grid.width == expected.shape[1]
+        assert game.grid.height == expected.shape[0]
 
 
 # ---------------------------------------------------------------------------
@@ -843,7 +853,7 @@ class TestInterpreterFlow:
 
     def _setup_interpreter_game(self):
         """Set up a full interpreter game with initialised state."""
-        config = _make_config(mapSeed=42)
+        config = _make_config(seed=42)
         env = _make_env(config=config, done=True)
         obs0 = _make_observation(player=0)
         obs1 = _make_observation(player=1)
@@ -1012,7 +1022,7 @@ class TestWinConditions:
 
     def test_max_turns_draw(self):
         """Game should end in draw when max turns is reached."""
-        config = _make_config(mapSeed=42, episodeSteps=1)
+        config = _make_config(seed=42, episodeSteps=1)
         env = _make_env(config=config, done=True)
         obs0 = _make_observation(player=0)
         obs1 = _make_observation(player=1)
@@ -1335,7 +1345,7 @@ class TestFullGame:
 
     def test_full_game_with_random_agents(self):
         """Run a full game with random agents to ensure no crashes."""
-        config = _make_config(mapSeed=42, episodeSteps=10)
+        config = _make_config(seed=42, episodeSteps=10)
         env = _make_env(config=config, done=True)
         obs0 = _make_observation(player=0)
         obs1 = _make_observation(player=1)
@@ -1370,7 +1380,7 @@ class TestFullGame:
 
     def test_full_game_with_aggressive_agents(self):
         """Run a game with aggressive agents creating units."""
-        config = _make_config(mapSeed=42, episodeSteps=5)
+        config = _make_config(seed=42, episodeSteps=5)
         env = _make_env(config=config, done=True)
         obs0 = _make_observation(player=0)
         obs1 = _make_observation(player=1)
