@@ -87,11 +87,16 @@ export const chessTransformer = (environment: any): ChessStep[] => {
   for (const step of chessReplay.steps) {
     // Each step contains a tuple of players, one who acted and one who's waiting
     const stepPlayers: ChessPlayer[] = step.map((player, index): ChessPlayer => {
+      const submission = player.action?.submission;
       return {
         id: index,
         name: environment.info.TeamNames[index],
         thumbnail: '',
-        isTurn: player.action?.submission !== -1,
+        // A turn requires submission to be a real action id. -1 means the player
+        // didn't act this step (inactive or forfeited); null/undefined shows up
+        // in pre-game init steps where the harness pings agents without
+        // requesting a move — we don't want those rendered as spurious turns.
+        isTurn: typeof submission === 'number' && submission !== -1,
         actionDisplayText: player.action?.actionString ?? '',
         thoughts: player.action?.thoughts ?? '',
         reward: player.reward,
