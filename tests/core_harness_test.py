@@ -36,7 +36,7 @@ class _SimpleHarness:
         self.prompts.append(prompt)
         return prompt
 
-    def parse_response(self, response, legal_action_strings):
+    def parse_response(self, response, legal_action_strings, *, observation=None):
         response = response.strip()
         if response in legal_action_strings:
             return ParseResult(legal_action=response, raw_action=response)
@@ -178,7 +178,7 @@ class CoreHarnessTest(absltest.TestCase):
         # Stub parse_response to return raw_action=None for non-empty
         # content -- mimics a parser that couldn't extract anything.
         harness = _SimpleHarness()
-        harness.parse_response = lambda r, l: ParseResult(legal_action=None, raw_action=None)
+        harness.parse_response = lambda r, l, *, observation=None: ParseResult(legal_action=None, raw_action=None)
         agent = create_agent_fn(harness, max_retries=1)
         with patch.dict("os.environ", _ENV, clear=False), patch.object(
             core_harness.litellm, "completion",
@@ -542,7 +542,7 @@ class CoreHarnessTest(absltest.TestCase):
                 super().__init__()
                 self.parse_calls = 0
 
-            def parse_response(self, response, legal_action_strings):
+            def parse_response(self, response, legal_action_strings, *, observation=None):
                 self.parse_calls += 1
                 if self.parse_calls == 1:
                     raise RuntimeError("parser blew up")
@@ -682,7 +682,7 @@ class _FreeFormHarness:
         self.prompts.append(prompt)
         return prompt
 
-    def parse_response(self, response, legal_action_strings):
+    def parse_response(self, response, legal_action_strings, *, observation=None):
         assert legal_action_strings is None
         try:
             import json
@@ -715,7 +715,7 @@ class _MixedHarness:
         self.prompts.append(prompt)
         return prompt
 
-    def parse_response(self, response, legal_action_strings):
+    def parse_response(self, response, legal_action_strings, *, observation=None):
         if legal_action_strings is None:
             try:
                 import json
