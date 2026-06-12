@@ -364,6 +364,43 @@ def test_env_both_invalid_draw():
     assert j["rewards"] == [None, None]
 
 
+def test_env_agent_raises_forfeits():
+    # core.py marks the agent ERROR (action=None). The interpreter must
+    # detect that and forfeit the game, not silently let _validate_orders(None)
+    # pass and let the other player run uncontested for the rest of the episode.
+    def boom(obs, config):
+        raise RuntimeError("crash")
+
+    env = make("planet_wars", configuration={"seed": 5, "episodeSteps": 20})
+    env.run([boom, "do_nothing"])
+    j = env.toJSON()
+    assert j["statuses"][0] == "ERROR"
+    assert j["statuses"][1] == "DONE"
+    assert j["rewards"][0] is None
+    assert j["rewards"][1] == 1
+
+
+def test_env_forfeit_frame_applies_time_step():
+    # When one player forfeits, the recorded final frame should still reflect
+    # ship growth for that turn — visualizers replay the last frame and would
+    # otherwise show stale ship counts.
+    def bad_on_step_2(obs, config):
+        if obs.step == 2:
+            return [[0, 0, 5]]  # source == dest, invalid
+        return []
+
+    env = make("planet_wars", configuration={"seed": 5, "episodeSteps": 20})
+    env.run([bad_on_step_2, "do_nothing"])
+    j = env.toJSON()
+    assert j["statuses"][0] == "INVALID"
+    # Owned planets must show at least one tick of growth past their starting
+    # ship counts (home planets start at 100 with growth 5).
+    final_planets = env.state[0].observation.planets
+    owned = [p for p in final_planets if p[3] in (1, 2) and p[5] > 0]
+    assert owned, "expected at least one owned planet with growth"
+    assert any(p[4] > HOME_SHIPS for p in owned), "final frame did not advance growth"
+
+
 def test_env_empty_action_is_noop():
     def empty(obs, config):
         return []
@@ -381,6 +418,28 @@ def test_env_renderer_returns_text():
     out = env.render(mode="ansi")
     assert isinstance(out, str)
     assert "Planets:" in out
+
+
+def test_env_max_turns_scoring_winner():
+    # Both players survive to max turns; the one with more total ships wins.
+    # Player 1's home grows by 5/turn; player 2's lone planet has zero growth.
+    map_text = "P 0 0 1 10 5\nP 10 0 2 1 0\n"
+    env = make("planet_wars", configuration={"seed": 1, "episodeSteps": 3, "map": map_text})
+    env.run(["do_nothing", "do_nothing"])
+    j = env.toJSON()
+    assert j["statuses"] == ["DONE", "DONE"]
+    assert j["rewards"] == [1, -1]
+
+
+def test_env_mutual_elimination_draw():
+    # Map with no player-owned planets — _alive_players returns the empty
+    # set from turn 0, hitting the len(alive) == 0 mutual-elimination branch.
+    map_text = "P 0 0 0 5 0\nP 10 0 0 5 0\n"
+    env = make("planet_wars", configuration={"seed": 1, "episodeSteps": 5, "map": map_text})
+    env.run(["do_nothing", "do_nothing"])
+    j = env.toJSON()
+    assert j["statuses"] == ["DONE", "DONE"]
+    assert j["rewards"] == [0, 0]
 
 
 def test_env_win_by_elimination_with_handcrafted_map():

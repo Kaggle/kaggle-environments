@@ -39,6 +39,10 @@ MAX_RADIUS = 15
 # epsilon of an integer — small platform-dependent rounding around `ceil`
 # would otherwise produce different trip lengths on different machines.
 EPSILON = 0.002
+# Hard cap on rejection-sampling retries inside generate_map. Real seeds
+# converge in a handful of tries; this just bounds pathological inputs so a
+# bad seed surfaces as an error instead of an infinite loop.
+MAX_PLACEMENT_TRIES = 1000
 
 
 # ---------------------------------------------------------------------------
@@ -202,7 +206,7 @@ def generate_map(seed):
     # Home planets.
     home1_x = home1_y = home2_x = home2_y = 0.0
     theta1 = theta2 = 0.0
-    while True:
+    for _ in range(MAX_PLACEMENT_TRIES):
         r = _rand_radius(rng, MIN_DISTANCE, MAX_RADIUS)
         theta1 = rng.uniform(0, 360)
         if symmetry_type == 1:
@@ -216,6 +220,8 @@ def generate_map(seed):
         if math.ceil(math.hypot(home1_x - home2_x, home1_y - home2_y)) < MIN_STARTING_DISTANCE:
             continue
         break
+    else:
+        raise RuntimeError(f"generate_map: failed to place home planets in {MAX_PLACEMENT_TRIES} tries (seed={seed})")
     add(home1_x, home1_y, 1, HOME_SHIPS, HOME_GROWTH)
     add(home2_x, home2_y, 2, HOME_SHIPS, HOME_GROWTH)
     planets_to_generate -= 2
@@ -229,12 +235,14 @@ def generate_map(seed):
         for _ in range(no_central // 2):
             ships = rng.randint(MIN_SHIPS, MAX_SHIPS)
             growth = rng.randint(MIN_GROWTH, MAX_GROWTH)
-            while True:
+            for _try in range(MAX_PLACEMENT_TRIES):
                 r = _rand_radius(rng, MIN_DISTANCE, MAX_RADIUS)
                 ax, ay = _polar(r, theta_a)
                 bx, by = _polar(r, theta_b)
                 if not _pair_invalid(ax, ay, bx, by, planets):
                     break
+            else:
+                raise RuntimeError(f"generate_map: failed to place central neutral pair in {MAX_PLACEMENT_TRIES} tries (seed={seed})")
             add(ax, ay, 0, ships, growth)
             add(bx, by, 0, ships, growth)
             planets_to_generate -= 2
@@ -250,13 +258,15 @@ def generate_map(seed):
         for _ in range(no_central):
             ships = rng.randint(MIN_SHIPS, MAX_SHIPS)
             growth = rng.randint(MIN_GROWTH, MAX_GROWTH)
-            while True:
+            for _try in range(MAX_PLACEMENT_TRIES):
                 r = _rand_radius(rng, 0, MAX_RADIUS)
                 x, y = _polar(r, theta)
                 if not _too_close_or_ambiguous(x, y, planets):
                     actual = math.hypot(x, y)
                     if abs(actual - round(actual)) >= EPSILON:
                         break
+            else:
+                raise RuntimeError(f"generate_map: failed to place linear-axis neutral in {MAX_PLACEMENT_TRIES} tries (seed={seed})")
             add(x, y, 0, ships, growth)
             planets_to_generate -= 1
 
@@ -273,13 +283,15 @@ def generate_map(seed):
         else:
             ships = rng.randint(MIN_SHIPS, MAX_SHIPS)
         growth = rng.randint(MIN_GROWTH, MAX_GROWTH)
-        while True:
+        for _try in range(MAX_PLACEMENT_TRIES):
             r = _rand_radius(rng, MIN_DISTANCE, MAX_RADIUS)
             delta = rng.uniform(0, 360)
             ax, ay = _polar(r, theta1 + delta)
             bx, by = _polar(r, theta2 + symmetry_type * delta)
             if not _pair_invalid(ax, ay, bx, by, planets):
                 break
+        else:
+            raise RuntimeError(f"generate_map: failed to place symmetric neutral pair in {MAX_PLACEMENT_TRIES} tries (seed={seed})")
         add(ax, ay, 0, ships, growth)
         add(bx, by, 0, ships, growth)
 
@@ -332,10 +344,11 @@ def _validate_orders(orders, planets, player_owner):
     """Replay a player's orders against a snapshot of their planet ships
     using the same checks as GameState::ExecuteOrder (game.cpp:180-210).
 
-    Returns True iff every order is valid.
+    Returns True iff `orders` is a list (possibly empty) and every order in
+    it is valid. None is treated as invalid — "no action" is `[]`, and
+    None only appears upstream when core.py marked the agent
+    TIMEOUT/ERROR/INVALID.
     """
-    if orders is None:
-        return True
     if not isinstance(orders, list):
         return False
     if not orders:
@@ -376,6 +389,9 @@ def _apply_orders(orders, planets, fleets, player_owner):
 
     Mirrors GameState::ExecuteOrder including the same-turn merge by
     matching (owner, source, dest, turns_remaining) — see game.cpp:162-208.
+
+    Precondition: caller must have run `_validate_orders` first; this
+    function trusts the orders are well-formed and within budget.
     """
     if not orders:
         return
@@ -387,6 +403,9 @@ def _apply_orders(orders, planets, fleets, player_owner):
         trip = distance((source[1], source[2]), (dest[1], dest[2]))
         existing = None
         for f in fleets:
+            # f[5] == trip means the fleet was launched this same turn
+            # (turns_remaining still equals total_trip), so it's the merge
+            # target. In-flight fleets from earlier turns have f[5] < trip.
             if f[0] == player_owner and f[2] == src and f[3] == dst and f[5] == trip:
                 existing = f
                 break
@@ -504,14 +523,31 @@ def interpreter(state, env):
     fleets = obs0.fleets
 
     # ---- Validate both players' actions against the original ExecuteOrder
-    # checks. Bad orders forfeit the game.
+    # checks. Bad orders forfeit the game. core.py may have already marked
+    # an agent TIMEOUT/ERROR/INVALID (with action=None) before calling us;
+    # treat those as forfeits too rather than letting _validate_orders(None)
+    # pass and silently freezing that player for the rest of the episode.
     actions = [_get(state[i], "action", []) for i in range(len(state))]
-    valid = [_validate_orders(actions[i], planets, state[i].observation.player) for i in range(len(state))]
+    prior_bad = [_get(state[i], "status", "ACTIVE") in ("TIMEOUT", "ERROR", "INVALID") for i in range(len(state))]
+    valid = [
+        not prior_bad[i] and _validate_orders(actions[i], planets, state[i].observation.player)
+        for i in range(len(state))
+    ]
 
     if not valid[0] or not valid[1]:
+        # Still apply the valid player's orders and advance one tick so the
+        # final recorded frame reflects ship growth and fleet arrivals for
+        # this turn — otherwise visualizers show fleets stuck mid-flight.
+        for i in range(len(state)):
+            if valid[i]:
+                _apply_orders(actions[i], planets, fleets, state[i].observation.player)
+        _do_time_step(planets, fleets)
+        _broadcast(state, planets, fleets)
         for i, ok in enumerate(valid):
             if not ok:
-                state[i].status = "INVALID"
+                # Preserve TIMEOUT / ERROR from core.py; otherwise INVALID.
+                if _get(state[i], "status", "ACTIVE") not in ("TIMEOUT", "ERROR"):
+                    state[i].status = "INVALID"
                 state[i].reward = None
             else:
                 state[i].status = "DONE"
@@ -528,7 +564,9 @@ def interpreter(state, env):
 
     alive = _alive_players(planets, fleets)
     step = _get(obs0, "step", 0)
-    max_turns_reached = step + 1 >= configuration.episodeSteps
+    # obs.step is the previous state's step; core.py bumps it to len(steps)
+    # after we return. So `step + 2 >= episodeSteps` detects the final call.
+    max_turns_reached = step + 2 >= configuration.episodeSteps
 
     terminated = False
     if len(alive) <= 1 or max_turns_reached:
