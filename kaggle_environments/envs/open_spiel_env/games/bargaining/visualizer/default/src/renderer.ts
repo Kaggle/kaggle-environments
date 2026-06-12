@@ -1,4 +1,5 @@
 import type { RendererOptions } from '@kaggle-environments/core';
+import type { BargainingObs, BargainingStep, ItemBundle } from './transformers/bargainingReplayTypes';
 
 const ITEM_KEYS = ['book', 'hat', 'basketball'] as const;
 const ITEM_LABELS: Record<string, string> = {
@@ -11,44 +12,6 @@ const ITEM_COLORS: Record<string, string> = {
   hat: '#9a3324',
   basketball: '#7a5a1f',
 };
-
-type ItemBundle = Record<string, number>;
-
-interface OfferEvent {
-  player: number;
-  type: 'offer' | 'agree';
-  items?: ItemBundle;
-}
-
-interface BargainingObs {
-  current_player: number;
-  viewing_player: number;
-  is_terminal: boolean;
-  agreement_reached: boolean;
-  max_turns: number;
-  num_offers: number;
-  pool: ItemBundle;
-  my_values: ItemBundle;
-  offer_history: OfferEvent[];
-  last_offer: OfferEvent | null;
-  returns: number[] | null;
-  params: {
-    max_turns: number;
-    discount: number;
-    prob_end: number;
-    agree_action: number;
-  };
-}
-
-function parseObservation(step: any, playerIdx: number): BargainingObs | null {
-  const raw = step?.[playerIdx]?.observation?.observationString;
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as BargainingObs;
-  } catch {
-    return null;
-  }
-}
 
 function itemUtility(items: ItemBundle | undefined, values: ItemBundle | null): number | null {
   if (!items || !values) return null;
@@ -212,7 +175,7 @@ function statusText(obs: BargainingObs): string {
 
 export function renderer(options: RendererOptions) {
   const { step, replay, parent } = options;
-  const steps = (replay.steps as unknown as any[]) ?? [];
+  const steps = (replay.steps as unknown as BargainingStep[]) ?? [];
   const safeStep = Math.max(0, Math.min(step, steps.length - 1));
   const current = steps[safeStep];
 
@@ -230,9 +193,9 @@ export function renderer(options: RendererOptions) {
   const status = parent.querySelector('.brg-status') as HTMLDivElement;
   if (!header || !pool || !log || !status) return;
 
-  const obs0 = parseObservation(current, 0);
-  const obs1 = parseObservation(current, 1);
-  const obs = obs0 ?? obs1;
+  const obs0 = current?.observations?.[0] ?? null;
+  const obs1 = current?.observations?.[1] ?? null;
+  const obs = current?.obs ?? obs0 ?? obs1;
   if (!obs) {
     status.textContent = 'Waiting for replay…';
     return;
