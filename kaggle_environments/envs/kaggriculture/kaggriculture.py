@@ -3,6 +3,8 @@ import math
 import random
 from os import path
 
+from kaggle_environments.utils import resolve_episode_seed
+
 dirpath = path.dirname(__file__)
 
 
@@ -229,19 +231,7 @@ def _initialize(state, env):
     num_agents = len(state)
     obs0 = state[0].observation
 
-    if not hasattr(env, "info") or env.info is None:
-        env.info = {}
-
-    seed = env.info.get("seed")
-    if seed is None:
-        seed = get(configuration, "seed", None)
-    if seed is None:
-        seed = random.randrange(2**31)
-    try:
-        configuration.seed = None
-    except (AttributeError, TypeError):
-        configuration["seed"] = None
-    env.info["seed"] = seed
+    seed = resolve_episode_seed(env)
 
     board_size = int(get(configuration, "boardSize", 10))
     starting_money = int(get(configuration, "startingMoney", 3000))
