@@ -117,6 +117,23 @@ body,
   font-size: 0.95rem;
 }
 
+.status-container .art-toggle {
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #444343;
+  background-color: #f5f1e2;
+  border: 1px dashed #3c3b37;
+  padding: 2px 8px;
+  margin-left: 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.status-container .art-toggle:hover {
+  background-color: #ece5cd;
+}
+
 @container (max-width: 680px) {
   .header {
     font-size: 0.9rem;

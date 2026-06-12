@@ -226,6 +226,20 @@ def my_agent(observation, configuration):
     return actions
 ```
 
+## Visualizer Art
+
+The web visualizer (`visualizer/default/`) bundles two sprite sets and a
+status-bar button to switch between them:
+
+- **Game art** (default): pixel art from the main Reinforce Tactics
+  repository — terrain tiles, capturable structures, and the first idle
+  frame of each unit's animation sheet. Units and structures are
+  team-coloured with the same palette swap the game uses: the art's base
+  blue palette is kept for Player 2 (blue), swapped to red for Player 1,
+  and swapped to gray for neutral structures.
+- **Classic art**: the original placeholder art this environment shipped
+  with, where ownership is shown with coloured discs and tile tints.
+
 ## File Structure
 
 ```
@@ -239,6 +253,9 @@ reinforce_tactics/
     agents/
         random_agent.py          # Minimal baseline (ends turn immediately)
         simple_bot_agent.py      # Strategic bot (recruits, attacks, seizes)
+    visualizer/default/          # Web visualizer (Vite + TypeScript)
+        src/assets/sprites/      # Original placeholder art
+        src/assets/sprites/game/ # Pixel art from the main repository
 ```
 
 The game engine is vendored as a self-contained sub-package with relative
