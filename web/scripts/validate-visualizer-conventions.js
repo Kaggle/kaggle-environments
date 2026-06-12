@@ -81,6 +81,7 @@ const KNOWN_STANDALONE_GAME_DIRS = new Set([
   'lux_ai_s3',
   'mab',
   'orbit_wars',
+  'planet_wars',
   'reinforce_tactics',
   'rps',
   'werewolf',
