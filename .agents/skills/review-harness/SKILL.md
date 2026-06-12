@@ -477,7 +477,6 @@ Bugs that have been found in real reviews. Treat this as a starting point — fi
 
 | Pattern | Symptom | Detection | Fix |
 |---|---|---|---|
-| **Missing `agent_fn`** | `env.run([harness.py, ...])` doesn't load an LLM agent | `grep create_agent_fn` in the harness | Add adapter class + `agent_fn = create_agent_fn(adapter())` |
 | **Relative imports in harness** | Production loader (single-file) fails to import | `grep 'from \.' harness.py` | Use absolute `kaggle_environments...` imports |
 | **No `test_llm_game.py`** | No in-repo end-to-end LLM sanity test | `ls` for `test_llm_game.py` | Create from `create-harness` template |
 | **No `harness_test.py`** | No unit tests for prompt/parser/legal-moves | `ls` for the test file | Create from `create-harness` template |

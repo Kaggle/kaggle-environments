@@ -26,7 +26,7 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult, create_agent_fn, parse_json_action, render_rethink_suffix
+from kaggle_environments.core_harness import ParseResult, parse_json_action, render_rethink_suffix
 
 
 # --- Prompt -----------------------------------------------------------------
@@ -238,31 +238,3 @@ def parse_response(
     return parse_json_action(response, legal_action_strings)
 
 
-# --- Adapter & agent function -----------------------------------------------
-
-
-class _MancalaHarness:
-    """Adapter wrapping module-level functions into the GameHarness protocol."""
-
-    def get_legal_moves(self, observation):
-        return get_legal_moves(observation)
-
-    def make_prompt(
-        self,
-        observation,
-        move_history,
-        previous_response=None,
-        previous_action=None,
-    ):
-        return generate_prompt(
-            observation,
-            move_history,
-            previous_response=previous_response,
-            previous_action=previous_action,
-        )
-
-    def parse_response(self, response, legal_action_strings):
-        return parse_response(response, legal_action_strings)
-
-
-agent_fn = create_agent_fn(_MancalaHarness())

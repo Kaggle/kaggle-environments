@@ -20,7 +20,6 @@ from typing import Any, Mapping, Sequence
 
 from kaggle_environments.core_harness import (
     ParseResult,
-    create_agent_fn,
     extract_last_json_object,
 )
 
@@ -453,24 +452,3 @@ def parse_response(
     return ParseResult(legal_action=None, raw_action=raw, thoughts=thinking)
 
 
-# --- Agent wiring -----------------------------------------------------------
-
-
-class _WordAssociationHarness:
-    """Adapter bridging module-level functions to the GameHarness protocol."""
-
-    def get_legal_moves(self, observation):
-        return get_legal_moves(observation)
-
-    def make_prompt(
-        self, observation, move_history, previous_response=None, previous_action=None,
-    ):
-        return generate_prompt(
-            observation, move_history, previous_response, previous_action,
-        )
-
-    def parse_response(self, response, legal_action_strings):
-        return parse_response(response, legal_action_strings)
-
-
-agent_fn = create_agent_fn(_WordAssociationHarness())
