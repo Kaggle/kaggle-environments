@@ -373,33 +373,3 @@ def parse_response(
     return ParseResult(legal_action=None, raw_action=raw_repr)
 
 
-# --- GameHarness adapter ----------------------------------------------------
-
-
-class _BargainingHarness:
-    """Adapts the module-level functions to the ``GameHarness`` protocol."""
-
-    def get_legal_moves(self, observation: Mapping[str, Any]) -> dict[int, str]:
-        return get_legal_moves(observation)
-
-    def make_prompt(
-        self,
-        observation: Mapping[str, Any],
-        move_history: list[str],
-        previous_response: str | None = None,
-        previous_action: str | None = None,
-    ) -> str:
-        return generate_prompt(observation, move_history, previous_response, previous_action)
-
-    def parse_response(self, response: str, legal_action_strings: Sequence[str] | None) -> ParseResult:
-        return parse_response(response, legal_action_strings)
-
-
-# Lazy import so the module can be imported without litellm available
-# (the framework requires it when actually running an agent).
-try:
-    from kaggle_environments.core_harness import create_agent_fn
-
-    agent_fn = create_agent_fn(_BargainingHarness())
-except ImportError:  # pragma: no cover - import-time fallback
-    agent_fn = None
