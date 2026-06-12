@@ -1,5 +1,6 @@
 import { createReplayVisualizer, ReplayAdapter } from '@kaggle-environments/core';
 import { renderer } from './renderer';
+import { bargainingTransformer } from './transformers/bargainingTransformer';
 import './style.css';
 
 const app = document.getElementById('app');
@@ -17,5 +18,10 @@ createReplayVisualizer(
     gameName: 'open_spiel_bargaining',
     renderer: renderer as any,
     ui: 'side-panel',
+    transformer: (replay) => ({
+      ...replay,
+      steps: bargainingTransformer(replay),
+      isTransformed: true,
+    }),
   })
 );
