@@ -131,6 +131,20 @@ class BridgeArenaState(proxy.State):
         wrapped_rewards = self.__wrapped__.rewards()
         return [wrapped_rewards[_ext_to_int(ext)] for ext in range(_NUM_PLAYERS)]
 
+    # pyspiel.State exposes per-player accessors that bypass our
+    # overridden returns()/rewards() and hit the wrapped state's C++
+    # implementation directly -- without these overrides they'd return
+    # the wrong seat's value when called with an external player id.
+    def player_return(self, player: int) -> float:
+        if player < 0:
+            return self.__wrapped__.player_return(player)
+        return self.__wrapped__.player_return(_ext_to_int(player))
+
+    def player_reward(self, player: int) -> float:
+        if player < 0:
+            return self.__wrapped__.player_reward(player)
+        return self.__wrapped__.player_reward(_ext_to_int(player))
+
     # All per-player view methods that pyspiel exposes must permute the
     # external player id to the internal bridge seat. Without these
     # overrides ``__getattr__`` (or the C++ pybind shim) hands the
@@ -345,7 +359,6 @@ class BridgeArenaState(proxy.State):
             partner = _partner_of(player)
             result["your_player_id"] = player
             result["your_team_id"] = _team_of(player)
-            result["your_seat"] = player % _PLAYERS_PER_TEAM
             result["your_table_position"] = _table_position(player)
             result["your_partner_player_id"] = partner
             result["partner_table_position"] = _table_position(partner)
