@@ -1,4 +1,4 @@
-"""LLM harness for OpenSpiel Gin Rummy (Oklahoma variant).
+"""LLM harness for OpenSpiel Gin Rummy.
 
 Drop the body of this file into the notebook attached to the competition via
 HarnessKernelId. The auto-generated ``main.py`` calls these three module-level
@@ -7,8 +7,12 @@ functions: ``get_legal_moves``, ``generate_prompt``, ``parse_response``.
 Gin Rummy turns walk through several phases (decide on the first upcard, draw,
 discard, optionally knock, lay off onto the knocker's melds). Each sub-action
 is one LLM call. The proxy in ``gin_rummy_proxy.py`` exposes the current phase
-plus the player's hand, the upcard, the discard pile, the stock size, and the
-knock card in ``observationString`` as JSON.
+plus the player's hand, the upcard, the discard pile, the stock size, the
+knock card, and (once a knock has happened) the knocker's laid melds, full
+hand and deadwood -- all in ``observationString`` as JSON.
+
+The env loads ``gin_rummy`` with default params (``oklahoma=false``,
+``knock_card=10``, ``gin_bonus=25``, ``undercut_bonus=25``).
 """
 
 from __future__ import annotations
@@ -106,6 +110,51 @@ def _player_glyph(player_id: int) -> str:
     return f"Player {player_id}"
 
 
+def _format_meld(meld: Sequence[str]) -> str:
+    """Render a single meld as space-separated card tokens."""
+    return " ".join(meld)
+
+
+def _format_layed_melds(melds: Sequence[Sequence[str]]) -> str:
+    if not melds:
+        return "(none yet)"
+    return "; ".join(_format_meld(m) for m in melds)
+
+
+def _format_opponent_block(obs: dict[str, Any], opp_id: int) -> str:
+    """Render whatever's visible about the opponent for this prompt.
+
+    Before a knock the opponent's hand and deadwood are hidden. After the
+    opponent knocks, the engine reveals their laid melds, remaining hand
+    (= deadwood cards), and deadwood total -- the harness must show all of it
+    so the player can play layoffs intelligently.
+    """
+    opp_key = str(opp_id)
+    layed = (obs.get("layed_melds") or {}).get(opp_key) or []
+    layoffs = obs.get("layoffs") or []
+    hand = (obs.get("hands") or {}).get(opp_key) or []
+    hidden = (obs.get("hand_hidden") or {}).get(opp_key, True)
+    deadwood = (obs.get("deadwood") or {}).get(opp_key)
+    knocked = (obs.get("knocked") or [False, False])[opp_id]
+
+    lines: list[str] = []
+    if knocked:
+        lines.append("Opponent has KNOCKED.")
+    lines.append(f"Opponent laid melds: {_format_layed_melds(layed)}")
+    if layoffs:
+        lines.append(f"Cards layed off onto opponent's melds: {' '.join(layoffs)}")
+    if hidden or not hand:
+        if knocked:
+            lines.append("Opponent remaining hand (deadwood cards): (none)")
+        else:
+            lines.append("Opponent hand: (hidden)")
+    else:
+        lines.append(f"Opponent remaining hand ({len(hand)} cards): {_format_hand(hand)}")
+    if deadwood is not None:
+        lines.append(f"Opponent deadwood: {deadwood}")
+    return "\n".join(lines)
+
+
 # --- Phase-specific instructions --------------------------------------------
 
 
@@ -132,15 +181,29 @@ _PHASE_INSTRUCTION = {
         "instead knock to end the hand (use 'Knock' on the action list)."
     ),
     "Knock": (
-        "You have declared knock. Now declare each meld in your hand "
-        "(runs of 3+ in a suit, or sets of 3-4 of the same rank). Choose one "
-        "of the listed meld groups; you'll be asked again for any remaining "
-        "melds, and unmelded cards become your deadwood."
+        "You have declared knock. First (if your hand is 11 cards) you must "
+        "discard one card from the action list; that's the card you choose to "
+        "keep out of your melds. Then you'll be asked, one at a time, to "
+        "declare each meld in your hand (runs of 3+ in a suit, or sets of "
+        "3-4 of the same rank). Choose 'Pass' once your remaining unmelded "
+        "cards (your deadwood) total at most the knock card and you're done."
     ),
     "Layoff": (
-        "Your opponent knocked. You may lay off any of your unmatched cards "
-        "onto their declared melds to reduce your deadwood. Choose a card to "
-        "lay off, or pass if no card extends one of their melds."
+        "Your opponent knocked. The opponent's laid melds are listed above. "
+        "You may extend any of their melds with your own unmatched cards to "
+        "reduce your deadwood: a layoff card must continue a run in the same "
+        "suit or complete a set of the same rank. Choose a card to lay off, "
+        "or 'Pass' if no card extends one of their melds. After laying off "
+        "individual cards, you'll then declare your own melds (one at a "
+        "time, then 'Pass') to subtract them from your deadwood. Note: if "
+        "the opponent went gin (deadwood 0) you cannot lay off."
+    ),
+    "Wall": (
+        "Only 2 cards remain in the stock (this is 'the wall'). You may "
+        "'Pass' (the hand ends with no winner -- both players score 0), or "
+        "if your current best meld arrangement plus the upcard would leave "
+        "you at or below the knock card you may declare 'Knock' (the upcard "
+        "is added to your hand automatically)."
     ),
     "GameOver": "The hand is over.",
 }
@@ -149,14 +212,15 @@ _PHASE_INSTRUCTION = {
 def _instruction_for_phase(phase: str | None, legal_strings: Sequence[str]) -> str:
     if phase and phase in _PHASE_INSTRUCTION:
         return _PHASE_INSTRUCTION[phase]
-    # Fallback: infer from the legal moves on offer.
+    # Fallback: infer from the legal moves on offer. Note: Wall and Layoff
+    # both expose only ['Pass', 'Knock']/cards; we can't tell them apart from
+    # the legals alone, so we lean on the phase string above whenever it's
+    # available and only hit this fallback for genuinely unknown phases.
     legals = set(legal_strings)
     if "Draw upcard" in legals or "Draw stock" in legals:
         return _PHASE_INSTRUCTION["Draw"]
     if "Knock" in legals and any(_CARD_RE.fullmatch(s) for s in legals):
         return _PHASE_INSTRUCTION["Discard"]
-    if "Pass" in legals and "Draw upcard" not in legals:
-        return _PHASE_INSTRUCTION["Layoff"]
     return (
         "Choose a legal action for this phase. Use an exact OpenSpiel "
         "action string."
@@ -166,17 +230,20 @@ def _instruction_for_phase(phase: str | None, legal_strings: Sequence[str]) -> s
 # --- Prompt -----------------------------------------------------------------
 
 
-GIN_RUMMY_PROMPT_TEMPLATE = """Let's play Gin Rummy (OpenSpiel, Oklahoma variant; this hand's knock card = {knock_card}).
+GIN_RUMMY_PROMPT_TEMPLATE = """Let's play Gin Rummy ({variant_label}; knock card = {knock_card}{knock_qualifier}).
 
 Card notation: rank in {{A,2-9,T,J,Q,K}} followed by suit in {{s,c,d,h}}.
-Goal: arrange your 10-card hand into melds (runs of 3+ in a suit, sets of 3-4
-of the same rank). Cards not in any meld are 'deadwood' (face value, faces=10,
-Ace=1). When your deadwood is at or below the knock card you may knock to end
-the hand. Going gin (zero deadwood) and undercutting the knocker pay bonuses.
+Goal: arrange your 10-card hand into melds (runs of 3+ in a suit, e.g.
+'5s6s7s'; sets of 3-4 of the same rank, e.g. '7s7c7d'). Cards not in any
+meld are 'deadwood' worth their face value (Ace=1, 2-9=pip, T/J/Q/K=10).
 
-Oklahoma variant: the knock card is not fixed at 10 -- it is set each hand to
-the rank value of the first card flipped from the stock (A=1, 2-9=pip,
-T/J/Q/K=10). A low knock card means you need a much tidier hand to knock.
+{rules_paragraph}
+
+Other ways the hand can end:
+  - The stock runs down to 2 cards (the 'wall'): the next player may pass
+    (hand ends with both scoring 0) or knock if legal.
+  - If both players draw the same upcard and immediately discard it back in
+    succession, the hand ends with both scoring 0.
 
 You are {player_glyph}.
 Phase: {phase}
@@ -186,15 +253,19 @@ Discard pile (oldest -> newest): {discard_pile}
 
 Your hand ({hand_count} cards): {hand}
 Your current deadwood: {deadwood}
+Your laid melds: {your_layed_melds}
 
-Move history (oldest -> newest):
+{opponent_block}
+
+Your previous actions (oldest -> newest):
 {move_history}
 
 {phase_instruction}
 
 It is your turn. Think briefly about the position, then choose your move.
-Use the exact OpenSpiel action string (e.g. 'Draw upcard', 'Knock', '7h',
-'As2s3s').
+Use the exact OpenSpiel action string (e.g. 'Draw upcard', 'Draw stock',
+'Knock', 'Pass', a single card like '7h', or a meld as concatenated cards
+like 'As2s3s').
 
 Respond with your reasoning followed by your final answer in a JSON block:
 
@@ -261,6 +332,73 @@ def get_legal_moves(observation: Mapping[str, Any]) -> dict[int, str]:
     return {a: _strip_prefix(state.action_to_string(a)) for a in actions}
 
 
+_DEFAULT_GIN_BONUS = 25
+_DEFAULT_UNCUT_BONUS = 25
+
+
+def _game_params(observation: Mapping[str, Any]) -> dict[str, Any]:
+    """Recover the engine's GameParameters dict, or ``{}`` if unavailable.
+
+    Without the serialized game we can't tell Oklahoma from default rules
+    apart, so the prompt falls back to default-rule wording in that case.
+    """
+    serialized = observation.get("serializedGameAndState", "")
+    if not serialized:
+        return {}
+    try:
+        game, _ = pyspiel.deserialize_game_and_state(serialized)
+        return dict(game.get_parameters())
+    except Exception:
+        return {}
+
+
+def _game_param_int(params: Mapping[str, Any], name: str, default: int) -> int:
+    try:
+        return int(params.get(name, default))
+    except (TypeError, ValueError):
+        return default
+
+
+def _build_rules_paragraph(
+    oklahoma: bool,
+    knock_card: Any,
+    gin_bonus: int,
+    undercut_bonus: int,
+) -> tuple[str, str, str]:
+    """Return (variant_label, knock_qualifier, rules_paragraph).
+
+    Splits the rules block into a header line (variant + knock card) and a
+    rules paragraph so the model gets the right description for the actual
+    ruleset rather than a one-size-fits-all blurb.
+    """
+    common_tail = (
+        "The knocker scores (opponent deadwood - knocker deadwood). "
+        f"Going gin (deadwood == 0) adds a +{gin_bonus} bonus and the "
+        "opponent cannot lay off. If the non-knocker ends with deadwood "
+        "<= knocker's after laying off they 'undercut' and instead receive "
+        f"(knocker deadwood - non-knocker deadwood) + {undercut_bonus} bonus."
+    )
+    if oklahoma:
+        variant_label = "OpenSpiel, Oklahoma variant"
+        knock_qualifier = ", set this hand from the upcard"
+        rules = (
+            "Oklahoma variant: each hand's knock card is set to the rank "
+            "value of the first card flipped from the stock (A=1, 2-9=pip, "
+            "T/J/Q/K=10). If the upcard was an Ace the knock card is 0, "
+            "which means you must go gin to knock this hand. This hand's "
+            f"knock card is {knock_card} -- you may knock when your "
+            "deadwood is at or below that value. "
+        ) + common_tail
+    else:
+        variant_label = "OpenSpiel default rules"
+        knock_qualifier = ""
+        rules = (
+            f"When your deadwood is at or below the knock card ({knock_card}) "
+            "you may knock to end the hand. "
+        ) + common_tail
+    return variant_label, knock_qualifier, rules
+
+
 def generate_prompt(
     observation: Mapping[str, Any],
     move_history: list[str],
@@ -271,6 +409,7 @@ def generate_prompt(
     obs = _parse_observation(observation)
 
     player_id = observation.get("playerId", obs.get("current_player", 0)) or 0
+    opp_id = 1 - player_id
     hand = obs.get("hands", {}).get(str(player_id), []) or []
     deadwood = (obs.get("deadwood") or {}).get(str(player_id))
     phase = obs.get("phase") or "Unknown"
@@ -278,6 +417,15 @@ def generate_prompt(
     stock_size = obs.get("stock_size", "?")
     upcard = obs.get("upcard") or "(none)"
     discard_pile = obs.get("discard_pile") or []
+    my_layed = (obs.get("layed_melds") or {}).get(str(player_id)) or []
+
+    params = _game_params(observation)
+    oklahoma = bool(params.get("oklahoma", False))
+    gin_bonus = _game_param_int(params, "gin_bonus", _DEFAULT_GIN_BONUS)
+    undercut_bonus = _game_param_int(params, "undercut_bonus", _DEFAULT_UNCUT_BONUS)
+    variant_label, knock_qualifier, rules_paragraph = _build_rules_paragraph(
+        oklahoma, knock_card, gin_bonus, undercut_bonus,
+    )
 
     legal_map = get_legal_moves(observation)
     legal_strings = list(legal_map.values())
@@ -286,12 +434,17 @@ def generate_prompt(
         player_glyph=_player_glyph(player_id),
         phase=phase,
         knock_card=knock_card,
+        variant_label=variant_label,
+        knock_qualifier=knock_qualifier,
+        rules_paragraph=rules_paragraph,
         stock_size=stock_size,
         upcard=upcard,
         discard_pile=_format_discard_pile(discard_pile),
         hand_count=len(hand),
         hand=_format_hand(hand),
         deadwood=deadwood if deadwood is not None else "?",
+        your_layed_melds=_format_layed_melds(my_layed),
+        opponent_block=_format_opponent_block(obs, opp_id),
         move_history=_format_history(move_history),
         phase_instruction=_instruction_for_phase(phase, legal_strings),
     )
