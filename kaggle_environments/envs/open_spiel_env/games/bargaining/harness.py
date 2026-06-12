@@ -50,8 +50,8 @@ Basketball. The pool for this game contains:
 Each player has a PRIVATE integer valuation per item (the opponent's values
 are HIDDEN from you). Your reward at the end of the game is the dot product
 of your valuation vector with the items you actually receive; the opponent's
-reward is computed from their own (hidden) valuation vector. The game is
-general-sum -- both players can do well, or both poorly.
+reward is computed from their own (hidden) valuation vector. Your goal is to
+maximize your own reward.
 
 Your private valuations (per unit):
 {my_value_lines}
@@ -60,16 +60,14 @@ How a turn works:
   * On an OFFER turn, you propose an allocation that YOU would keep. The
     opponent would then receive the complement (pool minus your kept items).
     Each kept count must be an integer between 0 and the pool quantity for
-    that item, inclusive. You may propose to keep nothing or to keep
-    everything -- those are legal offers, just usually bad ones.
+    that item, inclusive.
   * If a previous opponent offer exists, you may instead ACCEPT it.
     Acceptance ENDS the game immediately: you receive the items the
     opponent offered you (= the complement of what they wanted to keep),
     and the opponent receives the items they wanted to keep. Each player
     then scores their own private dot product over what they received.
   * If {max_turns} offers go by without acceptance, the game ends with
-    ZERO reward for both players (no deal is the worst outcome unless your
-    private utility from the alternative is positive, which it never is).
+    ZERO reward for both players (this is a tie).
 
 Offers made so far (most recent last; each shows what the OFFERING player
 wanted to keep -- the other player would receive the complement):
