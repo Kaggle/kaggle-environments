@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
 
 html,
 body,
@@ -19,7 +19,7 @@ body,
   min-height: 0;
   background-color: #f5f1e2;
   overflow: hidden;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   box-sizing: border-box;
   padding: 12px;
   gap: 10px;
@@ -59,7 +59,7 @@ body,
   scale: 1.03;
 }
 
-.brg-player-card.accepted {
+.brg-player-card.winner {
   background-color: #d8f5c8;
 }
 
@@ -94,7 +94,7 @@ body,
 }
 
 .brg-player-card .brg-score {
-  font-family: 'Mynerve', cursive;
+  font-family: "Mynerve", cursive;
   color: #444343;
   font-size: 0.95rem;
 }
@@ -130,7 +130,7 @@ body,
 
 .brg-turn-badge {
   align-self: center;
-  font-family: 'Mynerve', cursive;
+  font-family: "Mynerve", cursive;
   color: #444343;
   font-size: 1rem;
   padding: 6px 10px;
@@ -159,7 +159,7 @@ body,
 }
 
 .brg-pool-title .brg-pool-sub {
-  font-family: 'Mynerve', cursive;
+  font-family: "Mynerve", cursive;
   font-weight: 400;
   color: #444343;
 }
@@ -194,7 +194,7 @@ body,
 }
 
 .brg-pool-row .brg-pool-count {
-  font-family: 'Mynerve', cursive;
+  font-family: "Mynerve", cursive;
   font-size: 0.95rem;
   color: #444343;
   min-width: 28px;
@@ -216,7 +216,7 @@ body,
 }
 
 .brg-log-empty {
-  font-family: 'Mynerve', cursive;
+  font-family: "Mynerve", cursive;
   color: #888;
   font-size: 0.95rem;
   text-align: center;
@@ -284,7 +284,7 @@ body,
 }
 
 .brg-split-arrow {
-  font-family: 'Mynerve', cursive;
+  font-family: "Mynerve", cursive;
   color: #444343;
   font-size: 0.95rem;
 }
@@ -304,13 +304,13 @@ body,
 }
 
 .brg-mini-count {
-  font-family: 'Mynerve', cursive;
+  font-family: "Mynerve", cursive;
   font-size: 0.85rem;
   color: #444343;
 }
 
 .brg-bubble-utility {
-  font-family: 'Mynerve', cursive;
+  font-family: "Mynerve", cursive;
   font-size: 0.85rem;
   color: #444343;
 }
@@ -330,7 +330,7 @@ body,
 }
 
 .brg-status .brg-status-sub {
-  font-family: 'Mynerve', cursive;
+  font-family: "Mynerve", cursive;
   color: #444343;
   font-size: 0.9rem;
 }

@@ -1,9 +1,4 @@
-import {
-  BargainingObs,
-  BargainingPlayer,
-  BargainingReplay,
-  BargainingStep,
-} from './bargainingReplayTypes';
+import { BargainingObs, BargainingPlayer, BargainingReplay, BargainingStep } from './bargainingReplayTypes';
 
 function parseObs(raw?: string): BargainingObs | null {
   if (!raw) return null;

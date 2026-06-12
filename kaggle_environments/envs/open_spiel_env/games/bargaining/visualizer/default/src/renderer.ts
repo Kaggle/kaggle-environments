@@ -81,7 +81,11 @@ function renderOfferSplit(proposerItems: ItemBundle, pool: ItemBundle): string {
     </div>`;
 }
 
-function renderConversation(obs: BargainingObs, pVals: [ItemBundle | null, ItemBundle | null]): string {
+function renderConversation(
+  obs: BargainingObs,
+  pVals: [ItemBundle | null, ItemBundle | null],
+  names: [string, string]
+): string {
   const messages: string[] = [];
   const history = obs.offer_history;
   // Track each player's most recent offer (what they wanted to keep) so we can
@@ -107,12 +111,12 @@ function renderConversation(obs: BargainingObs, pVals: [ItemBundle | null, ItemB
           <div class="brg-bubble accept ${isLatest ? 'latest' : ''}">
             <div class="brg-bubble-who">
               <span class="brg-glyph" style="background-color:${colorBg}"></span>
-              Player ${event.player + 1} ACCEPTS
+              ${escapeHtml(names[event.player])} ACCEPTS
             </div>
             ${acceptedOffer ? renderOfferSplit(acceptedOffer, obs.pool) : ''}
             ${
               yourUtil !== null && otherUtil !== null
-                ? `<span class="brg-bubble-utility">utility — Player ${otherPlayer + 1}: ${otherUtil} · Player ${event.player + 1}: ${yourUtil}</span>`
+                ? `<span class="brg-bubble-utility">utility — ${escapeHtml(names[otherPlayer])}: ${otherUtil} · ${escapeHtml(names[event.player])}: ${yourUtil}</span>`
                 : ''
             }
           </div>
@@ -122,14 +126,14 @@ function renderConversation(obs: BargainingObs, pVals: [ItemBundle | null, ItemB
       const selfUtil = itemUtility(event.items, pVals[event.player]);
       const utilHtml =
         selfUtil !== null
-          ? `<span class="brg-bubble-utility">${selfUtil} utility for Player ${event.player + 1} if accepted</span>`
+          ? `<span class="brg-bubble-utility">${selfUtil} utility for ${escapeHtml(names[event.player])} if accepted</span>`
           : '';
       messages.push(`
         <div class="brg-msg ${sideClass}">
           <div class="brg-bubble ${isLatest ? 'latest' : ''}">
             <div class="brg-bubble-who">
               <span class="brg-glyph" style="background-color:${colorBg}"></span>
-              Player ${event.player + 1} offers
+              ${escapeHtml(names[event.player])} offers
             </div>
             ${renderOfferSplit(event.items, obs.pool)}
             ${utilHtml}
@@ -139,21 +143,21 @@ function renderConversation(obs: BargainingObs, pVals: [ItemBundle | null, ItemB
   }
 
   if (messages.length === 0) {
-    return `<div class="brg-log-empty">No offers yet — Player 1 to open.</div>`;
+    return `<div class="brg-log-empty">No offers yet — ${escapeHtml(names[0])} to open.</div>`;
   }
   return messages.join('');
 }
 
-function turnBadge(obs: BargainingObs, step: number, totalSteps: number): string {
+function turnBadge(obs: BargainingObs, step: number, totalSteps: number, names: [string, string]): string {
   if (obs.is_terminal) {
     return `<div class="brg-turn-badge">step ${step} of ${totalSteps - 1}<br/>game over</div>`;
   }
-  const who = obs.current_player >= 0 ? `Player ${obs.current_player + 1}` : '—';
+  const who = obs.current_player >= 0 ? escapeHtml(names[obs.current_player]) : '—';
   const turnsLeft = Math.max(0, obs.max_turns - obs.num_offers);
   return `<div class="brg-turn-badge">${who}'s turn<br/>step ${step} of ${totalSteps - 1} · ${turnsLeft} turn${turnsLeft === 1 ? '' : 's'} left</div>`;
 }
 
-function statusText(obs: BargainingObs): string {
+function statusText(obs: BargainingObs, names: [string, string]): string {
   if (!obs.is_terminal) {
     return `<div>Offer ${obs.num_offers + 1} of up to ${obs.max_turns}</div>
       <div class="brg-status-sub">each offer proposes what the offering player keeps — opponent receives the rest</div>`;
@@ -163,14 +167,28 @@ function statusText(obs: BargainingObs): string {
   if (!obs.agreement_reached) {
     header = '<b>No agreement</b> — both players score 0';
   } else if (r[0] > r[1]) {
-    header = `<b>Deal accepted</b> — Player 1 wins on utility`;
+    header = `<b>Deal accepted</b> — ${escapeHtml(names[0])} wins on utility`;
   } else if (r[1] > r[0]) {
-    header = `<b>Deal accepted</b> — Player 2 wins on utility`;
+    header = `<b>Deal accepted</b> — ${escapeHtml(names[1])} wins on utility`;
   } else {
     header = `<b>Deal accepted</b> — tied utility`;
   }
   return `<div>${header}</div>
-    <div class="brg-status-sub">final utility: Player 1 = ${r[0]} · Player 2 = ${r[1]}</div>`;
+    <div class="brg-status-sub">final utility: ${escapeHtml(names[0])} = ${r[0]} · ${escapeHtml(names[1])} = ${r[1]}</div>`;
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(
+    /[&<>"']/g,
+    (c) =>
+      ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      })[c] as string
+  );
 }
 
 export function renderer(options: RendererOptions) {
@@ -208,21 +226,31 @@ export function renderer(options: RendererOptions) {
   const p0Vals = obs0?.my_values ?? null;
   const p1Vals = obs1?.my_values ?? null;
   const r = obs.returns ?? [null, null];
+  const names: [string, string] = [
+    current?.players?.[0]?.name || 'Player 1',
+    current?.players?.[1]?.name || 'Player 2',
+  ];
+
+  // Winner = strictly-higher reward at terminal when an agreement was reached.
+  // Ties and no-agreement endings highlight neither player.
+  const winnerId =
+    isTerm && obs.agreement_reached && r[0] !== null && r[1] !== null
+      ? r[0] > r[1]
+        ? 0
+        : r[1] > r[0]
+          ? 1
+          : null
+      : null;
 
   const playerCard = (pid: 0 | 1, vals: ItemBundle | null, active: boolean, reward: number | null): string => {
-    const accepted =
-      isTerm &&
-      obs.agreement_reached &&
-      obs.offer_history.length > 0 &&
-      obs.offer_history[obs.offer_history.length - 1].player === pid &&
-      obs.offer_history[obs.offer_history.length - 1].type === 'agree';
-    const cls = `brg-player-card sketched-border p${pid}${active ? ' active' : ''}${accepted ? ' accepted' : ''}`;
+    const isWinner = winnerId === pid;
+    const cls = `brg-player-card sketched-border p${pid}${active ? ' active' : ''}${isWinner ? ' winner' : ''}`;
     const scoreLine =
       reward !== null ? `<span class="brg-score">utility ${reward}</span>` : `<span class="brg-score">utility —</span>`;
     return `
       <div class="${cls}">
         <div class="brg-player-name">
-          <span class="brg-player-tag"><span class="brg-glyph"></span>Player ${pid + 1}</span>
+          <span class="brg-player-tag"><span class="brg-glyph"></span>${escapeHtml(names[pid])}</span>
           ${scoreLine}
         </div>
         <div class="brg-val-row">${valuationChips(vals, false)}</div>
@@ -231,7 +259,7 @@ export function renderer(options: RendererOptions) {
 
   header.innerHTML = `
     ${playerCard(0, p0Vals, activeP0, r[0])}
-    ${turnBadge(obs, safeStep, steps.length)}
+    ${turnBadge(obs, safeStep, steps.length, names)}
     ${playerCard(1, p1Vals, activeP1, r[1])}
   `;
 
@@ -240,8 +268,8 @@ export function renderer(options: RendererOptions) {
     ${renderPool(obs.pool)}
   `;
 
-  log.innerHTML = renderConversation(obs, [p0Vals, p1Vals]);
+  log.innerHTML = renderConversation(obs, [p0Vals, p1Vals], names);
   log.scrollTop = log.scrollHeight;
 
-  status.innerHTML = statusText(obs);
+  status.innerHTML = statusText(obs, names);
 }
