@@ -402,9 +402,14 @@ class _MyGameHarness:
             observation, move_history, previous_response, previous_action,
         )
 
-    def parse_response(self, response, legal_action_strings):
+    def parse_response(self, response, legal_action_strings, *, observation=None):
+        # Most parsers ignore `observation`. If yours forwards it to a
+        # module-level parse_response that needs the env state, pass it
+        # through here.
         return parse_response(response, legal_action_strings)
 ```
+
+The `*, observation` keyword on `parse_response` is required by the `GameHarness` protocol — `core_harness` always passes the current turn's observation. Most parsers can match the model's output against `legal_action_strings` alone and can ignore it; for parsers that genuinely need the env state at parse time (e.g. repeated_poker's bet-size soft-matching), declare an opt-in `*, observation: Mapping[str, Any] | None = None` kwarg on the *module-level* `parse_response` too and forward it through. See `kaggle_environments/envs/open_spiel_env/games/repeated_poker/harness.py` for that pattern.
 
 Mock helpers (`_StreamDelta`, `_StreamChoice`, `_StreamChunk`,
 `_make_mock_response`, `_ENV`) live at the top of checkers'

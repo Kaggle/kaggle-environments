@@ -291,7 +291,7 @@ class _Harness:
     def make_prompt(self, observation, move_history, previous_response=None, previous_action=None):
         return generate_prompt(observation, move_history, previous_response, previous_action)
 
-    def parse_response(self, response, legal_action_strings):
+    def parse_response(self, response, legal_action_strings, *, observation=None):
         return parse_response(response, legal_action_strings)
 
 
