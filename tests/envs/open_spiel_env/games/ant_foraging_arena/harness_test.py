@@ -58,12 +58,15 @@ class ParseResponseTest(absltest.TestCase):
         )
         self.assertEqual(result.legal_action, "down")
 
-    def test_parse_fallback_picks_last_direction(self):
-        # Reasoning mentions "up" first but the model lands on "down" as
-        # its final answer; we should pick the trailing word.
+    def test_prose_only_response_triggers_rethink(self):
+        # No structured JSON answer. The parser must NOT guess at intent
+        # from a direction word in the prose; that's the ghost-fallback
+        # antipattern. Return None so the rethink loop asks the model
+        # for a structured answer.
         response = "I considered going up but ended up choosing down"
         result = parse_response(response, list(_DIRECTIONS))
-        self.assertEqual(result.legal_action, "down")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_prefers_last_json_block(self):
         # Two JSON blocks: a draft in the reasoning and a final answer.
@@ -89,15 +92,31 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response("Maybe up?", ["stay"])
         self.assertIsNone(result.legal_action)
 
-    def test_parse_malformed_json_falls_back(self):
-        # Bad JSON block, but reasoning includes a direction word.
+    def test_malformed_json_triggers_rethink(self):
+        # Bad JSON block means stage-1 extracts nothing. The parser must
+        # NOT silently rescue an action from the prose -- the model gets
+        # a chance to fix its format via the rethink loop instead.
         response = "```json\n{bad}\n```\nFinal answer: stay"
         result = parse_response(response, list(_DIRECTIONS))
-        self.assertEqual(result.legal_action, "stay")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_returns_parse_result(self):
         result = parse_response('```json\n{"move": "up"}\n```', list(_DIRECTIONS))
         self.assertIsInstance(result, ParseResult)
+
+    def test_illegal_json_does_not_ghost_substitute_from_prose(self):
+        # The model gave an explicit JSON answer ("diagonal") that isn't
+        # legal. The parser must NOT silently substitute a direction word
+        # mentioned elsewhere in the prose -- that's the ghost-fallback
+        # antipattern. Surface raw_action so the rethink loop fires.
+        response = (
+            "I considered up but ruled it out. I'll play diagonal.\n"
+            '```json\n{"move": "diagonal"}\n```'
+        )
+        result = parse_response(response, list(_DIRECTIONS))
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "diagonal")
 
 
 class GeneratePromptTest(absltest.TestCase):
@@ -134,6 +153,70 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertEqual(parsed["board"]["team_id"], 1)
         self.assertNotIn('"team_id": 0', prompt)
 
+    def test_off_board_moves_described_as_illegal(self):
+        # The prompt must not claim off-board moves are "silently blocked";
+        # the engine excludes them from legal_actions, so a model that
+        # picks an off-board direction will hit the rethink loop and
+        # waste a retry. The prompt should say off-board is illegal.
+        prompt = generate_prompt(_make_arena_observation(player_id=0), [])
+        flat = " ".join(prompt.split())
+        self.assertIn("Off-board moves are not legal", flat)
+        self.assertNotIn("silently blocked", flat)
+
+    def test_within_team_turn_order_stated(self):
+        # The within-team move order is the only timing fact that affects
+        # strategy (the opposing team plays in parallel on a hidden
+        # board, so cross-team interleaving doesn't matter). Make sure
+        # the prompt at least states who moves first within the team.
+        prompt = generate_prompt(_make_arena_observation(player_id=0), [])
+        flat = " ".join(prompt.split())
+        self.assertIn("seat 0 moves first, then seat 1", flat)
+
+    def test_progress_uses_round_units(self):
+        # The legacy "moves_remaining" field counted interleaved
+        # single-player steps, mismatched against max_turns which counts
+        # rounds. The prompt must surface round-based progress.
+        # Display is 1-indexed: game start is "round 1 of 50", final
+        # move is "round 50 of 50".
+        prompt = generate_prompt(_make_arena_observation(player_id=0), [])
+        self.assertIn("round 1 of 50", prompt)
+
+    def test_round_display_is_one_indexed(self):
+        # Engine move_number is 0-indexed; the prompt must add 1 so the
+        # final move reads "round 50 of 50" rather than "round 49 of 50"
+        # (which models misread as "one round still remains").
+        game = pyspiel.load_game("ant_foraging_arena", {"seed": 1})
+        state = game.new_initial_state()
+        # Advance to the very last move (move_number == total_moves - 1).
+        # total_moves = max_turns * num_ants_per_team * NUM_TEAMS = 50*2*2 = 200.
+        total_moves = 50 * 2 * 2
+        for _ in range(total_moves - 1):
+            cp = state.current_player()
+            state.apply_action(state.legal_actions(cp)[0])
+        active = state.current_player()
+        obs = {
+            "observationString": state.observation_string(active),
+            "playerId": active,
+            "legalActions": list(state.legal_actions(active)),
+            "legalActionStrings": [state.action_to_string(active, a) for a in state.legal_actions(active)],
+        }
+        prompt = generate_prompt(obs, [])
+        # We're on the final move; display must say round 50.
+        self.assertIn("round 50 of 50", prompt)
+
+    def test_no_raw_board_json_dump(self):
+        # The earlier prompt embedded the whole board as a multi-page JSON
+        # dump (including dense pheromone matrices). The new prompt
+        # renders the grid as ASCII and pheromones sparsely.
+        prompt = generate_prompt(_make_arena_observation(player_id=0), [])
+        # No raw "grid": list-of-lists left in the prompt.
+        self.assertNotIn('"grid":', prompt)
+        # No dense pheromone matrix left in the prompt.
+        self.assertNotIn('"pheromone_to_food":', prompt)
+        # ASCII column header is present.
+        self.assertIn("0 1 2 3 4 5 6 7", prompt)
+
+
     def test_rethink_suffix_appended(self):
         prompt = generate_prompt(
             _make_arena_observation(player_id=0),
@@ -141,9 +224,9 @@ class GeneratePromptTest(absltest.TestCase):
             previous_response="I'll go diagonal",
             previous_action="diagonal",
         )
-        self.assertIn("Your previous response was", prompt)
+        self.assertIn("You suggested", prompt)  # ILLEGAL leads with action
         self.assertIn("diagonal", prompt)
-        self.assertIn("not in the legal", prompt)
+        self.assertIn("not a legal", prompt)
 
     def test_no_rethink_on_first_attempt(self):
         prompt = generate_prompt(_make_arena_observation(player_id=0), [])

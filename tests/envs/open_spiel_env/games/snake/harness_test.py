@@ -54,10 +54,14 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response(response, _LEGAL)
         self.assertEqual(result.legal_action, "DOWN")
 
-    def test_parse_fallback_keyword_in_text(self):
+    def test_prose_only_response_triggers_rethink(self):
+        # No structured JSON. The parser must NOT guess at intent from a
+        # direction keyword in the prose -- return None and let the
+        # rethink loop ask the model to use the required JSON format.
         response = "Food is to my right, so I will go right toward it."
         result = parse_response(response, _LEGAL)
-        self.assertEqual(result.legal_action, "RIGHT")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_no_match_returns_none(self):
         response = '```json\n{"move": "diagonal"}\n```'
@@ -65,10 +69,14 @@ class ParseResponseTest(absltest.TestCase):
         self.assertIsNone(result.legal_action)
         self.assertEqual(result.raw_action, "diagonal")
 
-    def test_parse_malformed_json_falls_back(self):
+    def test_malformed_json_triggers_rethink(self):
+        # Bad JSON: stage-1 extracts nothing. The parser must NOT
+        # silently rescue a direction from the prose -- return None so
+        # the rethink loop can ask the model to fix its format.
         response = "```json\n{bad json}\n```\nI'll go LEFT."
         result = parse_response(response, _LEGAL)
-        self.assertEqual(result.legal_action, "LEFT")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_no_move_returns_none(self):
         response = "I have no idea what to do."
@@ -85,11 +93,30 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response('```json\n{"move": "UP"}\n```', _LEGAL)
         self.assertIsInstance(result, ParseResult)
 
+    def test_illegal_json_does_not_ghost_substitute_from_prose(self):
+        # The JSON answer ("diagonal") is illegal. The parser must NOT
+        # silently substitute "UP" mentioned in the prose (the ghost
+        # antipattern). Surface raw_action so the rethink loop fires.
+        response = (
+            "I considered UP but ruled it out. I'll play diagonal.\n"
+            '```json\n{"move": "diagonal"}\n```'
+        )
+        result = parse_response(response, _LEGAL)
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "diagonal")
+
 
 class GeneratePromptTest(absltest.TestCase):
-    def _obs(self, player_id=0):
+    def _obs(self, player_id=0, round_history=None):
+        # Minimal 10x10 board with P0 head at (1,1) and P1 head at (8,8).
+        board = [["." for _ in range(10)] for _ in range(10)]
+        board[1][1] = "A"
+        board[8][8] = "B"
+        board[3][4] = "*"
+        board[6][5] = "*"
         state = json.dumps(
             {
+                "board": board,
                 "num_rows": 10,
                 "num_columns": 10,
                 "num_players": 2,
@@ -104,6 +131,7 @@ class GeneratePromptTest(absltest.TestCase):
                 "scores": [0, 0],
                 "is_alive": [True, True],
                 "current_player": player_id,
+                "round_history": round_history or [],
                 "turn": 3,
                 "is_terminal": False,
                 "winner": None,
@@ -135,9 +163,36 @@ class GeneratePromptTest(absltest.TestCase):
         prompt = generate_prompt(self._obs(player_id=1), [])
         self.assertIn("[8, 8]", prompt)
 
-    def test_move_history_included(self):
+    def test_board_rendered_as_ascii_grid(self):
+        # The board must be a multi-line ASCII grid (not a raw JSON blob),
+        # so the model can read spatial structure directly.
+        prompt = generate_prompt(self._obs(), [])
+        # P0 head 'A' at (1,1) in our test obs.
+        self.assertIn(".A........", prompt)
+        # Multi-line: at least one bare row of '.' between markers.
+        self.assertIn("\n..........\n", prompt)
+        # And the raw JSON board array must NOT appear.
+        self.assertNotIn('"board":', prompt)
+
+    def test_round_history_renders_opponent_moves(self):
+        # The proxy's round_history is a list of per-round action lists,
+        # one entry per player. The prompt must surface BOTH players' moves
+        # so each side can see what the opponent did.
+        rounds = [["UP", "LEFT"], ["UP", "DOWN"]]
+        prompt = generate_prompt(self._obs(round_history=rounds), [])
+        self.assertIn("Round 1: P0=UP, P1=LEFT", prompt)
+        self.assertIn("Round 2: P0=UP, P1=DOWN", prompt)
+
+    def test_round_history_empty(self):
+        prompt = generate_prompt(self._obs(), [])
+        self.assertIn("(no moves yet)", prompt)
+
+    def test_ignores_framework_move_history(self):
+        # The harness reads round_history from the proxy, not the
+        # framework-supplied per-agent move_history (which has no
+        # opponent moves and would mislead in a simultaneous game).
         prompt = generate_prompt(self._obs(), ["UP", "RIGHT", "DOWN"])
-        self.assertIn("UP RIGHT DOWN", prompt)
+        self.assertNotIn("UP RIGHT DOWN", prompt)
 
     def test_rethink_suffix(self):
         prompt = generate_prompt(
@@ -146,9 +201,9 @@ class GeneratePromptTest(absltest.TestCase):
             previous_response="I move diagonally",
             previous_action="diagonal",
         )
-        self.assertIn("Your previous response was", prompt)
+        self.assertIn("You suggested", prompt)  # ILLEGAL leads with action
         self.assertIn("diagonal", prompt)
-        self.assertIn("not in the legal", prompt)
+        self.assertIn("not a legal", prompt)
 
     def test_no_rethink_on_first_attempt(self):
         prompt = generate_prompt(self._obs(), [])

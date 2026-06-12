@@ -46,11 +46,15 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response(response, legal)
         self.assertEqual(result.legal_action, "b2")
 
-    def test_parse_fallback_coordinate(self):
+    def test_prose_only_response_triggers_rethink(self):
+        # No structured JSON. The parser must NOT guess at intent from a
+        # coord in the prose -- return None and let the rethink loop ask
+        # the model to use the required JSON format.
         legal = ["a1", "b2", "g4"]
         response = "I think g4 is the strongest move to bridge the corners."
         result = parse_response(response, legal)
-        self.assertEqual(result.legal_action, "g4")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_no_match_returns_none(self):
         legal = ["a1", "b2"]
@@ -59,11 +63,15 @@ class ParseResponseTest(absltest.TestCase):
         self.assertIsNone(result.legal_action)
         self.assertEqual(result.raw_action, "z99")
 
-    def test_parse_malformed_json_falls_back(self):
+    def test_malformed_json_triggers_rethink(self):
+        # Bad JSON block: stage-1 extracts nothing. The parser must NOT
+        # silently rescue a coord from the prose -- return None so the
+        # rethink loop can ask the model to fix its format.
         legal = ["a1", "g4"]
         response = "```json\n{bad json}\n```\nI play g4."
         result = parse_response(response, legal)
-        self.assertEqual(result.legal_action, "g4")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_bare_json(self):
         legal = ["a1", "g4"]
@@ -82,6 +90,22 @@ class ParseResponseTest(absltest.TestCase):
         legal = ["a1"]
         result = parse_response('```json\n{"move": "a1"}\n```', legal)
         self.assertIsInstance(result, ParseResult)
+
+    def test_illegal_json_does_not_ghost_substitute_from_prose(self):
+        # The model wrote a clear JSON answer of h8 but h8 is illegal here.
+        # The parser must NOT silently substitute one of the rejected
+        # candidates (i9 or g8) mentioned in the prose. Instead it should
+        # surface the raw move so the rethink loop fires and asks the
+        # model to correct itself.
+        legal = ["a1", "b2", "g8", "i9"]  # h8 deliberately not in legal
+        response = (
+            "Other candidates (e.g. i9 or g8) were considered but are "
+            "slightly less efficient. h8 accomplishes the goal best.\n"
+            '```json\n{"move": "h8"}\n```'
+        )
+        result = parse_response(response, legal)
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "h8")
 
 
 class GeneratePromptTest(absltest.TestCase):
@@ -118,16 +142,53 @@ class GeneratePromptTest(absltest.TestCase):
         prompt = generate_prompt(observation, [])
         self.assertIn("None", prompt)
 
-    def test_rethink_suffix(self):
+    def test_rethink_illegal_branch(self):
+        # Parser DID extract a move but it was illegal. Rethink should
+        # lead with the attempted move (the most useful signal) and
+        # should NOT include the previous response (noise that would
+        # dilute the actual correction).
         observation = {"observationString": self._OBS_STR, "playerId": 0}
         prompt = generate_prompt(
             observation,
             [],
-            previous_response="I play z99",
+            previous_response="some prose the model wrote",
             previous_action="z99",
         )
-        self.assertIn("Your previous response was", prompt)
+        self.assertIn("You suggested", prompt)
         self.assertIn("z99", prompt)
+        # Previous response is NOT included in the illegal branch.
+        self.assertNotIn("some prose the model wrote", prompt)
+        # Brief format tail still mentioned so the model keeps the format.
+        self.assertIn("JSON output format", prompt)
+
+    def test_rethink_unparsable_branch(self):
+        # Parser couldn't extract anything (previous_action is None).
+        # Rethink should show the LAST 500 chars of previous_response so
+        # the model can see what it tried, then restate the JSON format.
+        observation = {"observationString": self._OBS_STR, "playerId": 0}
+        long_resp = "filler " * 100 + "ENDING_MARKER"
+        prompt = generate_prompt(
+            observation,
+            [],
+            previous_response=long_resp,
+            previous_action=None,
+        )
+        self.assertIn("ENDING_MARKER", prompt)  # last-500 captured the tail
+        self.assertNotIn('You suggested move "', prompt)
+        self.assertIn("No JSON answer could be parsed", prompt)
+        # Brief legality tail still mentioned.
+        self.assertIn("must also be legal", prompt)
+
+    def test_rethink_unparsable_uses_last_500_not_first_500(self):
+        # When the response is longer than 500 chars, we keep the END
+        # (the model's conclusion), not the start (preamble).
+        observation = {"observationString": self._OBS_STR, "playerId": 0}
+        prefix = "START_MARKER" + ("X" * 600) + "END_MARKER"
+        prompt = generate_prompt(
+            observation, [], previous_response=prefix, previous_action=None,
+        )
+        self.assertIn("END_MARKER", prompt)
+        self.assertNotIn("START_MARKER", prompt)
 
     def test_no_rethink_on_first_attempt(self):
         observation = {"observationString": self._OBS_STR, "playerId": 0}

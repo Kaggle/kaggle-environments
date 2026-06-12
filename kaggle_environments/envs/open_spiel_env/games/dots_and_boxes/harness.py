@@ -24,18 +24,15 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult
+from kaggle_environments.core_harness import ParseResult, parse_json_action, render_rethink_suffix
 
-_JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
-_BARE_JSON_RE = re.compile(
-    r"\{[^{}]*\"move\"\s*:\s*\"([^\"]+)\"[^{}]*\}",
-    re.DOTALL | re.IGNORECASE,
-)
 # Matches the shorthand "h 0 1" / "v 2 0" the LLM is asked to produce
-# (whitespace or comma separators). A leading lookbehind rejects matches
-# inside ``P1(h,0,1)`` or other wrapped forms.
+# (space/tab/comma separators, kept on a single line so multi-line layouts
+# can't accidentally chain orientations to digits from a later line). A
+# leading lookbehind rejects matches inside ``P1(h,0,1)`` or other wrapped
+# forms.
 _MOVE_TOKEN_RE = re.compile(
-    r"(?<![(\w])([hv])[\s,]+(\d+)[\s,]+(\d+)",
+    r"(?<![(\w])([hv])[ \t,]+(\d+)[ \t,]+(\d+)",
     re.IGNORECASE,
 )
 # Matches the canonical OpenSpiel form ``P1(h,0,1)`` for normalizing the
@@ -56,16 +53,19 @@ Rules: The board is a {num_rows}x{num_cols} grid of unit boxes formed by a
 edge per turn between two horizontally- or vertically-adjacent dots. When
 you draw the fourth edge of a unit box you claim it (marked with your
 player number) and MUST take another turn immediately. The game ends when
-every edge has been drawn; the player with more boxes wins.
+every edge has been drawn; the player with more boxes wins. If both
+players have claimed the same number of boxes the game is a draw.
 
-Coordinates: rows are numbered 0 (top) to {num_rows} (bottom); columns are
-0 (left) to {num_cols} (right). A horizontal edge ``h(r,c)`` connects dot
+Coordinates: dots are indexed 0 (top) to {num_rows} (bottom) across
+{rows_plus} rows of dots, and 0 (left) to {num_cols} (right) across
+{cols_plus} columns of dots. A horizontal edge ``h(r,c)`` connects dot
 (r,c) to (r,c+1); a vertical edge ``v(r,c)`` connects dot (r,c) to (r+1,c).
 Valid ranges: horizontal r in 0..{num_rows}, c in 0..{cols_minus};
 vertical r in 0..{rows_minus}, c in 0..{num_cols}.
 
-Board (``+`` = dot, ``-``/``|`` = drawn edge, ``.`` = open edge; box cells
-show the owning player number when claimed, ``.`` when still open):
+Board (``+`` = dot, ``-``/``|`` = drawn edge, ``.`` = open horizontal edge,
+``:`` = open vertical edge; box cells show the owning player number when
+claimed, ``*`` when still open):
 {board_ascii}
 
 Score: Player 1 = {p1_score}, Player 2 = {p2_score}. Boxes remaining:
@@ -76,7 +76,7 @@ You are Player {player_label}.
 Moves you have played so far: {move_history}
 
 Action notation: ``<h|v> <row> <col>`` (e.g. ``h 0 1`` or ``v 2 0``). Only
-open edges (shown as ``.`` on the board) are legal.
+open edges (shown as ``.`` or ``:`` on the board) are legal.
 
 Respond with your reasoning followed by your final move in a JSON block:
 
@@ -91,13 +91,30 @@ an illegal move, will result in a loss.
 """
 
 
-RETHINK_SUFFIX = """
+RETHINK_ILLEGAL = """
 
-Your previous response was:
+You suggested move "{previous_action}" but this is not a legal move.
+Reconsider the rules and the current state, then pick a legal move.
+
+(Keep using the same JSON output format as before -- only the move value needs to change.)
+"""
+
+RETHINK_UNPARSABLE = """
+
+Your previous response ended with:
 {previous_response}
 
-You suggested move "{previous_action}" but it is not a legal move.
-Reconsider and pick a legal move (an open edge shown as ``.`` on the board).
+No JSON answer could be parsed from that. Conclude your response
+with your final move as JSON in a ```json fenced block, exactly
+as the original instructions required:
+
+```json
+{{"move": "<orientation row col>"}}
+```
+
+For example: `{{"move": "h 0 1"}}`
+
+The move you choose must also be legal in the current state.
 """
 
 
@@ -128,9 +145,11 @@ def _format_board_ascii(state: Mapping[str, Any]) -> str:
     """Render the board as an ASCII grid with edges and box owners.
 
     Rows of dots and horizontal edges interleave with rows of vertical
-    edges and box cells. Open edges render as ``.`` so the model can see
-    candidate moves at a glance; drawn edges show ``---`` / ``|``; box
-    cells show the owning player digit or ``.`` for an unclaimed box.
+    edges and box cells. Open horizontal edges render as ``.`` and open
+    vertical edges as ``:`` so the model can distinguish a candidate
+    vertical edge from an unclaimed box (both sit in the same row);
+    drawn edges show ``---`` / ``|``; box cells show the owning player
+    digit or ``*`` for an unclaimed box.
     """
     num_rows = int(state.get("num_rows", 0))
     num_cols = int(state.get("num_cols", 0))
@@ -158,10 +177,10 @@ def _format_board_ascii(state: Mapping[str, Any]) -> str:
         parts = []
         for c in range(num_cols + 1):
             owner = v_lines[r][c] if r < len(v_lines) and c < len(v_lines[r]) else 0
-            parts.append("|" if owner else ".")
+            parts.append("|" if owner else ":")
             if c < num_cols:
                 box_owner = boxes[r][c] if r < len(boxes) and c < len(boxes[r]) else 0
-                parts.append(f" {box_owner} " if box_owner else " . ")
+                parts.append(f" {box_owner} " if box_owner else " * ")
         lines.append("".join(parts))
 
     return "\n".join(lines)
@@ -189,24 +208,6 @@ def _normalize_legal(action_string: str) -> str | None:
     if not m:
         return None
     return f"{m.group(1).lower()} {int(m.group(2))} {int(m.group(3))}"
-
-
-def _extract_move_from_json(response: str) -> str | None:
-    """Pull the move from a ```json``` block or a bare ``{"move": "..."}``."""
-    match = _JSON_BLOCK_RE.search(response)
-    if match:
-        try:
-            data = json.loads(match.group(1))
-            move = data.get("move")
-            if move is None:
-                return None
-            return str(move).strip()
-        except json.JSONDecodeError:
-            pass
-    bare = _BARE_JSON_RE.search(response)
-    if bare:
-        return bare.group(1).strip()
-    return None
 
 
 def _match_to_legal(
@@ -273,7 +274,8 @@ def generate_prompt(
         last_move = "(none yet)"
         last_move_label = "Previous move"
 
-    move_history_str = ", ".join(move_history) if move_history else "None"
+    normalized_history = [_normalize_legal(m) or m for m in move_history]
+    move_history_str = ", ".join(normalized_history) if normalized_history else "None"
 
     prompt = DOTS_AND_BOXES_PROMPT_TEMPLATE.format(
         num_rows=num_rows,
@@ -292,34 +294,16 @@ def generate_prompt(
         move_history=move_history_str,
     )
 
-    if previous_response is not None:
-        prompt += RETHINK_SUFFIX.format(
-            previous_response=previous_response[:500],
-            previous_action=previous_action or "(could not parse)",
-        )
+    prompt += render_rethink_suffix(
+        RETHINK_ILLEGAL, RETHINK_UNPARSABLE,
+        previous_response, previous_action,
+    )
 
     return prompt
 
 
 def parse_response(
-    response: str,
-    legal_action_strings: Sequence[str],
+    response: str, legal_action_strings: Sequence[str],
 ) -> ParseResult:
-    """Extract a legal Dots and Boxes move from the LLM response.
-
-    Tries a ```json``` block first, then a bare ``{"move": "..."}``, then
-    falls back to scanning the response text for any ``h r c`` / ``v r c``
-    token that matches a legal move.
-    """
-    raw = _extract_move_from_json(response)
-    matched = _match_to_legal(raw, legal_action_strings)
-    if matched is not None:
-        return ParseResult(legal_action=matched, raw_action=raw)
-
-    for token_match in _MOVE_TOKEN_RE.finditer(response):
-        candidate = token_match.group(0)
-        matched = _match_to_legal(candidate, legal_action_strings)
-        if matched is not None:
-            return ParseResult(legal_action=matched, raw_action=raw or candidate)
-
-    return ParseResult(legal_action=None, raw_action=raw)
+    """Trust the model's JSON answer; let the rethink loop fix anything else."""
+    return parse_json_action(response, legal_action_strings, matcher=_match_to_legal)

@@ -23,13 +23,7 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult
-
-_JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
-_BARE_JSON_RE = re.compile(
-    r"\{[^{}]*\"move\"\s*:\s*\"([a-z]\d+[a-z]\d+)\"[^{}]*\}", re.DOTALL
-)
-_MOVE_RE = re.compile(r"\b([a-z]\d+[a-z]\d+)\b")
+from kaggle_environments.core_harness import ParseResult, parse_json_action, render_rethink_suffix
 
 
 # --- Prompt -----------------------------------------------------------------
@@ -37,7 +31,7 @@ _MOVE_RE = re.compile(r"\b([a-z]\d+[a-z]\d+)\b")
 
 CLOBBER_PROMPT_TEMPLATE = """Let's play Clobber.
 
-Rules: Two players take turns on an {rows}x{columns} checkerboard. White
+Rules: Two players take turns on a {rows}x{columns} checkerboard. White
 ('o') moves first; Black ('x') moves second. On your turn pick one of YOUR
 pieces and move it onto an orthogonally adjacent square (up/down/left/right)
 that holds an OPPONENT's piece, capturing it. The first player with no
@@ -51,7 +45,7 @@ Board (top to bottom; '.' = empty):
 {board_ascii}
 
 You are Player {player_label} ('{my_piece}').
-Move number: {move_number}
+Moves played so far (both players, oldest first): {move_history_str}
 Last move played: {last_move}
 
 Choose your move. It must move one of your pieces onto an orthogonally
@@ -61,22 +55,41 @@ Respond with your reasoning followed by your final move in a JSON block:
 
 ```json
 {{
-  "move": "<from><to>, e.g. a1b1"
+  "move": "<from><to>"
 }}
 ```
+
+For example: `{{"move": "a1b1"}}`
 
 Failure to output your final answer in the specified format, or selecting an
 illegal move, will result in a loss.
 """
 
 
-RETHINK_SUFFIX = """
+RETHINK_ILLEGAL = """
 
-Your previous response was:
+You suggested move "{previous_action}" but this is not a legal move.
+Reconsider the rules and the current state, then pick a legal move.
+
+(Keep using the same JSON output format as before -- only the move value needs to change.)
+"""
+
+RETHINK_UNPARSABLE = """
+
+Your previous response ended with:
 {previous_response}
 
-You suggested move "{previous_action}" but it is not a legal move.
-Reconsider the board and pick a legal move.
+No JSON answer could be parsed from that. Conclude your response
+with your final move as JSON in a ```json fenced block, exactly
+as the original instructions required:
+
+```json
+{{"move": "<from><to>"}}
+```
+
+For example: `{{"move": "a1b1"}}`
+
+The move you choose must also be legal in the current state.
 """
 
 
@@ -103,6 +116,42 @@ def _parse_observation_payload(observation: Mapping[str, Any]) -> dict[str, Any]
     return {}
 
 
+def _board_dims(state: Mapping[str, Any]) -> tuple[int, int]:
+    """Return ``(rows, columns)`` from a parsed state dict.
+
+    Prefers the actual board grid (always accurate for the current state),
+    falls back to the explicit ``rows``/``columns`` fields the proxy emits.
+    Returns ``(0, 0)`` only when nothing is available.
+    """
+    board = state.get("board") or []
+    if board:
+        return len(board), len(board[0])
+    rows = state.get("rows") or 0
+    columns = state.get("columns") or 0
+    return int(rows), int(columns)
+
+
+def _reconstruct_move_history(observation: Mapping[str, Any]) -> list[str]:
+    """Rebuild the full-game move history from the serialized pyspiel state.
+
+    Used only when the proxy state dict didn't surface ``move_history`` (e.g.
+    older replays). Clobber has no chance phase, so play actions alternate
+    starting with player 0.
+    """
+    serialized = observation.get("serializedGameAndState", "")
+    if not serialized:
+        return []
+    _, state = pyspiel.deserialize_game_and_state(serialized)
+    return [
+        state.action_to_string(idx % 2, action)
+        for idx, action in enumerate(state.history())
+    ]
+
+
+def _format_move_history(moves: Sequence[str]) -> str:
+    return ", ".join(moves) if moves else "(none yet)"
+
+
 def _format_board_ascii(board: Sequence[Sequence[str]], rows: int, columns: int) -> str:
     """Render the board with rank labels on the left and file labels on top.
 
@@ -121,24 +170,6 @@ def _format_board_ascii(board: Sequence[Sequence[str]], rows: int, columns: int)
         rank_label = str(rows - r).rjust(width)
         lines.append(f"{rank_label} " + " ".join(row))
     return "\n".join(lines)
-
-
-def _extract_move_from_json(response: str) -> str | None:
-    """Pull the move from a ```json``` block or a bare ``{"move": "..."}``."""
-    match = _JSON_BLOCK_RE.search(response)
-    if match:
-        try:
-            data = json.loads(match.group(1))
-            move = data.get("move")
-            if move is None:
-                return None
-            return str(move).strip()
-        except json.JSONDecodeError:
-            pass
-    bare = _BARE_JSON_RE.search(response)
-    if bare:
-        return bare.group(1).strip()
-    return None
 
 
 # --- Public functions (called by main.py) -----------------------------------
@@ -167,15 +198,20 @@ def generate_prompt(
     previous_action: str | None = None,
 ) -> str:
     """Build the LLM prompt for the current clobber state."""
-    del move_history  # The full board state is sufficient context for clobber.
+    # The per-agent `move_history` argument only contains this agent's own
+    # actions. We need both players' moves, so we source the full game
+    # history from the proxy's state_dict (with a serialized-state fallback).
+    del move_history
     state = _parse_observation_payload(observation)
     player_id = observation.get("playerId", 0)
 
-    rows = int(state.get("rows") or 0)
-    columns = int(state.get("columns") or 0)
+    rows, columns = _board_dims(state)
     board = state.get("board") or []
-    move_number = state.get("move_number", 0)
-    last_move = state.get("last_move") or "(none yet)"
+    full_moves = state.get("move_history")
+    if not isinstance(full_moves, list):
+        full_moves = _reconstruct_move_history(observation)
+    last_move = state.get("last_move") or (full_moves[-1] if full_moves else None)
+    last_move_str = last_move or "(none yet)"
     my_piece = "o" if player_id == 0 else "x"
     last_file = chr(ord("a") + max(0, columns - 1))
 
@@ -186,36 +222,46 @@ def generate_prompt(
         board_ascii=_format_board_ascii(board, rows, columns),
         player_label=player_id,
         my_piece=my_piece,
-        move_number=move_number,
-        last_move=last_move,
+        move_history_str=_format_move_history(full_moves),
+        last_move=last_move_str,
     )
 
-    if previous_response is not None:
-        prompt += RETHINK_SUFFIX.format(
-            previous_response=previous_response[:500],
-            previous_action=previous_action or "(could not parse)",
-        )
+    prompt += render_rethink_suffix(
+        RETHINK_ILLEGAL, RETHINK_UNPARSABLE,
+        previous_response, previous_action,
+    )
 
     return prompt
+
+
+_NOTATION_NOISE_RE = re.compile(r"[\s\-x>]+", re.IGNORECASE)
+
+
+def _normalize_move(token: str) -> str:
+    return _NOTATION_NOISE_RE.sub("", token.lower())
+
+
+def _match_move(raw: str, legal: Sequence[str]) -> str | None:
+    """Tolerate the capture/coord separators models naturally write.
+
+    Clobber is a capture game and the engine emits bare ``<from><to>``
+    strings, but chess-trained models routinely add ``-`` (``a1-b1``),
+    ``->`` (``a1->b1``), or the SAN capture marker ``x`` (``a1xb1``).
+    Strip those and the surrounding whitespace before comparing.
+    """
+    target = _normalize_move(raw)
+    if not target:
+        return None
+    for legal_str in legal:
+        if _normalize_move(legal_str) == target:
+            return legal_str
+    return None
 
 
 def parse_response(
     response: str, legal_action_strings: Sequence[str],
 ) -> ParseResult:
-    """Extract a legal move from the LLM response.
-
-    Tries a ``json`` block first, then a bare ``{"move": "..."}``, then falls
-    back to scanning for any ``[a-z]\\d+[a-z]\\d+`` token that matches a
-    legal move.
-    """
-    legal_set = set(legal_action_strings)
-
-    raw = _extract_move_from_json(response)
-    if raw is not None and raw in legal_set:
-        return ParseResult(legal_action=raw, raw_action=raw)
-
-    for token in _MOVE_RE.findall(response):
-        if token in legal_set:
-            return ParseResult(legal_action=token, raw_action=raw or token)
-
-    return ParseResult(legal_action=None, raw_action=raw)
+    """Trust the model's JSON answer; let the rethink loop fix anything else."""
+    return parse_json_action(
+        response, legal_action_strings, matcher=_match_move,
+    )

@@ -11,7 +11,7 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult, create_agent_fn
+from kaggle_environments.core_harness import ParseResult
 
 # ---------------------------------------------------------------------------
 # Prompt templates — exact copies from GameArena
@@ -137,8 +137,12 @@ def parse_response(
     1. Look for ``Final Answer: <column>``
     2. Scan for last digit in the response matching a legal column
     """
-    # Stage 1: "Final Answer: <digit>"
-    match = _FINAL_ANSWER_RE.search(response)
+    # Stage 1: "Final Answer: <digit>" -- use the LAST occurrence (matching
+    # GameArena's ``parse_move_from_response`` which uses ``rfind`` on the
+    # action tag). Models that consider then revise their answer will
+    # restate the final answer; the trailing one is the intent.
+    matches = list(_FINAL_ANSWER_RE.finditer(response))
+    match = matches[-1] if matches else None
     raw = match.group(1) if match else None
     if raw is not None:
         matched = _match_column_to_legal(raw, legal_action_strings)
@@ -171,27 +175,3 @@ def _match_column_to_legal(
     return None
 
 
-# ---------------------------------------------------------------------------
-# Adapter and agent
-# ---------------------------------------------------------------------------
-
-
-class _ConnectFourHarness:
-    """Adapts module-level functions to the GameHarness protocol."""
-
-    def get_legal_moves(self, observation):
-        return get_legal_moves(observation)
-
-    def make_prompt(self, observation, move_history, previous_response=None, previous_action=None):
-        return generate_prompt(
-            observation,
-            move_history,
-            previous_response,
-            previous_action,
-        )
-
-    def parse_response(self, response, legal_action_strings):
-        return parse_response(response, legal_action_strings)
-
-
-agent_fn = create_agent_fn(_ConnectFourHarness())

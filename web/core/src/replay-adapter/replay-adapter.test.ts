@@ -167,7 +167,15 @@ describe('ReplayAdapter', () => {
       const replay = makeReplay({ name: 'new-data' });
       adapter.render(0, replay, [{ name: 'Agent1' }]);
 
-      expect(processEpisodeData).toHaveBeenCalledWith(replay, 'test');
+      // ReplayAdapter now overrides info.TeamNames from host-supplied agents
+      // before calling the transformer, so the transformer sees a reconciled replay.
+      expect(processEpisodeData).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'new-data',
+          info: expect.objectContaining({ TeamNames: ['Agent1'] }),
+        }),
+        'test'
+      );
       expect(renderFn).toHaveBeenCalled();
     });
 

@@ -20,6 +20,7 @@ from ... import proxy
 
 # Ensure the underlying custom game is registered before we try to load it.
 from . import snake_game  # noqa: F401
+from .snake_game import Action as _Action
 
 _BODY_CHARS = ["a", "b", "c", "d"]
 _HEAD_CHARS = ["A", "B", "C", "D"]
@@ -85,6 +86,14 @@ class SnakeState(proxy.State):
         buffer = [a for a in getattr(wrapped, "_move_buffer", [])]
         pending = [i for i, a in enumerate(buffer) if a is not None]
 
+        round_history = [
+            [
+                _Action(a).name if a is not None and 0 <= a < len(_Action) else None
+                for a in round_moves
+            ]
+            for round_moves in getattr(wrapped, "_round_history", [])
+        ]
+
         return {
             "board": self._board(snakes, is_alive, foods),
             "num_rows": int(wrapped.rows),
@@ -99,6 +108,7 @@ class SnakeState(proxy.State):
             "is_alive": is_alive,
             "current_player": self.current_player(),
             "pending_this_turn": pending,
+            "round_history": round_history,
             "turn": turn,
             "is_terminal": is_terminal,
             "winner": winner,

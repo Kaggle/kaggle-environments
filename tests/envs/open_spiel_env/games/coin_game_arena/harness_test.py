@@ -54,15 +54,38 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response('```json\n{"move": "DOWN"}\n```', legal)
         self.assertEqual(result.legal_action, "down")
 
-    def test_parse_fallback_keyword(self):
+    def test_prose_only_response_triggers_rethink(self):
+        # No structured JSON. The parser must NOT guess at intent from a
+        # keyword in the prose -- return None and let rethink ask the
+        # model to use the required JSON format.
         legal = ["up", "down", "left", "right", "stand"]
         result = parse_response("I'll go right toward the b coin.", legal)
-        self.assertEqual(result.legal_action, "right")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_no_match(self):
         legal = ["up", "down", "left", "right", "stand"]
         result = parse_response('```json\n{"move": "diagonal"}\n```', legal)
         self.assertIsNone(result.legal_action)
+
+    def test_parse_picks_last_json_block_on_self_correction(self):
+        # Model writes one answer, then reconsiders and writes another.
+        # The harness must submit the final answer, not the rejected one.
+        legal = ["up", "down", "left", "right", "stand"]
+        response = (
+            '```json\n{"move":"up"}\n```\n'
+            'Wait, let me reconsider.\n'
+            '```json\n{"move":"down"}\n```'
+        )
+        result = parse_response(response, legal)
+        self.assertEqual(result.legal_action, "down")
+
+    def test_parse_picks_last_bare_json_on_self_correction(self):
+        legal = ["up", "down", "left", "right", "stand"]
+        result = parse_response(
+            '{"move":"up"} ... actually {"move":"down"}', legal,
+        )
+        self.assertEqual(result.legal_action, "down")
 
     def test_returns_parse_result(self):
         legal = ["up", "down", "left", "right", "stand"]
@@ -70,6 +93,18 @@ class ParseResponseTest(absltest.TestCase):
             parse_response('```json\n{"move": "up"}\n```', legal),
             ParseResult,
         )
+
+    def test_illegal_json_does_not_ghost_substitute_from_prose(self):
+        # JSON answer "diagonal" is illegal; the parser must NOT silently
+        # substitute "up" from the prose (that's the ghost antipattern).
+        legal = ["up", "down", "left", "right", "stand"]
+        response = (
+            "I considered up but ruled it out. I'll play diagonal.\n"
+            '```json\n{"move": "diagonal"}\n```'
+        )
+        result = parse_response(response, legal)
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "diagonal")
 
 
 class GeneratePromptTest(absltest.TestCase):
@@ -191,8 +226,53 @@ class GeneratePromptTest(absltest.TestCase):
             previous_response="I play diagonally",
             previous_action="diagonal",
         )
-        self.assertIn("Your previous response was", prompt)
+        self.assertIn("You suggested", prompt)  # ILLEGAL leads with action
         self.assertIn("diagonal", prompt)
+
+    def test_per_seat_move_horizon(self):
+        # The model is a single seat, so the prompt must surface its
+        # personal move horizon -- not the per-board total, which the
+        # two seats split. Misframing as per-board invites a 2x
+        # planning-horizon error ("I have 20 moves" when really 10).
+        s = _state(seed=7, episode_length=20)
+        # Drive one full round: each seat on each board moves once.
+        s.apply_action(3)  # player 0 (team A seat 0)
+        s.apply_action(2)  # player 2 (team B seat 0)
+        s.apply_action(1)  # player 1 (team A seat 1)
+        s.apply_action(0)  # player 3 (team B seat 1)
+        # Now player 0 is up again -- their second personal move; their
+        # teammate has 9 personal moves remaining.
+        prompt = generate_prompt(_make_observation(s, 0), [])
+        flat = " ".join(prompt.split())
+        self.assertIn("your move 2 of 10", flat)
+        self.assertIn("teammate has 9 moves remaining", flat)
+        self.assertIn("20 moves total", flat)
+
+    def test_first_move_shows_full_personal_horizon(self):
+        # Sanity: at the very start, the first mover sees "move 1 of 10".
+        s = _state(seed=7, episode_length=20)
+        prompt = generate_prompt(_make_observation(s, 0), [])
+        flat = " ".join(prompt.split())
+        self.assertIn("your move 1 of 10", flat)
+        self.assertIn("teammate has 10 moves remaining", flat)
+
+    def test_no_op_rule_in_prompt(self):
+        prompt = generate_prompt(_make_observation(_state(seed=7), 0), [])
+        flat = " ".join(prompt.split())
+        self.assertIn("leave the board", flat)
+        self.assertIn("teammate's cell", flat)
+        self.assertIn("no-ops", flat)
+
+    def test_alternation_wording(self):
+        # The prompt must describe how the two boards advance unambiguously.
+        # "in parallel" was wrong (boards don't advance simultaneously);
+        # "lock-step" was a step better but still read as "both at once".
+        # The current wording explicitly says strict alternation.
+        prompt = generate_prompt(_make_observation(_state(seed=7), 0), [])
+        flat = " ".join(prompt.split())
+        self.assertIn("strict alternation", flat)
+        self.assertNotIn("lock-step", flat)
+        self.assertNotIn("in parallel", flat)
 
 
 class GetLegalMovesTest(absltest.TestCase):

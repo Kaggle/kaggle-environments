@@ -51,9 +51,13 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response('I think {"move": "c3d4"} is best.', self.legal)
         self.assertEqual(result.legal_action, "c3d4")
 
-    def test_parse_action_string_in_response(self):
+    def test_prose_only_response_triggers_rethink(self):
+        # No structured JSON. The parser must NOT guess at intent from a
+        # move-shaped token in the prose -- return None and let rethink
+        # ask the model to use the required JSON format.
         result = parse_response("I will play e3f4 this turn.", self.legal)
-        self.assertEqual(result.legal_action, "e3f4")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_case_insensitive(self):
         result = parse_response('```json\n{"move": "A3B4"}\n```', self.legal)
@@ -76,6 +80,19 @@ class ParseResponseTest(absltest.TestCase):
     def test_parse_does_not_pick_unrelated_token(self):
         result = parse_response("I'm thinking about a1b2.", self.legal)
         self.assertIsNone(result.legal_action)
+
+    def test_illegal_json_does_not_ghost_substitute_from_prose(self):
+        # The model's JSON answer (z9z9) isn't legal. The parser must
+        # NOT silently substitute a legal token from the prose -- return
+        # None so the rethink loop asks the model to fix its answer.
+        legal_example = self.legal[0]
+        response = (
+            f"I considered {legal_example} but ruled it out.\n"
+            '```json\n{"move": "z9z9"}\n```'
+        )
+        result = parse_response(response, self.legal)
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "z9z9")
 
 
 # ---------------------------------------------------------------------------
@@ -169,6 +186,35 @@ class GeneratePromptTest(absltest.TestCase):
             self.assertIn(sq, prompt)
         self.assertIn("Your kings ('*') are at: (none)", prompt)
 
+    def test_opponent_pieces_listed(self):
+        obs = _make_observation(self.state, self.game, player_id=0)
+        prompt = generate_prompt(obs, [])
+        # Player 0's opponent is Player 1; opponent men ('+') start on
+        # ranks 6-8 dark squares; no opponent kings yet.
+        self.assertIn("Opponent men ('+') are at:", prompt)
+        for sq in ("b6", "d6", "f6", "h6", "a7", "c7", "e7", "g7",
+                   "b8", "d8", "f8", "h8"):
+            self.assertIn(sq, prompt)
+        self.assertIn("Opponent kings ('*') are at: (none)", prompt)
+
+    def test_opponent_pieces_listed_for_player_1(self):
+        first = self.state.legal_actions()[0]
+        self.state.apply_action(first)
+        obs = _make_observation(self.state, self.game, player_id=1)
+        prompt = generate_prompt(obs, [])
+        # Player 1's opponent is Player 0; opponent men ('o') character.
+        self.assertIn("Opponent men ('o') are at:", prompt)
+        self.assertIn("Opponent kings ('O') are at: (none)", prompt)
+
+    def test_draw_rule_disclosed(self):
+        obs = _make_observation(self.state, self.game, player_id=0)
+        prompt = generate_prompt(obs, [])
+        # The 40-ply no-capture draw rule must be in the prompt -- it's a
+        # real terminal path that decided ~9% of recorded games.
+        self.assertIn("40", prompt)
+        self.assertIn("draw", prompt.lower())
+        self.assertIn("capture", prompt.lower())
+
     def test_captures_flag_no_at_start(self):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [])
@@ -196,7 +242,7 @@ class GeneratePromptTest(absltest.TestCase):
     def test_rethink_suffix(self):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [], previous_response="I'll play z9z9", previous_action="z9z9")
-        self.assertIn("Your previous response was", prompt)
+        self.assertIn("You suggested", prompt)  # ILLEGAL leads with action
         self.assertIn("z9z9", prompt)
         self.assertIn("not a legal move", prompt)
 

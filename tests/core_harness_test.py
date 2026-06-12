@@ -9,6 +9,8 @@ from kaggle_environments import core_harness
 from kaggle_environments.core_harness import (
     ParseResult,
     create_agent_fn,
+    extract_last_json_object,
+    render_rethink_suffix,
     set_telemetry_exporter,
 )
 
@@ -150,6 +152,60 @@ class CoreHarnessTest(absltest.TestCase):
         self.assertEqual(mock_call.call_count, 2)
         # Second prompt should reflect rethink context.
         self.assertIn("prev=garbage", harness.prompts[1])
+
+    def _parse_failure_events(self):
+        return [e["parse_failure"] for e in self.events if "parse_failure" in e]
+
+    def test_parse_failure_telemetry_illegal(self):
+        # _SimpleHarness echoes whatever the model said back as raw_action
+        # when the response doesn't match a legal move -- a non-empty
+        # but unmatched response classifies as ILLEGAL.
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=1)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion",
+            return_value=_fake_completion("not_a_legal_move"),
+        ):
+            agent({}, {"illegalMoveForfeit": True})
+        failures = self._parse_failure_events()
+        self.assertEqual(failures[-1]["category"], "ILLEGAL")
+        self.assertEqual(failures[-1]["raw_action"], "not_a_legal_move")
+        # Final-attempts telemetry reports the same category.
+        finals = [e for e in self.events if "all_attempts_failed" in e]
+        self.assertEqual(finals[-1]["final_failure_category"], "ILLEGAL")
+
+    def test_parse_failure_telemetry_unparsable(self):
+        # Stub parse_response to return raw_action=None for non-empty
+        # content -- mimics a parser that couldn't extract anything.
+        harness = _SimpleHarness()
+        harness.parse_response = lambda r, l: ParseResult(legal_action=None, raw_action=None)
+        agent = create_agent_fn(harness, max_retries=1)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion",
+            return_value=_fake_completion("just some prose"),
+        ):
+            agent({}, {"illegalMoveForfeit": True})
+        failures = self._parse_failure_events()
+        self.assertEqual(failures[-1]["category"], "UNPARSABLE")
+        self.assertIsNone(failures[-1]["raw_action"])
+
+    def test_parse_failure_telemetry_empty(self):
+        # _call_llm normally raises on empty content, so EMPTY can't be
+        # reached through the litellm path. We stub _call_llm so the
+        # classifier sees an empty string and emits the EMPTY category.
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=1)
+        empty_call_details = {
+            "prompt_tokens": 0, "generation_tokens": 0,
+            "total_tokens": 0, "finish_reason": "stop", "duration_secs": 0.0,
+        }
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness, "_call_llm", return_value=("", empty_call_details),
+        ):
+            agent({}, {"illegalMoveForfeit": True})
+        failures = self._parse_failure_events()
+        self.assertEqual(failures[-1]["category"], "EMPTY")
+
 
     def test_all_attempts_fail_forfeits_when_opted_in(self):
         harness = _SimpleHarness()
@@ -563,6 +619,55 @@ class CoreHarnessTest(absltest.TestCase):
         self.assertIn("move_0", harness.prompts[1])
 
 
+class RenderRethinkSuffixTest(absltest.TestCase):
+    """Behaviour spec for the shared rethink-suffix helper."""
+
+    ILLEGAL = "ILLEGAL: act={previous_action}"
+    UNPARSABLE = "UNPARSABLE: resp={previous_response}"
+
+    def test_no_prior_attempt_returns_empty(self):
+        self.assertEqual(
+            render_rethink_suffix(self.ILLEGAL, self.UNPARSABLE, None, None),
+            "",
+        )
+
+    def test_illegal_branch_uses_action_template(self):
+        out = render_rethink_suffix(
+            self.ILLEGAL, self.UNPARSABLE,
+            previous_response="some prose",
+            previous_action="z99",
+        )
+        self.assertEqual(out, "ILLEGAL: act=z99")
+        # Crucially, previous_response does NOT appear in the illegal branch.
+        self.assertNotIn("some prose", out)
+
+    def test_unparsable_branch_uses_response_template(self):
+        out = render_rethink_suffix(
+            self.ILLEGAL, self.UNPARSABLE,
+            previous_response="prose with no JSON",
+            previous_action=None,
+        )
+        self.assertEqual(out, "UNPARSABLE: resp=prose with no JSON")
+
+    def test_unparsable_truncates_response_to_last_500(self):
+        long = "X" * 600 + "END_MARKER"
+        out = render_rethink_suffix(
+            self.ILLEGAL, self.UNPARSABLE,
+            previous_response=long,
+            previous_action=None,
+        )
+        # 500-char tail kept; the prefix X-run is dropped.
+        self.assertIn("END_MARKER", out)
+        self.assertEqual(len(out), len("UNPARSABLE: resp=") + 500)
+
+    def test_no_prior_attempt_when_action_is_empty_string(self):
+        # previous_response None AND previous_action falsy ("") -> no-op.
+        out = render_rethink_suffix(
+            self.ILLEGAL, self.UNPARSABLE, None, "",
+        )
+        self.assertEqual(out, "")
+
+
 class _FreeFormHarness:
     """Harness that returns None from get_legal_moves (free-form actions)."""
 
@@ -777,6 +882,119 @@ class ParseResultTest(absltest.TestCase):
     def test_submission_field(self):
         r = ParseResult(submission={"clue": "test", "number": 1})
         self.assertEqual(r.submission, {"clue": "test", "number": 1})
+
+
+class ExtractLastJsonObjectTest(absltest.TestCase):
+    """Shared helper for last-wins JSON extraction across harnesses."""
+
+    def test_single_fenced_block(self):
+        self.assertEqual(
+            extract_last_json_object('```json\n{"move": "e5"}\n```'),
+            {"move": "e5"},
+        )
+
+    def test_picks_last_of_multiple_fenced_blocks(self):
+        """Regression: models self-correct mid-response. The first block
+        is the rejected answer; the final block is the model's intent."""
+        response = (
+            'First attempt:\n```json\n{"move": "a1"}\n```\n'
+            'On second thought:\n```json\n{"move": "e5"}\n```'
+        )
+        self.assertEqual(
+            extract_last_json_object(response),
+            {"move": "e5"},
+        )
+
+    def test_skips_unparseable_fenced_block(self):
+        """If a later fenced block fails to parse, fall back to the prior
+        parseable one rather than dropping to bare-JSON strategy."""
+        response = (
+            '```json\n{"move": "e5"}\n```\n'
+            '```json\n{this is not valid json}\n```'
+        )
+        self.assertEqual(
+            extract_last_json_object(response),
+            {"move": "e5"},
+        )
+
+    def test_bare_json_when_no_fence(self):
+        self.assertEqual(
+            extract_last_json_object('I will play {"move": "e5"} now.'),
+            {"move": "e5"},
+        )
+
+    def test_picks_last_bare_json(self):
+        response = 'Considered {"move": "a1"}, but going with {"move": "e5"}.'
+        self.assertEqual(
+            extract_last_json_object(response),
+            {"move": "e5"},
+        )
+
+    def test_handles_nested_json(self):
+        """``json.JSONDecoder.raw_decode`` handles nesting; the old
+        ``_BARE_JSON_RE = r"\\{[^{}]*\\}"`` pattern could not."""
+        response = 'Result: {"move": "e5", "meta": {"depth": 3}}'
+        self.assertEqual(
+            extract_last_json_object(response),
+            {"move": "e5", "meta": {"depth": 3}},
+        )
+
+    def test_required_keys_filters_unrelated_objects(self):
+        """When required_keys is given, unrelated JSON in the model's
+        reasoning is ignored so the action object wins."""
+        response = (
+            'My plan: {"phase": "midgame"} then I will play '
+            '{"move": "e5"}.'
+        )
+        self.assertEqual(
+            extract_last_json_object(response, required_keys=("move",)),
+            {"move": "e5"},
+        )
+
+    def test_required_keys_returns_none_when_no_match(self):
+        response = '{"phase": "midgame"} {"other": 1}'
+        self.assertIsNone(
+            extract_last_json_object(response, required_keys=("move",)),
+        )
+
+    def test_required_keys_accepts_any_listed_key(self):
+        """Harnesses that look at multiple action fields (e.g. word
+        association: ``clue`` or ``guess``) pass them all."""
+        response = '{"guess": 3}'
+        self.assertEqual(
+            extract_last_json_object(response, required_keys=("clue", "guess")),
+            {"guess": 3},
+        )
+
+    def test_fenced_takes_priority_over_bare(self):
+        """Bare-JSON strategy only runs when no fenced block parses."""
+        response = (
+            '{"move": "a1"}\n\n'
+            '```json\n{"move": "e5"}\n```'
+        )
+        self.assertEqual(
+            extract_last_json_object(response),
+            {"move": "e5"},
+        )
+
+    def test_returns_none_on_empty_response(self):
+        self.assertIsNone(extract_last_json_object(""))
+        self.assertIsNone(extract_last_json_object("no json here at all"))
+
+    def test_unlabelled_fence(self):
+        """Some models use ``` ``` ``` ``` without the ``json`` language tag."""
+        self.assertEqual(
+            extract_last_json_object('```\n{"move": "e5"}\n```'),
+            {"move": "e5"},
+        )
+
+    def test_skips_non_dict_top_level(self):
+        """Top-level lists/strings/numbers are not action objects."""
+        response = '```json\n[1, 2, 3]\n```\n{"move": "e5"}'
+        self.assertEqual(
+            extract_last_json_object(response),
+            {"move": "e5"},
+        )
 
 
 if __name__ == "__main__":

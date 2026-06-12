@@ -14,16 +14,11 @@ what their teammate just played).
 from __future__ import annotations
 
 import json
-import re
 from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult
-
-_JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
-_BARE_JSON_RE = re.compile(r"\{[^{}]*\"move\"\s*:\s*\"([^\"]+)\"[^{}]*\}", re.DOTALL)
-_MOVE_RE = re.compile(r"\b(up|down|left|right|stay)\b", re.IGNORECASE)
+from kaggle_environments.core_harness import ParseResult, parse_json_action, render_rethink_suffix
 
 
 # --- Prompt -----------------------------------------------------------------
@@ -32,35 +27,33 @@ _MOVE_RE = re.compile(r"\b(up|down|left|right|stay)\b", re.IGNORECASE)
 ARENA_PROMPT_TEMPLATE = """Let's play Ant Foraging Arena (2v2 cooperative ant foraging).
 
 Setup: 2 teams of {players_per_team} ants each. Each team plays its own
-private {grid_size}x{grid_size} grid in parallel (the other team's grid
-is HIDDEN from you). Within your team, you and your teammate take turns
-moving — on each step one seat moves on each board, in the order
-[team A seat 0, team B seat 0, team A seat 1, team B seat 1, ...].
+private {grid_size}x{grid_size} grid in parallel; the other team's board
+is HIDDEN from you. Within your team, seat 0 moves first, then seat 1.
 
 Important: every ant on your team is another instance of YOU (same
 model, same submission), and the opposing team is two instances of a
 single different agent. There is NO in-game communication, so you must
 coordinate with your teammate purely by reasoning about what "another
-copy of me" would do given the same board. The only thing that
-distinguishes you from your teammate is your seat (and therefore the
-order in which you move).
+copy of me" would do given the same board.
 
 World: ``N`` marks the single nest in the centre; ``F`` marks each
 remaining food source; ``.`` is an empty cell.
 
-Actions: {{stay, up, down, left, right}}. Moves that would step off the
-board are silently blocked (you stay put). Stepping onto an ``F`` cell
-automatically picks up that food (one food at a time per ant). Returning
-to ``N`` while carrying drops it off and increases your team's score
-by 1.
+Actions: {{stay, up, down, left, right}}. Off-board moves are not legal
+-- if your ant is on an edge, your legal set excludes any direction
+that would step off the board (``stay`` is always legal). Stepping
+onto an ``F`` cell automatically picks up that food (one food at a
+time per ant). Returning to ``N`` while carrying drops it off and
+increases your team's score by 1.
 
-Pheromones: ants leave decaying ``pheromone_to_food`` (near remembered
-food) and ``pheromone_to_nest`` (laid while carrying). Both grids decay
-each round, so fresh trails are more reliable than faint ones.
+Pheromones: ants leave decaying ``to_food`` (near remembered food) and
+``to_nest`` (laid while carrying) trails. Both decay each round, so
+fresh trails are more reliable than faint ones.
 
 Scoring: your team's score = food delivered to your nest. Higher team
 score wins. The game ends as soon as either team delivers all
-{num_food} food items OR after {max_turns} rounds elapse.
+{num_food} food items OR after {max_turns} rounds elapse (where a round
+is one move per ant per team).
 
 Coordinates: positions are ``[row, column]`` with ``row=0`` at the top
 and ``column=0`` on the left. ``up`` decreases row, ``down`` increases
@@ -70,9 +63,16 @@ Your team id is {team_id}. You are player {player_id} (seat {seat} on
 your team's board). Your teammate is player {teammate_id} (seat
 {teammate_seat}). Your ant is currently at {your_position} and is
 {carry_status}. Team food so far: {food_collected} of {num_food}.
+Game progress: round {current_round} of {max_turns}.
 
-Current state of your team's board (JSON):
-{board_str}
+Your team's board (terrain with both team ants overlaid; digit = ant id
+modulo team, capital letter = that ant is carrying food):
+{grid_ascii}
+
+Pheromone trails on your team's board (sparse view; only cells above
+{pher_threshold} shown):
+  to_food: {pher_food}
+  to_nest: {pher_nest}
 
 Move history on your team's board so far (most recent last):
 {move_history_str}
@@ -94,51 +94,39 @@ Begin!
 """
 
 
-RETHINK_SUFFIX = """
+RETHINK_ILLEGAL = """
 
-Your previous response was:
+You suggested move "{previous_action}" but this is not a legal move.
+Reconsider the rules and the current state, then pick a legal move.
+
+(Keep using the same JSON output format as before -- only the move value needs to change.)
+"""
+
+RETHINK_UNPARSABLE = """
+
+Your previous response ended with:
 {previous_response}
 
-You suggested move "{previous_action}" but this is not in the legal
-moves list. Reconsider and play a legal move from {{up, down, left,
-right, stay}}.
+No JSON answer could be parsed from that. Conclude your response
+with your final move as JSON in a ```json fenced block, exactly
+as the original instructions required:
+
+```json
+{{"move": "<direction>"}}
+```
+
+For example: `{{"move": "up"}}`
+
+The move you choose must also be legal in the current state.
 """
 
 
+_NUM_TEAMS = 2
+_PHEROMONE_THRESHOLD = 0.05
+_MOVE_HISTORY_TAIL = 16
+
+
 # --- Helpers ----------------------------------------------------------------
-
-
-def _normalize(move: str) -> str:
-    return re.sub(r"\s+", "", move).lower()
-
-
-def _extract_move_from_json(response: str) -> str | None:
-    # Prefer the LAST JSON block — the prompt asks the model to put its
-    # final answer at the end, after any reasoning that may itself
-    # contain JSON snippets.
-    for match in reversed(_JSON_BLOCK_RE.findall(response)):
-        try:
-            data = json.loads(match)
-            move = str(data.get("move", "")).strip()
-            if move:
-                return move
-        except json.JSONDecodeError:
-            continue
-    bare_matches = list(_BARE_JSON_RE.finditer(response))
-    if bare_matches:
-        return bare_matches[-1].group(1).strip()
-    return None
-
-
-def _match_move_to_legal(
-    move: str,
-    legal_moves: Sequence[str],
-) -> str | None:
-    target = _normalize(move)
-    if not target:
-        return None
-    legal_normalized = {_normalize(legal): legal for legal in legal_moves}
-    return legal_normalized.get(target)
 
 
 def _parse_obs(observation: Mapping[str, Any]) -> dict[str, Any]:
@@ -149,6 +137,89 @@ def _parse_obs(observation: Mapping[str, Any]) -> dict[str, Any]:
         return json.loads(obs_str)
     except (json.JSONDecodeError, TypeError):
         return {}
+
+
+def _ant_glyph(seat: int, carrying: bool) -> str:
+    """Glyph for a teammate's ant within the team-local view.
+
+    Uses the seat index (0..players_per_team-1) so both teams render
+    identically regardless of which global player ids they happen to
+    hold. Searching ants are digits; carrying ants are capital letters.
+    """
+    if not carrying:
+        return str(seat) if 0 <= seat < 10 else "?"
+    return chr(ord("A") + seat) if 0 <= seat < 26 else "?"
+
+
+def _render_grid_ascii(
+    grid: list[list[str]],
+    ant_positions_by_pid: Mapping[str, Any] | None,
+    carrying_by_pid: Mapping[str, Any] | None,
+    players_per_team: int,
+    team_id: int,
+) -> str:
+    """Render the team board with the team's ants overlaid on terrain.
+
+    First-seat-wins when multiple ants share a cell (matches upstream
+    ant_foraging's __str__ convention). The prose elsewhere lists each
+    ant's position separately, so any stacking lost here is recoverable.
+    """
+    rows = len(grid) if grid else 0
+    cols = len(grid[0]) if rows else 0
+    ant_positions_by_pid = ant_positions_by_pid or {}
+    carrying_by_pid = carrying_by_pid or {}
+
+    # Seat -> (row, col) using team-relative seat indices so the renderer
+    # stays symmetric across the two teams.
+    seat_at: dict[tuple[int, int], int] = {}
+    for seat in range(players_per_team):
+        pid = team_id * players_per_team + seat
+        pos = ant_positions_by_pid.get(str(pid))
+        if not pos or len(pos) < 2:
+            continue
+        cell = (int(pos[0]), int(pos[1]))
+        if cell not in seat_at:
+            seat_at[cell] = seat
+
+    header = "    " + " ".join(str(c) for c in range(cols))
+    lines = [header]
+    for r in range(rows):
+        row_chars = []
+        for c in range(cols):
+            if (r, c) in seat_at:
+                seat = seat_at[(r, c)]
+                pid = team_id * players_per_team + seat
+                carrying = bool(carrying_by_pid.get(str(pid), False))
+                row_chars.append(_ant_glyph(seat, carrying))
+            else:
+                row_chars.append(grid[r][c])
+        lines.append(f"{r:>2}  " + " ".join(row_chars))
+    return "\n".join(lines)
+
+
+def _sparse_pheromone(
+    pheromone: list[list[float]] | None,
+    threshold: float = _PHEROMONE_THRESHOLD,
+) -> str:
+    if not pheromone:
+        return "(none)"
+    items: list[str] = []
+    for r, row in enumerate(pheromone):
+        for c, v in enumerate(row):
+            if float(v) >= threshold:
+                items.append(f"[{r},{c}]={float(v):.2f}")
+    return ", ".join(items) if items else "(none)"
+
+
+def _format_move_history(history: list[dict[str, Any]] | None) -> str:
+    if not history:
+        return "  (no moves yet)"
+    tail = history[-_MOVE_HISTORY_TAIL:]
+    return "\n".join(
+        f"  move {idx + 1}: player {entry.get('player_id')} "
+        f"(seat {entry.get('seat')}) -> {entry.get('action')}"
+        for idx, entry in enumerate(tail, start=len(history) - len(tail))
+    )
 
 
 # --- Public functions (called by main.py) -----------------------------------
@@ -198,6 +269,15 @@ def generate_prompt(
     num_food = int(board.get("num_food", 3))
     food_collected = int(board.get("food_collected", 0))
     max_turns = int(obs.get("max_turns", 50))
+    move_number = int(obs.get("move_number", 0))
+
+    # Normalize to per-team-round units so the model isn't comparing
+    # interleaved-step counts against round-based max_turns. Display is
+    # 1-indexed so the final move reads "round 50 of 50"; the engine's
+    # 0-indexed count would read "round 49 of 50" on the last move, and
+    # models systematically misread that as "one round still remains".
+    round_size = players_per_team * _NUM_TEAMS
+    current_round = (move_number // round_size) + 1 if round_size else 1
 
     teammate_seat = (seat + 1) % players_per_team
     teammate_id = team_id * players_per_team + teammate_seat
@@ -208,27 +288,16 @@ def generate_prompt(
     is_carrying = bool(carrying.get(str(player_id), False))
     carry_status = "carrying food back to the nest" if is_carrying else "searching for food"
 
-    # Emit a compact subset of the board view to the model.
-    board_view = {
-        "grid": board.get("grid"),
-        "nest_position": board.get("nest_position"),
-        "food_positions": board.get("food_positions"),
-        "ant_positions": board.get("ant_positions"),
-        "carrying_food": board.get("carrying_food"),
-        "pheromone_to_food": board.get("pheromone_to_food"),
-        "pheromone_to_nest": board.get("pheromone_to_nest"),
-        "moves_remaining": obs.get("moves_remaining"),
-    }
-    board_str = json.dumps(board_view, indent=2)
-
-    history = board.get("move_history") or []
-    if history:
-        move_history_str = "\n".join(
-            f"  move {idx + 1}: player {entry.get('player_id')} (seat {entry.get('seat')}) -> {entry.get('action')}"
-            for idx, entry in enumerate(history)
-        )
-    else:
-        move_history_str = "  (no moves yet)"
+    grid_ascii = _render_grid_ascii(
+        board.get("grid") or [],
+        ant_positions,
+        carrying,
+        players_per_team,
+        team_id,
+    )
+    pher_food = _sparse_pheromone(board.get("pheromone_to_food"))
+    pher_nest = _sparse_pheromone(board.get("pheromone_to_nest"))
+    move_history_str = _format_move_history(board.get("move_history"))
 
     prompt = ARENA_PROMPT_TEMPLATE.format(
         grid_size=grid_size,
@@ -243,37 +312,24 @@ def generate_prompt(
         your_position=your_position,
         carry_status=carry_status,
         food_collected=food_collected,
-        board_str=board_str,
+        current_round=current_round,
+        grid_ascii=grid_ascii,
+        pher_threshold=f"{_PHEROMONE_THRESHOLD:.2f}",
+        pher_food=pher_food,
+        pher_nest=pher_nest,
         move_history_str=move_history_str,
     )
 
-    if previous_response is not None:
-        prompt += RETHINK_SUFFIX.format(
-            previous_response=previous_response[:500],
-            previous_action=previous_action or "(could not parse)",
-        )
+    prompt += render_rethink_suffix(
+        RETHINK_ILLEGAL, RETHINK_UNPARSABLE,
+        previous_response, previous_action,
+    )
 
     return prompt
 
 
 def parse_response(
-    response: str,
-    legal_action_strings: Sequence[str],
+    response: str, legal_action_strings: Sequence[str],
 ) -> ParseResult:
-    """Extract a legal arena move from the model response."""
-    raw = _extract_move_from_json(response)
-    if raw is not None:
-        matched = _match_move_to_legal(raw, legal_action_strings)
-        if matched is not None:
-            return ParseResult(legal_action=matched, raw_action=raw)
-
-    # Scan from the end: the prompt asks the model to put its final
-    # answer at the end of the response, so the last direction word is
-    # the right one to pick when the JSON parse failed.
-    for m in reversed(list(_MOVE_RE.finditer(response))):
-        candidate = m.group(0)
-        matched = _match_move_to_legal(candidate, legal_action_strings)
-        if matched is not None:
-            return ParseResult(legal_action=matched, raw_action=raw or candidate)
-
-    return ParseResult(legal_action=None, raw_action=raw)
+    """Trust the model's JSON answer; let the rethink loop fix anything else."""
+    return parse_json_action(response, legal_action_strings)

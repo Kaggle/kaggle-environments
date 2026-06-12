@@ -156,7 +156,29 @@ Port constants and types from the Python interpreter:
 - TypeScript types for every domain object the interpreter mutates: at minimum `GameState`, `PlayerAction`, `Config`, plus whatever per-player view (`Private`/`Observation`) the Python framework hands to agents.
 - `initGameState(numAgents, config, seed)` returning a typed initial `GameState`.
 
-If exact seed parity matters, port the PRNG (Python's `random` ≈ MT19937) in `rng.ts`. If randomness only needs to be reproducible per-browser-session, a simple seeded LCG is fine.
+**Pull config defaults from `<env>.json`, don't duplicate them.** The env spec at `kaggle_environments/envs/<name>/<name>.json` is the source of truth for every `configuration.*.default`. Importing it into `constants.ts` and reading defaults dynamically makes "Python and TS slowly drifted" impossible by construction. With `resolveJsonModule: true` (already set in `web/tsconfig.base.json`) the import just works:
+
+```typescript
+import spec from '../../../../<name>.json';
+
+function specDefault<T>(key: string): T {
+  const entry = (spec.configuration as Record<string, unknown>)[key];
+  if (entry !== null && typeof entry === 'object' && 'default' in (entry as object)) {
+    return (entry as { default: T }).default;
+  }
+  return entry as T; // top-level flat values like `episodeSteps`
+}
+
+export const DEFAULT_CONFIG = {
+  episodeSteps: specDefault<number>('episodeSteps'),
+  startingMoney: specDefault<number>('startingMoney'),
+  // ... every field that has a `.default` in the spec
+} as const;
+```
+
+Hard-coded constants pass unit tests trivially (the same wrong number flows through both the engine and its tests) — the drift only surfaces against an external reference. Pulling from the spec is the cheapest way to never write that bug.
+
+If exact seed parity matters, port the PRNG (Python's `random` ≈ MT19937) in `rng.ts`. If randomness only needs to be reproducible per-browser-session, a simple seeded LCG is fine. Note that a bare MT19937 seeded with the integer is **not** bit-identical to CPython's `random.Random(seed)` — CPython runs the seed through `init_by_array`. Without that, every `rng.choice` / `rng.random` call diverges, which matters in Stage 3.
 
 **Done when:** a typed initial `GameState` builds for any seed and matches a Python fixture for known constants.
 
@@ -166,21 +188,54 @@ Port `step()` **phase for phase** from the Python interpreter. The order of side
 
 Walk the Python `interpreter` (or equivalent) top to bottom and reproduce each phase as a separate function. Whatever the source does — resolve per-player actions, apply environment dynamics, advance any per-tick counters, check terminal — do in the same order, with the same fall-through cases.
 
-Add vitest fixtures comparing TS rollouts against Python replays for ≥ 2 fixed seeds. Generate references with:
+**When is seed-parity testing worth the cost?** The bar for the playable is *behavioral* — a human shouldn't notice obvious rule differences vs. the Python version. That bar is usually met by orbit-wars-style behavioral tests ("launching a fleet deducts ships and creates a Fleet"; "production accrues for owned planets"). A Python-replay parity test is a heavier tool — treat it as a **build-time scaffold for stress-testing the port**, not shipped infrastructure. It earns its keep when:
+
+- The interpreter has many tightly-coupled phases (e.g. 4+ per step) where ordering or fall-through bugs are likely and hard to spot by reading the diff.
+- State has enough fields that hand-written behavioral tests would leave gaps the playtester won't notice until late game (silent drift in money, inventory, scoring).
+- You want a single fixture that catches the "I missed a Python phase entirely" failure mode end-to-end.
+
+Default to **building the parity test, using it during the port, then deleting it before merge** — same lifecycle as the AI-vs-AI Step button in Stage 5. Keep it past merge only when (a) you expect ongoing iteration on the Python interpreter that needs a regression net, or (b) a behavioral suite genuinely can't cover the deterministic pipeline (rare). Don't keep it just because you wrote it. Orbit wars ships without one; kaggriculture used parity heavily during the build but doesn't need it long-term.
+
+Skip parity entirely (go straight to behavioral tests) when the engine is small, the phases are obvious, or the state is mostly stochastic (parity would filter out most of the interesting fields anyway — see RNG note below).
+
+If you do build a parity fixture, generate references with:
 ```bash
 uv run python -c "
 from kaggle_environments import make; import json
-env = make('<name>', debug=True, configuration={'seed': 42})
+env = make('<name>', debug=True, configuration={'episodeSteps': 100}, info={'seed': 42})
 env.run(['random', 'random'])
-json.dump(env.toJSON(), open('reference_seed42.json', 'w'))
+json.dump(env.toJSON(), open('parity_seed42.json', 'w'))
 "
 ```
+(Some envs route the seed through `info` rather than `configuration` — check the interpreter's `_initialize` for the convention.)
+
+Then the parity test pattern is **replay Python's recorded actions through TS** and diff per-step state — not run a TS rollout independently. Random-agent rollouts can't be reproduced from a seed alone (the agents themselves use Python's RNG), but replaying the recorded actions makes the test deterministic regardless of agent choices:
+
+```typescript
+let state = initGameState(numAgents, cfg, replay._seed);
+diffStep('init', state, replay.steps[0][0].observation);
+for (let next = 1; next < replay.steps.length; next++) {
+  const actions = replay.steps[next].map((s) => s.action);
+  state = step(state, actions, cfg);
+  diffStep(`step ${next}`, state, replay.steps[next][0].observation);
+}
+```
+
+**Action timing gotcha.** In `kaggle_environments/core.py`, `steps[i].action` is the action that was applied to **produce** `steps[i].observation` — not the action submitted *from* step `i`. So the loop advances using `steps[next].action`, not `steps[i].action`. Easy off-by-one; the test will quietly pass the first couple of turns (when most random actions are PASS/movement) before drifting.
+
+**RNG-driven divergence.** If `rng.ts` isn't bit-identical to CPython, every stochastic phase (weed spawns, random shop unlocks, anything calling `rng.choice` or `rng.random`) will diverge — and that divergence cascades (a wrong weed blocks a plant, a wrong shop pick drifts the market on every subsequent tick). Two options:
+
+1. *Filter stochastic outputs from the diff* — normalize WEED tiles to `null`, drop `town.unlocked_shops`, drop `market.inventory`/`market.prices` (if shops affect them). You lose strict parity on those fields but still validate the entire deterministic pipeline (movement, all unit actions, decay, daily refresh, EoD inventory drop, hire costs, money flows, private state).
+
+2. *Port CPython's `Random` seeding faithfully* — MT19937 with `init_by_array` on the integer seed's 32-bit chunks. ~30–50 LOC, makes the full diff strict. Spike with `expect(new PyRandom(42).random()).toBeCloseTo(0.6394267984578837)` as your acceptance test.
+
+Option 1 is the default; pick option 2 only if you'll need the parity test to cover late-game state — and remember that need only matters if you're keeping the parity test past merge in the first place (see the worth-the-cost note above). A browser-stable PRNG with filtered diff is usually enough to validate the deterministic pipeline during the build.
 
 Diff the TS output `GameState` against the corresponding `observation` field in each replay step. Drift here will silently break AI agents in Stage 4.
 
 **This is the heaviest stage.** Allocate the most time here; expect to discover Python-side subtleties (order of dict iteration, integer truncation, off-by-one boundaries between turns).
 
-**Done when:** TS `step()` output matches Python over a full episode for the reference seeds.
+**Done when:** the engine produces behaviorally correct output — either passing a parity fixture for the reference seeds (modulo any filtered RNG fields), or covered by behavioral tests in the orbit-wars style. If parity was a scaffold, decide now whether to keep it; if not, delete before merge.
 
 ### Stage 4 — AI agents
 
@@ -374,13 +429,16 @@ Worth applying up front rather than after a review pass.
 
 6. **Keep `package.json` lean.** React + Vite + vitest, no `@kaggle-environments/core`, no MUI. The playable bundle should not pull in the replay framework's dependencies.
 
+7. **`pnpm dev` from playable and from default collide on port 5173.** Both extend `web/vite.config.base.ts` which binds `host: 0.0.0.0, port: 5173`. If you run both concurrently, Vite auto-falls-back the second one to 5174 — and a bare `pnpm dev` from `visualizer/default/` serves a blank page (it expects a replay wired up via `dev-with-replay`). When testing the playable, confirm you're on the port Vite reported in *that* terminal's "Local:" line, not whatever your browser remembered from the last session.
+
 ## Checklist
 
 - [ ] Directory at `kaggle_environments/envs/<name>/visualizer/playable/` alongside `default/`
 - [ ] `package.json` declares React + Vite + vitest, no `@kaggle-environments/core`
 - [ ] `vite.config.ts` sets `worker.format: 'es'` and registers `@vitejs/plugin-react`
 - [ ] `tsconfig.json` includes `"WebWorker"` in `lib`
-- [ ] Engine port has vitest fixtures comparing against ≥ 2 Python reference replays
+- [ ] `DEFAULT_CONFIG` pulls every field from `<name>.json` via `specDefault(...)` rather than hard-coded numbers
+- [ ] Engine port is covered by either behavioral tests (orbit-wars style) or, for complex multi-phase interpreters, Python-replay parity fixtures used as a build-time scaffold (action-replay pattern, not independent rollout) — kept past merge only if ongoing Python iteration is expected
 - [ ] Worker uses the INIT/STEP/RESET/GET_STATE protocol with `reqId` correlation
 - [ ] `useGameWorker` re-spawns the worker when the `setup` reference changes
 - [ ] GameView imports the renderer from `../../../default/src/...` (no duplication)
@@ -400,7 +458,9 @@ Worth applying up front rather than after a review pass.
 
 ## Troubleshooting
 
-**TS rollout diverges from the Python replay after N turns.** Almost always a phase-ordering bug in `step()`. Bisect with snapshot diffs at each phase boundary; the first divergent field tells you which phase is wrong.
+**TS rollout diverges from the Python replay after N turns.** Almost always a phase-ordering bug in `step()`. Bisect with snapshot diffs at each phase boundary; the first divergent field tells you which phase is wrong. If divergence starts at step **0** (the initial state itself), it's not a phase-ordering bug — it's a wrong constant in `DEFAULT_CONFIG`. Diff `DEFAULT_CONFIG` against `<name>.json`'s `configuration.*.default` values; see Stage 2 for the import-from-spec pattern that makes this impossible.
+
+**Parity test passes the first few turns then drifts.** Likely the action-timing off-by-one: `steps[i].action` is the action that produced `steps[i].observation`, not the action submitted from it. The early turns are mostly PASS so the diff lines up by coincidence. See Stage 3.
 
 **Worker errors don't surface.** The worker swallows agent exceptions and substitutes the no-op action (intentionally — a buggy AI shouldn't kill the session). Log inside the `try/catch` in `gameWorker.ts` and watch the dev console.
 

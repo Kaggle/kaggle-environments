@@ -20,10 +20,8 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult
+from kaggle_environments.core_harness import ParseResult, parse_json_action, render_rethink_suffix
 
-_JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
-_BARE_JSON_RE = re.compile(r"\{[^{}]*\"bid\"\s*:\s*(-?\d+)[^{}]*\}", re.DOTALL)
 _BID_PREFIX_RE = re.compile(r"\[P\d+\]Bid:\s*(\d+)")
 
 
@@ -36,26 +34,33 @@ Rules: Two wrestlers (you and the opponent) start with the same number of
 coins and try to push a token off either edge of a 1D field of length
 {field_size}. Each round both players SIMULTANEOUSLY choose an integer bid
 of at least {min_bid} coins, up to their current coin total. The higher
-bidder pushes the token one square toward the opponent's edge; equal bids
-leave it stationary. Both bids are deducted regardless of who won. The
-game ends when (a) the token is pushed off an edge — that side loses, or
-(b) both players run out of coins, or (c) the {horizon}-round horizon is
-reached. At the end, the side the token sits on loses; exactly center is
-a draw.
+bidder pushes the token one cell toward the opponent's edge; equal bids
+leave it stationary. Both bids are deducted regardless of who won.
+
+The game ends when (a) the token is pushed off either edge — the player
+whose edge it falls off LOSES, or (b) both players run out of coins, or
+(c) the {horizon}-round horizon is reached. If the game ends by (b) or
+(c), the player whose half of the field the token is currently on LOSES;
+if the token is exactly at the center, it is a draw.
 
 Field (W is the token, # are the off-edge cells):
   {field}
   index: {index_row}
 
-Token position:    {wrestler_position} (center is {center}; lower is your goal, higher is the opponent's)
+You are Player {player_label}.
+  - You WIN if the token is pushed off index {opp_edge_index} (the opponent's edge).
+  - You LOSE if the token is pushed off index {your_edge_index} (your edge).
+  - To push the token toward index {opp_edge_index}, you need to OUT-BID the opponent.
+
+Token position:    {wrestler_position} (center is {center})
 Your coins:        {my_coins}
 Opponent coins:    {opp_coins}
 Round:             {move_number}
 
-Your past bids:        {my_history}
+Your past bids:    {my_history}
 
-You are Player {player_label}. Choose your bid for this round (an integer
-at least {min_bid} and at most your current coin total).
+Choose your bid for this round (an integer at least {min_bid} and at
+most your current coin total).
 
 Respond with your reasoning followed by your final bid in a JSON block:
 
@@ -70,13 +75,30 @@ illegal bid, will result in a loss.
 """
 
 
-RETHINK_SUFFIX = """
+RETHINK_ILLEGAL = """
 
-Your previous response was:
+You suggested bid "{previous_action}" but this is not a legal bid.
+Reconsider the rules and the current state, then pick a legal bid.
+
+(Keep using the same JSON output format as before -- only the bid value needs to change.)
+"""
+
+RETHINK_UNPARSABLE = """
+
+Your previous response ended with:
 {previous_response}
 
-You suggested bid "{previous_action}" but it is not a legal bid.
-Reconsider your coin total and the minimum bid, then pick a legal integer bid.
+No JSON answer could be parsed from that. Conclude your response
+with your final bid as JSON in a ```json fenced block, exactly
+as the original instructions required:
+
+```json
+{{"bid": <integer>}}
+```
+
+For example: `{{"bid": 5}}`
+
+The bid you choose must also be legal in the current state.
 """
 
 
@@ -117,24 +139,6 @@ def _parse_observation_payload(observation: Mapping[str, Any]) -> dict[str, Any]
 def _format_field_index_row(field_size: int) -> str:
     """Index row aligned under the field, single character per cell."""
     return "".join(str(i % 10) for i in range(field_size))
-
-
-def _extract_bid_from_json(response: str) -> str | None:
-    """Pull the bid from a ```json``` block or a bare ``{"bid": N}``."""
-    match = _JSON_BLOCK_RE.search(response)
-    if match:
-        try:
-            data = json.loads(match.group(1))
-            bid = data.get("bid")
-            if bid is None:
-                return None
-            return str(bid).strip()
-        except json.JSONDecodeError:
-            pass
-    bare = _BARE_JSON_RE.search(response)
-    if bare:
-        return bare.group(1).strip()
-    return None
 
 
 def _match_bid_to_legal(
@@ -182,9 +186,9 @@ def generate_prompt(
     """Build the LLM prompt for the current oshi-zumo state.
 
     ``move_history`` contains the agent's own past bids (one entry per round
-    it acted in). The opponent's past coin counts are encoded as a hidden
-    suffix on each entry so the prompt can show the opponent's bid history
-    too, since core_harness doesn't track per-round game state.
+    it acted in). The opponent's per-round bid history is not available to
+    the harness (core_harness only forwards this agent's own action history);
+    only the opponent's current coin total appears in the prompt.
     """
     state = _parse_observation_payload(observation)
     player_id = observation.get("playerId", 0)
@@ -200,6 +204,11 @@ def generate_prompt(
     move_number = state.get("move_number", 0)
     min_bid = int(params.get("min_bid", 0))
     horizon = int(params.get("horizon", 0))
+
+    # Engine: wrestler_pos == 0 -> P1 wins; wrestler_pos == field_size-1 -> P0 wins.
+    # So P0's losing edge is index 0 and winning edge is field_size-1; vice versa for P1.
+    your_edge_index = 0 if player_id == 0 else max(field_size - 1, 0)
+    opp_edge_index = max(field_size - 1, 0) if player_id == 0 else 0
 
     my_bids = [_bid_from_action_string(s) for s in move_history]
     my_history_str = (
@@ -220,13 +229,14 @@ def generate_prompt(
         move_number=move_number,
         my_history=my_history_str,
         player_label=player_id,
+        your_edge_index=your_edge_index,
+        opp_edge_index=opp_edge_index,
     )
 
-    if previous_response is not None:
-        prompt += RETHINK_SUFFIX.format(
-            previous_response=previous_response[:500],
-            previous_action=previous_action or "(could not parse)",
-        )
+    prompt += render_rethink_suffix(
+        RETHINK_ILLEGAL, RETHINK_UNPARSABLE,
+        previous_response, previous_action,
+    )
 
     return prompt
 
@@ -234,29 +244,9 @@ def generate_prompt(
 def parse_response(
     response: str, legal_action_strings: Sequence[str],
 ) -> ParseResult:
-    """Extract a legal bid from the LLM response.
-
-    Tries a ``json`` block first, then a bare ``{"bid": N}``, then falls
-    back to scanning for any legal ``[Pk]Bid: N`` substring or a standalone
-    integer that matches a legal bid.
-    """
-    raw = _extract_bid_from_json(response)
-    if raw is not None:
-        matched = _match_bid_to_legal(raw, legal_action_strings)
-        if matched is not None:
-            return ParseResult(legal_action=matched, raw_action=raw)
-
-    for legal in legal_action_strings:
-        if legal in response:
-            return ParseResult(legal_action=legal, raw_action=raw or legal)
-
-    legal_bids = {
-        _bid_from_action_string(s): s for s in legal_action_strings
-    }
-    legal_bids.pop(None, None)
-    for n in sorted(legal_bids.keys(), reverse=True):
-        pattern = r"(?<!\d)" + re.escape(str(n)) + r"(?!\d)"
-        if re.search(pattern, response):
-            return ParseResult(legal_action=legal_bids[n], raw_action=raw or str(n))
-
-    return ParseResult(legal_action=None, raw_action=raw)
+    """Trust the model's JSON answer; let the rethink loop fix anything else."""
+    return parse_json_action(
+        response, legal_action_strings,
+        json_key="bid",
+        matcher=_match_bid_to_legal,
+    )

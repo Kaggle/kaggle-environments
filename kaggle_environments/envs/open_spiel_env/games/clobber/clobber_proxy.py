@@ -71,12 +71,19 @@ class ClobberState(proxy.State):
             elif returns[1] > returns[0]:
                 winner = _PIECE_BLACK
             else:
+                # Unreachable today (Clobber's engine never returns equal
+                # values at terminal), but kept so a future rules change
+                # doesn't silently fall through to winner=None.
                 winner = "draw"
 
+        # Clobber has no chance phase; play actions alternate starting with
+        # player 0, so we can derive per-move player_ids by index parity.
         history = self.history()
-        last_move = (
-            self.__wrapped__.action_to_string(0, history[-1]) if history else None
-        )
+        move_history = [
+            self.__wrapped__.action_to_string(idx % 2, action)
+            for idx, action in enumerate(history)
+        ]
+        last_move = move_history[-1] if move_history else None
 
         return {
             "board": board,
@@ -87,6 +94,7 @@ class ClobberState(proxy.State):
             "winner": winner,
             "last_move": last_move,
             "move_number": self.move_number(),
+            "move_history": move_history,
             "params": {
                 "rows": int(params.get("rows", rows)),
                 "columns": int(params.get("columns", columns)),

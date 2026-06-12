@@ -15,7 +15,10 @@ Dynamics are SEQUENTIAL — exactly one player is active per step. The
 game terminates when either board has delivered all food (that team
 locks in its food race win) or after ``max_turns`` rounds elapse, where
 a "round" is one move per ant per team (``num_ants_per_team *
-NUM_TEAMS`` interleaved steps).
+NUM_TEAMS`` interleaved steps). Food-completion terminations are only
+applied at boundaries where every team has had a matching number of
+moves, so the opposing team always gets its corresponding move before
+the game can end.
 
 Both teams' boards are seeded identically from the ``seed`` parameter:
 same nest, food, and ant start positions. This makes any AA-vs-BB
@@ -272,9 +275,16 @@ class AntForagingArenaState(pyspiel.State):
                 board["pheromone_to_nest"] *= self._game.pheromone_decay
 
         # Terminal: any board has delivered all food, OR we hit the cap.
+        # Food-completion can only end the game once every team has had a
+        # matching number of moves — i.e. on boundaries where each team
+        # has played the same number of times. Otherwise team A finishing
+        # mid-step would deny team B its corresponding move.
         if self._move_number >= self._game.total_moves:
             self._is_terminal = True
-        elif any(b["food_collected"] >= self._game.num_food for b in self._boards):
+        elif (
+            self._move_number % _NUM_TEAMS == 0
+            and any(b["food_collected"] >= self._game.num_food for b in self._boards)
+        ):
             self._is_terminal = True
 
     def _step_player(self, team: int, seat: int, action: Action) -> None:

@@ -56,9 +56,13 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response('I think {"move": "5"} is best.', self.legal)
         self.assertEqual(result.legal_action, "5")
 
-    def test_parse_pit_in_response_text(self):
+    def test_prose_only_response_triggers_rethink(self):
+        # No structured JSON. The parser must NOT guess at intent from a
+        # numeric token in the prose -- return None and let rethink ask
+        # the model to use the required JSON format.
         result = parse_response("I'll sow from pit 4 this turn.", self.legal)
-        self.assertEqual(result.legal_action, "4")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_illegal_pit_returns_raw(self):
         result = parse_response('```json\n{"move": "9"}\n```', self.legal)
@@ -74,15 +78,32 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response('```json\n{"move": "1"}\n```', self.legal)
         self.assertIsInstance(result, ParseResult)
 
-    def test_parse_picks_first_legal_token_in_text(self):
-        # Both 9 (illegal) and 3 (legal) appear; should pick the legal one.
+    def test_prose_only_response_with_mixed_tokens_triggers_rethink(self):
+        # No structured JSON. The parser must NOT scan the prose for a
+        # legal pit index -- the only signal is the model's JSON answer.
+        # Return None and let the rethink loop ask for one.
         result = parse_response("Avoid pit 9, I'll choose pit 3.", self.legal)
-        self.assertEqual(result.legal_action, "3")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_double_digit_pit(self):
         legal = ["8", "9", "10", "11", "12", "13"]
         result = parse_response('```json\n{"move": "11"}\n```', legal)
         self.assertEqual(result.legal_action, "11")
+
+    def test_illegal_json_does_not_ghost_substitute_from_prose(self):
+        # The model's JSON answer (99) isn't legal. The parser must NOT
+        # silently substitute a legal pit index from the prose (the ghost
+        # antipattern) -- return None so the rethink loop asks the model
+        # to fix its answer.
+        legal_example = self.legal[0]
+        response = (
+            f"I considered pit {legal_example} but went bigger.\n"
+            '```json\n{"move": "99"}\n```'
+        )
+        result = parse_response(response, self.legal)
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "99")
 
 
 # ---------------------------------------------------------------------------
@@ -123,12 +144,34 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("store [7] = 0", prompt)
 
     def test_last_action_rendered_after_play(self):
-        first = self.state.legal_actions()[0]
-        first_str = self.state.action_to_string(0, first)
-        self.state.apply_action(first)
+        # P0's pit 1 has 4 seeds: sows to 2,3,4,5 (no bonus, no capture),
+        # turn flips to P1. P1's prompt should attribute the move to P0.
+        self.state.apply_action(1)
         obs1 = _make_observation(self.state, self.game, player_id=1)
         prompt = generate_prompt(obs1, [])
-        self.assertIn(f"Last action played: {first_str}", prompt)
+        self.assertIn("Opponent (Player 0) played pit 1", prompt)
+
+    def test_bonus_turn_rendered(self):
+        # P0's pit 3 has 4 seeds: sows to 4,5,6,7 — lands in own store →
+        # bonus turn. P0's next prompt should call out the bonus turn.
+        self.state.apply_action(3)
+        obs0 = _make_observation(self.state, self.game, player_id=0)
+        prompt = generate_prompt(obs0, ["3"])
+        self.assertIn("BONUS TURN", prompt)
+        self.assertIn("pit 3", prompt)
+
+    def test_last_action_none_at_start(self):
+        obs = _make_observation(self.state, self.game, player_id=0)
+        prompt = generate_prompt(obs, [])
+        self.assertIn("Last action played: (none yet)", prompt)
+
+    def test_endgame_sweep_rule_disclosed(self):
+        obs = _make_observation(self.state, self.game, player_id=0)
+        prompt = generate_prompt(obs, [])
+        # The engine sweeps remaining seeds on each side into that side's
+        # score at terminal -- prompt must say so, not the opposite.
+        self.assertIn("PLUS any seeds remaining in their 6 pits", prompt)
+        self.assertNotIn("no end-of-game sweep", prompt)
 
     def test_move_history_rendered(self):
         obs = _make_observation(self.state, self.game, player_id=0)
@@ -143,7 +186,7 @@ class GeneratePromptTest(absltest.TestCase):
     def test_rethink_suffix(self):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [], previous_response="I'll play 99", previous_action="99")
-        self.assertIn("Your previous response was", prompt)
+        self.assertIn("You suggested", prompt)  # ILLEGAL leads with action
         self.assertIn("99", prompt)
         self.assertIn("not a legal move", prompt)
 

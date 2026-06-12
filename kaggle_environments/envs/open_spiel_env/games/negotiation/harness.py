@@ -30,10 +30,8 @@ import json
 import re
 from typing import Any, Mapping, Sequence
 
-from kaggle_environments.core_harness import ParseResult
+from kaggle_environments.core_harness import ParseResult, extract_last_json_object, render_rethink_suffix
 
-_JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
-_JSON_OBJECT_RE = re.compile(r"\{(?:[^{}]|\{[^{}]*\})*\}", re.DOTALL)
 _INT_LIST_RE = re.compile(r"\[\s*(\d+(?:\s*,\s*\d+)*)\s*\]")
 
 
@@ -114,14 +112,30 @@ and {num_symbols_m1} inclusive.
 """
 
 
-RETHINK_SUFFIX = """
+RETHINK_ILLEGAL = """
 
-Your previous response was:
+You suggested action "{previous_action}" but this is not a legal action.
+Reconsider the rules and the current state, then pick a legal action.
+
+(Keep using the same JSON output format as before -- only the action value needs to change.)
+"""
+
+RETHINK_UNPARSABLE = """
+
+Your previous response ended with:
 {previous_response}
 
-You suggested action "{previous_action}" but it is not legal in this
-state. Re-read the rules and the current state, then pick a legal action
-in the required JSON format.
+No JSON answer could be parsed from that. Conclude your response
+with your final action as JSON in a ```json fenced block, exactly
+as the original instructions required:
+
+```json
+{{"action": "propose", "keep": [<int>, <int>, ...]}}
+```
+
+For example: `{{"action": "propose", "keep": [1, 2, 0]}}`
+
+The action you choose must also be legal in the current state.
 """
 
 
@@ -340,11 +354,10 @@ def generate_prompt(
     if move_history:
         prompt += "\nYour own past submissions: " + " | ".join(move_history[-6:])
 
-    if previous_response is not None:
-        prompt += RETHINK_SUFFIX.format(
-            previous_response=previous_response[:500],
-            previous_action=previous_action or "(could not parse)",
-        )
+    prompt += render_rethink_suffix(
+        RETHINK_ILLEGAL, RETHINK_UNPARSABLE,
+        previous_response, previous_action,
+    )
 
     return prompt
 
@@ -352,24 +365,14 @@ def generate_prompt(
 # --- Response parsing ------------------------------------------------------
 
 
-def _extract_first_json(response: str) -> dict[str, Any] | None:
-    """Try fenced ```json block first, then the first balanced ``{...}``."""
-    block = _JSON_BLOCK_RE.search(response)
-    if block:
-        try:
-            value = json.loads(block.group(1))
-            if isinstance(value, dict):
-                return value
-        except json.JSONDecodeError:
-            pass
-    for match in _JSON_OBJECT_RE.finditer(response):
-        try:
-            value = json.loads(match.group(0))
-            if isinstance(value, dict):
-                return value
-        except json.JSONDecodeError:
-            continue
-    return None
+_PAYLOAD_KEYS = (
+    "action", "accept", "keep", "items", "proposal", "symbols", "utterance",
+)
+
+
+def _extract_payload(response: str) -> dict[str, Any] | None:
+    """Pull the LAST JSON object that carries a negotiation action field."""
+    return extract_last_json_object(response, required_keys=_PAYLOAD_KEYS)
 
 
 def _parse_int_list(value: Any) -> list[int] | None:
@@ -420,71 +423,23 @@ def parse_response(
         return ParseResult(raw_action=response[:200])
 
     legal_set = set(legal_action_strings)
-    payload = _extract_first_json(response)
-    raw_repr: str | None = None
+    payload = _extract_payload(response)
 
-    if payload is not None:
-        raw_repr = json.dumps(payload, separators=(",", ":"))
-        for candidate in _candidate_action_strings(payload):
-            if candidate in legal_set:
-                return ParseResult(legal_action=candidate, raw_action=raw_repr)
+    if payload is None:
+        # The model didn't give a structured answer at all. Return None
+        # so the rethink loop asks for one rather than guessing at the
+        # intent from bracket-lists or stray "accept" keywords in the
+        # prose (both of which silently substituted moves the model
+        # never chose).
+        return ParseResult(legal_action=None, raw_action=None)
 
-    # Fallback: scan the raw response for an explicit legal-action string.
-    for legal in legal_action_strings:
-        # The literal action string occasionally shows up verbatim.
-        if legal in response:
-            return ParseResult(legal_action=legal, raw_action=raw_repr or legal)
-
-    # Fallback: hunt for ``[a, b, c]`` lists in the text and try them as a
-    # proposal or utterance against the legal set.
-    if legal_action_strings and legal_action_strings[0].lstrip(",").lstrip().startswith("Utterance"):
-        prefix = ", Utterance: "
-    else:
-        prefix = "Proposal: "
-    list_matches = _INT_LIST_RE.findall(response)
-    for raw_list in list_matches:
-        try:
-            ints = [int(x.strip()) for x in raw_list.split(",")]
-        except ValueError:
-            continue
-        candidate = f"{prefix}[{', '.join(str(i) for i in ints)}]"
+    # The model gave a structured answer. Trust it: submit if any
+    # derived candidate is legal, otherwise surface raw_action with
+    # legal_action=None so the rethink loop fires.
+    raw_repr = json.dumps(payload, separators=(",", ":"))
+    for candidate in _candidate_action_strings(payload):
         if candidate in legal_set:
-            return ParseResult(legal_action=candidate, raw_action=raw_repr or candidate)
-
-    if "accept" in response.lower() and "Proposal: Agreement reached!" in legal_set:
-        return ParseResult(
-            legal_action="Proposal: Agreement reached!",
-            raw_action=raw_repr or "accept",
-        )
-
+            return ParseResult(legal_action=candidate, raw_action=raw_repr)
     return ParseResult(legal_action=None, raw_action=raw_repr)
 
 
-# --- GameHarness adapter ----------------------------------------------------
-
-
-class _NegotiationHarness:
-    def get_legal_moves(self, observation: Mapping[str, Any]) -> dict[int, str]:
-        return get_legal_moves(observation)
-
-    def make_prompt(
-        self,
-        observation: Mapping[str, Any],
-        move_history: list[str],
-        previous_response: str | None = None,
-        previous_action: str | None = None,
-    ) -> str:
-        return generate_prompt(observation, move_history, previous_response, previous_action)
-
-    def parse_response(self, response: str, legal_action_strings: Sequence[str] | None) -> ParseResult:
-        return parse_response(response, legal_action_strings)
-
-
-# Lazy import so the module can be imported without litellm available
-# (the framework requires it when actually running an agent).
-try:
-    from kaggle_environments.core_harness import create_agent_fn
-
-    agent_fn = create_agent_fn(_NegotiationHarness())
-except ImportError:  # pragma: no cover - import-time fallback
-    agent_fn = None

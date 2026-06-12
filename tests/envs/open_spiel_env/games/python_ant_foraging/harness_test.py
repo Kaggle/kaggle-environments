@@ -67,11 +67,15 @@ class ParseResponseTest(absltest.TestCase):
             result = parse_response(response, legal)
             self.assertEqual(result.legal_action, f"ant0:{direction}")
 
-    def test_parse_fallback_text_scan(self):
+    def test_prose_only_response_triggers_rethink(self):
+        # No structured JSON. The parser must NOT guess at intent from a
+        # direction keyword in the prose -- return None and let the
+        # rethink loop ask the model to use the required JSON format.
         legal = _legal_for_player(0)
         response = "I'll head right toward the food I can see."
         result = parse_response(response, legal)
-        self.assertEqual(result.legal_action, "ant0:right")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_bare_json(self):
         legal = _legal_for_player(0)
@@ -79,11 +83,15 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response(response, legal)
         self.assertEqual(result.legal_action, "ant0:stay")
 
-    def test_parse_malformed_json_falls_back(self):
+    def test_malformed_json_triggers_rethink(self):
+        # Bad JSON: stage-1 extracts nothing. The parser must NOT
+        # silently rescue a direction from the prose -- return None so
+        # the rethink loop can ask the model to fix its format.
         legal = _legal_for_player(0)
         response = "```json\n{bad}\n```\nI'll go up."
         result = parse_response(response, legal)
-        self.assertEqual(result.legal_action, "ant0:up")
+        self.assertIsNone(result.legal_action)
+        self.assertIsNone(result.raw_action)
 
     def test_parse_no_match_returns_none(self):
         legal = _legal_for_player(0)
@@ -110,6 +118,19 @@ class ParseResponseTest(absltest.TestCase):
         response = "I think I should go up."
         result = parse_response(response, legal)
         self.assertIsNone(result.legal_action)
+
+    def test_illegal_json_does_not_ghost_substitute_from_prose(self):
+        # The JSON answer ("diagonal") is illegal. The parser must NOT
+        # silently substitute "up" mentioned in the prose (the ghost
+        # antipattern). Surface raw_action so the rethink loop fires.
+        legal = ["ant0:stay", "ant0:up", "ant0:down", "ant0:left", "ant0:right"]
+        response = (
+            "I considered up but ruled it out. I'll play diagonal.\n"
+            '```json\n{"move": "diagonal"}\n```'
+        )
+        result = parse_response(response, legal)
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "diagonal")
 
 
 class GeneratePromptTest(absltest.TestCase):
@@ -151,7 +172,7 @@ class GeneratePromptTest(absltest.TestCase):
 
     def test_includes_player_id_and_position(self):
         prompt = generate_prompt(self._obs(player_id=1, position=(2, 3)), [])
-        self.assertIn("(ant id) is 1", prompt)
+        self.assertIn("You are ant 1", prompt)
         self.assertIn("[2, 3]", prompt)
 
     def test_carrying_status_reflected(self):
@@ -160,13 +181,87 @@ class GeneratePromptTest(absltest.TestCase):
         prompt_searching = generate_prompt(self._obs(carrying=False), [])
         self.assertIn("searching for food", prompt_searching)
 
-    def test_move_history_included(self):
+    def test_move_history_falls_back_to_param(self):
+        # When the obs has no proxy-provided history (e.g. older proxy
+        # builds), the harness renders the per-agent history passed by
+        # the framework.
         prompt = generate_prompt(self._obs(), ["ant0:up", "ant1:down", "ant0:right"])
         self.assertIn("ant0:up, ant1:down, ant0:right", prompt)
+
+    def test_move_history_prefers_proxy_history(self):
+        # When the proxy exposes the game-wide history, that is preferred
+        # over the per-agent fallback so each agent sees what teammates
+        # actually did.
+        obs = self._obs()
+        parsed = json.loads(obs["observationString"])
+        parsed["move_history"] = [
+            {"seat": 0, "action": "up"},
+            {"seat": 1, "action": "down"},
+        ]
+        obs["observationString"] = json.dumps(parsed)
+        prompt = generate_prompt(obs, ["ant0:stay"])  # fallback should be ignored
+        self.assertIn("ant0:up, ant1:down", prompt)
+        self.assertNotIn("ant0:stay", prompt)
 
     def test_empty_move_history_shows_none(self):
         prompt = generate_prompt(self._obs(), [])
         self.assertIn("Moves taken so far this game: None", prompt)
+
+    def test_round_display_is_one_indexed(self):
+        # Engine ``turn`` is 0-indexed (turn=0 during the first round,
+        # turn=49 during the final round). The prompt must add 1 so the
+        # final round reads "round 50 of 50" rather than "round 49 of
+        # 50" (which models misread as "one round still remains").
+        prompt_start = generate_prompt(self._obs(turn=0), [])
+        self.assertIn("round 1 of 50", prompt_start)
+        prompt_final = generate_prompt(self._obs(turn=49), [])
+        self.assertIn("round 50 of 50", prompt_final)
+
+    def test_renders_ascii_grid_with_ants(self):
+        # Place ant 0 at the nest (4,4) and ant 1 at (2,3). The board
+        # rendering should show 'N' covered by '0' at the nest cell and
+        # '1' at row 2 col 3 (overlaid on '.').
+        obs = self._obs(player_id=0, position=(4, 4))
+        # Mutate ant 1's position.
+        parsed = json.loads(obs["observationString"])
+        parsed["ant_positions"] = [[4, 4], [2, 3]]
+        obs["observationString"] = json.dumps(parsed)
+        prompt = generate_prompt(obs, [])
+        # Header row of column indices is present.
+        self.assertIn("0 1 2 3 4 5 6 7", prompt)
+        # Row 2 with ant 1 at column 3.
+        self.assertIn(" 2  . . . 1 .", prompt)
+
+    def test_carrying_ant_renders_as_capital(self):
+        obs = self._obs(player_id=0, position=(4, 4), carrying=True)
+        prompt = generate_prompt(obs, [])
+        # Ant 0 carrying food → 'A' overlaid on the nest cell at row 4.
+        self.assertIn(" 4  . . . . A", prompt)
+
+    def test_pheromone_rendered_sparsely(self):
+        obs = self._obs()
+        parsed = json.loads(obs["observationString"])
+        pher = [[0.0] * 8 for _ in range(8)]
+        pher[3][5] = 0.81
+        pher[4][5] = 0.01  # below threshold, should be dropped
+        parsed["pheromone_to_food"] = pher
+        obs["observationString"] = json.dumps(parsed)
+        prompt = generate_prompt(obs, [])
+        self.assertIn("[3,5]=0.81", prompt)
+        self.assertNotIn("[4,5]=0.01", prompt)
+
+    def test_no_raw_legal_actions_in_prompt(self):
+        # The proxy still emits legal_actions / action_names in the obs,
+        # but the harness must not leak those into the rendered prompt
+        # (would amount to enumerating legal moves to the model).
+        obs = self._obs()
+        parsed = json.loads(obs["observationString"])
+        parsed["legal_actions"] = [0, 1, 2, 3, 4]
+        parsed["action_names"] = {"0": "stay", "1": "up", "2": "down", "3": "left", "4": "right"}
+        obs["observationString"] = json.dumps(parsed)
+        prompt = generate_prompt(obs, [])
+        self.assertNotIn("legal_actions", prompt)
+        self.assertNotIn("action_names", prompt)
 
     def test_rethink_suffix(self):
         prompt = generate_prompt(
@@ -175,7 +270,7 @@ class GeneratePromptTest(absltest.TestCase):
             previous_response="I tried diagonal",
             previous_action="diagonal",
         )
-        self.assertIn("Your previous response was", prompt)
+        self.assertIn("You suggested", prompt)  # ILLEGAL leads with action
         self.assertIn("diagonal", prompt)
         self.assertIn("not a legal move", prompt)
 
