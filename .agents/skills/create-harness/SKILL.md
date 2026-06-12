@@ -17,7 +17,7 @@ A harness module that implements three functions (the `GameHarness` protocol):
 | `make_prompt(observation, move_history, ...)` | Build the LLM prompt |
 | `parse_response(response, legal_action_strings)` | Extract the chosen action from the LLM's text |
 
-Plus an adapter class that wraps these into the protocol, and a call to `create_agent_fn()` to produce the final Kaggle agent.
+Production wires these three module-level functions into an agent via an external wrapper template — **do not write an adapter class or a `create_agent_fn(...)` line in `harness.py`**. Tests construct their own local adapter when they want end-to-end coverage; see Step 6 for the pattern.
 
 ## Step 1: Understand the game
 
@@ -367,35 +367,6 @@ empirical impact.
 - **Adapt the JSON key** to your game by passing `json_key=`: `"move"` for board games (default), `"bid"` for auction games, `"action"` for generic games — whatever matches your prompt.
 - **For numeric actions** (like bids), validate in the matcher: convert raw → int, check membership in the legal-action-encoded integers, and return the canonical legal string.
 
-## Step 5: Create the adapter class and agent function
-
-Wrap your module-level functions into a class that satisfies the `GameHarness` protocol, then call `create_agent_fn`:
-
-```python
-from kaggle_environments.core_harness import create_agent_fn
-
-class _MyGameHarness:
-    """Adapts module-level harness functions to the GameHarness protocol."""
-
-    def get_legal_moves(self, observation):
-        return get_legal_moves(observation)
-
-    def make_prompt(self, observation, move_history,
-                    previous_response=None, previous_action=None):
-        return generate_prompt(
-            observation, move_history, previous_response, previous_action
-        )
-
-    def parse_response(self, response, legal_action_strings):
-        return parse_response(response, legal_action_strings)
-
-agent_fn = create_agent_fn(_MyGameHarness())
-```
-
-The adapter is thin by design — it just bridges the naming convention. `create_agent_fn` handles everything else: model setup, the retry loop, inactive-call guards, move history tracking, and telemetry.
-
-`create_agent_fn` accepts an optional `max_retries` parameter (default 2) — the total number of LLM calls before giving up.
-
 ## Step 6: Write tests
 
 Harness tests follow a consistent 4-class structure. Create your test file at the same relative path as the harness, under `tests/`.
@@ -414,7 +385,26 @@ classes that together cover the surface area.
 | `ParseResponseTest` | Parser in isolation. Cover at minimum: fenced JSON, bare JSON, case-insensitive match, illegal-move-returns-raw, prose-only-returns-None (no ghost fallback), multiple-JSON-last-wins. Add a `test_illegal_json_does_not_ghost_substitute_from_prose` regression — the model writes a legal token in prose, then commits to an illegal one in JSON; the parser must NOT silently substitute the prose token. |
 | `GeneratePromptTest` | Prompt contents from a real proxy state. Cover: rules keywords present, board orientation, player-asymmetric text differs between `player_id=0` and `player_id=1`, captures/phase flags render correctly, rethink suffixes appear under the right conditions, the JSON example format is unambiguous. If the harness has multi-branch prompts (roles/phases), assert each branch contains its required rules. |
 | `GetLegalMovesTest` | Round-trip from `legalActions` + `legalActionStrings`, fallback from `serializedGameAndState`, empty-obs returns `{}`. |
-| `AgentIntegrationTest` | Full harness through `create_agent_fn` with `litellm.completion` patched. Cover: successful move, retry-on-bad-parse, raise-after-two-failures, terminal-step-returns-inactive, and a short scripted game (first-legal-each-turn) that round-trips through pyspiel without raising. |
+| `AgentIntegrationTest` | Full harness through `create_agent_fn` with `litellm.completion` patched. Cover: successful move, retry-on-bad-parse, raise-after-two-failures, terminal-step-returns-inactive, and a short scripted game (first-legal-each-turn) that round-trips through pyspiel without raising. Define a small test-local `_MyGameHarness` adapter (see the snippet below) at the top of the test file and pass it to `create_agent_fn`; do NOT import an adapter from `harness.py` (there isn't one). |
+
+Test-local adapter pattern (the only place an adapter class should live):
+
+```python
+class _MyGameHarness:
+    """Test-local GameHarness adapter; mirrors the prod wrapper shape."""
+
+    def get_legal_moves(self, observation):
+        return get_legal_moves(observation)
+
+    def make_prompt(self, observation, move_history,
+                    previous_response=None, previous_action=None):
+        return generate_prompt(
+            observation, move_history, previous_response, previous_action,
+        )
+
+    def parse_response(self, response, legal_action_strings):
+        return parse_response(response, legal_action_strings)
+```
 
 Mock helpers (`_StreamDelta`, `_StreamChoice`, `_StreamChunk`,
 `_make_mock_response`, `_ENV`) live at the top of checkers'
@@ -501,9 +491,7 @@ uv sync && uv run pytest tests/envs/open_spiel_env/games/<name>/harness_test.py 
 - [ ] `parse_response` delegates to `parse_json_action` (uses last-mention-wins JSON extraction; no prose-scan fallback — that's the ghost-fallback anti-pattern)
 - [ ] `parse_response` does case-insensitive matching (default matcher) or passes a custom `matcher=` for notation tolerance (check `state.action_to_string` outputs for `*`, `x`, trailing `Pass`, `-`, etc. that models drop or add)
 - [ ] `ParseResult` fields are set correctly (enumerable: `legal_action`; free-form: `submission`)
-- [ ] Adapter class wraps functions into `GameHarness` protocol
-- [ ] `agent_fn = create_agent_fn(adapter)` is defined at module level
-- [ ] Tests cover: parsing, prompt generation, legal moves, and integration with mocked LLM
+- [ ] Tests cover: parsing, prompt generation, legal moves, and integration with mocked LLM (using a test-local adapter at the top of the test file)
 - [ ] `test_llm_game.py` script runs a full game with real LLM agents
 - [ ] Linting passes: `uv run ruff check --fix . && uv run ruff format .`
 

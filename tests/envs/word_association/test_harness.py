@@ -8,11 +8,28 @@ from absl.testing import absltest
 from kaggle_environments import core_harness
 from kaggle_environments.core_harness import ParseResult, create_agent_fn, set_telemetry_exporter
 from kaggle_environments.envs.word_association.harness.main import (
-    _WordAssociationHarness,
     generate_prompt,
     get_legal_moves,
     parse_response,
 )
+
+
+class _WordAssociationHarness:
+    """Test-local GameHarness adapter for word_association."""
+
+    def get_legal_moves(self, observation):
+        return get_legal_moves(observation)
+
+    def make_prompt(
+        self, observation, move_history,
+        previous_response=None, previous_action=None,
+    ):
+        return generate_prompt(
+            observation, move_history, previous_response, previous_action,
+        )
+
+    def parse_response(self, response, legal_action_strings):
+        return parse_response(response, legal_action_strings)
 
 
 # --- Helpers ----------------------------------------------------------------
