@@ -37,8 +37,8 @@ Gold is spent to recruit units at buildings or the headquarters.
 | Tile     | Code | Effect |
 |----------|------|--------|
 | Grass    | `p`  | Normal movement |
-| Forest   | `f`  | +30% evasion for Rogues, blocks ranged line of sight |
-| Mountain | `m`  | Walkable; units gain +1 vision when standing on it |
+| Forest   | `f`  | +30% evasion for Rogues |
+| Mountain | `m`  | Walkable; Archers gain +1 attack range when standing on it |
 | Water    | `w`  | Impassable |
 | Road     | `r`  | Normal movement |
 | Building | `b`  | Capturable; provides income and unit recruitment |
@@ -83,11 +83,6 @@ Units can move and act once per turn (unless hasted).
 - **Eliminate all enemy units** - Destroy every unit the opponent has on the board
 - **Draw** - If neither condition is met within the turn limit (default 200)
 
-### Fog of War (Optional)
-
-When enabled, each player can only see tiles within their units' vision range.
-Enemy units outside visible tiles are hidden from the observation.
-
 ## Actions Reference
 
 Each turn, an agent returns a list of action dicts:
@@ -114,7 +109,6 @@ Each turn, an agent returns a list of action dicts:
 | `mapName`      | `""` (seed picks)  | Built-in map name (see below). When empty, `seed` deterministically picks one from the catalog. |
 | `seed`         | `null` (random)    | Episode seed. Selects a built-in map (when `mapName` is empty) and drives a few symmetric terrain flips so layouts vary across episodes. Scrubbed from `configuration` after init and stored on `env.info["seed"]` so agents can't read it but the replay can. |
 | `enabledUnits` | `W,M,C,A,K,R,S,B` | Which unit types are available |
-| `fogOfWar`     | false              | Enable fog of war |
 | `startingGold` | 250                | Starting gold per player |
 
 ### Map Selection
@@ -248,7 +242,7 @@ reinforce_tactics/
     reinforce_tactics.py         # Interpreter, renderer, built-in agents
     reinforce_tactics_engine/    # Vendored game engine (self-contained)
         constants.py             # Game constants and unit data
-        core/                    # Tile, Unit, Grid, Visibility, GameState
+        core/                    # Tile, Unit, Grid, GameState
         game/                    # Combat and ability mechanics
     agents/
         random_agent.py          # Minimal baseline (ends turn immediately)

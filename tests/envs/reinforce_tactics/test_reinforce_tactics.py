@@ -48,7 +48,6 @@ def _make_config(**overrides):
         "mapName": "",  # Empty -> seed picks from BUILTIN_MAPS catalog
         "seed": 42,
         "enabledUnits": "W,M,C,A,K,R,S,B",
-        "fogOfWar": False,
         "startingGold": 250,
     }
     defaults.update(overrides)
@@ -142,7 +141,7 @@ class TestSpecification:
         cfg = specification["configuration"]
         assert cfg["episodeSteps"]["default"] == 200
         assert cfg["enabledUnits"]["default"] == "W,M,C,A,K,R,S,B"
-        assert cfg["fogOfWar"]["default"] is False
+        assert "fogOfWar" not in cfg
         assert cfg["startingGold"]["default"] == 250
 
     def test_map_name_field(self):
@@ -240,16 +239,6 @@ class TestInitGame:
         config = _make_config(enabledUnits="W,A")
         game = _init_game(config)
         assert game.enabled_units == ["W", "A"]
-
-    def test_respects_fog_of_war(self):
-        config = _make_config(fogOfWar=True)
-        game = _init_game(config)
-        assert game.fog_of_war is True
-
-    def test_no_fog_of_war_default(self):
-        config = _make_config()
-        game = _init_game(config)
-        assert game.fog_of_war is False
 
     def test_applies_v52a_engine_overrides(self):
         # The adapter pins competition balance to v52a's engine_overrides
@@ -445,15 +434,13 @@ class TestEngineBehavior:
 
         assert TileType.MOUNTAIN.is_walkable() is True
 
-    def test_mountain_grants_vision_bonus(self):
-        """A unit on a mountain should see farther than the same unit on grass."""
-        from kaggle_environments.envs.reinforce_tactics.reinforce_tactics_engine.core.visibility import (
-            calculate_vision_radius,
-        )
+    def test_mountain_grants_archer_range_bonus(self):
+        """An Archer on a mountain gains +1 attack range."""
+        from kaggle_environments.envs.reinforce_tactics.reinforce_tactics_engine.core.unit import Unit
 
-        grass_vision = calculate_vision_radius("W", tile_type="p")
-        mountain_vision = calculate_vision_radius("W", tile_type="m")
-        assert mountain_vision == grass_vision + 1
+        archer = Unit("A", 5, 5, player=1)
+        assert archer.get_attack_range(on_mountain=False) == (2, 3)
+        assert archer.get_attack_range(on_mountain=True) == (2, 4)
 
 
 # ---------------------------------------------------------------------------
@@ -528,29 +515,6 @@ class TestSerialisation:
             ]
             for key in required_keys:
                 assert key in u, f"Missing key: {key}"
-
-    def test_serialize_units_fog_of_war(self):
-        """FOW: enemy units in non-visible tiles should be hidden."""
-        game = _create_test_game()
-        game.fog_of_war = True
-        game.fog_of_war_method = "simple_radius"
-        game.player_gold[1] = 500
-        game.player_gold[2] = 500
-        # Create a friendly unit at (1,1) and enemy far away at (8,8)
-        game._spawn_unit("W", 1, 1, player=1)
-        game._spawn_unit("W", 8, 8, player=2)
-        # Initialize visibility maps
-        from kaggle_environments.envs.reinforce_tactics.reinforce_tactics_engine.core.visibility import VisibilityMap
-
-        game.visibility_maps = {
-            1: VisibilityMap(game.grid.width, game.grid.height, 1),
-            2: VisibilityMap(game.grid.width, game.grid.height, 2),
-        }
-        game.update_visibility(1)
-        units_p1 = _serialize_units(game, visible_for_player=1)
-        # Player 1's own unit should always be visible
-        own_units = [u for u in units_p1 if u["owner"] == 1]
-        assert len(own_units) == 1
 
     def test_board_serialisation_is_json_serializable(self):
         game = _create_test_game()
@@ -1387,14 +1351,13 @@ class TestHelpers:
         game = _create_test_game()
         game.player_gold[1] = 500
         game._spawn_unit("W", 5, 5, player=1)
-        config = _make_config()
         obs0 = _make_observation(player=0)
         obs1 = _make_observation(player=1)
         state = [
             _make_agent_state(observation=obs0),
             _make_agent_state(observation=obs1),
         ]
-        _update_observations(state, game, config)
+        _update_observations(state, game)
         # Both agents should have populated boards
         assert len(state[0].observation.board) == game.grid.height
         assert len(state[1].observation.board) == game.grid.height

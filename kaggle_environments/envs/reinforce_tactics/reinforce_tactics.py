@@ -122,7 +122,7 @@ def _interpreter_init(state, env, key):
     seed = _resolve_seed(env)
     game = _init_game(env.configuration, seed)
     _games[key] = game
-    _update_observations(state, game, env.configuration)
+    _update_observations(state, game)
     state[0].status = "ACTIVE"
     state[1].status = "INACTIVE"
     return state
@@ -182,7 +182,7 @@ def _process_turn(state, env, game, active_idx, key):
             state[winner_idx].status = "DONE"
             state[1 - winner_idx].reward = -1
             state[1 - winner_idx].status = "DONE"
-        _update_observations(state, game, env.configuration)
+        _update_observations(state, game)
         _games.pop(key, None)
         return
 
@@ -191,12 +191,12 @@ def _process_turn(state, env, game, active_idx, key):
         for i in range(2):
             state[i].reward = 0
             state[i].status = "DONE"
-        _update_observations(state, game, env.configuration)
+        _update_observations(state, game)
         _games.pop(key, None)
         return
 
     # Normal continuation: update observations and swap active player
-    _update_observations(state, game, env.configuration)
+    _update_observations(state, game)
     state[active_idx].status = "INACTIVE"
     state[1 - active_idx].status = "ACTIVE"
 
@@ -351,14 +351,12 @@ def _init_game(config, seed=None):
     map_data = _pad_map(map_rows)
 
     enabled_units = [u.strip() for u in config.enabledUnits.split(",") if u.strip()]
-    fog_of_war = bool(config.fogOfWar)
 
     game = GameState(
         map_data,
         num_players=2,
         max_turns=config.episodeSteps,
         enabled_units=enabled_units,
-        fog_of_war=fog_of_war,
         engine_overrides=ENGINE_OVERRIDES,
     )
 
@@ -537,31 +535,22 @@ def _get_source_target(game, action, player, required_type):
 # ---------------------------------------------------------------------------
 # Observation Serialisation
 # ---------------------------------------------------------------------------
-def _update_observations(state, game, config):
+def _update_observations(state, game):
     """Serialise the current GameState into each agent's observation."""
     board = _serialize_board(game)
     structures = _serialize_structures(game)
     gold = [game.player_gold.get(1, 0), game.player_gold.get(2, 0)]
-
-    fog_of_war = bool(config.fogOfWar)
+    units = _serialize_units(game)
 
     for i in range(2):
         obs = state[i].observation
         obs.board = board
         obs.structures = structures
         obs.gold = gold
+        obs.units = units
         obs.turnNumber = game.turn_number
         obs.mapWidth = game.grid.width
         obs.mapHeight = game.grid.height
-
-        player = i + 1  # 1-indexed game player
-
-        if fog_of_war:
-            # Update visibility and filter units per player
-            game.update_visibility(player)
-            obs.units = _serialize_units(game, visible_for_player=player)
-        else:
-            obs.units = _serialize_units(game)
 
 
 def _serialize_board(game):
@@ -595,21 +584,10 @@ def _serialize_structures(game):
     return structures
 
 
-def _serialize_units(game, visible_for_player=None):
-    """
-    Convert units to a list of dicts.
-
-    If ``visible_for_player`` is set and fog-of-war is enabled, only units
-    visible to that player (own units + units in visible tiles) are included.
-    """
+def _serialize_units(game):
+    """Convert units to a list of dicts."""
     units = []
     for unit in game.units:
-        # Fog of war filtering
-        if visible_for_player is not None:
-            if unit.player != visible_for_player:
-                if not game.is_position_visible(unit.x, unit.y, visible_for_player):
-                    continue
-
         units.append(
             {
                 "type": unit.type,
