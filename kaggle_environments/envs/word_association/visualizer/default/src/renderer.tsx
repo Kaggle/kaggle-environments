@@ -15,6 +15,12 @@ const AppContainer = styled.div`
     -apple-system,
     sans-serif;
   overflow: hidden;
+
+  @media (max-width: 900px) {
+    flex-direction: column;
+    overflow-y: auto;
+    height: auto;
+  }
 `;
 
 const BoardPane = styled.div`
@@ -25,6 +31,16 @@ const BoardPane = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
+  container-type: inline-size;
+  container-name: board;
+
+  @media (max-width: 900px) {
+    border-right: none;
+    border-bottom: 1px solid #333;
+    overflow: visible;
+    flex: none;
+    width: 100%;
+  }
 `;
 
 const LogPane = styled.div`
@@ -33,6 +49,13 @@ const LogPane = styled.div`
   flex-direction: column;
   background-color: #1a1a1a;
   box-shadow: -4px 0 15px rgba(0, 0, 0, 0.2);
+
+  @media (max-width: 900px) {
+    height: 400px;
+    flex: none;
+    width: 100%;
+    box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.2);
+  }
 `;
 
 const TopBar = styled.div`
@@ -41,6 +64,14 @@ const TopBar = styled.div`
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
+  gap: 16px;
+
+  @container board (max-width: 750px) {
+    flex-direction: column;
+    gap: 16px;
+    align-items: center;
+    text-align: center;
+  }
 `;
 
 const Title = styled.h1`
@@ -50,6 +81,23 @@ const Title = styled.h1`
   background: linear-gradient(90deg, #20beff 0%, #e5cf4a 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  flex-shrink: 0;
+  white-space: nowrap;
+
+  @container board (max-width: 750px) {
+    font-size: 20px;
+  }
+`;
+
+const GameOverTitle = styled.div`
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+  flex-shrink: 0;
+
+  @container board (max-width: 750px) {
+    font-size: 20px;
+  }
 `;
 
 const ToggleButton = styled.button<{ active: boolean }>`
@@ -125,7 +173,7 @@ const Grid = styled.div`
   grid-template-rows: repeat(5, 1fr);
   gap: 12px;
   width: min(100%, 70vh);
-  height: min(100%, 70vh);
+  aspect-ratio: 1 / 1;
   margin: auto;
 `;
 
@@ -179,6 +227,7 @@ const CardContainer = styled.div<{ revealed: boolean; cluemasterView: boolean; r
     !props.revealed && props.cluemasterView
       ? `2px dashed ${getCardBackgroundColor(props.role, true, false)}`
       : '2px solid transparent'};
+  container-type: inline-size;
 `;
 
 const CardInner = styled.div<{ revealed: boolean }>`
@@ -200,11 +249,13 @@ const CardFace = styled.div`
   align-items: center;
   justify-content: center;
   border-radius: 12px;
-  padding: 0.5vw;
-  font-size: clamp(10px, 1.5vmin, 20px);
+  padding: 6%;
+  font-size: clamp(8px, 12.5cqw, 18px);
   font-weight: 700;
   text-transform: uppercase;
-  word-break: break-word;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 `;
 
@@ -603,39 +654,58 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
     const blueWon = blueReward > yellowReward;
     const yellowWon = yellowReward > blueReward;
 
-    if (trapRevealed) {
-      if (blueWon) {
-        winnerText = (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.2' }}>
-            <span style={{ color: '#20BEFF' }}>🔷 BLUE WINS! 🔷</span>
-            <span style={{ fontSize: '14px', color: '#aaaaaa', marginTop: '4px', fontWeight: 'normal' }}>
-              (Yellow picked the Trap)
-            </span>
-          </div>
-        );
-      } else if (yellowWon) {
-        winnerText = (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.2' }}>
-            <span style={{ color: '#E5CF4A' }}>⬜ YELLOW WINS! ⬜</span>
-            <span style={{ fontSize: '14px', color: '#aaaaaa', marginTop: '4px', fontWeight: 'normal' }}>
-              (Blue picked the Trap)
-            </span>
-          </div>
-        );
-      } else {
-        winnerText = 'TIE GAME';
-      }
+    const gamesPerEpisode = (replay.configuration as any)?.games_per_episode || 1;
+
+    if (gamesPerEpisode > 1) {
+      winnerText = (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.2' }}>
+          {blueWon ? (
+            <span style={{ color: '#20BEFF' }}>🔷 BLUE WINS THE MATCH! 🔷</span>
+          ) : yellowWon ? (
+            <span style={{ color: '#E5CF4A' }}>⬜ YELLOW WINS THE MATCH! ⬜</span>
+          ) : (
+            <span>TIE MATCH</span>
+          )}
+          <span style={{ fontSize: '14px', color: '#aaaaaa', marginTop: '4px', fontWeight: 'normal' }}>
+            Final Match Score: {renderState.blue_wins || 0} - {renderState.yellow_wins || 0}
+          </span>
+        </div>
+      );
     } else {
-      if (blueWon) {
-        winnerText = <span style={{ color: '#20BEFF' }}>🔷 BLUE WINS! 🔷</span>;
-      } else if (yellowWon) {
-        winnerText = <span style={{ color: '#E5CF4A' }}>⬜ YELLOW WINS! ⬜</span>;
-      } else if (blueRemaining === 0) {
-        winnerText = <span style={{ color: '#20BEFF' }}>🔷 BLUE WINS! 🔷</span>;
-      } else if (yellowRemaining === 0) {
-        winnerText = <span style={{ color: '#E5CF4A' }}>⬜ YELLOW WINS! ⬜</span>;
+      if (trapRevealed) {
+        if (blueWon) {
+          winnerText = (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.2' }}>
+              <span style={{ color: '#20BEFF' }}>🔷 BLUE WINS! 🔷</span>
+              <span style={{ fontSize: '14px', color: '#aaaaaa', marginTop: '4px', fontWeight: 'normal' }}>
+                (Yellow picked the Trap)
+              </span>
+            </div>
+          );
+        } else if (yellowWon) {
+          winnerText = (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.2' }}>
+              <span style={{ color: '#E5CF4A' }}>⬜ YELLOW WINS! ⬜</span>
+              <span style={{ fontSize: '14px', color: '#aaaaaa', marginTop: '4px', fontWeight: 'normal' }}>
+                (Blue picked the Trap)
+              </span>
+            </div>
+          );
+        } else {
+          winnerText = 'TIE GAME';
+        }
       } else {
-        winnerText = 'TIE GAME';
+        if (blueWon) {
+          winnerText = <span style={{ color: '#20BEFF' }}>🔷 BLUE WINS! 🔷</span>;
+        } else if (yellowWon) {
+          winnerText = <span style={{ color: '#E5CF4A' }}>⬜ YELLOW WINS! ⬜</span>;
+        } else if (blueRemaining === 0) {
+          winnerText = <span style={{ color: '#20BEFF' }}>🔷 BLUE WINS! 🔷</span>;
+        } else if (yellowRemaining === 0) {
+          winnerText = <span style={{ color: '#E5CF4A' }}>⬜ YELLOW WINS! ⬜</span>;
+        } else {
+          winnerText = 'TIE GAME';
+        }
       }
     }
   }
@@ -650,7 +720,7 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
     <AppContainer>
       <BoardPane>
         <TopBar>
-          <Title>{isGameOver ? winnerText : 'WORD ASSOCIATION'}</Title>
+          {isGameOver ? <GameOverTitle>{winnerText}</GameOverTitle> : <Title>WORD ASSOCIATION</Title>}
           <UnifiedScoreboard>
             <ScoreSection team="blue">
               <ScoreLabel>Blue Cards</ScoreLabel>
