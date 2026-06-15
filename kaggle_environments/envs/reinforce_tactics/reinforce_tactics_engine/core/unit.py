@@ -76,10 +76,6 @@ class Unit:
         self.defence_buff_turns = 0  # Turns remaining with defence buff active
         self.attack_buff_turns = 0  # Turns remaining with attack buff active
 
-        # Fog of war: Track which enemy positions were visible when this unit started its action
-        # This prevents "move to discover, then attack" exploitation
-        self.visible_enemies_at_action_start = None  # Set of (x, y) tuples, or None if not captured
-
     def get_attack_damage(self, target_x, target_y, on_mountain=False):
         """
         Calculate attack damage based on distance to target.
@@ -236,7 +232,6 @@ class Unit:
             self.original_y = self.y
             self.distance_moved = 0
             self.selected = False
-            self.visible_enemies_at_action_start = None  # Clear FOW snapshot for new action
             return True  # Unit can still act
 
         # Normal turn end
@@ -248,7 +243,6 @@ class Unit:
         self.original_y = self.y
         self.distance_moved = 0
         self.is_hasted = False
-        self.visible_enemies_at_action_start = None  # Clear FOW snapshot
         return False  # Turn ended
 
     def can_use_paralyze(self):

@@ -37,11 +37,6 @@
       "type": "string",
       "default": "W,M,C,A,K,R,S,B"
     },
-    "fogOfWar": {
-      "description": "Enable fog of war for partial observability.",
-      "type": "boolean",
-      "default": false
-    },
     "startingGold": {
       "description": "Starting gold for each player.",
       "type": "integer",

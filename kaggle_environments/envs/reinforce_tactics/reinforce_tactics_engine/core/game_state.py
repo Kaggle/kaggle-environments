@@ -28,7 +28,6 @@ from ..constants import (
 from ..game.mechanics import GameMechanics
 from .grid import TileGrid
 from .unit import Unit
-from .visibility import VISIBLE, VisibilityMap, get_visible_units
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -172,7 +171,6 @@ class GameState:
         num_players: int = 2,
         max_turns: Optional[int] = None,
         enabled_units: Optional[List[str]] = None,
-        fog_of_war: bool = False,
         engine_overrides: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
@@ -183,7 +181,6 @@ class GameState:
             num_players: Number of players (must be 2; the kaggle env spec is 2-player)
             max_turns: Maximum turns for the game (None = unlimited)
             enabled_units: List of enabled unit types (default all units enabled)
-            fog_of_war: Enable fog of war (default False for backward compatibility)
             engine_overrides: Optional sparse overlay over the non-YAML
                 engine constants (``constants.py``), so balance can be
                 varied/recorded as config instead of a code edit. Shape::
@@ -259,14 +256,6 @@ class GameState:
         self.turn_number: int = 0
         self.mechanics = GameMechanics()
 
-        # Fog of war settings
-        self.fog_of_war: bool = fog_of_war
-        self.fog_of_war_method: str = "simple_radius" if fog_of_war else "none"
-        self.visibility_maps: Dict[int, VisibilityMap] = {}
-        if fog_of_war:
-            for player in range(1, num_players + 1):
-                self.visibility_maps[player] = VisibilityMap(self.grid.width, self.grid.height, player)
-
         # Enabled unit types (defaults to all if not specified)
         self.enabled_units: List[str] = enabled_units if enabled_units is not None else self.ALL_UNIT_TYPES.copy()
 
@@ -313,7 +302,6 @@ class GameState:
             self.num_players,
             self.max_turns,
             self.enabled_units,
-            self.fog_of_war,
             engine_overrides=self.engine_overrides,
         )
 
@@ -382,70 +370,6 @@ class GameState:
                 active_players = set(u.player for u in self.units)
                 if len(active_players) == 1:
                     self._set_game_over(winner=active_players.pop(), end_reason="elimination")
-
-    def update_visibility(self, player: Optional[int] = None) -> None:
-        """Update visibility maps for fog of war."""
-        if not self.fog_of_war:
-            return
-
-        if player is not None:
-            if player in self.visibility_maps:
-                self.visibility_maps[player].update(self)
-                self.visibility_maps[player].clear_stale_unit_memory(max_turns=10, current_turn=self.turn_number)
-        else:
-            for vis_map in self.visibility_maps.values():
-                vis_map.update(self)
-                vis_map.clear_stale_unit_memory(max_turns=10, current_turn=self.turn_number)
-
-    def get_visible_units_for_player(self, player: int, include_own: bool = True) -> List[Unit]:
-        """Get units visible to a specific player."""
-        return get_visible_units(self, player, include_own)
-
-    def is_position_visible(self, x: int, y: int, player: int) -> bool:
-        """Check if a position is visible to a player."""
-        if not self.fog_of_war:
-            return True
-
-        vis_map = self.visibility_maps.get(player)
-        if vis_map is None:
-            return True
-
-        return vis_map.is_visible(x, y)
-
-    def is_position_explored(self, x: int, y: int, player: int) -> bool:
-        """Check if a position has been explored by a player."""
-        if not self.fog_of_war:
-            return True
-
-        vis_map = self.visibility_maps.get(player)
-        if vis_map is None:
-            return True
-
-        return vis_map.is_explored(x, y)
-
-    def capture_visible_enemies_for_unit(self, unit: Unit) -> None:
-        """Capture which enemy units are currently visible to a unit's owner."""
-        if not self.fog_of_war:
-            unit.visible_enemies_at_action_start = None
-            return
-
-        visible_positions = set()
-        for enemy in self.units:
-            if enemy.player != unit.player:
-                if self.is_position_visible(enemy.x, enemy.y, unit.player):
-                    visible_positions.add((enemy.x, enemy.y))
-
-        unit.visible_enemies_at_action_start = visible_positions
-
-    def is_enemy_attackable_by_unit(self, unit: Unit, enemy: Unit) -> bool:
-        """Check if an enemy is attackable by a unit considering FOW pre-move snapshot."""
-        if not self.fog_of_war:
-            return True
-
-        if unit.visible_enemies_at_action_start is None:
-            return self.is_position_visible(enemy.x, enemy.y, unit.player)
-
-        return (enemy.x, enemy.y) in unit.visible_enemies_at_action_start
 
     def is_unit_type_enabled(self, unit_type: str) -> bool:
         """Check if a unit type is enabled for this game."""
@@ -634,13 +558,6 @@ class GameState:
         if not self.mechanics.can_move_to_position(to_x, to_y, self.grid, self.units, moving_unit=unit, is_destination=True):
             return False
 
-        # FOW: Snapshot pre-move enemy visibility so the unit cannot attack
-        # enemies it discovers by moving. The UI's input_handler captures this
-        # at unit-selection time; for RL/LLM/bot code paths that drive
-        # move_unit directly, capture lazily here just before the move.
-        if self.fog_of_war and unit.visible_enemies_at_action_start is None:
-            self.capture_visible_enemies_for_unit(unit)
-
         # Execute move
         unit.move_to(to_x, to_y)
         unit.can_move = False  # Consume move action
@@ -658,7 +575,6 @@ class GameState:
         )
 
         self._invalidate_cache()
-        self.update_visibility(unit.player)
 
         return True
 
@@ -1089,9 +1005,6 @@ class GameState:
                 unit.has_moved = False
                 unit.distance_moved = 0
                 unit.is_hasted = False
-                # FOW: Clear stale snapshot so it gets recaptured before
-                # this unit's next move (see move_unit lazy capture).
-                unit.visible_enemies_at_action_start = None
             unit.selected = False
 
         # Calculate and apply income
@@ -1100,8 +1013,6 @@ class GameState:
 
         healing_stats = self.heal_units_on_structures(self.current_player)
         income_data["healing"] = healing_stats
-
-        self.update_visibility(self.current_player)
 
         return income_data
 
@@ -1190,10 +1101,6 @@ class GameState:
 
                         for enemy in self.units:
                             if enemy.player != player and enemy.health > 0:
-                                # FOW: Skip enemies not attackable (checks pre-move snapshot)
-                                if self.fog_of_war and not self.is_enemy_attackable_by_unit(unit, enemy):
-                                    continue
-
                                 damage = unit.get_attack_damage(enemy.x, enemy.y, on_mountain)
                                 if damage > 0:
                                     legal_actions["attack"].append({"attacker": unit, "target": enemy})
@@ -1212,9 +1119,6 @@ class GameState:
                     else:
                         adjacent_enemies = self.mechanics.get_adjacent_enemies(unit, self.units)
                         for enemy in adjacent_enemies:
-                            if self.fog_of_war and not self.is_enemy_attackable_by_unit(unit, enemy):
-                                continue
-
                             legal_actions["attack"].append({"attacker": unit, "target": enemy})
 
                     if unit.type == "C":
@@ -1265,8 +1169,6 @@ class GameState:
             "map_file": self.map_file_used,
             "player_configs": self.player_configs,
             "enabled_units": self.enabled_units,
-            "fog_of_war": self.fog_of_war,
-            "fog_of_war_method": self.fog_of_war_method,
             # Persist the engine-constant overlay so a reloaded game runs under
             # the same balance (damage_model, structure HP, economy, unit cap)
             # it was saved under. Absent in pre-0.3.3 saves -> from_dict falls
@@ -1285,6 +1187,7 @@ class GameState:
 
     def to_numpy(self, for_player: Optional[int] = None) -> Dict[str, np.ndarray]:
         """Convert game state to numpy arrays for RL."""
+        del for_player  # accepted for backward compat; observations are not per-player
         grid_state = self.grid.to_numpy()
 
         # Unit representation (height x width x 8)
@@ -1317,18 +1220,7 @@ class GameState:
         # Encoding for all 8 unit types: W, M, C, A, K, R, S, B
         unit_type_encoding = {"W": 1, "M": 2, "C": 3, "A": 4, "K": 5, "R": 6, "S": 7, "B": 8}
 
-        visibility_state = np.full((self.grid.height, self.grid.width), VISIBLE, dtype=np.uint8)
-
-        if self.fog_of_war and for_player is not None:
-            vis_map = self.visibility_maps.get(for_player)
-            if vis_map is not None:
-                visibility_state = vis_map.to_numpy()
-
         for unit in self.units:
-            if self.fog_of_war and for_player is not None:
-                if unit.player != for_player and visibility_state[unit.y, unit.x] != VISIBLE:
-                    continue
-
             unit_state[unit.y, unit.x, 0] = unit_type_encoding.get(unit.type, 0)
             unit_state[unit.y, unit.x, 1] = unit.player
             unit_state[unit.y, unit.x, 2] = (unit.health / unit.max_health) * 100
@@ -1340,27 +1232,13 @@ class GameState:
             unit_state[unit.y, unit.x, 6] = float(getattr(unit, "defence_buff_turns", 0))
             unit_state[unit.y, unit.x, 7] = float(getattr(unit, "attack_buff_turns", 0))
 
-        if self.fog_of_war and for_player is not None:
-            for y in range(self.grid.height):
-                for x in range(self.grid.width):
-                    if visibility_state[y, x] != VISIBLE:
-                        if visibility_state[y, x] == 0:  # UNEXPLORED
-                            grid_state[y, x, 0] = 0
-                            grid_state[y, x, 1] = 0
-                            grid_state[y, x, 2] = 0
-
-        result: Dict[str, Any] = {
+        return {
             "grid": grid_state,
             "units": unit_state,
             "gold": np.array([self.player_gold[i] for i in range(1, self.num_players + 1)], dtype=np.float32),
             "current_player": self.current_player,
             "turn_number": self.turn_number,
         }
-
-        if self.fog_of_war:
-            result["visibility"] = visibility_state
-
-        return result
 
     def save_to_file(self, filepath: Optional[str] = None) -> Optional[str]:
         """Save game state to file (not available in vendored Kaggle build)."""
@@ -1380,8 +1258,6 @@ class GameState:
     def from_dict(cls, save_data: Dict[str, Any], map_data) -> "GameState":
         """Restore game state from dictionary."""
         enabled_units = save_data.get("enabled_units", cls.ALL_UNIT_TYPES)
-        fog_of_war = save_data.get("fog_of_war", False)
-        fog_of_war_method = save_data.get("fog_of_war_method", "simple_radius" if fog_of_war else "none")
 
         max_turns = save_data.get("max_turns")
         # Restore the engine-constant overlay (damage_model / structure HP /
@@ -1393,10 +1269,8 @@ class GameState:
             save_data.get("num_players", 2),
             max_turns=max_turns,
             enabled_units=enabled_units,
-            fog_of_war=fog_of_war,
             engine_overrides=engine_overrides,
         )
-        game.fog_of_war_method = fog_of_war_method
 
         game.current_player = save_data.get("current_player", 1)
         game.turn_number = save_data.get("turn_number", 0)

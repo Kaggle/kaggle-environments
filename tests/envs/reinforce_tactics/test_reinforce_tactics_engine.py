@@ -4,8 +4,8 @@ Engine-direct regression tests for the vendored Kaggle engine.
 These tests exercise kaggle_environments.envs.reinforce_tactics.reinforce_tactics_engine without
 going through the kaggle-environments interpreter. They cover bugs that are
 not reachable from the interpreter's hot path (legal-action enumeration,
-direct save/load round-trips, fog-of-war memory clearing) so we don't
-re-introduce them when re-syncing the vendored engine in the future.
+direct save/load round-trips) so we don't re-introduce them when re-syncing
+the vendored engine in the future.
 """
 
 # pylint: disable=missing-function-docstring,redefined-outer-name
@@ -182,27 +182,6 @@ class TestSaveLoadRoundTrip:
         assert (warrior.x, warrior.y) == (4, 3)
         # original position diverged before save -> must survive
         assert (warrior.original_x, warrior.original_y) != (warrior.x, warrior.y)
-
-
-# ---------------------------------------------------------------------------
-# Finding #9: visibility memory clear is invoked on update
-# ---------------------------------------------------------------------------
-
-
-class TestVisibilityMemoryClear:
-    def test_clear_stale_unit_memory_called(self, monkeypatch):
-        game = GameState(_small_map(), num_players=2, fog_of_war=True)
-        calls = []
-        original = game.visibility_maps[1].clear_stale_unit_memory
-
-        def spy(*args, **kwargs):
-            calls.append((args, kwargs))
-            return original(*args, **kwargs)
-
-        monkeypatch.setattr(game.visibility_maps[1], "clear_stale_unit_memory", spy)
-        game.update_visibility(player=1)
-        assert calls, "update_visibility() should invoke clear_stale_unit_memory()"
-        assert calls[0][1].get("max_turns") == 10
 
 
 # ---------------------------------------------------------------------------
