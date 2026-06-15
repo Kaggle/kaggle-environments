@@ -271,12 +271,12 @@ def generate_prompt(
     if discount < 1.0:
         discount_note = (
             f"  * Payoffs are discounted by a factor of {discount} per"
-            " round of back-and-forth. Accepting the very first offer is"
-            " UNDISCOUNTED; if agreement is reached only after a 2nd offer"
-            f" has been made, both players' payoffs are multiplied by"
-            f" {discount}; after a 3rd offer, by {discount}^2; in general,"
-            f" after the Nth offer, by {discount}^(N-1). Earlier acceptance"
-            " preserves more reward.\n"
+            " additional offer past the first. Accepting the very first"
+            " offer is UNDISCOUNTED; if agreement is reached only after a"
+            f" 2nd offer has been made, both players' payoffs are multiplied"
+            f" by {discount}; after a 3rd offer, by {discount}^2; in"
+            f" general, after the Nth offer, by {discount}^(N-1). Earlier"
+            " acceptance preserves more reward.\n"
         )
     else:
         discount_note = ""
