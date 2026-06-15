@@ -26,7 +26,7 @@ import requests
 from requests.exceptions import Timeout
 
 from .errors import DeadlineExceeded, InvalidArgument
-from .utils import read_file, structify
+from .utils import format_traceback, read_file, structify
 
 
 def is_url(url: str) -> bool:
@@ -215,7 +215,7 @@ class Agent:
             log["error"] = {
                 "type": type(action).__name__,
                 "message": str(action),
-                "traceback": traceback.format_exception(None, action, action.__traceback__),
+                "traceback": format_traceback(action),
             }
 
         if self.debug:

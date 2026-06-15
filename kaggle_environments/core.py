@@ -27,7 +27,7 @@ from typing import Any, Callable
 from . import __version__
 from .agent import Agent
 from .errors import DeadlineExceeded, FailedPrecondition, InvalidArgument
-from .utils import get, get_player, has, process_schema, schemas, structify
+from .utils import format_traceback, get, get_player, has, process_schema, schemas, structify
 
 # Registered Environments.
 environments: dict[str, dict[str, Any]] = {}
@@ -257,10 +257,10 @@ class Environment:
                 action_state[index]["status"] = "TIMEOUT"
                 action_state[index]["error"] = {
                     "type": "TIMEOUT",
-                    "message": str(action),
+                    "message": str(action) or f"Exceeded actTimeout ({self.configuration.actTimeout}s)",
                 }
             elif isinstance(action, BaseException):
-                tb = "".join(traceback.format_exception(None, action, action.__traceback__))
+                tb = format_traceback(action)
                 self.debug_print(f"Error: {tb}")
                 action_state[index]["status"] = "ERROR"
                 action_state[index]["error"] = {
@@ -623,6 +623,11 @@ class Environment:
                 agent.observation.remainingOverageTime -= overage_time_consumed
             if agent.status not in self.__state_schema.properties.status.enum:
                 self.debug_print(f"Invalid Action: {agent.status}")
+                if "error" not in agent:
+                    agent.error = {
+                        "type": "INVALID",
+                        "message": str(agent.status),
+                    }
                 agent.status = "INVALID"
             if agent.status in ["ERROR", "INVALID", "TIMEOUT"]:
                 agent.reward = None
