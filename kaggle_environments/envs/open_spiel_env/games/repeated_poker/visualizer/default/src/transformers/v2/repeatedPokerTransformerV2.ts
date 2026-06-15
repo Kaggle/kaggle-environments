@@ -18,7 +18,9 @@ export const repeatedPokerTransformerV2 = (environment: any) => {
     }
     return stateHistoryObject;
   });
-  const onlyPlayerSteps = repeatedPokerReplay.steps.flat().filter((step) => step.action.submission > -1);
+  const onlyPlayerSteps = repeatedPokerReplay.steps
+    .flat()
+    .filter((step) => typeof step.action.submission === 'number' && step.action.submission > -1);
 
   let stepToMapIndex = 0;
   const stateHistoryStepsWithReplaySteps: PokerReplayStepHistoryParsed[] = parsedStateHistorySteps.map(
