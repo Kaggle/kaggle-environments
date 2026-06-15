@@ -657,7 +657,6 @@ class GameState:
             actor_unit_id=unit.unit_id,
         )
 
-        self.record_action("move", unit_type=unit.type, from_x=from_x, from_y=from_y, to_x=to_x, to_y=to_y, player=unit.player)
         self._invalidate_cache()
         self.update_visibility(unit.player)
 

@@ -98,6 +98,27 @@ class TestLegalActions:
 # ---------------------------------------------------------------------------
 
 
+class TestMoveActionRecord:
+    """move_unit must emit exactly one action_history entry per move."""
+
+    def test_move_records_single_entry(self):
+        game = _new_game()
+        unit = game._spawn_unit("W", 4, 4, player=1)
+        unit.can_move = True
+        before = len(game.action_history)
+
+        ok = game.move_unit(unit, 4, 5)
+        assert ok is True
+
+        new_entries = game.action_history[before:]
+        move_entries = [a for a in new_entries if a.get("type") == "move"]
+        assert len(move_entries) == 1, (
+            f"expected one 'move' entry, got {len(move_entries)}: {move_entries}"
+        )
+        # The single entry must carry the v3 unit-id dispatch key.
+        assert move_entries[0].get("actor_unit_id") == unit.unit_id
+
+
 class TestMaxTurnsDraw:
     def test_end_turn_triggers_game_over_at_max_turns(self):
         game = GameState(_small_map(), num_players=2, max_turns=3)
