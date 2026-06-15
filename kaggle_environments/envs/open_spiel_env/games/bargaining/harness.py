@@ -68,7 +68,7 @@ How a turn works:
     then scores their own private dot product over what they received.
   * If {max_turns} offers go by without acceptance, the game ends with
     ZERO reward for both players (this is a tie).
-
+{discount_note}
 Offers made so far (most recent last; each shows what the OFFERING player
 wanted to keep -- the other player would receive the complement):
 {history_str}
@@ -224,6 +224,7 @@ def generate_prompt(
     my_values = state.get("my_values") or {k: 0 for k in _ITEM_KEYS}
     params = state.get("params") or {}
     max_turns = int(params.get("max_turns", state.get("max_turns", 10)))
+    discount = float(params.get("discount", 1.0))
     num_offers = int(state.get("num_offers", 0))
     turns_left = max(0, max_turns - num_offers)
     offer_history = state.get("offer_history") or []
@@ -261,10 +262,30 @@ def generate_prompt(
             " make an offer (you cannot accept on the first turn)."
         )
 
+    # Per OpenSpiel's bargaining.cc, the cumulative discount starts at 1 and
+    # is multiplied by gamma on every move with move_number_ >= 3, i.e.
+    # starting from P0's second action. So if agreement is reached after N
+    # offers have been made, both players' rewards are multiplied by
+    # gamma^(N-1). When gamma == 1 the rule is a no-op and we suppress the
+    # paragraph to avoid prompt clutter.
+    if discount < 1.0:
+        discount_note = (
+            f"  * Payoffs are discounted by a factor of {discount} per"
+            " additional offer past the first. Accepting the very first"
+            " offer is UNDISCOUNTED; if agreement is reached only after a"
+            f" 2nd offer has been made, both players' payoffs are multiplied"
+            f" by {discount}; after a 3rd offer, by {discount}^2; in"
+            f" general, after the Nth offer, by {discount}^(N-1). Earlier"
+            " acceptance preserves more reward.\n"
+        )
+    else:
+        discount_note = ""
+
     prompt = BARGAINING_PROMPT_TEMPLATE.format(
         pool_lines=pool_lines,
         my_value_lines=my_value_lines,
         max_turns=max_turns,
+        discount_note=discount_note,
         num_offers=num_offers,
         turns_left=turns_left,
         history_str=history_str,

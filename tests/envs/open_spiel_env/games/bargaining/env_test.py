@@ -92,6 +92,45 @@ class BargainingEnvTest(absltest.TestCase):
         expected_p1 = sum(p1_values[item] * pool[item] for item in pool)
         self.assertEqual(rewards[1], expected_p1)
 
+    def test_bargaining_discount_param_propagates_and_discounts_returns(self):
+        # discount=0.5 must (a) reach the underlying OpenSpiel game via the
+        # generic openSpielGameParameters plumbing, (b) surface in
+        # state.params, and (c) actually scale terminal returns. We force a
+        # 3-offer sequence so the cumulative discount is 0.5^(3-1) = 0.25 by
+        # OpenSpiel's rule (discount applied on move_number_ >= 3, i.e.
+        # starting from P0's 2nd action).
+        env = make(
+            "open_spiel_bargaining",
+            configuration={"openSpielGameParameters": {"discount": 0.5}},
+            debug=True,
+        )
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Chance step.
+        obs_p0_initial = _obs(env, 0)
+        self.assertEqual(obs_p0_initial["params"]["discount"], 0.5)
+        pool = obs_p0_initial["pool"]
+        p1_values = _obs(env, 1)["my_values"]
+
+        # P0 offer 1: keep nothing.
+        env.step([{"submission": 0}, {"submission": -1}])
+        # P1 offer 2: also keep nothing (so opponent's-perspective offers stay symmetric).
+        env.step([{"submission": -1}, {"submission": 0}])
+        # P0 accepts P1's offer (3rd action by a player after chance) -> N=2 offers
+        # before agreement, discount factor 0.5^(2-1) = 0.5 applied.
+        env.step([{"submission": _AGREE}, {"submission": -1}])
+
+        self.assertTrue(env.done)
+        rewards = env.toJSON()["rewards"]
+        # P0 accepted P1's "keep nothing" offer -> P0 gets the whole pool.
+        # Undiscounted P0 reward = sum(p0_values[i] * pool[i]).
+        p0_values = _obs(env, 0)["my_values"]
+        undiscounted_p0 = sum(p0_values[item] * pool[item] for item in pool)
+        self.assertEqual(rewards[0], 0.5 * undiscounted_p0)
+        # P1 gets nothing (their offer kept nothing for themselves), so 0
+        # regardless of discount.
+        del p1_values  # only used for symmetry comment above
+        self.assertEqual(rewards[1], 0.0)
+
     def test_bargaining_invalid_action(self):
         env = make("open_spiel_bargaining", debug=True)
         env.reset()

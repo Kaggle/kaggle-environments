@@ -34,9 +34,12 @@ def _make_observation(
     }
 
 
-def _seed_game(player_id: int = 0):
+def _seed_game(player_id: int = 0, discount: float = 1.0):
     """Build a (game, state) after the chance node so a player is to move."""
-    game = bargaining_proxy.BargainingGame()
+    params: dict = {}
+    if discount != 1.0:
+        params["discount"] = discount
+    game = bargaining_proxy.BargainingGame(params)
     state = game.new_initial_state()
     # Apply the first chance outcome to deterministically reach a play state.
     state.apply_action(state.legal_actions()[0])
@@ -266,6 +269,29 @@ class GeneratePromptTest(absltest.TestCase):
         obs = _make_observation(state, game, player_id=0)
         prompt = generate_prompt(obs, [])
         self.assertIn("cannot accept on the first turn", prompt)
+
+    def test_discount_note_absent_when_gamma_is_one(self):
+        # Default discount=1.0 means the note is a no-op; keep it out of the
+        # prompt entirely so the common case stays uncluttered.
+        game, state = _seed_game(player_id=0)
+        obs = _make_observation(state, game, player_id=0)
+        prompt = generate_prompt(obs, [])
+        self.assertNotIn("discounted", prompt)
+        self.assertNotIn("UNDISCOUNTED", prompt)
+
+    def test_discount_note_present_when_gamma_below_one(self):
+        # The prompt should surface the per-round discount and the exact
+        # gamma^(N-1) decay rule so the model can trade off acceptance
+        # timing against negotiation length. The wording must explicitly
+        # call out that the FIRST acceptance is undiscounted -- the (N-1)
+        # exponent alone is too easy to misread.
+        game, state = _seed_game(player_id=0, discount=0.8)
+        obs = _make_observation(state, game, player_id=0)
+        prompt = generate_prompt(obs, [])
+        self.assertIn("discounted", prompt)
+        self.assertIn("0.8", prompt)
+        self.assertIn("UNDISCOUNTED", prompt)
+        self.assertIn("N-1", prompt)
 
     def test_max_turns_and_remaining_rendered(self):
         game, state = _seed_game(player_id=1)

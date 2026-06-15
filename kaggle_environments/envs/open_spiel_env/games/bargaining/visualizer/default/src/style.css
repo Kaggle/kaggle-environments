@@ -65,11 +65,11 @@ body,
 
 .brg-player-name {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
   font-weight: 700;
   font-size: 0.95rem;
-  gap: 8px;
 }
 
 .brg-player-name .brg-player-tag {
