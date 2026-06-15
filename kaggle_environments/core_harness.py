@@ -735,22 +735,9 @@ def create_agent_fn(
                     "model": model_name,
                     **call_details,
                 })
-                # TODO: drop this fallback once the prod orchestrator
-                # template forwards `observation=` to `parse_response`.
-                # Until then, old adapters whose `parse_response` signature
-                # is `(self, response, legal_action_strings)` would raise
-                # TypeError on the kwarg. Narrow the catch to that specific
-                # signature mismatch so we don't mask real parser bugs.
-                try:
-                    result = game_harness.parse_response(
-                        content, legal_action_strings, observation=observation,
-                    )
-                except TypeError as exc:
-                    if "observation" not in str(exc):
-                        raise
-                    result = game_harness.parse_response(
-                        content, legal_action_strings,
-                    )
+                result = game_harness.parse_response(
+                    content, legal_action_strings, observation=observation,
+                )
                 last_exception = None
             except Exception as exc:
                 last_exception = exc
