@@ -21,25 +21,20 @@ from kaggle_environments.envs.open_spiel_env.games.repeated_poker import harness
 class _PokerHarness:
     """Local GameHarness adapter for the debug runner."""
 
-    def __init__(self) -> None:
-        self._observation = None
-
     def get_legal_moves(self, observation):
-        self._observation = observation
         return harness.get_legal_moves(observation)
 
     def make_prompt(
         self, observation, move_history,
         previous_response=None, previous_action=None,
     ):
-        self._observation = observation
         return harness.generate_prompt(
             observation, move_history, previous_response, previous_action,
         )
 
-    def parse_response(self, response, legal_action_strings):
+    def parse_response(self, response, legal_action_strings, *, observation=None):
         return harness.parse_response(
-            response, legal_action_strings, observation=self._observation,
+            response, legal_action_strings, observation=observation,
         )
 
 

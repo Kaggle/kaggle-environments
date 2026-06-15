@@ -258,7 +258,7 @@ class _MancalaHarness:
             previous_action=previous_action,
         )
 
-    def parse_response(self, response, legal_action_strings):
+    def parse_response(self, response, legal_action_strings, *, observation=None):
         return parse_response(response, legal_action_strings)
 
 

@@ -37,7 +37,7 @@ class _C4Harness:
             previous_action,
         )
 
-    def parse_response(self, response, legal_action_strings):
+    def parse_response(self, response, legal_action_strings, *, observation=None):
         return harness.parse_response(response, legal_action_strings)
 
 

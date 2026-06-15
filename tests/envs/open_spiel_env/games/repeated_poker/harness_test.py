@@ -15,32 +15,22 @@ from kaggle_environments.envs.open_spiel_env.games.repeated_poker.harness import
 
 
 class _PokerHarness:
-    """Test-local GameHarness adapter for repeated_poker.
-
-    Stashes the latest observation so ``parse_response`` can reach the
-    pyspiel state the soft parser needs for bet-size offsets. Mirrors the
-    shape the production wrapper template needs to take for this harness.
-    """
-
-    def __init__(self) -> None:
-        self._observation = None
+    """Test-local GameHarness adapter for repeated_poker."""
 
     def get_legal_moves(self, observation):
-        self._observation = observation
         return get_legal_moves(observation)
 
     def make_prompt(
         self, observation, move_history,
         previous_response=None, previous_action=None,
     ):
-        self._observation = observation
         return generate_prompt(
             observation, move_history, previous_response, previous_action,
         )
 
-    def parse_response(self, response, legal_action_strings):
+    def parse_response(self, response, legal_action_strings, *, observation=None):
         return parse_response(
-            response, legal_action_strings, observation=self._observation,
+            response, legal_action_strings, observation=observation,
         )
 
 _GAME_STRING = (
