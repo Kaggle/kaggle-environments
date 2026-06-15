@@ -505,8 +505,8 @@ class TestSerialisation:
         game = _create_test_game()
         game.player_gold[1] = 500
         game.player_gold[2] = 500
-        game.create_unit("W", 5, 5, player=1)
-        game.create_unit("M", 7, 7, player=2)
+        game._spawn_unit("W", 5, 5, player=1)
+        game._spawn_unit("M", 7, 7, player=2)
         units = _serialize_units(game)
         assert len(units) == 2
         # Check keys
@@ -537,8 +537,8 @@ class TestSerialisation:
         game.player_gold[1] = 500
         game.player_gold[2] = 500
         # Create a friendly unit at (1,1) and enemy far away at (8,8)
-        game.create_unit("W", 1, 1, player=1)
-        game.create_unit("W", 8, 8, player=2)
+        game._spawn_unit("W", 1, 1, player=1)
+        game._spawn_unit("W", 8, 8, player=2)
         # Initialize visibility maps
         from kaggle_environments.envs.reinforce_tactics.reinforce_tactics_engine.core.visibility import VisibilityMap
 
@@ -559,7 +559,7 @@ class TestSerialisation:
 
     def test_units_serialisation_is_json_serializable(self):
         game = _create_test_game()
-        game.create_unit("W", 5, 5, player=1)
+        game._spawn_unit("W", 5, 5, player=1)
         units = _serialize_units(game)
         json.dumps(units)  # Should not raise
 
@@ -627,7 +627,7 @@ class TestActionExecution:
 
     def test_move_unit(self):
         game = _create_test_game()
-        unit = game.create_unit("W", 5, 5, player=1)
+        unit = game._spawn_unit("W", 5, 5, player=1)
         unit.can_move = True
         result = _execute_action(
             game,
@@ -646,7 +646,7 @@ class TestActionExecution:
 
     def test_move_unit_wrong_player(self):
         game = _create_test_game()
-        unit = game.create_unit("W", 5, 5, player=2)
+        unit = game._spawn_unit("W", 5, 5, player=2)
         unit.can_move = True
         result = _execute_action(
             game,
@@ -663,9 +663,9 @@ class TestActionExecution:
 
     def test_attack_unit(self):
         game = _create_test_game()
-        attacker = game.create_unit("W", 5, 5, player=1)
+        attacker = game._spawn_unit("W", 5, 5, player=1)
         attacker.can_attack = True
-        assert game.create_unit("C", 6, 5, player=2) is not None
+        assert game._spawn_unit("C", 6, 5, player=2) is not None
         result = _execute_action(
             game,
             {
@@ -682,9 +682,9 @@ class TestActionExecution:
     def test_attack_own_unit_fails(self):
         game = _create_test_game()
         game.player_gold[1] = 1000
-        attacker = game.create_unit("W", 5, 5, player=1)
+        attacker = game._spawn_unit("W", 5, 5, player=1)
         attacker.can_attack = True
-        assert game.create_unit("W", 6, 5, player=1) is not None
+        assert game._spawn_unit("W", 6, 5, player=1) is not None
         result = _execute_action(
             game,
             {
@@ -701,7 +701,7 @@ class TestActionExecution:
     def test_seize_structure(self):
         game = _create_test_game()
         # Place P1 unit on P2 HQ at (9,9)
-        unit = game.create_unit("W", 9, 9, player=1)
+        unit = game._spawn_unit("W", 9, 9, player=1)
         unit.can_attack = True
         result = _execute_action(
             game,
@@ -717,7 +717,7 @@ class TestActionExecution:
     def test_seize_own_structure_fails(self):
         game = _create_test_game()
         # Place P1 unit on P1 HQ at (0,0)
-        assert game.create_unit("W", 0, 0, player=1) is not None
+        assert game._spawn_unit("W", 0, 0, player=1) is not None
         result = _execute_action(
             game,
             {
@@ -733,7 +733,7 @@ class TestActionExecution:
         # A unit gets one can_attack-action per turn: the second seize is a
         # no-op, so a structure can't be captured to completion in one turn.
         game = _create_test_game()
-        unit = game.create_unit("W", 9, 9, player=1)  # P1 unit on the P2 HQ
+        unit = game._spawn_unit("W", 9, 9, player=1)  # P1 unit on the P2 HQ
         unit.can_attack = True
         first = _execute_action(game, {"type": "seize", "x": 9, "y": 9}, player=1)
         second = _execute_action(game, {"type": "seize", "x": 9, "y": 9}, player=1)
@@ -744,9 +744,9 @@ class TestActionExecution:
 
     def test_unit_cannot_attack_twice_in_one_turn(self):
         game = _create_test_game()
-        attacker = game.create_unit("W", 5, 5, player=1)
+        attacker = game._spawn_unit("W", 5, 5, player=1)
         attacker.can_attack = True
-        game.create_unit("W", 6, 5, player=2)  # adjacent enemy
+        game._spawn_unit("W", 6, 5, player=2)  # adjacent enemy
         first = _execute_action(game, {"type": "attack", "from_x": 5, "from_y": 5, "to_x": 6, "to_y": 5}, player=1)
         target = game.get_unit_at_position(6, 5)
         hp_after_first = target.health
@@ -761,9 +761,9 @@ class TestActionExecution:
         # can't heal more than once per turn.
         game = _create_test_game()
         game.player_gold[1] = 1000
-        cleric = game.create_unit("C", 5, 5, player=1)
+        cleric = game._spawn_unit("C", 5, 5, player=1)
         cleric.can_attack = True
-        target = game.create_unit("W", 6, 5, player=1)
+        target = game._spawn_unit("W", 6, 5, player=1)
         target.health = 1  # damaged enough that a second heal would also help
         first = _execute_action(game, {"type": "heal", "from_x": 5, "from_y": 5, "to_x": 6, "to_y": 5}, player=1)
         hp_after_first = target.health
@@ -775,9 +775,9 @@ class TestActionExecution:
     def test_heal_action(self):
         game = _create_test_game()
         game.player_gold[1] = 1000
-        cleric = game.create_unit("C", 5, 5, player=1)
+        cleric = game._spawn_unit("C", 5, 5, player=1)
         cleric.can_attack = True
-        target = game.create_unit("W", 6, 5, player=1)
+        target = game._spawn_unit("W", 6, 5, player=1)
         target.health = 5  # Damage the target
         result = _execute_action(
             game,
@@ -797,9 +797,9 @@ class TestActionExecution:
         game = _create_test_game()
         game.player_gold[1] = 1000
         game.player_gold[2] = 1000
-        mage = game.create_unit("M", 5, 5, player=1)
+        mage = game._spawn_unit("M", 5, 5, player=1)
         mage.can_attack = True
-        enemy = game.create_unit("W", 6, 5, player=2)
+        enemy = game._spawn_unit("W", 6, 5, player=2)
         result = _execute_action(
             game,
             {
@@ -832,9 +832,9 @@ class TestActionExecution:
     def test_haste_action(self):
         game = _create_test_game()
         game.player_gold[1] = 1000
-        sorcerer = game.create_unit("S", 5, 5, player=1)
+        sorcerer = game._spawn_unit("S", 5, 5, player=1)
         sorcerer.can_attack = True
-        ally = game.create_unit("W", 6, 5, player=1)
+        ally = game._spawn_unit("W", 6, 5, player=1)
         result = _execute_action(
             game,
             {
@@ -852,9 +852,9 @@ class TestActionExecution:
     def test_defence_buff_action(self):
         game = _create_test_game()
         game.player_gold[1] = 1000
-        sorcerer = game.create_unit("S", 5, 5, player=1)
+        sorcerer = game._spawn_unit("S", 5, 5, player=1)
         sorcerer.can_attack = True
-        ally = game.create_unit("W", 6, 5, player=1)
+        ally = game._spawn_unit("W", 6, 5, player=1)
         result = _execute_action(
             game,
             {
@@ -872,9 +872,9 @@ class TestActionExecution:
     def test_attack_buff_action(self):
         game = _create_test_game()
         game.player_gold[1] = 1000
-        sorcerer = game.create_unit("S", 5, 5, player=1)
+        sorcerer = game._spawn_unit("S", 5, 5, player=1)
         sorcerer.can_attack = True
-        ally = game.create_unit("W", 6, 5, player=1)
+        ally = game._spawn_unit("W", 6, 5, player=1)
         result = _execute_action(
             game,
             {
@@ -892,9 +892,9 @@ class TestActionExecution:
     def test_cure_action(self):
         game = _create_test_game()
         game.player_gold[1] = 1000
-        cleric = game.create_unit("C", 5, 5, player=1)
+        cleric = game._spawn_unit("C", 5, 5, player=1)
         cleric.can_attack = True
-        ally = game.create_unit("W", 6, 5, player=1)
+        ally = game._spawn_unit("W", 6, 5, player=1)
         ally.paralyzed_turns = 3
         result = _execute_action(
             game,
@@ -1058,7 +1058,7 @@ class TestWinConditions:
         game.player_gold[1] = 500
 
         # Place a warrior on enemy HQ
-        warrior = game.create_unit("W", 9, 9, player=1)
+        warrior = game._spawn_unit("W", 9, 9, player=1)
         warrior.can_attack = True
 
         # Reduce HQ HP so warrior can capture in one seize
@@ -1076,9 +1076,9 @@ class TestWinConditions:
     def test_eliminate_all_units_wins(self):
         """Eliminating all enemy units should end the game."""
         game = _create_test_game()
-        attacker = game.create_unit("W", 5, 5, player=1)
+        attacker = game._spawn_unit("W", 5, 5, player=1)
         attacker.can_attack = True
-        target = game.create_unit("C", 6, 5, player=2)
+        target = game._spawn_unit("C", 6, 5, player=2)
 
         # Drop player 2's only unit to lethal HP so the Warrior's attack is
         # guaranteed to kill it regardless of unit balance tuning.
@@ -1386,7 +1386,7 @@ class TestHelpers:
     def test_update_observations(self):
         game = _create_test_game()
         game.player_gold[1] = 500
-        game.create_unit("W", 5, 5, player=1)
+        game._spawn_unit("W", 5, 5, player=1)
         config = _make_config()
         obs0 = _make_observation(player=0)
         obs1 = _make_observation(player=1)

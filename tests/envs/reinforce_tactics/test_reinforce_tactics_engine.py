@@ -83,8 +83,8 @@ class TestLegalActions:
     def test_move_destinations_exclude_own_unit(self):
         """A unit's reachable set must not include tiles occupied by allies."""
         game = _new_game()
-        ally_a = game.create_unit("W", 4, 4, player=1)
-        game.create_unit("W", 5, 4, player=1)  # ally blocks (5, 4)
+        ally_a = game._spawn_unit("W", 4, 4, player=1)
+        game._spawn_unit("W", 5, 4, player=1)  # ally blocks (5, 4)
         ally_a.can_move = True
 
         actions = game.get_legal_actions(player=1)
@@ -119,8 +119,8 @@ class TestMaxTurnsDraw:
 class TestSaveLoadRoundTrip:
     def _ready_game(self):
         game = _new_game(max_turns=42)
-        game.create_unit("W", 3, 3, player=1)
-        game.create_unit("M", 6, 6, player=2)
+        game._spawn_unit("W", 3, 3, player=1)
+        game._spawn_unit("M", 6, 6, player=2)
         # Move once so the unit's original_x / original_y diverges from x / y.
         warrior = next(u for u in game.units if u.type == "W")
         warrior.x, warrior.y = 4, 3
@@ -209,8 +209,8 @@ class TestToNumpyHealthGuard:
 class TestResign:
     def test_resign_strips_units_and_sets_winner(self):
         game = _new_game()
-        game.create_unit("W", 3, 3, player=1)
-        game.create_unit("M", 6, 6, player=2)
+        game._spawn_unit("W", 3, 3, player=1)
+        game._spawn_unit("M", 6, 6, player=2)
         assert len(game.units) == 2
 
         game.resign(player=1)
@@ -233,7 +233,7 @@ class TestSeizeGating:
         game = _new_game()
         enemy_hq = game.grid.get_tile(9, 9)
         assert enemy_hq.type == "h" and enemy_hq.player == 2
-        unit = game.create_unit("W", 9, 9, player=1)
+        unit = game._spawn_unit("W", 9, 9, player=1)
         unit.can_move = True
         unit.can_attack = True
         return game, unit, enemy_hq
@@ -261,7 +261,7 @@ class TestSeizeGating:
         game = _new_game()
         hq = game.grid.get_tile(9, 9)
         starting_hp = hq.health
-        unit = game.create_unit("W", 9, 9, player=1)
+        unit = game._spawn_unit("W", 9, 9, player=1)
         assert unit.can_attack is False
 
         result = game.seize(unit)

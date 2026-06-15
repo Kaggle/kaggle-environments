@@ -549,6 +549,19 @@ class GameState:
         if self.get_unit_at_position(x, y):
             return None
 
+        # Recruitment is only legal on an owned Building or HQ. Without this
+        # guard, create_unit would spawn units on any unoccupied tile
+        # (grass, mountain, even enemy structures), which contradicts the
+        # README's "Recruit at owned buildings/HQ" rule and the action mask
+        # in get_legal_actions.
+        tile = self.grid.get_tile(x, y)
+        if tile is None:
+            return None
+        if tile.type not in (TileType.BUILDING.value, TileType.HEADQUARTERS.value):
+            return None
+        if tile.player != player:
+            return None
+
         # Check if player can afford
         if unit_type not in self.unit_data:
             logger.warning(f"Unknown unit type: {unit_type}")
@@ -559,6 +572,16 @@ class GameState:
             return None
 
         self.player_gold[player] -= cost
+        return self._spawn_unit(unit_type, x, y, player)
+
+    def _spawn_unit(self, unit_type: str, x: int, y: int, player: int) -> Unit:
+        """Insert a unit at (x, y) without recruitment validation.
+
+        Skips the unit cap, occupancy, tile-type, ownership, and cost
+        checks that ``create_unit`` enforces. Intended for tests that
+        need arbitrary board setups (combat, movement, abilities) and
+        for internal callers that have already validated placement.
+        """
         unit = Unit(unit_type, x, y, player, stats=self.unit_data[unit_type])
         unit.unit_id = self._next_unit_id
         self._next_unit_id += 1
@@ -1126,13 +1149,14 @@ class GameState:
             "end_turn": True,
         }
 
-        # Building units (only at Buildings, not HQ)
+        # Recruit at owned Buildings or HQ (matches create_unit's tile-type
+        # guard and the README's "Recruit at owned buildings/HQ" rule).
         # Only include enabled unit types. Suppressed entirely once the player
         # is at the unit cap so the action mask matches create_unit's own
         # enforcement (no offered-then-rejected create actions).
         if sum(1 for u in self.units if u.player == player) < self.max_units_per_player:
             for tile in self.grid.get_capturable_tiles(player):
-                if tile.type == TileType.BUILDING.value and not self.get_unit_at_position(tile.x, tile.y):
+                if tile.type in (TileType.BUILDING.value, TileType.HEADQUARTERS.value) and not self.get_unit_at_position(tile.x, tile.y):
                     for unit_type in self.enabled_units:
                         if self.player_gold[player] >= self.unit_data[unit_type]["cost"]:
                             legal_actions["create_unit"].append({"unit_type": unit_type, "x": tile.x, "y": tile.y})

@@ -210,14 +210,14 @@ def my_agent(observation, configuration):
     my_buildings = [s for s in structures if s["owner"] == player and s["type"] == "b"]
     occupied = {(u["x"], u["y"]) for u in units}
     for bldg in my_buildings:
-        if gold >= 200 and (bldg["x"], bldg["y"]) not in occupied:
+        if gold >= 300 and (bldg["x"], bldg["y"]) not in occupied:
             actions.append({
                 "type": "create_unit",
                 "unit_type": "W",
                 "x": bldg["x"],
                 "y": bldg["y"],
             })
-            gold -= 200
+            gold -= 300
 
     # Move, attack, seize, etc.
     # ...
