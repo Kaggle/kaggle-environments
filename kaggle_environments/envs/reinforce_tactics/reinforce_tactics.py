@@ -167,12 +167,6 @@ def _process_turn(state, env, game, active_idx, key):
     log_start = len(game.action_history)
 
     executed = _run_actions(state, game, actions, active_idx, game_player)
-    if executed is None:
-        return  # Agent lost due to invalid action
-
-    # End the turn (income, healing, status effects, etc.)
-    if not game.game_over:
-        game.end_turn()
 
     # Replace the agent's submitted action list with the filtered version so
     # the replay records only the actions the engine actually applied --
@@ -180,6 +174,21 @@ def _process_turn(state, env, game, active_idx, key):
     # action[] and the visualizer draws highlights for actions that
     # never happened.
     agent.action = executed
+
+    # Forfeit short-circuit: ``_run_actions`` already marked both agents
+    # DONE via ``_mark_agent_loss``. Still surface this turn's
+    # action_log slice (which captures any actions executed before the
+    # malformed entry, plus is empty when the malformed action came first)
+    # so the replay's final-step observation isn't a stale carry-over
+    # from the prior turn.
+    if state[active_idx].status == "DONE":
+        _update_observations(state, game, _slice_action_log(game, log_start))
+        _games.pop(key, None)
+        return
+
+    # End the turn (income, healing, status effects, etc.)
+    if not game.game_over:
+        game.end_turn()
 
     action_log = _slice_action_log(game, log_start)
 
@@ -226,16 +235,19 @@ def _run_actions(state, game, actions, active_idx, game_player):
     and ``get_legal_actions`` already lets agents avoid illegal moves. Only a
     malformed action (not a dict) is treated as a broken agent and forfeits.
 
-    Returns the list of actions the engine actually applied (preserving the
-    submitted ``end_turn`` if reached) so the caller can write the filtered
-    list back to the replay. Returns ``None`` if the agent forfeited (in
-    which case it has already been marked as lost).
+    Always returns the list of actions the engine actually applied (up to
+    and including the offending entry's predecessors on forfeit). The
+    forfeit flag is signalled out-of-band via ``state[active_idx].status``,
+    which ``_mark_agent_loss`` sets to ``"DONE"`` before returning -- so
+    the caller can still overwrite ``agent.action`` with the partial
+    executed list and surface this turn's ``action_log`` slice instead of
+    leaving the prior turn's observation stale.
     """
     executed = []
     for action in actions:
         if not isinstance(action, dict):
             _mark_agent_loss(state, active_idx)
-            return None
+            return executed
 
         if action.get("type", "") == "end_turn":
             executed.append(action)
@@ -660,8 +672,11 @@ def _slice_action_log(game, start_idx):
 
     Strips the per-entry wall-clock ``timestamp`` (verbose ISO datetime
     that bloats the replay JSON and isn't needed to reconstruct game
-    state) and converts coordinate tuples (``position``, ``attacker_pos``,
-    etc.) to lists so the result round-trips cleanly through JSON.
+    state) and recursively converts any tuples (today: coordinate pairs
+    like ``position``/``attacker_pos``; future-proof against nested
+    structures like paths or value-lists) to lists so the result
+    round-trips cleanly through JSON without relying on stdlib json's
+    tuple-as-array coercion.
     """
     entries = []
     for entry in game.action_history[start_idx:]:
@@ -669,12 +684,20 @@ def _slice_action_log(game, start_idx):
         for key, value in entry.items():
             if key == "timestamp":
                 continue
-            if isinstance(value, tuple):
-                record[key] = list(value)
-            else:
-                record[key] = value
+            record[key] = _normalize_for_json(value)
         entries.append(record)
     return entries
+
+
+def _normalize_for_json(value):
+    """Recursively convert tuples to lists. Other types pass through."""
+    if isinstance(value, tuple):
+        return [_normalize_for_json(v) for v in value]
+    if isinstance(value, list):
+        return [_normalize_for_json(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _normalize_for_json(v) for k, v in value.items()}
+    return value
 
 
 # ---------------------------------------------------------------------------

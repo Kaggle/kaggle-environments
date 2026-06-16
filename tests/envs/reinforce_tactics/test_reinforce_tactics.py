@@ -1059,6 +1059,114 @@ class TestInterpreterFlow:
         # Only end_turn should survive in the recorded action list.
         assert state[0].action == [{"type": "end_turn"}]
 
+    def test_mixed_success_and_failure_filtered(self):
+        """A turn that mixes successes and failures keeps only the successes.
+
+        Also asserts the actionLog entry count for successes matches what
+        the engine recorded -- catches drift between filtered-action and
+        action_log invariants.
+        """
+        from kaggle_environments.envs.reinforce_tactics.reinforce_tactics import (
+            _games as games_dict,
+            _process_turn,
+        )
+
+        state, env = self._setup_interpreter_game()
+        env.done = False
+        key = id(env)
+        game = games_dict[key]
+
+        attacker = game._spawn_unit("W", 5, 5, player=1)
+        attacker.can_attack = True
+        attacker.can_move = True
+        target = game._spawn_unit("W", 6, 5, player=2)
+        target.health = 10
+
+        actions_submitted = [
+            # Real attack -- succeeds.
+            {"type": "attack", "from_x": 5, "from_y": 5, "to_x": 6, "to_y": 5},
+            # Second attack from the same unit -- engine rejects (can_attack now False).
+            {"type": "attack", "from_x": 5, "from_y": 5, "to_x": 6, "to_y": 5},
+            # Unknown action -- rejected.
+            {"type": "fly_to_moon"},
+            {"type": "end_turn"},
+        ]
+        state[0].action = list(actions_submitted)
+        _process_turn(state, env, game, active_idx=0, key=key)
+
+        # Only the first attack and end_turn survive.
+        assert state[0].action == [actions_submitted[0], actions_submitted[3]]
+        # And the engine action_log should have exactly one attack entry for this turn.
+        attack_entries = [e for e in state[0].observation.actionLog if e["type"] == "attack"]
+        assert len(attack_entries) == 1
+
+    def test_forfeit_path_records_partial_actions_and_log(self):
+        """When the agent forfeits mid-list, the replay must reflect the partial state.
+
+        Pre-fix: a forfeit short-circuited _process_turn before agent.action
+        was overwritten and before _update_observations ran, so the replay
+        carried the agent's full malformed action list and a stale prior-turn
+        actionLog. Post-fix: agent.action is overwritten with the successful
+        prefix and obs.actionLog reflects this turn's engine records.
+        """
+        state, env = self._setup_interpreter_game()
+        env.done = False
+
+        # Drive a second turn so a non-empty prior actionLog exists to compare against.
+        state[0].action = [{"type": "end_turn"}]
+        interpreter(state, env)
+        prior_log = list(state[0].observation.actionLog)
+
+        # P2's turn: submit a well-formed no-op followed by a malformed entry -> forfeit.
+        state[1].action = [{"type": "invalid_nonsense"}, "not_a_dict"]
+        interpreter(state, env)
+
+        # Filtered list excludes both the no-op (it didn't execute) and the
+        # malformed entry. With no successful actions before the forfeit, the
+        # list is empty.
+        assert state[1].action == []
+        # Both agents marked DONE (P2 loses).
+        assert state[0].status == "DONE"
+        assert state[1].status == "DONE"
+        assert state[1].reward == -1
+        assert state[0].reward == 1
+        # actionLog must not be a stale carry-over of the prior turn.
+        new_log = state[1].observation.actionLog
+        assert new_log != prior_log
+
+    def test_mid_turn_game_over_skips_end_turn_record(self):
+        """When an action ends the game mid-list, the action_log slice should not
+        include an 'end_turn' record because GameState.end_turn() is skipped."""
+        from kaggle_environments.envs.reinforce_tactics.reinforce_tactics import (
+            _games as games_dict,
+            _process_turn,
+        )
+
+        state, env = self._setup_interpreter_game()
+        env.done = False
+        key = id(env)
+        game = games_dict[key]
+
+        # Eliminate P2 to set up a kill that wins the game.
+        attacker = game._spawn_unit("W", 5, 5, player=1)
+        attacker.can_attack = True
+        attacker.can_move = True
+        target = game._spawn_unit("W", 6, 5, player=2)
+        target.health = 1  # one-shot
+
+        state[0].action = [
+            {"type": "attack", "from_x": 5, "from_y": 5, "to_x": 6, "to_y": 5},
+            {"type": "end_turn"},  # should not be reached -- game ends on the kill
+        ]
+        _process_turn(state, env, game, active_idx=0, key=key)
+
+        assert game.game_over is True
+        types = [e["type"] for e in state[0].observation.actionLog]
+        # Engine's end_turn record must NOT appear -- game.end_turn() short-circuits.
+        assert "end_turn" not in types
+        # The kill-producing attack is present.
+        assert "attack" in types
+
     def test_observation_carries_action_log(self):
         """The observation should expose the engine's action_history slice for the turn."""
         state, env = self._setup_interpreter_game()
