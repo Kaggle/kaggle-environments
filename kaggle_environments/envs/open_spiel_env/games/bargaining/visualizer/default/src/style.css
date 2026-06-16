@@ -55,7 +55,7 @@ body,
 }
 
 .brg-player-card.active {
-  background-color: #bdeeff;
+  background-color: #e8def5;
   scale: 1.03;
 }
 
@@ -86,11 +86,11 @@ body,
 }
 
 .brg-player-card.p0 .brg-glyph {
-  background-color: #1f4f8b;
+  background-color: #20beff;
 }
 
 .brg-player-card.p1 .brg-glyph {
-  background-color: #9a3324;
+  background-color: #e5cf4a;
 }
 
 .brg-player-card .brg-score {
@@ -254,7 +254,7 @@ body,
 }
 
 .brg-bubble.latest {
-  background-color: #bdeeff;
+  background-color: #e8def5;
 }
 
 .brg-bubble-who {

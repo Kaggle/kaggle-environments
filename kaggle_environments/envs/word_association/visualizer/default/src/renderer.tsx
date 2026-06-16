@@ -564,8 +564,8 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
                 fontSize: '16px',
               }}
             >
-              {winner === 'Blue' ? '🔷' : winner === 'Yellow' ? '⬜' : ''} {winner.toUpperCase()} TEAM WINS!{' '}
-              {winner === 'Blue' ? '🔷' : winner === 'Yellow' ? '⬜' : ''}
+              {winner === 'Blue' ? '🔷' : winner === 'Yellow' ? '🟨' : ''} {winner.toUpperCase()} TEAM WINS!{' '}
+              {winner === 'Blue' ? '🔷' : winner === 'Yellow' ? '🟨' : ''}
             </div>
             {reason && (
               <div style={{ fontSize: '14px', color: '#aaa', marginTop: '4px', fontWeight: 'normal' }}>{reason}</div>
@@ -616,7 +616,7 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
       } else if (yellowWon) {
         winnerText = (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.2' }}>
-            <span style={{ color: '#E5CF4A' }}>⬜ YELLOW WINS! ⬜</span>
+            <span style={{ color: '#E5CF4A' }}>🟨 YELLOW WINS! 🟨</span>
             <span style={{ fontSize: '14px', color: '#aaaaaa', marginTop: '4px', fontWeight: 'normal' }}>
               (Blue picked the Trap)
             </span>
@@ -629,11 +629,11 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
       if (blueWon) {
         winnerText = <span style={{ color: '#20BEFF' }}>🔷 BLUE WINS! 🔷</span>;
       } else if (yellowWon) {
-        winnerText = <span style={{ color: '#E5CF4A' }}>⬜ YELLOW WINS! ⬜</span>;
+        winnerText = <span style={{ color: '#E5CF4A' }}>🟨 YELLOW WINS! 🟨</span>;
       } else if (blueRemaining === 0) {
         winnerText = <span style={{ color: '#20BEFF' }}>🔷 BLUE WINS! 🔷</span>;
       } else if (yellowRemaining === 0) {
-        winnerText = <span style={{ color: '#E5CF4A' }}>⬜ YELLOW WINS! ⬜</span>;
+        winnerText = <span style={{ color: '#E5CF4A' }}>🟨 YELLOW WINS! 🟨</span>;
       } else {
         winnerText = 'TIE GAME';
       }
@@ -642,7 +642,7 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
 
   const formatMissionLog = () => {
     if (isGameOver) return 'Results';
-    const playerTurns = ['🔷 Blue Cluemaster', '🔷 Blue Guesser', '⬜ Yellow Cluemaster', '⬜ Yellow Guesser'];
+    const playerTurns = ['🔷 Blue Cluemaster', '🔷 Blue Guesser', '🟨 Yellow Cluemaster', '🟨 Yellow Guesser'];
     return `Mission Log - ${playerTurns[state.current_turn] || ''}`;
   };
 

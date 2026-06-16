@@ -97,7 +97,7 @@ function renderConversation(
     const event = history[i];
     const isLatest = i === history.length - 1;
     const sideClass = event.player === 0 ? 'from-p0' : 'from-p1';
-    const colorBg = event.player === 0 ? '#1f4f8b' : '#9a3324';
+    const colorBg = event.player === 0 ? '#20beff' : '#e5cf4a';
 
     if (event.type === 'agree') {
       const otherPlayer = 1 - event.player;
