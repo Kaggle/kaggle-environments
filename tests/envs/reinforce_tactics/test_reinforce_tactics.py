@@ -23,6 +23,7 @@ from kaggle_environments.envs.reinforce_tactics.reinforce_tactics import (
     _serialize_board,
     _serialize_structures,
     _serialize_units,
+    _slice_action_log,
     _update_observations,
     html_renderer,
     interpreter,
@@ -183,6 +184,7 @@ class TestSpecification:
             "mapWidth",
             "mapHeight",
             "remainingOverageTime",
+            "actionLog",
         ]
         for field in expected:
             assert field in obs, f"Missing observation field: {field}"
@@ -512,9 +514,52 @@ class TestSerialisation:
                 "distanceMoved",
                 "defenceBuffTurns",
                 "attackBuffTurns",
+                "paralyzeCooldown",
+                "hasteCooldown",
+                "defenceBuffCooldown",
+                "attackBuffCooldown",
             ]
             for key in required_keys:
                 assert key in u, f"Missing key: {key}"
+
+    def test_serialize_units_exposes_ability_cooldowns(self):
+        """The four ability cooldowns must reflect the engine's per-unit state.
+
+        Without these in the observation, an agent can't tell when a Mage's
+        paralyze (or a Sorcerer's haste/buffs) will be reusable -- the
+        legal-action mask would gate it but the raw observation hides it.
+        """
+        game = _create_test_game()
+        mage = game._spawn_unit("M", 5, 5, player=1)
+        sorcerer = game._spawn_unit("S", 6, 6, player=2)
+        mage.paralyze_cooldown = 3
+        sorcerer.haste_cooldown = 2
+        sorcerer.defence_buff_cooldown = 1
+        sorcerer.attack_buff_cooldown = 4
+        units = {(u["type"], u["owner"]): u for u in _serialize_units(game)}
+        assert units[("M", 1)]["paralyzeCooldown"] == 3
+        assert units[("S", 2)]["hasteCooldown"] == 2
+        assert units[("S", 2)]["defenceBuffCooldown"] == 1
+        assert units[("S", 2)]["attackBuffCooldown"] == 4
+
+    def test_serialize_structures_exposes_regenerating(self):
+        """regenerating must be surfaced so replays can explain end-of-turn HP recovery."""
+        game = _create_test_game()
+        # Pick any capturable tile and mark it regenerating.
+        for row in game.grid.tiles:
+            for tile in row:
+                if tile.is_capturable():
+                    tile.regenerating = True
+                    target_pos = (tile.x, tile.y)
+                    break
+            else:
+                continue
+            break
+        structures = {(s["x"], s["y"]): s for s in _serialize_structures(game)}
+        assert structures[target_pos]["regenerating"] is True
+        # Untouched structures default to False (not missing).
+        other = next(s for pos, s in structures.items() if pos != target_pos)
+        assert other["regenerating"] is False
 
     def test_board_serialisation_is_json_serializable(self):
         game = _create_test_game()
@@ -531,6 +576,31 @@ class TestSerialisation:
         game = _create_test_game()
         structures = _serialize_structures(game)
         json.dumps(structures)  # Should not raise
+
+    def test_slice_action_log_converts_tuples_to_lists(self):
+        """action_history stores coord tuples; the replay slice must surface them as JSON-friendly lists."""
+        game = _create_test_game()
+        attacker = game._spawn_unit("W", 5, 5, player=1)
+        attacker.can_attack = True
+        target = game._spawn_unit("W", 6, 5, player=2)
+        target.health = 10
+        start = len(game.action_history)
+        game.attack(attacker, target)
+        log = _slice_action_log(game, start)
+        assert len(log) == 1
+        entry = log[0]
+        # Tuples must be normalised so json.dumps doesn't drop type info.
+        assert isinstance(entry["attacker_pos"], list)
+        assert isinstance(entry["target_pos"], list)
+        assert entry["attacker_pos"] == [5, 5]
+        assert entry["target_pos"] == [6, 5]
+        # And it round-trips through JSON.
+        json.dumps(log)
+
+    def test_slice_action_log_empty_when_no_actions(self):
+        game = _create_test_game()
+        start = len(game.action_history)
+        assert _slice_action_log(game, start) == []
 
 
 # ---------------------------------------------------------------------------
@@ -969,6 +1039,104 @@ class TestInterpreterFlow:
         assert result[1].reward == 0
         assert result[0].status == "INACTIVE"
         assert result[1].status == "ACTIVE"
+
+    def test_failed_actions_filtered_from_replay(self):
+        """Engine-rejected actions must not appear in the replay's action list.
+
+        Without filtering, the visualizer draws highlights for actions that
+        never happened and downstream replay analysis sees phantom moves.
+        """
+        state, env = self._setup_interpreter_game()
+        env.done = False
+
+        state[0].action = [
+            {"type": "invalid_nonsense"},  # unknown -> rejected
+            {"type": "move", "from_x": 99, "from_y": 99, "to_x": 0, "to_y": 0},  # no unit -> rejected
+            {"type": "end_turn"},
+        ]
+        interpreter(state, env)
+
+        # Only end_turn should survive in the recorded action list.
+        assert state[0].action == [{"type": "end_turn"}]
+
+    def test_observation_carries_action_log(self):
+        """The observation should expose the engine's action_history slice for the turn."""
+        state, env = self._setup_interpreter_game()
+        env.done = False
+
+        state[0].action = [{"type": "end_turn"}]
+        interpreter(state, env)
+
+        log = state[0].observation.actionLog
+        assert isinstance(log, list)
+        # end_turn is recorded by GameState.end_turn -- it must show up here.
+        types = [entry["type"] for entry in log]
+        assert "end_turn" in types
+        # Both agents see the same log (shared field).
+        assert state[1].observation.actionLog == log
+
+    def test_action_log_records_combat_outcome(self):
+        """A successful attack must produce an 'attack' entry with outcome fields."""
+        # Hand-build a game we can drive deterministically.
+        from kaggle_environments.envs.reinforce_tactics.reinforce_tactics import (
+            _games as games_dict,
+            _process_turn,
+        )
+
+        state, env = self._setup_interpreter_game()
+        env.done = False
+        key = id(env)
+        game = games_dict[key]
+
+        # Place two adjacent enemies; force-end the prior turn's effects.
+        attacker = game._spawn_unit("W", 5, 5, player=1)
+        attacker.can_attack = True
+        attacker.can_move = True
+        target = game._spawn_unit("W", 6, 5, player=2)
+        target.health = 10
+
+        state[0].action = [
+            {"type": "attack", "from_x": 5, "from_y": 5, "to_x": 6, "to_y": 5},
+            {"type": "end_turn"},
+        ]
+        _process_turn(state, env, game, active_idx=0, key=key)
+
+        log = state[0].observation.actionLog
+        attacks = [e for e in log if e["type"] == "attack"]
+        assert len(attacks) == 1
+        entry = attacks[0]
+        # Self-describing combat outcome that can't be recovered from the raw action.
+        for field in ("damage", "target_killed", "attacker_killed", "counter_damage",
+                      "attacker_hp_after", "target_hp_after", "evade",
+                      "charge_bonus", "flank_bonus"):
+            assert field in entry, f"missing combat outcome field: {field}"
+
+    def test_action_log_does_not_leak_timestamp(self):
+        """Per-entry wall-clock timestamps would bloat the replay -- they must be stripped."""
+        state, env = self._setup_interpreter_game()
+        env.done = False
+        state[0].action = [{"type": "end_turn"}]
+        interpreter(state, env)
+        for entry in state[0].observation.actionLog:
+            assert "timestamp" not in entry
+
+    def test_action_log_only_covers_current_turn(self):
+        """Each step's action_log slice covers only the actions executed during that turn."""
+        state, env = self._setup_interpreter_game()
+        env.done = False
+
+        state[0].action = [{"type": "end_turn"}]
+        interpreter(state, env)
+        first_log = list(state[0].observation.actionLog)
+        assert len(first_log) >= 1  # at least the end_turn record
+
+        state[1].action = [{"type": "end_turn"}]
+        interpreter(state, env)
+        second_log = state[1].observation.actionLog
+        # Second turn's slice must not re-include the first turn's records.
+        assert second_log != first_log
+        # And both turns' records should not appear in the second slice.
+        assert all(entry not in first_log for entry in second_log)
 
     def test_game_state_cleaned_up_on_game_over(self):
         """Module-level _games dict should be cleaned up when the game ends."""

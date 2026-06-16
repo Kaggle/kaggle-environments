@@ -161,13 +161,27 @@ def _process_turn(state, env, game, active_idx, key):
 
     game_player = active_idx + 1  # GameState uses 1-indexed players
 
-    # Execute each action in the agent's action list
-    if not _run_actions(state, game, actions, active_idx, game_player):
+    # Snapshot the engine's action_history length so we can slice out the
+    # entries appended during this turn (agent actions + end_turn) and
+    # surface them in the replay.
+    log_start = len(game.action_history)
+
+    executed = _run_actions(state, game, actions, active_idx, game_player)
+    if executed is None:
         return  # Agent lost due to invalid action
 
     # End the turn (income, healing, status effects, etc.)
     if not game.game_over:
         game.end_turn()
+
+    # Replace the agent's submitted action list with the filtered version so
+    # the replay records only the actions the engine actually applied --
+    # otherwise rejected attacks/seizes/moves show up in the replay's
+    # action[] and the visualizer draws highlights for actions that
+    # never happened.
+    agent.action = executed
+
+    action_log = _slice_action_log(game, log_start)
 
     # Check win condition
     if game.game_over:
@@ -182,7 +196,7 @@ def _process_turn(state, env, game, active_idx, key):
             state[winner_idx].status = "DONE"
             state[1 - winner_idx].reward = -1
             state[1 - winner_idx].status = "DONE"
-        _update_observations(state, game)
+        _update_observations(state, game, action_log)
         _games.pop(key, None)
         return
 
@@ -191,12 +205,12 @@ def _process_turn(state, env, game, active_idx, key):
         for i in range(2):
             state[i].reward = 0
             state[i].status = "DONE"
-        _update_observations(state, game)
+        _update_observations(state, game, action_log)
         _games.pop(key, None)
         return
 
     # Normal continuation: update observations and swap active player
-    _update_observations(state, game)
+    _update_observations(state, game, action_log)
     state[active_idx].status = "INACTIVE"
     state[1 - active_idx].status = "ACTIVE"
 
@@ -212,25 +226,31 @@ def _run_actions(state, game, actions, active_idx, game_player):
     and ``get_legal_actions`` already lets agents avoid illegal moves. Only a
     malformed action (not a dict) is treated as a broken agent and forfeits.
 
-    Returns True normally, or False if the agent forfeited (malformed action),
-    in which case it has already been marked as lost.
+    Returns the list of actions the engine actually applied (preserving the
+    submitted ``end_turn`` if reached) so the caller can write the filtered
+    list back to the replay. Returns ``None`` if the agent forfeited (in
+    which case it has already been marked as lost).
     """
+    executed = []
     for action in actions:
         if not isinstance(action, dict):
             _mark_agent_loss(state, active_idx)
-            return False
+            return None
 
         if action.get("type", "") == "end_turn":
+            executed.append(action)
             break
 
         # Illegal-but-well-formed action: skip it (no-op) and keep going.
         if not _execute_action(game, action, game_player):
             continue
 
+        executed.append(action)
+
         if game.game_over:
             break
 
-    return True
+    return executed
 
 
 def _mark_agent_loss(state, losing_idx):
@@ -535,12 +555,20 @@ def _get_source_target(game, action, player, required_type):
 # ---------------------------------------------------------------------------
 # Observation Serialisation
 # ---------------------------------------------------------------------------
-def _update_observations(state, game):
-    """Serialise the current GameState into each agent's observation."""
+def _update_observations(state, game, action_log=None):
+    """Serialise the current GameState into each agent's observation.
+
+    ``action_log`` is the slice of ``game.action_history`` produced during
+    the turn just processed (engine-side records: damage, kills, evade,
+    bonus flags, tile HP/owner after seize, etc.). It's mirrored to both
+    agents' observations so replays carry the engine's self-describing
+    outcomes instead of only the agent's raw submitted actions.
+    """
     board = _serialize_board(game)
     structures = _serialize_structures(game)
     gold = [game.player_gold.get(1, 0), game.player_gold.get(2, 0)]
     units = _serialize_units(game)
+    log = action_log if action_log is not None else []
 
     for i in range(2):
         obs = state[i].observation
@@ -551,6 +579,7 @@ def _update_observations(state, game):
         obs.turnNumber = game.turn_number
         obs.mapWidth = game.grid.width
         obs.mapHeight = game.grid.height
+        obs.actionLog = log
 
 
 def _serialize_board(game):
@@ -566,7 +595,13 @@ def _serialize_board(game):
 
 
 def _serialize_structures(game):
-    """Convert capturable structures to a list of dicts."""
+    """Convert capturable structures to a list of dicts.
+
+    ``regenerating`` is the engine flag flipped on by
+    ``mechanics.regenerate_structures`` (and on attacker/defender tile
+    after a death) -- without it the replay would see structure HP
+    snap upward at end of turn with no in-band explanation.
+    """
     structures = []
     for row in game.grid.tiles:
         for tile in row:
@@ -579,13 +614,21 @@ def _serialize_structures(game):
                         "owner": tile.player if tile.player else 0,
                         "hp": tile.health if tile.health is not None else 0,
                         "maxHp": tile.max_health if tile.max_health is not None else 0,
+                        "regenerating": bool(getattr(tile, "regenerating", False)),
                     }
                 )
     return structures
 
 
 def _serialize_units(game):
-    """Convert units to a list of dicts."""
+    """Convert units to a list of dicts.
+
+    The four ``*Cooldown`` fields are the per-unit "turns until I can
+    reuse this ability" counters tracked on the engine but not visible
+    in the duration counters (``paralyzedTurns`` etc.) above. Surfacing
+    them lets agents avoid submitting ability actions that
+    ``get_legal_actions`` would already mask out as illegal.
+    """
     units = []
     for unit in game.units:
         units.append(
@@ -603,9 +646,35 @@ def _serialize_units(game):
                 "distanceMoved": unit.distance_moved,
                 "defenceBuffTurns": unit.defence_buff_turns,
                 "attackBuffTurns": unit.attack_buff_turns,
+                "paralyzeCooldown": unit.paralyze_cooldown,
+                "hasteCooldown": unit.haste_cooldown,
+                "defenceBuffCooldown": unit.defence_buff_cooldown,
+                "attackBuffCooldown": unit.attack_buff_cooldown,
             }
         )
     return units
+
+
+def _slice_action_log(game, start_idx):
+    """Return engine action_history entries appended this turn.
+
+    Strips the per-entry wall-clock ``timestamp`` (verbose ISO datetime
+    that bloats the replay JSON and isn't needed to reconstruct game
+    state) and converts coordinate tuples (``position``, ``attacker_pos``,
+    etc.) to lists so the result round-trips cleanly through JSON.
+    """
+    entries = []
+    for entry in game.action_history[start_idx:]:
+        record = {}
+        for key, value in entry.items():
+            if key == "timestamp":
+                continue
+            if isinstance(value, tuple):
+                record[key] = list(value)
+            else:
+                record[key] = value
+        entries.append(record)
+    return entries
 
 
 # ---------------------------------------------------------------------------
