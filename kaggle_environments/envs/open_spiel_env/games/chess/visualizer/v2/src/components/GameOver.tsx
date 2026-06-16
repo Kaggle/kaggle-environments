@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Ribbon } from './Ribbon';
 import useGameStore from '../stores/useGameStore';
 import { trackEvent } from '../utils/analytics';
+import { FORFEIT_REASONS } from '../transformers/forfeit';
 import styles from './GameOver.module.css';
 
 function formatDuration(totalSeconds: number): string {
@@ -86,12 +87,8 @@ export default function GameOver() {
 
   const winnerText = step.winner ? `Winner is ${winnerName}!` : `It's a draw!`;
 
-  const forfeits = new Map<string, string>([
-    ['TIMEOUT', `${loserName} ran out of time.`],
-    ['ERROR', `${loserName} submitted an illegal move.`],
-    ['INVALID', `${loserName} failed to produce valid input.`],
-  ]);
-  const forfeitText = forfeits.get(step.status || '') || null;
+  const forfeitReason = step.status ? FORFEIT_REASONS[step.status] : undefined;
+  const forfeitText = forfeitReason ? `${loserName} ${forfeitReason}.` : null;
 
   const rows: StatRow[] = [
     {
