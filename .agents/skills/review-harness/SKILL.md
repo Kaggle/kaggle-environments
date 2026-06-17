@@ -412,6 +412,20 @@ Structure the writeup as:
 
 **Don't bury the lede.** Lead with the most game-impacting bug, not the first one you found.
 
+### Cite specific replay files for every replay-derived finding
+
+When a replay archive is provided, the human reviewer's first instinct on any claim ("models get confused by line X", "the parser drops the move here", "this rule is misread") is to open a replay and see it for themselves. Make that one click, not a hunt. **Every replay-derived finding must name at least one concrete episode file the reviewer can open**, and where possible point to the exact `step` index and player slot. The bar is "could a reviewer who hasn't read your scan script reproduce the finding by opening the file you cited?".
+
+Concretely:
+- Cite the episode by its real path or basename (e.g. `replays/episode_01234.json` or `1700123456789.json`), not by the index into your scan list. Internal indices mean nothing to the reviewer.
+- Pin the location inside the episode: `steps[12][0]` (step 12, agent 0) for a specific turn, plus the field you read (`action.thoughts`, `action.actionString`, `observation.observationString`).
+- For prompt-comprehension findings ("models repeatedly misread the move-count line"), quote the offending model snippet AND name 2–3 episodes where it appears. One example is anecdote; three is a pattern the reviewer can trust without re-running your scan.
+- For parser findings, name the episode and step whose `thoughts` exhibit the failure mode (multiple JSON blocks, prose-only response, etc.) — these are the files the reviewer will paste into a unit test.
+- For aggregate claims ("fired N times across M episodes"), list a representative handful (3–5) of the episode paths in addition to the totals. Don't dump the full list — a sample is enough to spot-check.
+- If your scan produced a per-finding artifact (CSV of mismatches, list of offending episodes), save it alongside the report and reference its path so the reviewer can drill in without re-running anything.
+
+A finding that says "the parser picked the wrong move on 47 turns" is unactionable; the same finding with "47 turns across 31 episodes, e.g. `episode_00481.json` step 14 agent 1 (`thoughts` shows `e5` chosen, `actionString` is `a1`)" is something the reviewer can verify in 30 seconds.
+
 ## Step 6: Ask before fixing
 
 When the review surfaces real bugs, ask the user whether to fix any/all before writing patches. The review is the deliverable — fixes are a follow-up.
