@@ -53,15 +53,21 @@
       "default": []
     },
     "structures": {
-      "description": "Array of structure dicts with keys: x, y, type, owner, hp, maxHp. Only includes capturable tiles (buildings, towers, HQ).",
+      "description": "Array of structure dicts with keys: x, y, type, owner, hp, maxHp, regenerating. Only includes capturable tiles (buildings, towers, HQ). 'regenerating' is true when a structure was recently damaged/vacated and is healing back at end of turn.",
       "type": "array",
       "shared": true,
       "default": []
     },
     "units": {
-      "description": "Array of unit dicts with keys: type, owner, x, y, hp, maxHp, canMove, canAttack, paralyzedTurns, isHasted, distanceMoved, defenceBuffTurns, attackBuffTurns.",
+      "description": "Array of unit dicts with keys: type, owner, x, y, hp, maxHp, canMove, canAttack, paralyzedTurns, isHasted, distanceMoved, defenceBuffTurns, attackBuffTurns, paralyzeCooldown, hasteCooldown, defenceBuffCooldown, attackBuffCooldown. The *Cooldown fields are 'turns until this unit can reuse the named ability' counters (independent of the *Turns duration counters above, which track how long an effect remains active on the target).",
       "type": "array",
       "shared": false,
+      "default": []
+    },
+    "actionLog": {
+      "description": "Engine-side log of the actions executed during the turn just processed. Each entry mirrors a kaggle action plus self-describing outcome fields the agent's raw action doesn't carry: 'attack' entries include damage, counter_damage, attacker_killed, target_killed, *_hp_after, evade (Rogue RNG outcome), and charge_bonus/flank_bonus/attack_buff/defence_buff flags; 'seize' entries include tile_hp_after and tile_owner_after; 'heal' includes amount and target_hp_after. Entries are appended in execution order and the turn ends with an 'end_turn' entry. Coordinate tuples are surfaced as 2-element arrays.",
+      "type": "array",
+      "shared": true,
       "default": []
     },
     "gold": {
