@@ -44,7 +44,7 @@ body,
 .header .player {
   padding: 4px 12px;
   background-color: white;
-  transition: scale 300ms, background-color 300ms;
+  transition: background-color 300ms;
   white-space: nowrap;
   display: flex;
   align-items: center;
@@ -72,7 +72,6 @@ body,
 
 .header .player.active {
   background-color: #bdeeff;
-  scale: 1.08;
 }
 
 .header .vs {
@@ -120,11 +119,6 @@ body,
 .status-container .annotation {
   font-weight: 400;
   color: #444343;
-}
-
-.header .player .delta {
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
 }
 
 @container (max-width: 680px) {
