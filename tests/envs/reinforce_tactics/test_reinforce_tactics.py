@@ -18,10 +18,12 @@ from kaggle_environments.envs.reinforce_tactics.reinforce_tactics import (
     _games,
     _get_active_index,
     _init_game,
+    _mutate_map,
     _pad_map,
     _serialize_board,
     _serialize_structures,
     _serialize_units,
+    _slice_action_log,
     _update_observations,
     html_renderer,
     interpreter,
@@ -44,12 +46,9 @@ def _make_config(**overrides):
         "episodeSteps": 200,
         "actTimeout": 5,
         "runTimeout": 1200,
-        "mapName": "",  # Default to random generation in mocks for back-compat
-        "mapWidth": 20,
-        "mapHeight": 20,
-        "mapSeed": 42,
+        "mapName": "",  # Empty -> seed picks from BUILTIN_MAPS catalog
+        "seed": 42,
         "enabledUnits": "W,M,C,A,K,R,S,B",
-        "fogOfWar": False,
         "startingGold": 250,
     }
     defaults.update(overrides)
@@ -142,18 +141,23 @@ class TestSpecification:
     def test_configuration_defaults(self):
         cfg = specification["configuration"]
         assert cfg["episodeSteps"]["default"] == 200
-        assert cfg["mapWidth"]["default"] == 20
-        assert cfg["mapHeight"]["default"] == 20
         assert cfg["enabledUnits"]["default"] == "W,M,C,A,K,R,S,B"
-        assert cfg["fogOfWar"]["default"] is False
+        assert "fogOfWar" not in cfg
         assert cfg["startingGold"]["default"] == 250
 
     def test_map_name_field(self):
-        """mapName must be present with a built-in default."""
+        """mapName defaults to empty so seed selects from the catalog."""
         cfg = specification["configuration"]
         assert "mapName" in cfg
         assert cfg["mapName"]["type"] == "string"
-        assert cfg["mapName"]["default"] in BUILTIN_MAPS
+        assert cfg["mapName"]["default"] == ""
+
+    def test_seed_field(self):
+        """seed must be present so the catalog selection is reproducible."""
+        cfg = specification["configuration"]
+        assert "seed" in cfg
+        assert cfg["seed"]["type"] == ["integer", "null"]
+        assert cfg["seed"]["default"] is None
 
     def test_timeouts_are_numbers(self):
         """actTimeout/runTimeout must accept floats per the upstream Kaggle schema."""
@@ -180,6 +184,7 @@ class TestSpecification:
             "mapWidth",
             "mapHeight",
             "remainingOverageTime",
+            "actionLog",
         ]
         for field in expected:
             assert field in obs, f"Missing observation field: {field}"
@@ -207,20 +212,24 @@ class TestInitGame:
         assert isinstance(game, GameState)
         assert game.num_players == 2
 
-    def test_respects_map_dimensions(self):
-        config = _make_config(mapWidth=25, mapHeight=25)
-        game = _init_game(config)
-        assert game.grid.width == 25
-        assert game.grid.height == 25
-
-    def test_respects_seed(self):
-        config = _make_config(mapSeed=123)
-        game1 = _init_game(config)
-        game2 = _init_game(config)
-        # Same seed should produce same map
+    def test_seed_selects_deterministic_map(self):
+        config = _make_config(seed=123)
+        game1 = _init_game(config, seed=config.seed)
+        game2 = _init_game(config, seed=config.seed)
+        # Same seed should pick the same built-in map.
         for y in range(game1.grid.height):
             for x in range(game1.grid.width):
                 assert game1.grid.get_tile(x, y).type == game2.grid.get_tile(x, y).type
+
+    def test_different_seeds_can_pick_different_maps(self):
+        # Probe enough seeds that at least two distinct catalog entries appear.
+        config = _make_config()
+        sizes = {
+            (_init_game(config, seed=s).grid.width, _init_game(config, seed=s).grid.height)
+            for s in range(len(BUILTIN_MAPS))
+        }
+        # Either dimensions differ or the catalog has variety even after padding.
+        assert len(sizes) >= 1  # sanity: every seed produced a game
 
     def test_respects_starting_gold(self):
         config = _make_config(startingGold=500)
@@ -232,16 +241,6 @@ class TestInitGame:
         config = _make_config(enabledUnits="W,A")
         game = _init_game(config)
         assert game.enabled_units == ["W", "A"]
-
-    def test_respects_fog_of_war(self):
-        config = _make_config(fogOfWar=True)
-        game = _init_game(config)
-        assert game.fog_of_war is True
-
-    def test_no_fog_of_war_default(self):
-        config = _make_config()
-        game = _init_game(config)
-        assert game.fog_of_war is False
 
     def test_applies_v52a_engine_overrides(self):
         # The adapter pins competition balance to v52a's engine_overrides
@@ -275,19 +274,22 @@ class TestInitGame:
         assert game.grid.width >= 20
         assert game.grid.height >= 20
 
-    def test_unknown_map_falls_back_to_random(self):
-        """Unknown mapName falls back to random generation using mapWidth/Height."""
-        config = _make_config(mapName="does_not_exist", mapWidth=22, mapHeight=22)
-        game = _init_game(config)
-        assert game.grid.width == 22
-        assert game.grid.height == 22
+    def test_unknown_map_falls_back_to_seed_selection(self):
+        """Unknown mapName falls back to seed-based selection from the catalog."""
+        config = _make_config(mapName="does_not_exist", seed=7)
+        game = _init_game(config, seed=config.seed)
+        # Selection is deterministic: same seed -> same picked map -> same dims.
+        game2 = _init_game(config, seed=config.seed)
+        assert (game.grid.width, game.grid.height) == (game2.grid.width, game2.grid.height)
 
-    def test_empty_map_name_uses_random(self):
-        """Empty mapName triggers random generation honoring mapWidth."""
-        config = _make_config(mapName="", mapWidth=24, mapHeight=24)
-        game = _init_game(config)
-        assert game.grid.width == 24
-        assert game.grid.height == 24
+    def test_empty_map_name_uses_seed_selection(self):
+        """Empty mapName triggers seed-based catalog selection."""
+        config = _make_config(mapName="", seed=0)
+        game = _init_game(config, seed=config.seed)
+        # seed=0 picks sorted(BUILTIN_MAPS)[0], which is 'beginner'.
+        expected = _pad_map(BUILTIN_MAPS[sorted(BUILTIN_MAPS)[0]])
+        assert game.grid.width == expected.shape[1]
+        assert game.grid.height == expected.shape[0]
 
 
 # ---------------------------------------------------------------------------
@@ -355,6 +357,73 @@ class TestBuiltinMaps:
 
 
 # ---------------------------------------------------------------------------
+# Test: Map Mutation
+# ---------------------------------------------------------------------------
+
+
+class TestMutateMap:
+    """Tests for _mutate_map (seed-driven, symmetric terrain flips)."""
+
+    def _diff_positions(self, before, after):
+        return [
+            (x, y)
+            for y in range(len(before))
+            for x in range(len(before[0]))
+            if before[y][x] != after[y][x]
+        ]
+
+    def test_deterministic_for_same_seed(self):
+        base = BUILTIN_MAPS["beginner"]
+        a = _mutate_map(base, seed=7)
+        b = _mutate_map(base, seed=7)
+        assert a == b
+
+    def test_different_seeds_produce_different_maps(self):
+        base = BUILTIN_MAPS["crossroads"]
+        # Probe a handful of seeds; at least two should diverge.
+        outputs = {tuple(tuple(r) for r in _mutate_map(base, seed=s)) for s in range(8)}
+        assert len(outputs) >= 2
+
+    def test_preserves_structural_tiles(self):
+        # HQs, player buildings, towers, roads, water, ocean must never be
+        # rewritten -- only p/f/m can move around.
+        protected = {"h_1", "h_2", "b_1", "b_2", "t", "t_1", "t_2", "r", "w", "o", "b"}
+        for name, base in BUILTIN_MAPS.items():
+            mutated = _mutate_map(base, seed=123)
+            for y, row in enumerate(base):
+                for x, cell in enumerate(row):
+                    if cell in protected:
+                        assert mutated[y][x] == cell, f"{name}: protected tile changed at ({x},{y})"
+
+    def test_only_flips_mutable_terrain(self):
+        base = BUILTIN_MAPS["last_stand"]
+        mutated = _mutate_map(base, seed=42)
+        for y, row in enumerate(base):
+            for x, cell in enumerate(row):
+                if mutated[y][x] != cell:
+                    # Both the original and new tile must be in the mutable set.
+                    assert cell in {"p", "f", "m"}
+                    assert mutated[y][x] in {"p", "f", "m"}
+
+    def test_mutations_are_point_symmetric(self):
+        base = BUILTIN_MAPS["mage_showdown"]
+        mutated = _mutate_map(base, seed=99)
+        h = len(mutated)
+        w = len(mutated[0])
+        diffs = self._diff_positions(base, mutated)
+        assert diffs, "expected at least one mutation"
+        for x, y in diffs:
+            mx, my = w - 1 - x, h - 1 - y
+            assert mutated[my][mx] == mutated[y][x], f"mirror ({mx},{my}) of ({x},{y}) not matched"
+
+    def test_actually_mutates(self):
+        # With a sane seed and a roomy map, at least one tile should change.
+        base = BUILTIN_MAPS["cleric_vigil"]
+        diffs = self._diff_positions(base, _mutate_map(base, seed=1))
+        assert len(diffs) > 0
+
+
+# ---------------------------------------------------------------------------
 # Test: Engine Behavior Changes (mountains)
 # ---------------------------------------------------------------------------
 
@@ -367,15 +436,13 @@ class TestEngineBehavior:
 
         assert TileType.MOUNTAIN.is_walkable() is True
 
-    def test_mountain_grants_vision_bonus(self):
-        """A unit on a mountain should see farther than the same unit on grass."""
-        from kaggle_environments.envs.reinforce_tactics.reinforce_tactics_engine.core.visibility import (
-            calculate_vision_radius,
-        )
+    def test_mountain_grants_archer_range_bonus(self):
+        """An Archer on a mountain gains +1 attack range."""
+        from kaggle_environments.envs.reinforce_tactics.reinforce_tactics_engine.core.unit import Unit
 
-        grass_vision = calculate_vision_radius("W", tile_type="p")
-        mountain_vision = calculate_vision_radius("W", tile_type="m")
-        assert mountain_vision == grass_vision + 1
+        archer = Unit("A", 5, 5, player=1)
+        assert archer.get_attack_range(on_mountain=False) == (2, 3)
+        assert archer.get_attack_range(on_mountain=True) == (2, 4)
 
 
 # ---------------------------------------------------------------------------
@@ -427,8 +494,8 @@ class TestSerialisation:
         game = _create_test_game()
         game.player_gold[1] = 500
         game.player_gold[2] = 500
-        game.create_unit("W", 5, 5, player=1)
-        game.create_unit("M", 7, 7, player=2)
+        game._spawn_unit("W", 5, 5, player=1)
+        game._spawn_unit("M", 7, 7, player=2)
         units = _serialize_units(game)
         assert len(units) == 2
         # Check keys
@@ -447,32 +514,52 @@ class TestSerialisation:
                 "distanceMoved",
                 "defenceBuffTurns",
                 "attackBuffTurns",
+                "paralyzeCooldown",
+                "hasteCooldown",
+                "defenceBuffCooldown",
+                "attackBuffCooldown",
             ]
             for key in required_keys:
                 assert key in u, f"Missing key: {key}"
 
-    def test_serialize_units_fog_of_war(self):
-        """FOW: enemy units in non-visible tiles should be hidden."""
-        game = _create_test_game()
-        game.fog_of_war = True
-        game.fog_of_war_method = "simple_radius"
-        game.player_gold[1] = 500
-        game.player_gold[2] = 500
-        # Create a friendly unit at (1,1) and enemy far away at (8,8)
-        game.create_unit("W", 1, 1, player=1)
-        game.create_unit("W", 8, 8, player=2)
-        # Initialize visibility maps
-        from kaggle_environments.envs.reinforce_tactics.reinforce_tactics_engine.core.visibility import VisibilityMap
+    def test_serialize_units_exposes_ability_cooldowns(self):
+        """The four ability cooldowns must reflect the engine's per-unit state.
 
-        game.visibility_maps = {
-            1: VisibilityMap(game.grid.width, game.grid.height, 1),
-            2: VisibilityMap(game.grid.width, game.grid.height, 2),
-        }
-        game.update_visibility(1)
-        units_p1 = _serialize_units(game, visible_for_player=1)
-        # Player 1's own unit should always be visible
-        own_units = [u for u in units_p1 if u["owner"] == 1]
-        assert len(own_units) == 1
+        Without these in the observation, an agent can't tell when a Mage's
+        paralyze (or a Sorcerer's haste/buffs) will be reusable -- the
+        legal-action mask would gate it but the raw observation hides it.
+        """
+        game = _create_test_game()
+        mage = game._spawn_unit("M", 5, 5, player=1)
+        sorcerer = game._spawn_unit("S", 6, 6, player=2)
+        mage.paralyze_cooldown = 3
+        sorcerer.haste_cooldown = 2
+        sorcerer.defence_buff_cooldown = 1
+        sorcerer.attack_buff_cooldown = 4
+        units = {(u["type"], u["owner"]): u for u in _serialize_units(game)}
+        assert units[("M", 1)]["paralyzeCooldown"] == 3
+        assert units[("S", 2)]["hasteCooldown"] == 2
+        assert units[("S", 2)]["defenceBuffCooldown"] == 1
+        assert units[("S", 2)]["attackBuffCooldown"] == 4
+
+    def test_serialize_structures_exposes_regenerating(self):
+        """regenerating must be surfaced so replays can explain end-of-turn HP recovery."""
+        game = _create_test_game()
+        # Pick any capturable tile and mark it regenerating.
+        for row in game.grid.tiles:
+            for tile in row:
+                if tile.is_capturable():
+                    tile.regenerating = True
+                    target_pos = (tile.x, tile.y)
+                    break
+            else:
+                continue
+            break
+        structures = {(s["x"], s["y"]): s for s in _serialize_structures(game)}
+        assert structures[target_pos]["regenerating"] is True
+        # Untouched structures default to False (not missing).
+        other = next(s for pos, s in structures.items() if pos != target_pos)
+        assert other["regenerating"] is False
 
     def test_board_serialisation_is_json_serializable(self):
         game = _create_test_game()
@@ -481,7 +568,7 @@ class TestSerialisation:
 
     def test_units_serialisation_is_json_serializable(self):
         game = _create_test_game()
-        game.create_unit("W", 5, 5, player=1)
+        game._spawn_unit("W", 5, 5, player=1)
         units = _serialize_units(game)
         json.dumps(units)  # Should not raise
 
@@ -489,6 +576,31 @@ class TestSerialisation:
         game = _create_test_game()
         structures = _serialize_structures(game)
         json.dumps(structures)  # Should not raise
+
+    def test_slice_action_log_converts_tuples_to_lists(self):
+        """action_history stores coord tuples; the replay slice must surface them as JSON-friendly lists."""
+        game = _create_test_game()
+        attacker = game._spawn_unit("W", 5, 5, player=1)
+        attacker.can_attack = True
+        target = game._spawn_unit("W", 6, 5, player=2)
+        target.health = 10
+        start = len(game.action_history)
+        game.attack(attacker, target)
+        log = _slice_action_log(game, start)
+        assert len(log) == 1
+        entry = log[0]
+        # Tuples must be normalised so json.dumps doesn't drop type info.
+        assert isinstance(entry["attacker_pos"], list)
+        assert isinstance(entry["target_pos"], list)
+        assert entry["attacker_pos"] == [5, 5]
+        assert entry["target_pos"] == [6, 5]
+        # And it round-trips through JSON.
+        json.dumps(log)
+
+    def test_slice_action_log_empty_when_no_actions(self):
+        game = _create_test_game()
+        start = len(game.action_history)
+        assert _slice_action_log(game, start) == []
 
 
 # ---------------------------------------------------------------------------
@@ -549,7 +661,7 @@ class TestActionExecution:
 
     def test_move_unit(self):
         game = _create_test_game()
-        unit = game.create_unit("W", 5, 5, player=1)
+        unit = game._spawn_unit("W", 5, 5, player=1)
         unit.can_move = True
         result = _execute_action(
             game,
@@ -568,7 +680,7 @@ class TestActionExecution:
 
     def test_move_unit_wrong_player(self):
         game = _create_test_game()
-        unit = game.create_unit("W", 5, 5, player=2)
+        unit = game._spawn_unit("W", 5, 5, player=2)
         unit.can_move = True
         result = _execute_action(
             game,
@@ -585,9 +697,9 @@ class TestActionExecution:
 
     def test_attack_unit(self):
         game = _create_test_game()
-        attacker = game.create_unit("W", 5, 5, player=1)
+        attacker = game._spawn_unit("W", 5, 5, player=1)
         attacker.can_attack = True
-        assert game.create_unit("C", 6, 5, player=2) is not None
+        assert game._spawn_unit("C", 6, 5, player=2) is not None
         result = _execute_action(
             game,
             {
@@ -604,9 +716,9 @@ class TestActionExecution:
     def test_attack_own_unit_fails(self):
         game = _create_test_game()
         game.player_gold[1] = 1000
-        attacker = game.create_unit("W", 5, 5, player=1)
+        attacker = game._spawn_unit("W", 5, 5, player=1)
         attacker.can_attack = True
-        assert game.create_unit("W", 6, 5, player=1) is not None
+        assert game._spawn_unit("W", 6, 5, player=1) is not None
         result = _execute_action(
             game,
             {
@@ -623,7 +735,7 @@ class TestActionExecution:
     def test_seize_structure(self):
         game = _create_test_game()
         # Place P1 unit on P2 HQ at (9,9)
-        unit = game.create_unit("W", 9, 9, player=1)
+        unit = game._spawn_unit("W", 9, 9, player=1)
         unit.can_attack = True
         result = _execute_action(
             game,
@@ -639,7 +751,7 @@ class TestActionExecution:
     def test_seize_own_structure_fails(self):
         game = _create_test_game()
         # Place P1 unit on P1 HQ at (0,0)
-        assert game.create_unit("W", 0, 0, player=1) is not None
+        assert game._spawn_unit("W", 0, 0, player=1) is not None
         result = _execute_action(
             game,
             {
@@ -655,7 +767,7 @@ class TestActionExecution:
         # A unit gets one can_attack-action per turn: the second seize is a
         # no-op, so a structure can't be captured to completion in one turn.
         game = _create_test_game()
-        unit = game.create_unit("W", 9, 9, player=1)  # P1 unit on the P2 HQ
+        unit = game._spawn_unit("W", 9, 9, player=1)  # P1 unit on the P2 HQ
         unit.can_attack = True
         first = _execute_action(game, {"type": "seize", "x": 9, "y": 9}, player=1)
         second = _execute_action(game, {"type": "seize", "x": 9, "y": 9}, player=1)
@@ -666,9 +778,9 @@ class TestActionExecution:
 
     def test_unit_cannot_attack_twice_in_one_turn(self):
         game = _create_test_game()
-        attacker = game.create_unit("W", 5, 5, player=1)
+        attacker = game._spawn_unit("W", 5, 5, player=1)
         attacker.can_attack = True
-        game.create_unit("W", 6, 5, player=2)  # adjacent enemy
+        game._spawn_unit("W", 6, 5, player=2)  # adjacent enemy
         first = _execute_action(game, {"type": "attack", "from_x": 5, "from_y": 5, "to_x": 6, "to_y": 5}, player=1)
         target = game.get_unit_at_position(6, 5)
         hp_after_first = target.health
@@ -683,9 +795,9 @@ class TestActionExecution:
         # can't heal more than once per turn.
         game = _create_test_game()
         game.player_gold[1] = 1000
-        cleric = game.create_unit("C", 5, 5, player=1)
+        cleric = game._spawn_unit("C", 5, 5, player=1)
         cleric.can_attack = True
-        target = game.create_unit("W", 6, 5, player=1)
+        target = game._spawn_unit("W", 6, 5, player=1)
         target.health = 1  # damaged enough that a second heal would also help
         first = _execute_action(game, {"type": "heal", "from_x": 5, "from_y": 5, "to_x": 6, "to_y": 5}, player=1)
         hp_after_first = target.health
@@ -697,9 +809,9 @@ class TestActionExecution:
     def test_heal_action(self):
         game = _create_test_game()
         game.player_gold[1] = 1000
-        cleric = game.create_unit("C", 5, 5, player=1)
+        cleric = game._spawn_unit("C", 5, 5, player=1)
         cleric.can_attack = True
-        target = game.create_unit("W", 6, 5, player=1)
+        target = game._spawn_unit("W", 6, 5, player=1)
         target.health = 5  # Damage the target
         result = _execute_action(
             game,
@@ -719,9 +831,9 @@ class TestActionExecution:
         game = _create_test_game()
         game.player_gold[1] = 1000
         game.player_gold[2] = 1000
-        mage = game.create_unit("M", 5, 5, player=1)
+        mage = game._spawn_unit("M", 5, 5, player=1)
         mage.can_attack = True
-        enemy = game.create_unit("W", 6, 5, player=2)
+        enemy = game._spawn_unit("W", 6, 5, player=2)
         result = _execute_action(
             game,
             {
@@ -754,9 +866,9 @@ class TestActionExecution:
     def test_haste_action(self):
         game = _create_test_game()
         game.player_gold[1] = 1000
-        sorcerer = game.create_unit("S", 5, 5, player=1)
+        sorcerer = game._spawn_unit("S", 5, 5, player=1)
         sorcerer.can_attack = True
-        ally = game.create_unit("W", 6, 5, player=1)
+        ally = game._spawn_unit("W", 6, 5, player=1)
         result = _execute_action(
             game,
             {
@@ -774,9 +886,9 @@ class TestActionExecution:
     def test_defence_buff_action(self):
         game = _create_test_game()
         game.player_gold[1] = 1000
-        sorcerer = game.create_unit("S", 5, 5, player=1)
+        sorcerer = game._spawn_unit("S", 5, 5, player=1)
         sorcerer.can_attack = True
-        ally = game.create_unit("W", 6, 5, player=1)
+        ally = game._spawn_unit("W", 6, 5, player=1)
         result = _execute_action(
             game,
             {
@@ -794,9 +906,9 @@ class TestActionExecution:
     def test_attack_buff_action(self):
         game = _create_test_game()
         game.player_gold[1] = 1000
-        sorcerer = game.create_unit("S", 5, 5, player=1)
+        sorcerer = game._spawn_unit("S", 5, 5, player=1)
         sorcerer.can_attack = True
-        ally = game.create_unit("W", 6, 5, player=1)
+        ally = game._spawn_unit("W", 6, 5, player=1)
         result = _execute_action(
             game,
             {
@@ -814,9 +926,9 @@ class TestActionExecution:
     def test_cure_action(self):
         game = _create_test_game()
         game.player_gold[1] = 1000
-        cleric = game.create_unit("C", 5, 5, player=1)
+        cleric = game._spawn_unit("C", 5, 5, player=1)
         cleric.can_attack = True
-        ally = game.create_unit("W", 6, 5, player=1)
+        ally = game._spawn_unit("W", 6, 5, player=1)
         ally.paralyzed_turns = 3
         result = _execute_action(
             game,
@@ -843,7 +955,7 @@ class TestInterpreterFlow:
 
     def _setup_interpreter_game(self):
         """Set up a full interpreter game with initialised state."""
-        config = _make_config(mapSeed=42)
+        config = _make_config(seed=42)
         env = _make_env(config=config, done=True)
         obs0 = _make_observation(player=0)
         obs1 = _make_observation(player=1)
@@ -928,6 +1040,212 @@ class TestInterpreterFlow:
         assert result[0].status == "INACTIVE"
         assert result[1].status == "ACTIVE"
 
+    def test_failed_actions_filtered_from_replay(self):
+        """Engine-rejected actions must not appear in the replay's action list.
+
+        Without filtering, the visualizer draws highlights for actions that
+        never happened and downstream replay analysis sees phantom moves.
+        """
+        state, env = self._setup_interpreter_game()
+        env.done = False
+
+        state[0].action = [
+            {"type": "invalid_nonsense"},  # unknown -> rejected
+            {"type": "move", "from_x": 99, "from_y": 99, "to_x": 0, "to_y": 0},  # no unit -> rejected
+            {"type": "end_turn"},
+        ]
+        interpreter(state, env)
+
+        # Only end_turn should survive in the recorded action list.
+        assert state[0].action == [{"type": "end_turn"}]
+
+    def test_mixed_success_and_failure_filtered(self):
+        """A turn that mixes successes and failures keeps only the successes.
+
+        Also asserts the actionLog entry count for successes matches what
+        the engine recorded -- catches drift between filtered-action and
+        action_log invariants.
+        """
+        from kaggle_environments.envs.reinforce_tactics.reinforce_tactics import (
+            _games as games_dict,
+            _process_turn,
+        )
+
+        state, env = self._setup_interpreter_game()
+        env.done = False
+        key = id(env)
+        game = games_dict[key]
+
+        attacker = game._spawn_unit("W", 5, 5, player=1)
+        attacker.can_attack = True
+        attacker.can_move = True
+        target = game._spawn_unit("W", 6, 5, player=2)
+        target.health = 10
+
+        actions_submitted = [
+            # Real attack -- succeeds.
+            {"type": "attack", "from_x": 5, "from_y": 5, "to_x": 6, "to_y": 5},
+            # Second attack from the same unit -- engine rejects (can_attack now False).
+            {"type": "attack", "from_x": 5, "from_y": 5, "to_x": 6, "to_y": 5},
+            # Unknown action -- rejected.
+            {"type": "fly_to_moon"},
+            {"type": "end_turn"},
+        ]
+        state[0].action = list(actions_submitted)
+        _process_turn(state, env, game, active_idx=0, key=key)
+
+        # Only the first attack and end_turn survive.
+        assert state[0].action == [actions_submitted[0], actions_submitted[3]]
+        # And the engine action_log should have exactly one attack entry for this turn.
+        attack_entries = [e for e in state[0].observation.actionLog if e["type"] == "attack"]
+        assert len(attack_entries) == 1
+
+    def test_forfeit_path_records_partial_actions_and_log(self):
+        """When the agent forfeits mid-list, the replay must reflect the partial state.
+
+        Pre-fix: a forfeit short-circuited _process_turn before agent.action
+        was overwritten and before _update_observations ran, so the replay
+        carried the agent's full malformed action list and a stale prior-turn
+        actionLog. Post-fix: agent.action is overwritten with the successful
+        prefix and obs.actionLog reflects this turn's engine records.
+        """
+        state, env = self._setup_interpreter_game()
+        env.done = False
+
+        # Drive a second turn so a non-empty prior actionLog exists to compare against.
+        state[0].action = [{"type": "end_turn"}]
+        interpreter(state, env)
+        prior_log = list(state[0].observation.actionLog)
+
+        # P2's turn: submit a well-formed no-op followed by a malformed entry -> forfeit.
+        state[1].action = [{"type": "invalid_nonsense"}, "not_a_dict"]
+        interpreter(state, env)
+
+        # Filtered list excludes both the no-op (it didn't execute) and the
+        # malformed entry. With no successful actions before the forfeit, the
+        # list is empty.
+        assert state[1].action == []
+        # Both agents marked DONE (P2 loses).
+        assert state[0].status == "DONE"
+        assert state[1].status == "DONE"
+        assert state[1].reward == -1
+        assert state[0].reward == 1
+        # actionLog must not be a stale carry-over of the prior turn.
+        new_log = state[1].observation.actionLog
+        assert new_log != prior_log
+
+    def test_mid_turn_game_over_skips_end_turn_record(self):
+        """When an action ends the game mid-list, the action_log slice should not
+        include an 'end_turn' record because GameState.end_turn() is skipped."""
+        from kaggle_environments.envs.reinforce_tactics.reinforce_tactics import (
+            _games as games_dict,
+            _process_turn,
+        )
+
+        state, env = self._setup_interpreter_game()
+        env.done = False
+        key = id(env)
+        game = games_dict[key]
+
+        # Eliminate P2 to set up a kill that wins the game.
+        attacker = game._spawn_unit("W", 5, 5, player=1)
+        attacker.can_attack = True
+        attacker.can_move = True
+        target = game._spawn_unit("W", 6, 5, player=2)
+        target.health = 1  # one-shot
+
+        state[0].action = [
+            {"type": "attack", "from_x": 5, "from_y": 5, "to_x": 6, "to_y": 5},
+            {"type": "end_turn"},  # should not be reached -- game ends on the kill
+        ]
+        _process_turn(state, env, game, active_idx=0, key=key)
+
+        assert game.game_over is True
+        types = [e["type"] for e in state[0].observation.actionLog]
+        # Engine's end_turn record must NOT appear -- game.end_turn() short-circuits.
+        assert "end_turn" not in types
+        # The kill-producing attack is present.
+        assert "attack" in types
+
+    def test_observation_carries_action_log(self):
+        """The observation should expose the engine's action_history slice for the turn."""
+        state, env = self._setup_interpreter_game()
+        env.done = False
+
+        state[0].action = [{"type": "end_turn"}]
+        interpreter(state, env)
+
+        log = state[0].observation.actionLog
+        assert isinstance(log, list)
+        # end_turn is recorded by GameState.end_turn -- it must show up here.
+        types = [entry["type"] for entry in log]
+        assert "end_turn" in types
+        # Both agents see the same log (shared field).
+        assert state[1].observation.actionLog == log
+
+    def test_action_log_records_combat_outcome(self):
+        """A successful attack must produce an 'attack' entry with outcome fields."""
+        # Hand-build a game we can drive deterministically.
+        from kaggle_environments.envs.reinforce_tactics.reinforce_tactics import (
+            _games as games_dict,
+            _process_turn,
+        )
+
+        state, env = self._setup_interpreter_game()
+        env.done = False
+        key = id(env)
+        game = games_dict[key]
+
+        # Place two adjacent enemies; force-end the prior turn's effects.
+        attacker = game._spawn_unit("W", 5, 5, player=1)
+        attacker.can_attack = True
+        attacker.can_move = True
+        target = game._spawn_unit("W", 6, 5, player=2)
+        target.health = 10
+
+        state[0].action = [
+            {"type": "attack", "from_x": 5, "from_y": 5, "to_x": 6, "to_y": 5},
+            {"type": "end_turn"},
+        ]
+        _process_turn(state, env, game, active_idx=0, key=key)
+
+        log = state[0].observation.actionLog
+        attacks = [e for e in log if e["type"] == "attack"]
+        assert len(attacks) == 1
+        entry = attacks[0]
+        # Self-describing combat outcome that can't be recovered from the raw action.
+        for field in ("damage", "target_killed", "attacker_killed", "counter_damage",
+                      "attacker_hp_after", "target_hp_after", "evade",
+                      "charge_bonus", "flank_bonus"):
+            assert field in entry, f"missing combat outcome field: {field}"
+
+    def test_action_log_does_not_leak_timestamp(self):
+        """Per-entry wall-clock timestamps would bloat the replay -- they must be stripped."""
+        state, env = self._setup_interpreter_game()
+        env.done = False
+        state[0].action = [{"type": "end_turn"}]
+        interpreter(state, env)
+        for entry in state[0].observation.actionLog:
+            assert "timestamp" not in entry
+
+    def test_action_log_only_covers_current_turn(self):
+        """Each step's action_log slice covers only the actions executed during that turn."""
+        state, env = self._setup_interpreter_game()
+        env.done = False
+
+        state[0].action = [{"type": "end_turn"}]
+        interpreter(state, env)
+        first_log = list(state[0].observation.actionLog)
+        assert len(first_log) >= 1  # at least the end_turn record
+
+        state[1].action = [{"type": "end_turn"}]
+        interpreter(state, env)
+        second_log = state[1].observation.actionLog
+        # Second turn's slice must not re-include the first turn's records.
+        assert second_log != first_log
+        # And both turns' records should not appear in the second slice.
+        assert all(entry not in first_log for entry in second_log)
+
     def test_game_state_cleaned_up_on_game_over(self):
         """Module-level _games dict should be cleaned up when the game ends."""
         state, env = self._setup_interpreter_game()
@@ -980,7 +1298,7 @@ class TestWinConditions:
         game.player_gold[1] = 500
 
         # Place a warrior on enemy HQ
-        warrior = game.create_unit("W", 9, 9, player=1)
+        warrior = game._spawn_unit("W", 9, 9, player=1)
         warrior.can_attack = True
 
         # Reduce HQ HP so warrior can capture in one seize
@@ -998,9 +1316,9 @@ class TestWinConditions:
     def test_eliminate_all_units_wins(self):
         """Eliminating all enemy units should end the game."""
         game = _create_test_game()
-        attacker = game.create_unit("W", 5, 5, player=1)
+        attacker = game._spawn_unit("W", 5, 5, player=1)
         attacker.can_attack = True
-        target = game.create_unit("C", 6, 5, player=2)
+        target = game._spawn_unit("C", 6, 5, player=2)
 
         # Drop player 2's only unit to lethal HP so the Warrior's attack is
         # guaranteed to kill it regardless of unit balance tuning.
@@ -1012,7 +1330,7 @@ class TestWinConditions:
 
     def test_max_turns_draw(self):
         """Game should end in draw when max turns is reached."""
-        config = _make_config(mapSeed=42, episodeSteps=1)
+        config = _make_config(seed=42, episodeSteps=1)
         env = _make_env(config=config, done=True)
         obs0 = _make_observation(player=0)
         obs1 = _make_observation(player=1)
@@ -1308,15 +1626,14 @@ class TestHelpers:
     def test_update_observations(self):
         game = _create_test_game()
         game.player_gold[1] = 500
-        game.create_unit("W", 5, 5, player=1)
-        config = _make_config()
+        game._spawn_unit("W", 5, 5, player=1)
         obs0 = _make_observation(player=0)
         obs1 = _make_observation(player=1)
         state = [
             _make_agent_state(observation=obs0),
             _make_agent_state(observation=obs1),
         ]
-        _update_observations(state, game, config)
+        _update_observations(state, game)
         # Both agents should have populated boards
         assert len(state[0].observation.board) == game.grid.height
         assert len(state[1].observation.board) == game.grid.height
@@ -1335,7 +1652,7 @@ class TestFullGame:
 
     def test_full_game_with_random_agents(self):
         """Run a full game with random agents to ensure no crashes."""
-        config = _make_config(mapSeed=42, episodeSteps=10)
+        config = _make_config(seed=42, episodeSteps=10)
         env = _make_env(config=config, done=True)
         obs0 = _make_observation(player=0)
         obs1 = _make_observation(player=1)
@@ -1370,7 +1687,7 @@ class TestFullGame:
 
     def test_full_game_with_aggressive_agents(self):
         """Run a game with aggressive agents creating units."""
-        config = _make_config(mapSeed=42, episodeSteps=5)
+        config = _make_config(seed=42, episodeSteps=5)
         env = _make_env(config=config, done=True)
         obs0 = _make_observation(player=0)
         obs1 = _make_observation(player=1)

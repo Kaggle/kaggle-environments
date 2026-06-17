@@ -8,6 +8,7 @@ import { BaseGameStep, InterestingEvent, ReplayData, ReplayMode } from '../types
 import { EpisodePlayer, GameRendererProps, UiMode } from '../components/EpisodePlayer';
 import { theme, lightTheme } from '../theme';
 import { processEpisodeData } from '../transformers/transformers';
+import { applyAgentNamesToReplay } from '../utils/utils';
 
 /** Transformer function type for processing replay data */
 export type ReplayTransformer<TSteps = BaseGameStep[]> = (replay: ReplayData, gameName: string) => ReplayData<TSteps>;
@@ -452,10 +453,14 @@ export class ReplayAdapter<TSteps extends BaseGameStep[] = BaseGameStep[]> imple
   render(_step: number, replay: ReplayData<TSteps>, agents: any[]): void {
     this.currentAgents = agents;
 
+    // Override info.TeamNames with host-supplied agents[].name before transforming so
+    // any transformer / renderer that reads info.TeamNames picks up the canonical label.
+    const reconciled = applyAgentNamesToReplay(replay, agents);
+
     // Only re-transform if replay changed
-    if (replay !== this.rawReplay) {
-      this.rawReplay = replay;
-      this.transformedReplay = this.transformReplay(replay);
+    if (reconciled !== this.rawReplay) {
+      this.rawReplay = reconciled;
+      this.transformedReplay = this.transformReplay(reconciled);
     }
 
     // EpisodePlayer manages step internally via usePlaybackState,

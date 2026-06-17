@@ -19,7 +19,6 @@ from kaggle_environments.core_harness import (
     BASIC_RETHINK_ILLEGAL,
     BASIC_RETHINK_UNPARSABLE,
     ParseResult,
-    create_agent_fn,
 )
 
 # ---------------------------------------------------------------------------
@@ -291,24 +290,3 @@ def parse_response(
         return ParseResult(legal_action=matched, raw_action=raw)
 
     return ParseResult(legal_action=None, raw_action=raw)
-
-
-# ---------------------------------------------------------------------------
-# Adapter + agent factory
-# ---------------------------------------------------------------------------
-
-
-class _ChessHarness:
-    """Adapts module-level harness functions to the ``GameHarness`` protocol."""
-
-    def get_legal_moves(self, observation):
-        return get_legal_moves(observation)
-
-    def make_prompt(self, observation, move_history, previous_response=None, previous_action=None):
-        return generate_prompt(observation, move_history, previous_response, previous_action)
-
-    def parse_response(self, response, legal_action_strings):
-        return parse_response(response, legal_action_strings)
-
-
-agent_fn = create_agent_fn(_ChessHarness())

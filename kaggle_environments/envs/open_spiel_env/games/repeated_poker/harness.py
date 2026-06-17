@@ -14,7 +14,7 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult, create_agent_fn
+from kaggle_environments.core_harness import ParseResult
 from kaggle_environments.envs.open_spiel_env.games.repeated_poker import (
     hand_history_utils as hh_utils,
 )
@@ -441,41 +441,3 @@ def parse_response(
     return parse_response_with_state(response, legal_action_strings, state)
 
 
-# ---------------------------------------------------------------------------
-# Adapter + agent factory
-# ---------------------------------------------------------------------------
-
-
-class _PokerHarness:
-    """Adapts module-level harness functions to the GameHarness protocol.
-
-    Stores the most recent observation so ``parse_response`` can reach the
-    pyspiel state it needs to compute bet-size offsets.
-    """
-
-    def __init__(self) -> None:
-        self._observation: Mapping[str, Any] | None = None
-
-    def get_legal_moves(self, observation):
-        self._observation = observation
-        return get_legal_moves(observation)
-
-    def make_prompt(
-        self,
-        observation,
-        move_history,
-        previous_response=None,
-        previous_action=None,
-    ):
-        self._observation = observation
-        return generate_prompt(observation, move_history, previous_response, previous_action)
-
-    def parse_response(self, response, legal_action_strings):
-        return parse_response(
-            response,
-            legal_action_strings,
-            observation=self._observation,
-        )
-
-
-agent_fn = create_agent_fn(_PokerHarness())

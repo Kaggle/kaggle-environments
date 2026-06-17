@@ -14,6 +14,7 @@ Required exports for kaggle-environments:
 
 import json
 import logging
+import random
 from os import path
 
 import numpy as np
@@ -118,12 +119,36 @@ def interpreter(state, env):
 
 def _interpreter_init(state, env, key):
     """Handle the first interpreter call (game initialisation)."""
-    game = _init_game(env.configuration)
+    seed = _resolve_seed(env)
+    game = _init_game(env.configuration, seed)
     _games[key] = game
-    _update_observations(state, game, env.configuration)
+    _update_observations(state, game)
     state[0].status = "ACTIVE"
     state[1].status = "INACTIVE"
     return state
+
+
+def _resolve_seed(env):
+    """Resolve the episode seed from env.info / configuration, then scrub.
+
+    Mirrors crawl/kaggriculture/orbit_wars: read env.info["seed"] first (the
+    harness may have set it), then configuration.seed, then fall back to a
+    random value. Clear configuration.seed so agents can't read it, and stash
+    the resolved value on env.info["seed"] so it persists into the replay.
+    """
+    if not hasattr(env, "info") or env.info is None:
+        env.info = {}
+    seed = env.info.get("seed")
+    if seed is None:
+        seed = getattr(env.configuration, "seed", None)
+    if seed is None:
+        seed = random.randrange(2**31)
+    try:
+        env.configuration.seed = None
+    except (AttributeError, TypeError):
+        env.configuration["seed"] = None
+    env.info["seed"] = seed
+    return seed
 
 
 def _process_turn(state, env, game, active_idx, key):
@@ -136,13 +161,36 @@ def _process_turn(state, env, game, active_idx, key):
 
     game_player = active_idx + 1  # GameState uses 1-indexed players
 
-    # Execute each action in the agent's action list
-    if not _run_actions(state, game, actions, active_idx, game_player):
-        return  # Agent lost due to invalid action
+    # Snapshot the engine's action_history length so we can slice out the
+    # entries appended during this turn (agent actions + end_turn) and
+    # surface them in the replay.
+    log_start = len(game.action_history)
+
+    executed = _run_actions(state, game, actions, active_idx, game_player)
+
+    # Replace the agent's submitted action list with the filtered version so
+    # the replay records only the actions the engine actually applied --
+    # otherwise rejected attacks/seizes/moves show up in the replay's
+    # action[] and the visualizer draws highlights for actions that
+    # never happened.
+    agent.action = executed
+
+    # Forfeit short-circuit: ``_run_actions`` already marked both agents
+    # DONE via ``_mark_agent_loss``. Still surface this turn's
+    # action_log slice (which captures any actions executed before the
+    # malformed entry, plus is empty when the malformed action came first)
+    # so the replay's final-step observation isn't a stale carry-over
+    # from the prior turn.
+    if state[active_idx].status == "DONE":
+        _update_observations(state, game, _slice_action_log(game, log_start))
+        _games.pop(key, None)
+        return
 
     # End the turn (income, healing, status effects, etc.)
     if not game.game_over:
         game.end_turn()
+
+    action_log = _slice_action_log(game, log_start)
 
     # Check win condition
     if game.game_over:
@@ -157,7 +205,7 @@ def _process_turn(state, env, game, active_idx, key):
             state[winner_idx].status = "DONE"
             state[1 - winner_idx].reward = -1
             state[1 - winner_idx].status = "DONE"
-        _update_observations(state, game, env.configuration)
+        _update_observations(state, game, action_log)
         _games.pop(key, None)
         return
 
@@ -166,12 +214,12 @@ def _process_turn(state, env, game, active_idx, key):
         for i in range(2):
             state[i].reward = 0
             state[i].status = "DONE"
-        _update_observations(state, game, env.configuration)
+        _update_observations(state, game, action_log)
         _games.pop(key, None)
         return
 
     # Normal continuation: update observations and swap active player
-    _update_observations(state, game, env.configuration)
+    _update_observations(state, game, action_log)
     state[active_idx].status = "INACTIVE"
     state[1 - active_idx].status = "ACTIVE"
 
@@ -187,25 +235,34 @@ def _run_actions(state, game, actions, active_idx, game_player):
     and ``get_legal_actions`` already lets agents avoid illegal moves. Only a
     malformed action (not a dict) is treated as a broken agent and forfeits.
 
-    Returns True normally, or False if the agent forfeited (malformed action),
-    in which case it has already been marked as lost.
+    Always returns the list of actions the engine actually applied (up to
+    and including the offending entry's predecessors on forfeit). The
+    forfeit flag is signalled out-of-band via ``state[active_idx].status``,
+    which ``_mark_agent_loss`` sets to ``"DONE"`` before returning -- so
+    the caller can still overwrite ``agent.action`` with the partial
+    executed list and surface this turn's ``action_log`` slice instead of
+    leaving the prior turn's observation stale.
     """
+    executed = []
     for action in actions:
         if not isinstance(action, dict):
             _mark_agent_loss(state, active_idx)
-            return False
+            return executed
 
         if action.get("type", "") == "end_turn":
+            executed.append(action)
             break
 
         # Illegal-but-well-formed action: skip it (no-op) and keep going.
         if not _execute_action(game, action, game_player):
             continue
 
+        executed.append(action)
+
         if game.game_over:
             break
 
-    return True
+    return executed
 
 
 def _mark_agent_loss(state, losing_idx):
@@ -252,102 +309,86 @@ def _pad_map(map_rows, min_size=20):
 
 
 # ---------------------------------------------------------------------------
-# Map Generation (inlined to avoid pygame dependency from utils package)
-# ---------------------------------------------------------------------------
-def _generate_map(width, height, num_players=2):
-    """
-    Generate a random map as a pandas DataFrame.
-
-    This mirrors ``FileIO.generate_random_map`` but is self-contained so the
-    kaggle adapter does not need to import the ``reinforcetactics.utils``
-    package (which transitively pulls in pygame via ReplayPlayer).
-    """
-    import pandas as pd
-
-    width = max(width, 20)
-    height = max(height, 20)
-
-    map_data = np.full((height, width), "o", dtype=object)
-
-    num_tiles = width * height
-
-    # Forests (10%)
-    for _ in range(num_tiles // 10):
-        x, y = np.random.randint(0, width), np.random.randint(0, height)
-        map_data[y, x] = "f"
-
-    # Mountains (5%)
-    for _ in range(num_tiles // 20):
-        x, y = np.random.randint(0, width), np.random.randint(0, height)
-        map_data[y, x] = "m"
-
-    # Water (3%)
-    for _ in range(num_tiles // 33):
-        x, y = np.random.randint(0, width), np.random.randint(0, height)
-        map_data[y, x] = "w"
-
-    # Player headquarters and buildings
-    if num_players >= 1:
-        map_data[1, 1] = "h_1"
-        map_data[1, 2] = "b_1"
-        map_data[2, 1] = "b_1"
-
-    if num_players >= 2:
-        map_data[height - 2, width - 2] = "h_2"
-        map_data[height - 2, width - 3] = "b_2"
-        map_data[height - 3, width - 2] = "b_2"
-
-    if num_players >= 3:
-        map_data[1, width - 2] = "h_3"
-        map_data[1, width - 3] = "b_3"
-        map_data[2, width - 2] = "b_3"
-
-    if num_players >= 4:
-        map_data[height - 2, 1] = "h_4"
-        map_data[height - 2, 2] = "b_4"
-        map_data[height - 3, 1] = "b_4"
-
-    # Neutral towers in centre
-    cx, cy = width // 2, height // 2
-    for dx, dy in [(0, 0), (3, 0), (0, 3), (3, 3)]:
-        x, y = cx + dx - 2, cy + dy - 2
-        if 0 <= x < width and 0 <= y < height:
-            if map_data[y, x] == "p":
-                map_data[y, x] = "t"
-
-    return pd.DataFrame(map_data)
-
-
-# ---------------------------------------------------------------------------
 # Game Initialisation
 # ---------------------------------------------------------------------------
-def _init_game(config):
-    """Create a new GameState from the Kaggle configuration."""
+def _select_map_by_seed(seed):
+    """Pick a built-in map name. None picks randomly; otherwise deterministic."""
+    names = sorted(BUILTIN_MAPS)
+    if seed is None:
+        return names[np.random.randint(0, len(names))]
+    return names[int(seed) % len(names)]
+
+
+# Tiles that can be flipped between by _mutate_map. Everything else
+# (HQs, player buildings, towers, roads, water, ocean) is structural and
+# left alone so balance and connectivity are preserved.
+_MUTABLE_TERRAIN = ("p", "f", "m")
+_MUTATIONS_PER_MAP = 4
+
+
+def _mutate_map(map_rows, seed, num_mutations=_MUTATIONS_PER_MAP):
+    """Apply small symmetric tile flips to a built-in map for variety.
+
+    Each mutation picks a non-structural tile (plain/forest/mountain), changes
+    it to a different terrain in the same set, and applies the same change at
+    the point-symmetric position so the two starting sides stay balanced.
+    """
+    rng = random.Random(seed)
+    rows = [list(r) for r in map_rows]
+    height = len(rows)
+    width = len(rows[0]) if height else 0
+
+    candidates = [
+        (x, y)
+        for y in range(height)
+        for x in range(width)
+        if rows[y][x] in _MUTABLE_TERRAIN
+    ]
+    if not candidates:
+        return rows
+
+    applied = 0
+    attempts = 0
+    while applied < num_mutations and attempts < num_mutations * 10:
+        attempts += 1
+        x, y = rng.choice(candidates)
+        mx, my = width - 1 - x, height - 1 - y
+        # Skip the centre tile of odd-dimensioned maps (no distinct mirror) and
+        # any cell whose mirror is structural (so we don't asymmetrically flip).
+        if (x, y) == (mx, my) or rows[my][mx] not in _MUTABLE_TERRAIN:
+            continue
+        choices = [t for t in _MUTABLE_TERRAIN if t != rows[y][x]]
+        new_tile = rng.choice(choices)
+        rows[y][x] = new_tile
+        rows[my][mx] = new_tile
+        applied += 1
+
+    return rows
+
+
+def _init_game(config, seed=None):
+    """Create a new GameState from the Kaggle configuration.
+
+    If ``mapName`` is set and matches a built-in, that map is used. Otherwise
+    ``seed`` deterministically selects a map from BUILTIN_MAPS (sorted by name).
+    The chosen map then gets small seed-driven, point-symmetric terrain flips
+    so no two episodes play on an identical layout.
+    """
     map_name = getattr(config, "mapName", "")
 
-    if map_name and map_name in BUILTIN_MAPS:
-        # Use a built-in map (padded to minimum 20x20)
-        map_data = _pad_map(BUILTIN_MAPS[map_name])
-    else:
-        # Random generation
-        width = config.mapWidth
-        height = config.mapHeight
-        seed = config.mapSeed
+    if not map_name or map_name not in BUILTIN_MAPS:
+        map_name = _select_map_by_seed(seed)
 
-        if seed >= 0:
-            np.random.seed(seed)
-
-        map_data = _generate_map(width, height, num_players=2)
+    map_rows = _mutate_map(BUILTIN_MAPS[map_name], seed)
+    map_data = _pad_map(map_rows)
 
     enabled_units = [u.strip() for u in config.enabledUnits.split(",") if u.strip()]
-    fog_of_war = bool(config.fogOfWar)
 
     game = GameState(
         map_data,
         num_players=2,
         max_turns=config.episodeSteps,
         enabled_units=enabled_units,
-        fog_of_war=fog_of_war,
         engine_overrides=ENGINE_OVERRIDES,
     )
 
@@ -526,31 +567,31 @@ def _get_source_target(game, action, player, required_type):
 # ---------------------------------------------------------------------------
 # Observation Serialisation
 # ---------------------------------------------------------------------------
-def _update_observations(state, game, config):
-    """Serialise the current GameState into each agent's observation."""
+def _update_observations(state, game, action_log=None):
+    """Serialise the current GameState into each agent's observation.
+
+    ``action_log`` is the slice of ``game.action_history`` produced during
+    the turn just processed (engine-side records: damage, kills, evade,
+    bonus flags, tile HP/owner after seize, etc.). It's mirrored to both
+    agents' observations so replays carry the engine's self-describing
+    outcomes instead of only the agent's raw submitted actions.
+    """
     board = _serialize_board(game)
     structures = _serialize_structures(game)
     gold = [game.player_gold.get(1, 0), game.player_gold.get(2, 0)]
-
-    fog_of_war = bool(config.fogOfWar)
+    units = _serialize_units(game)
+    log = action_log if action_log is not None else []
 
     for i in range(2):
         obs = state[i].observation
         obs.board = board
         obs.structures = structures
         obs.gold = gold
+        obs.units = units
         obs.turnNumber = game.turn_number
         obs.mapWidth = game.grid.width
         obs.mapHeight = game.grid.height
-
-        player = i + 1  # 1-indexed game player
-
-        if fog_of_war:
-            # Update visibility and filter units per player
-            game.update_visibility(player)
-            obs.units = _serialize_units(game, visible_for_player=player)
-        else:
-            obs.units = _serialize_units(game)
+        obs.actionLog = log
 
 
 def _serialize_board(game):
@@ -566,7 +607,13 @@ def _serialize_board(game):
 
 
 def _serialize_structures(game):
-    """Convert capturable structures to a list of dicts."""
+    """Convert capturable structures to a list of dicts.
+
+    ``regenerating`` is the engine flag flipped on by
+    ``mechanics.regenerate_structures`` (and on attacker/defender tile
+    after a death) -- without it the replay would see structure HP
+    snap upward at end of turn with no in-band explanation.
+    """
     structures = []
     for row in game.grid.tiles:
         for tile in row:
@@ -579,26 +626,23 @@ def _serialize_structures(game):
                         "owner": tile.player if tile.player else 0,
                         "hp": tile.health if tile.health is not None else 0,
                         "maxHp": tile.max_health if tile.max_health is not None else 0,
+                        "regenerating": bool(getattr(tile, "regenerating", False)),
                     }
                 )
     return structures
 
 
-def _serialize_units(game, visible_for_player=None):
-    """
-    Convert units to a list of dicts.
+def _serialize_units(game):
+    """Convert units to a list of dicts.
 
-    If ``visible_for_player`` is set and fog-of-war is enabled, only units
-    visible to that player (own units + units in visible tiles) are included.
+    The four ``*Cooldown`` fields are the per-unit "turns until I can
+    reuse this ability" counters tracked on the engine but not visible
+    in the duration counters (``paralyzedTurns`` etc.) above. Surfacing
+    them lets agents avoid submitting ability actions that
+    ``get_legal_actions`` would already mask out as illegal.
     """
     units = []
     for unit in game.units:
-        # Fog of war filtering
-        if visible_for_player is not None:
-            if unit.player != visible_for_player:
-                if not game.is_position_visible(unit.x, unit.y, visible_for_player):
-                    continue
-
         units.append(
             {
                 "type": unit.type,
@@ -614,9 +658,46 @@ def _serialize_units(game, visible_for_player=None):
                 "distanceMoved": unit.distance_moved,
                 "defenceBuffTurns": unit.defence_buff_turns,
                 "attackBuffTurns": unit.attack_buff_turns,
+                "paralyzeCooldown": unit.paralyze_cooldown,
+                "hasteCooldown": unit.haste_cooldown,
+                "defenceBuffCooldown": unit.defence_buff_cooldown,
+                "attackBuffCooldown": unit.attack_buff_cooldown,
             }
         )
     return units
+
+
+def _slice_action_log(game, start_idx):
+    """Return engine action_history entries appended this turn.
+
+    Strips the per-entry wall-clock ``timestamp`` (verbose ISO datetime
+    that bloats the replay JSON and isn't needed to reconstruct game
+    state) and recursively converts any tuples (today: coordinate pairs
+    like ``position``/``attacker_pos``; future-proof against nested
+    structures like paths or value-lists) to lists so the result
+    round-trips cleanly through JSON without relying on stdlib json's
+    tuple-as-array coercion.
+    """
+    entries = []
+    for entry in game.action_history[start_idx:]:
+        record = {}
+        for key, value in entry.items():
+            if key == "timestamp":
+                continue
+            record[key] = _normalize_for_json(value)
+        entries.append(record)
+    return entries
+
+
+def _normalize_for_json(value):
+    """Recursively convert tuples to lists. Other types pass through."""
+    if isinstance(value, tuple):
+        return [_normalize_for_json(v) for v in value]
+    if isinstance(value, list):
+        return [_normalize_for_json(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _normalize_for_json(v) for k, v in value.items()}
+    return value
 
 
 # ---------------------------------------------------------------------------

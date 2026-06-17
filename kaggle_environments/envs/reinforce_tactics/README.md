@@ -37,8 +37,8 @@ Gold is spent to recruit units at buildings or the headquarters.
 | Tile     | Code | Effect |
 |----------|------|--------|
 | Grass    | `p`  | Normal movement |
-| Forest   | `f`  | +30% evasion for Rogues, blocks ranged line of sight |
-| Mountain | `m`  | Walkable; units gain +1 vision when standing on it |
+| Forest   | `f`  | +30% evasion for Rogues |
+| Mountain | `m`  | Walkable; Archers gain +1 attack range when standing on it |
 | Water    | `w`  | Impassable |
 | Road     | `r`  | Normal movement |
 | Building | `b`  | Capturable; provides income and unit recruitment |
@@ -83,11 +83,6 @@ Units can move and act once per turn (unless hasted).
 - **Eliminate all enemy units** - Destroy every unit the opponent has on the board
 - **Draw** - If neither condition is met within the turn limit (default 200)
 
-### Fog of War (Optional)
-
-When enabled, each player can only see tiles within their units' vision range.
-Enemy units outside visible tiles are hidden from the observation.
-
 ## Actions Reference
 
 Each turn, an agent returns a list of action dicts:
@@ -111,17 +106,20 @@ Each turn, an agent returns a list of action dicts:
 | Parameter      | Default            | Description |
 |----------------|--------------------|-------------|
 | `episodeSteps` | 200                | Max turns before draw |
-| `mapName`      | `"beginner"`       | Built-in map name (see below), or empty for random generation |
-| `mapWidth`     | 20                 | Map width (10-40) &mdash; only used when `mapName` is empty |
-| `mapHeight`    | 20                 | Map height (10-40) &mdash; only used when `mapName` is empty |
-| `mapSeed`      | -1 (random)        | Seed for map generation &mdash; only used when `mapName` is empty |
+| `mapName`      | `""` (seed picks)  | Built-in map name (see below). When empty, `seed` deterministically picks one from the catalog. |
+| `seed`         | `null` (random)    | Episode seed. Selects a built-in map (when `mapName` is empty) and drives a few symmetric terrain flips so layouts vary across episodes. Scrubbed from `configuration` after init and stored on `env.info["seed"]` so agents can't read it but the replay can. |
 | `enabledUnits` | `W,M,C,A,K,R,S,B` | Which unit types are available |
-| `fogOfWar`     | false              | Enable fog of war |
 | `startingGold` | 250                | Starting gold per player |
 
 ### Map Selection
 
-You can play on a **built-in map** or a **randomly generated** one.
+Every episode plays on a **built-in map**. Either name one explicitly via
+`mapName`, or leave `mapName` empty and let `seed` pick one for you
+(`seed % N` over the catalog sorted alphabetically). Whichever map is chosen,
+`seed` then applies a small number of point-symmetric terrain flips
+(plain/forest/mountain only — structural tiles like HQs, buildings, towers,
+roads, and water are preserved) so two episodes on the same map are not
+byte-identical.
 
 #### Built-in maps
 
@@ -157,26 +155,12 @@ All two-player (1v1) maps from the main repository are vendored here.
 ```python
 # Play on the "beginner" built-in map
 env = make("reinforce_tactics", configuration={"mapName": "beginner"})
-```
 
-#### Random generation
+# Let the seed pick a map and apply symmetric mutations (reproducible)
+env = make("reinforce_tactics", configuration={"seed": 42})
 
-When `mapName` is set to an empty string, a random map is generated using
-`mapWidth`, `mapHeight`, and `mapSeed`. The random generator places terrain
-features (forests ~10%, mountains ~5%, water ~3%), two headquarters with
-adjacent buildings, and four neutral towers near the centre.
-
-```python
-# Random map with a fixed seed for reproducibility
-env = make("reinforce_tactics", configuration={
-    "mapName": "",
-    "mapWidth": 20,
-    "mapHeight": 20,
-    "mapSeed": 42,
-})
-
-# Fully random map (different each run)
-env = make("reinforce_tactics", configuration={"mapName": ""})
+# Pin the map name but vary the mutations across episodes
+env = make("reinforce_tactics", configuration={"mapName": "crossroads", "seed": 7})
 ```
 
 #### Map format reference
@@ -195,8 +179,8 @@ from kaggle_environments import make
 # Create the environment with a built-in map
 env = make("reinforce_tactics", configuration={"mapName": "beginner"})
 
-# -- or with random generation --
-# env = make("reinforce_tactics", configuration={"mapSeed": 42})
+# -- or let the seed pick a map for you --
+# env = make("reinforce_tactics", configuration={"seed": 42})
 
 # Run with built-in agents
 result = env.run(["random", "aggressive"])
@@ -220,14 +204,14 @@ def my_agent(observation, configuration):
     my_buildings = [s for s in structures if s["owner"] == player and s["type"] == "b"]
     occupied = {(u["x"], u["y"]) for u in units}
     for bldg in my_buildings:
-        if gold >= 200 and (bldg["x"], bldg["y"]) not in occupied:
+        if gold >= 300 and (bldg["x"], bldg["y"]) not in occupied:
             actions.append({
                 "type": "create_unit",
                 "unit_type": "W",
                 "x": bldg["x"],
                 "y": bldg["y"],
             })
-            gold -= 200
+            gold -= 300
 
     # Move, attack, seize, etc.
     # ...
@@ -235,6 +219,20 @@ def my_agent(observation, configuration):
     actions.append({"type": "end_turn"})
     return actions
 ```
+
+## Visualizer Art
+
+The web visualizer (`visualizer/default/`) bundles two sprite sets and a
+status-bar button to switch between them:
+
+- **Game art** (default): pixel art from the main Reinforce Tactics
+  repository — terrain tiles, capturable structures, and the first idle
+  frame of each unit's animation sheet. Units and structures are
+  team-coloured with the same palette swap the game uses: the art's base
+  blue palette is kept for Player 2 (blue), swapped to red for Player 1,
+  and swapped to gray for neutral structures.
+- **Classic art**: the original placeholder art this environment shipped
+  with, where ownership is shown with coloured discs and tile tints.
 
 ## File Structure
 
@@ -244,11 +242,14 @@ reinforce_tactics/
     reinforce_tactics.py         # Interpreter, renderer, built-in agents
     reinforce_tactics_engine/    # Vendored game engine (self-contained)
         constants.py             # Game constants and unit data
-        core/                    # Tile, Unit, Grid, Visibility, GameState
+        core/                    # Tile, Unit, Grid, GameState
         game/                    # Combat and ability mechanics
     agents/
         random_agent.py          # Minimal baseline (ends turn immediately)
         simple_bot_agent.py      # Strategic bot (recruits, attacks, seizes)
+    visualizer/default/          # Web visualizer (Vite + TypeScript)
+        src/assets/sprites/      # Original placeholder art
+        src/assets/sprites/game/ # Pixel art from the main repository
 ```
 
 The game engine is vendored as a self-contained sub-package with relative

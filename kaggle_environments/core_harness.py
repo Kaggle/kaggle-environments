@@ -391,6 +391,8 @@ class GameHarness(Protocol):
         self,
         response: str,
         legal_action_strings: Sequence[str] | None,
+        *,
+        observation: Mapping[str, Any],
     ) -> ParseResult:
         """Extract a move from the LLM response.
 
@@ -399,6 +401,13 @@ class GameHarness(Protocol):
         ``legal_action_strings``.  For free-form actions
         (``legal_action_strings is None``), set ``submission`` on the
         result instead.
+
+        ``observation`` is the current turn's observation dict — always
+        passed by ``core_harness``. Most parsers can match the model's
+        output against ``legal_action_strings`` alone and may ignore it;
+        parsers that genuinely need the env state at parse time (e.g.
+        repeated_poker's bet-size soft-matching) forward it to the
+        module-level helper that does the work.
         """
         ...
 
@@ -726,7 +735,9 @@ def create_agent_fn(
                     "model": model_name,
                     **call_details,
                 })
-                result = game_harness.parse_response(content, legal_action_strings)
+                result = game_harness.parse_response(
+                    content, legal_action_strings, observation=observation,
+                )
                 last_exception = None
             except Exception as exc:
                 last_exception = exc

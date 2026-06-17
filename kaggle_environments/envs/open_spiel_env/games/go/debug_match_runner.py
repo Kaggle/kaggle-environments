@@ -31,7 +31,7 @@ class _GoHarness:
     def make_prompt(self, observation, move_history, previous_response=None, previous_action=None):
         return harness.generate_prompt(observation, move_history, previous_response, previous_action)
 
-    def parse_response(self, response, legal_action_strings):
+    def parse_response(self, response, legal_action_strings, *, observation=None):
         return harness.parse_response(response, legal_action_strings)
 
 

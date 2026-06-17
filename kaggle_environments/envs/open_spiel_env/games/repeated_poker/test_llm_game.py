@@ -18,6 +18,26 @@ from kaggle_environments.envs.open_spiel_env import open_spiel_env
 from kaggle_environments.envs.open_spiel_env.games.repeated_poker import harness
 
 
+class _PokerHarness:
+    """Local GameHarness adapter for the debug runner."""
+
+    def get_legal_moves(self, observation):
+        return harness.get_legal_moves(observation)
+
+    def make_prompt(
+        self, observation, move_history,
+        previous_response=None, previous_action=None,
+    ):
+        return harness.generate_prompt(
+            observation, move_history, previous_response, previous_action,
+        )
+
+    def parse_response(self, response, legal_action_strings, *, observation=None):
+        return harness.parse_response(
+            response, legal_action_strings, observation=observation,
+        )
+
+
 def _wrap_litellm_with_logging() -> None:
     """Replace litellm.completion with a version that prints I/O."""
     original = litellm.completion
@@ -69,7 +89,7 @@ def main() -> None:
     env.reset()
     _wrap_litellm_with_logging()
 
-    agent_fn = create_agent_fn(harness._PokerHarness())
+    agent_fn = create_agent_fn(_PokerHarness())
 
     move_count = 0
     while not env.done:
