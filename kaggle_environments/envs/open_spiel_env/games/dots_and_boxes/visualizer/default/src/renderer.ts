@@ -209,23 +209,14 @@ export function renderer(options: RendererOptions<DotsAndBoxesStep[]>) {
   const isTerminal = obs.is_terminal;
   const activeIdx = isTerminal ? -1 : obs.current_player === '1' ? 0 : obs.current_player === '2' ? 1 : -1;
 
-  const prevObs = step > 0 ? (steps[step - 1]?.boardState ?? null) : null;
-  const delta: [number, number] = [
-    prevObs ? obs.scores[0] - prevObs.scores[0] : 0,
-    prevObs ? obs.scores[1] - prevObs.scores[1] : 0,
-  ];
-
   const renderPlayerCard = (i: 0 | 1) => {
     const cls = i === 0 ? 'p0' : 'p1';
     const color = i === 0 ? P1_COLOR : P2_COLOR;
     const score = obs.scores[i];
-    const d = delta[i];
-    const deltaHtml = d > 0 ? `<span class="delta" style="color: ${color};">+${d}</span>` : '';
     return `
       <span class="player ${cls} sketched-border ${activeIdx === i ? 'active' : ''}" style="color: ${color};">
         <span class="glyph"></span>${playerNames[i]}
         <span class="score">${score}</span>
-        ${deltaHtml}
       </span>
     `;
   };
