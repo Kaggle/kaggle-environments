@@ -6,7 +6,8 @@
   "agents": [2],
   "configuration": {
     "episodeSteps": 10000,
-    "actTimeout": 1
+    "actTimeout": 0,
+    "runTimeout": 2000
   },
   "reward": {
     "description": "Lost:-1, Won:1, Draw:0",
@@ -14,7 +15,7 @@
     "default": 0
   },
   "observation": {
-    "remainingOverageTime": 60
+    "remainingOverageTime": 600
   },
   "action": {
     "description": "List of option index.",
