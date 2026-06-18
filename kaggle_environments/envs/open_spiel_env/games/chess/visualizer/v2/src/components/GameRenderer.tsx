@@ -13,7 +13,11 @@ export default memo(function GameRenderer(options: GameRendererProps<ChessStep[]
 
     for (const step of options.replay.steps) {
       if (step.step > options.step) break;
-      const move = step.players.find((p) => p.isTurn)?.actionDisplayText;
+      const player = step.players.find((p) => p.isTurn);
+      // Forfeit "turns" have a non-legal actionDisplayText — skip them so
+      // chess.js doesn't reject the move and crash the renderer.
+      if (!player || player.forfeited) continue;
+      const move = player.actionDisplayText;
       if (move) game.move(move);
     }
 
