@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
 import { createReplayVisualizer, ReplayAdapter } from '@kaggle-environments/core';
 import { transformer } from './transformers/transformer';
+import { getChessStepDescription } from './transformers/chessTransformer';
+import { ChessStep } from './transformers/chessReplayTypes';
 import { getStepRenderTime } from './utils/getStepRenderTime';
 import { getStepLabel } from './utils/getStepLabel';
 import GameRenderer from './components/GameRenderer';
@@ -17,6 +19,7 @@ export default function App() {
       transformer,
       getStepRenderTime,
       getStepLabel,
+      getStepDescription: (step) => getChessStepDescription(step as ChessStep),
     });
     createReplayVisualizer(element, adapter);
   }, []);

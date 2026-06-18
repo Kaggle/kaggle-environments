@@ -2,6 +2,7 @@ import { ReplayMode, BaseGameStep, defaultGetStepRenderTime } from '@kaggle-envi
 import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences';
 import { detectHeroType } from './heroTypes';
+import { getPlayedMove } from './getPlayedMove';
 
 export function getStepRenderTime(step: BaseGameStep, replayMode: ReplayMode, speedModifier: number) {
   const time = defaultGetStepRenderTime(step, replayMode, speedModifier);
@@ -13,7 +14,7 @@ export function getStepRenderTime(step: BaseGameStep, replayMode: ReplayMode, sp
 
   // The step time calculation races the game render, so can't rely on game
   // render to have played the latest move before we work out the hero type
-  const move = step?.players.find((p) => p.isTurn)?.actionDisplayText;
+  const move = getPlayedMove(step);
   const previousMove = game.history({ verbose: true }).at(-1)?.san;
   if (move && move !== previousMove) game.move(move);
 

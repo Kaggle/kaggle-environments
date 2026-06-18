@@ -1,11 +1,15 @@
 import { BaseGameStep } from '@kaggle-environments/core';
-import { ChessStep } from '../transformers/chessReplayTypes';
+import { ChessPlayer, ChessStep } from '../transformers/chessReplayTypes';
 import { FORFEIT_REASONS } from '../transformers/forfeit';
 
 export function getStepLabel(step: BaseGameStep) {
-  const player = step.players.find((p) => p.isTurn);
+  const player = step.players.find((p) => p.isTurn) as ChessPlayer | undefined;
 
   if (player) {
+    if (player.forfeited) {
+      const attempted = player.forfeitLastAttempt;
+      return attempted ? `Forfeited (last attempt: ${attempted})` : 'Forfeited';
+    }
     const move = player.actionDisplayText ?? '';
     return `Plays ${move}`;
   }
