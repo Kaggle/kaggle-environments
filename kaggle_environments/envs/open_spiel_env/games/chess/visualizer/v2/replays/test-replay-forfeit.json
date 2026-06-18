@@ -24,12 +24,12 @@
   "id": "e827b9b8-64cb-11f1-80a5-0242ac130204",
   "info": {
     "Agents": [
-      { "Name": "Will Cukierski", "ThumbnailUrl": null },
-      { "Name": "Bovard Doerschuk-Tiberi", "ThumbnailUrl": null }
+      { "Name": "Gemini 3.1 Pro Preview-1", "ThumbnailUrl": null },
+      { "Name": "Claude Opus 4.8", "ThumbnailUrl": null }
     ],
     "EpisodeId": 79409112,
     "LiveVideoPath": null,
-    "TeamNames": ["Will Cukierski", "Bovard Doerschuk-Tiberi"],
+    "TeamNames": ["Gemini 3.1 Pro Preview-1", "Claude Opus 4.8"],
     "actionHistory": [
       "2426",
       "2426",

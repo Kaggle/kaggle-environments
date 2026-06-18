@@ -3,7 +3,16 @@ import { useShallow } from 'zustand/react/shallow';
 import { createGame, type Game } from '../graphics/game';
 import useGameStore from '../stores/useGameStore';
 import usePreferences, { type PreferencesState } from '../stores/usePreferences';
+import type { ChessStep } from '../transformers/chessReplayTypes';
 import styles from './GameBoard.module.css';
+
+function isBoardUnchanged(step: ChessStep | undefined): boolean {
+  if (!step) return false;
+  // Terminal step and forfeit step both leave board state matching the prior
+  // step — no move animation should play when scrubbing onto them.
+  if (step.isTerminal) return true;
+  return step.players.some((p) => p.forfeited);
+}
 
 const selectPrefs = (s: PreferencesState): PreferencesState => ({
   showHeroAnimations: s.showHeroAnimations,
@@ -18,7 +27,9 @@ export default memo(function GameBoard() {
   const gameRef = useRef<Game | null>(null);
   const chess = useGameStore((state) => state.game);
   const step = useGameStore((state) => state.options.step);
-  const isTerminal = useGameStore((state) => state.options.replay.steps.at(state.options.step)?.isTerminal ?? false);
+  const boardUnchanged = useGameStore((state) =>
+    isBoardUnchanged(state.options.replay.steps.at(state.options.step) as ChessStep | undefined)
+  );
   const prefs = usePreferences(useShallow(selectPrefs));
 
   useEffect(() => {
@@ -37,8 +48,8 @@ export default memo(function GameBoard() {
         }
         gameRef.current = game;
         const state = useGameStore.getState();
-        const terminal = state.options.replay.steps.at(state.options.step)?.isTerminal ?? false;
-        game.update(state.game, state.options.step, selectPrefs(usePreferences.getState()), terminal);
+        const unchanged = isBoardUnchanged(state.options.replay.steps.at(state.options.step) as ChessStep | undefined);
+        game.update(state.game, state.options.step, selectPrefs(usePreferences.getState()), unchanged);
       });
     });
 
@@ -51,8 +62,8 @@ export default memo(function GameBoard() {
   }, []);
 
   useEffect(() => {
-    gameRef.current?.update(chess, step, prefs, isTerminal);
-  }, [chess, step, prefs, isTerminal]);
+    gameRef.current?.update(chess, step, prefs, boardUnchanged);
+  }, [chess, step, prefs, boardUnchanged]);
 
   return (
     <div id="board" className={styles.board}>

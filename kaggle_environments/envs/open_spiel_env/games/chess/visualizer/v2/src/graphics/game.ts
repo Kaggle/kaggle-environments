@@ -10,19 +10,20 @@ import type { PreferencesState } from '../stores/usePreferences';
 import usePreloader from '../stores/usePreloader';
 
 export interface Game {
-  update: (chess: Chess, step: number, prefs: PreferencesState, isTerminal: boolean) => void;
+  update: (chess: Chess, step: number, prefs: PreferencesState, boardUnchanged: boolean) => void;
   destroy: () => void;
 }
 
-function detectSnap(eng: Engine, step: number, reducedMotion: boolean, isTerminal: boolean, now: number): boolean {
+function detectSnap(eng: Engine, step: number, reducedMotion: boolean, boardUnchanged: boolean, now: number): boolean {
   const isFirstUpdate = eng.lastUpdateTime === 0;
   const timeSinceLastUpdate = now - eng.lastUpdateTime;
   // Re-runs at the same step (e.g. preference toggles) shouldn't replay the move animation.
   const isAdvancing = step > eng.lastStep;
   const scrubbingForward = !isFirstUpdate && timeSinceLastUpdate < SCRUB_THRESHOLD_MS;
-  // The terminal step doesn't add a new move — board state matches the prior step.
-  // Snapping avoids replaying the last move's animation when the game-over modal opens.
-  return reducedMotion || !isAdvancing || scrubbingForward || isTerminal;
+  // Steps that don't add a new move (terminal step, forfeit step) leave the
+  // board state matching the prior step. Snap so we don't replay the last
+  // move's animation as the step advances over them.
+  return reducedMotion || !isAdvancing || scrubbingForward || boardUnchanged;
 }
 
 export async function createGame(canvas: HTMLCanvasElement): Promise<Game> {
@@ -41,13 +42,13 @@ export async function createGame(canvas: HTMLCanvasElement): Promise<Game> {
   usePreloader.getState().setPixiReady();
 
   return {
-    update(chess: Chess, step: number, prefs: PreferencesState, isTerminal: boolean) {
+    update(chess: Chess, step: number, prefs: PreferencesState, boardUnchanged: boolean) {
       // Stop all in-flight animations before rebuilding sprites.
       for (const anim of eng.animations) anim.stop();
       eng.animations.clear();
 
       const now = performance.now();
-      const snap = detectSnap(eng, step, prefs.reducedMotion, isTerminal, now);
+      const snap = detectSnap(eng, step, prefs.reducedMotion, boardUnchanged, now);
       eng.lastUpdateTime = now;
       eng.lastStep = step;
 

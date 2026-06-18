@@ -87,10 +87,10 @@ function renderAttemptsMarkdown(player: ChessPlayer): string {
 
   if (player.forfeited) {
     const lastMove = player.forfeitLastAttempt ? ` \`${player.forfeitLastAttempt}\`` : '';
-    lines.push(`> ⚠️ **Forfeited after ${total} attempt${total === 1 ? '' : 's'}.** Last attempt:${lastMove}`);
+    lines.push(`⚠️ **Forfeited after ${total} attempt${total === 1 ? '' : 's'}.** Last attempt:${lastMove}`);
     lines.push('');
   } else {
-    lines.push(`> 🔁 **Took ${total} attempts** to find a legal move.`);
+    lines.push(`🔁 **Took ${total} attempts** to find a legal move.`);
     lines.push('');
   }
 
