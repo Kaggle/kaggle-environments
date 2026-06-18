@@ -128,9 +128,14 @@ export const chessTransformer = (environment: any): ChessStep[] => {
         thumbnail: '',
         // A turn requires submission to be a real action id. -1 means the player
         // didn't act this step (inactive or forfeited). null/undefined shows up
-        // in init steps, we don't need those rendered.
-        isTurn: typeof submission === 'number' && submission !== -1,
-        actionDisplayText: player.action?.actionString ?? '',
+        // in init steps, we don't need those rendered. Treat forfeits as a
+        // "turn" too so the step is preserved and the failed attempts surface
+        // in the reasoning panel — the player did act, they just failed every
+        // attempt.
+        isTurn: (typeof submission === 'number' && submission !== -1) || forfeited,
+        actionDisplayText: forfeited
+          ? `(forfeited: ${player.action?.actionString ?? 'no move'})`
+          : (player.action?.actionString ?? ''),
         thoughts: player.action?.thoughts ?? '',
         reward: player.reward,
         generateReturns: player.action?.generate_returns ?? null,
