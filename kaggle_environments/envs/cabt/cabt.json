@@ -6,7 +6,8 @@
   "agents": [2],
   "configuration": {
     "episodeSteps": 10000,
-    "actTimeout": 0
+    "actTimeout": 0,
+    "runTimeout": 2000
   },
   "reward": {
     "description": "Lost:-1, Won:1, Draw:0",
