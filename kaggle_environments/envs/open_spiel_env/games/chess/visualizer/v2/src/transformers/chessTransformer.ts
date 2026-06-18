@@ -50,8 +50,6 @@ function parseFen(fen?: string): FenState {
 
 export function getChessStepDescription(step: ChessStep) {
   if (step.isTerminal) {
-    // Terminal step's headline (winner + forfeit reason) is rendered by
-    // getStepLabel and the GameOver overlay — no per-attempt body to add.
     return '';
   }
 
@@ -190,9 +188,7 @@ export const chessTransformer = (environment: any): ChessStep[] => {
         // A turn requires submission to be a real action id. -1 means the player
         // didn't act this step (inactive or forfeited). null/undefined shows up
         // in init steps, we don't need those rendered. Treat forfeits as a
-        // "turn" too so the step is preserved and the failed attempts surface
-        // in the reasoning panel — the player did act, they just failed every
-        // attempt.
+        // "turn" too so the step is preserved.
         isTurn: (typeof submission === 'number' && submission !== -1) || forfeited,
         // Raw move only — chess.js consumes this directly. Forfeit decoration
         // happens at display sites (getStepLabel) using the `forfeited` flag.
