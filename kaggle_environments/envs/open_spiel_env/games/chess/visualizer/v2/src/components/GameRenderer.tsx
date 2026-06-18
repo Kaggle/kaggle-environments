@@ -2,6 +2,7 @@ import { memo, useEffect } from 'react';
 import { Chess } from 'chess.js';
 import { GameRendererProps } from '@kaggle-environments/core';
 import { ChessStep } from '../transformers/chessReplayTypes';
+import { getPlayedMove } from '../utils/getPlayedMove';
 import useGameStore from '../stores/useGameStore';
 import Layout from './Layout';
 
@@ -13,11 +14,7 @@ export default memo(function GameRenderer(options: GameRendererProps<ChessStep[]
 
     for (const step of options.replay.steps) {
       if (step.step > options.step) break;
-      const player = step.players.find((p) => p.isTurn);
-      // Forfeit "turns" have a non-legal actionDisplayText — skip them so
-      // chess.js doesn't reject the move and crash the renderer.
-      if (!player || player.forfeited) continue;
-      const move = player.actionDisplayText;
+      const move = getPlayedMove(step);
       if (move) game.move(move);
     }
 

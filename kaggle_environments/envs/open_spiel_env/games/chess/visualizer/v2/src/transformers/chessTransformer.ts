@@ -194,10 +194,8 @@ export const chessTransformer = (environment: any): ChessStep[] => {
         // in the reasoning panel — the player did act, they just failed every
         // attempt.
         isTurn: (typeof submission === 'number' && submission !== -1) || forfeited,
-        // Keep this as the raw move string so chess.js can still apply it on
-        // legal turns. Forfeit decoration is applied at display sites via the
-        // `forfeited` flag instead, since GameRenderer/getStepRenderTime feed
-        // this string straight into Chess.move().
+        // Raw move only — chess.js consumes this directly. Forfeit decoration
+        // happens at display sites (getStepLabel) using the `forfeited` flag.
         actionDisplayText: player.action?.actionString ?? '',
         thoughts: player.action?.thoughts ?? '',
         reward: player.reward,
