@@ -20,8 +20,16 @@ from kaggle_environments.core_harness import ParseResult, parse_json_action, ren
 ULTIMATE_TIC_TAC_TOE_PROMPT_TEMPLATE = """Let's play Ultimate Tic-Tac-Toe.
 
 Ultimate Tic-Tac-Toe is played on a board of nine 3x3 local boards arranged in a larger 3x3 grid.
-To win the game, you must win three local boards in a row (horizontally, vertically, or diagonally) in the overall 3x3 game.
+The nine local boards are indexed 0 to 8, numbered left-to-right, top-to-bottom.
+Within each local board, the nine cells are also indexed 0 to 8 using the exact same left-to-right, top-to-bottom convention.
+The coordinates (row, col) also map to indexes as index = row * 3 + col (where row and col are 0 to 2).
+
+CRITICAL RULE: The cell you choose within a local board determines which local board your opponent must play in next. Specifically, the index of the chosen cell (0 to 8) maps directly to the index of the target local board. For example, playing cell index 4 (center cell, coordinates 1,1) sends your opponent to Local Board 4. If the target local board is already won, drawn, or full, your opponent gets a "free move" and can choose any active local board.
+
 To win a local board, you must place three of your marks in a row on that 3x3 local board.
+A local board can also end in a draw (all 9 cells filled with no 3-in-a-row); drawn local boards count for neither player in the overall game.
+To win the overall game, you must win three local boards in a row (horizontally, vertically, or diagonally) in the overall 3x3 game.
+The game ends in a draw if all 9 local boards finish without either player completing 3-in-a-row in the overall 3x3 game.
 
 On your turn:
 {phase_instructions}
@@ -86,18 +94,26 @@ def _parse_observation_payload(observation: Mapping[str, Any]) -> dict[str, Any]
     return {}
 
 
-def _format_board_ascii(board: list[list[str]], subgrid_winners: list[str]) -> str:
+def _format_board_ascii(board: list[list[str]], subgrid_winners: list[str], active_subgrid: int | None = None) -> str:
     """Format the 9x9 board into a 3x3 layout of 3x3 subgrids."""
     if not board:
         return "(board state unavailable)"
 
+    sep = "      "
     lines = []
     # Loop over major rows (0, 1, 2)
     for major_row in range(3):
         # Header line for major row
-        header = "  ".join(f"  Local Board {major_row * 3 + mc}  " for mc in range(3))
-        lines.append(header)
-        divider = "  ".join("  +---+---+---+  " for _ in range(3))
+        header_parts = []
+        for mc in range(3):
+            subgrid_idx = major_row * 3 + mc
+            if active_subgrid == subgrid_idx:
+                header_parts.append(f"> Local Board {subgrid_idx} <")
+            else:
+                header_parts.append(f"  Local Board {subgrid_idx}  ")
+        lines.append(sep.join(header_parts))
+
+        divider = sep.join("  +---+---+---+  " for _ in range(3))
         lines.append(divider)
 
         # Loop over minor rows (0, 1, 2)
@@ -110,11 +126,11 @@ def _format_board_ascii(board: list[list[str]], subgrid_winners: list[str]) -> s
                     cell_idx = minor_row * 3 + minor_col
                     char = board[subgrid_idx][cell_idx]
                     cells.append(char if char else ".")
-                row_parts.append(f"{minor_row} | " + " | ".join(cells) + " |")
-            lines.append("          ".join(row_parts))
+                row_parts.append(f"{minor_row} | " + " | ".join(cells) + " |  ")
+            lines.append(sep.join(row_parts))
 
         lines.append(divider)
-        footer = "  ".join("    0   1   2    " for _ in range(3))
+        footer = sep.join("    0   1   2    " for _ in range(3))
         lines.append(footer)
         lines.append("")  # empty line between major rows
 
@@ -141,11 +157,25 @@ def _reconstruct_move_history(observation: Mapping[str, Any]) -> list[str]:
         game, state = pyspiel.deserialize_game_and_state(serialized)
         temp_state = game.new_initial_state()
         history_strings = []
+        pending_board_choice = None
         for action in state.history():
             player = temp_state.current_player()
             action_str = temp_state.action_to_string(player, action)
             symbol = "x" if player == 0 else "o"
-            history_strings.append(f"Player {player} ({symbol}): {action_str}")
+
+            m_board = re.match(r"^choose local board (\d)", action_str, re.IGNORECASE)
+            if m_board:
+                pending_board_choice = m_board.group(1)
+            else:
+                m_cell = re.match(r"^local board \d:\s*(.*)", action_str, re.IGNORECASE)
+                cell_part = m_cell.group(1) if m_cell else action_str
+                if pending_board_choice is not None:
+                    history_strings.append(
+                        f"Player {player} ({symbol}): choose board {pending_board_choice}, play {cell_part}"
+                    )
+                    pending_board_choice = None
+                else:
+                    history_strings.append(f"Player {player} ({symbol}): play {cell_part}")
             temp_state.apply_action(action)
         return history_strings
     except Exception:
@@ -167,10 +197,10 @@ def match_ultimate_tic_tac_toe(raw: str, legal_action_strings: Sequence[str]) ->
     # 2. Check if we are in choose_subgrid phase
     # Legal actions: "Choose local board <idx>"
     if legal_action_strings[0].lower().startswith("choose local board"):
-        # Match single digit or "subgrid/board <digit>"
-        m = re.search(r"\b([0-8])\b", raw)
-        if m:
-            subgrid = m.group(1)
+        # Match single digit or "subgrid/board <digit>" (take the last occurrence)
+        matches = list(re.finditer(r"\b([0-8])\b", raw))
+        if matches:
+            subgrid = matches[-1].group(1)
             target = f"choose local board {subgrid}"
             for legal in legal_action_strings:
                 if legal.lower() == target:
@@ -186,10 +216,13 @@ def match_ultimate_tic_tac_toe(raw: str, legal_action_strings: Sequence[str]) ->
             return None
         subgrid, symbol = m.group(1), m.group(2).lower()
 
-        # Parse row,col coordinates
-        m_coords = re.search(r"\b([0-2])\s*[,.\s-]\s*([0-2])\b", raw)
-        if not m_coords:
-            m_coords = re.search(r"\(([0-2])\s*,\s*([0-2])\)", raw)
+        # Parse row,col coordinates (take the last occurrence)
+        m_coords = None
+        matches_coords = list(re.finditer(r"\b([0-2])\s*[,.\s-]\s*([0-2])\b", raw))
+        if not matches_coords:
+            matches_coords = list(re.finditer(r"\(([0-2])\s*,\s*([0-2])\)", raw))
+        if matches_coords:
+            m_coords = matches_coords[-1]
 
         if m_coords:
             r, c = m_coords.group(1), m_coords.group(2)
@@ -208,9 +241,10 @@ def match_ultimate_tic_tac_toe(raw: str, legal_action_strings: Sequence[str]) ->
                 if legal.lower() == target.lower():
                     return legal
 
-        # Fallback: search for row,col anywhere in the string
-        m_coords_fallback = re.search(r"([0-2])\s*,\s*([0-2])", raw)
-        if m_coords_fallback:
+        # Fallback: search for row,col anywhere in the string (take the last occurrence)
+        matches_fallback = list(re.finditer(r"([0-2])\s*,\s*([0-2])", raw))
+        if matches_fallback:
+            m_coords_fallback = matches_fallback[-1]
             r, c = m_coords_fallback.group(1), m_coords_fallback.group(2)
             target = f"local board {subgrid}: {symbol}({r},{c})"
             for legal in legal_action_strings:
@@ -268,10 +302,11 @@ def generate_prompt(
             '```json\n{\n  "move": "<subgrid_index>"\n}\n```\nFor example: `{"move": "0"}` to choose Local Board 0.'
         )
         format_reminder = '```json\n{{\n  "move": "<subgrid_index>"\n}}\n```\nFor example: `{{"move": "0"}}`'
-    else:
+    elif phase == "choose_cell":
         phase_instructions = (
             f"You must play in Local Board {active_subgrid}. Choose an empty cell in Local Board {active_subgrid} to place your '{my_piece}'.\n"
-            "You can specify your move either by row and column coordinates (e.g. '1,1') or by cell index (0 to 8, numbered left-to-right, top-to-bottom)."
+            "You can specify your move either by row and column coordinates (e.g. '1,1') or by cell index (0 to 8, numbered left-to-right, top-to-bottom).\n"
+            "Remember: the cell you choose (0 to 8) determines which local board your opponent must play in next."
         )
         json_format_example = (
             "```json\n"
@@ -282,6 +317,8 @@ def generate_prompt(
             'For example: `{"move": "1,1"}` to choose the center cell of the local board.'
         )
         format_reminder = '```json\n{{\n  "move": "<row>,<col>"\n}}\n```\nFor example: `{{"move": "1,1"}}`'
+    else:
+        raise ValueError(f"Invalid or terminal phase: {phase}")
 
     # Reconstruct history of moves from both players
     full_history = _reconstruct_move_history(observation)
@@ -289,7 +326,7 @@ def generate_prompt(
 
     prompt = ULTIMATE_TIC_TAC_TOE_PROMPT_TEMPLATE.format(
         phase_instructions=phase_instructions,
-        board_ascii=_format_board_ascii(board, subgrid_winners),
+        board_ascii=_format_board_ascii(board, subgrid_winners, active_subgrid),
         player_id=player_id,
         my_piece=my_piece,
         opp_piece=opp_piece,
