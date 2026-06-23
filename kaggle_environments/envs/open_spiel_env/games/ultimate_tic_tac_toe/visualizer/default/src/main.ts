@@ -16,6 +16,6 @@ createReplayVisualizer(
   new ReplayAdapter({
     gameName: 'open_spiel_ultimate_tic_tac_toe',
     renderer: renderer as any,
-    ui: 'side-panel',
+    ui: 'none',
   })
 );

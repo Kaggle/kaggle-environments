@@ -2,6 +2,8 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Ultimate Tic-Tac-Toe Visualizer', () => {
   test.beforeEach(async ({ page }) => {
+    page.on('console', (msg) => console.log(`[BROWSER CONSOLE] ${msg.type()}: ${msg.text()}`));
+    page.on('pageerror', (err) => console.log(`[BROWSER ERROR] ${err.message}\n${err.stack}`));
     await page.goto('/');
   });
 
@@ -9,13 +11,13 @@ test.describe('Ultimate Tic-Tac-Toe Visualizer', () => {
     await expect(page.locator('.renderer-container')).toBeVisible();
     await expect(page.locator('.renderer-container canvas')).toBeVisible();
 
-    // Check legend items
-    const legendItems = page.locator('.player-legend .legend-item');
-    await expect(legendItems.first()).toBeVisible();
-    expect(await legendItems.count()).toBe(2);
+    // Check player indicators in header
+    const players = page.locator('.header .player-card');
+    await expect(players.first()).toBeVisible();
+    expect(await players.count()).toBe(2);
 
-    // Status bar is present
-    await expect(page.locator('.status-bar')).toBeVisible();
+    // Status container is present
+    await expect(page.locator('.status-container')).toBeVisible();
   });
 
   test('displays correct game state at mid-game', async ({ page }) => {
@@ -31,7 +33,7 @@ test.describe('Ultimate Tic-Tac-Toe Visualizer', () => {
     await expect(page.locator('.renderer-container canvas')).toBeVisible();
 
     // Status is showing a turn indicator
-    await expect(page.locator('.status-bar')).toContainText(/turn/i);
+    await expect(page.locator('.status-container')).toContainText(/turn/i);
   });
 
   test('displays winner status at final step', async ({ page }) => {
@@ -43,6 +45,6 @@ test.describe('Ultimate Tic-Tac-Toe Visualizer', () => {
     await page.waitForTimeout(200);
 
     // End state will show won/draw text
-    await expect(page.locator('.status-bar')).toContainText(/won the match|ended in a draw/i);
+    await expect(page.locator('.status-container')).toContainText(/won the match|ended in a draw/i);
   });
 });
