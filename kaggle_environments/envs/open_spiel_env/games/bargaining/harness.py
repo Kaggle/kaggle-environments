@@ -47,11 +47,14 @@ Two players negotiate over a shared pool of three item types: Book, Hat,
 Basketball. The pool for this game contains:
 {pool_lines}
 
-Each player has a PRIVATE integer valuation per item (the opponent's values
-are HIDDEN from you). Your reward at the end of the game is the dot product
-of your valuation vector with the items you actually receive; the opponent's
-reward is computed from their own (hidden) valuation vector. Your goal is to
-maximize your own reward.
+Each player has a PRIVATE integer valuation per item (the opponent's values are
+HIDDEN from you). Your reward at the end of the game is the dot product of your
+valuation vector with the items you actually receive; the opponent's reward is
+computed from their own (hidden) valuation vector. Each per-item valuation is
+between 0 and 10 inclusive, and the values are sampled such that each player's
+dot product with the pool equals 10 (their maximum possible reward).
+
+Your goal is to end the game with a higher reward than your opponent.
 
 Your private valuations (per unit):
 {my_value_lines}
@@ -76,7 +79,7 @@ wanted to keep -- the other player would receive the complement):
 Offers used so far: {num_offers} of {max_turns}. Offers remaining
 (including this one if you OFFER): {turns_left}.
 
-You are Player {player_label} (id {player_id}). It is your turn.
+You are Player {player_label}. It is your turn.
 {accept_help}
 
 Respond with your reasoning, then conclude with a JSON block of EITHER form:
@@ -290,7 +293,6 @@ def generate_prompt(
         turns_left=turns_left,
         history_str=history_str,
         player_label=player_id + 1,
-        player_id=player_id,
         accept_help=accept_help,
     )
 
