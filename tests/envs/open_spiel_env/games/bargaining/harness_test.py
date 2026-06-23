@@ -182,7 +182,7 @@ class GeneratePromptTest(absltest.TestCase):
         prompt = generate_prompt(obs, [])
         self.assertIn("Bargaining", prompt)
         self.assertIn("Player 1", prompt)  # human-readable label
-        self.assertIn("(id 0)", prompt)
+        self.assertNotIn("(id 0)", prompt)
         self.assertIn("Book", prompt)
         self.assertIn("Hat", prompt)
         self.assertIn("Basketball", prompt)
@@ -192,7 +192,7 @@ class GeneratePromptTest(absltest.TestCase):
         obs = _make_observation(state, game, player_id=1)
         prompt = generate_prompt(obs, [])
         self.assertIn("Player 2", prompt)
-        self.assertIn("(id 1)", prompt)
+        self.assertNotIn("(id 1)", prompt)
 
     def test_legal_moves_not_listed(self):
         # The prompt deliberately omits the legal-move list. Each item is
