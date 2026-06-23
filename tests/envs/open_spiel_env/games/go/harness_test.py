@@ -97,16 +97,17 @@ class ParseResponseTest(absltest.TestCase):
         self.assertEqual(result.legal_action, "B e5")
         self.assertEqual(result.raw_action, "e5")
 
-    def test_parse_returns_parse_result(self):
-        """Verify the return type is ParseResult."""
-        legal = ["B a1"]
-        result = parse_response('```json\n{"move": "a1"}\n```', legal)
-        self.assertIsInstance(result, ParseResult)
+    def test_last_json_move_wins(self):
+        legal = ["B a1", "B e5"]
+        response = (
+            'First I thought {"move": "a1"}.\n'
+            'Final answer: {"move": "e5"}'
+        )
+        result = parse_response(response, legal)
+        self.assertEqual(result.legal_action, "B e5")
+        self.assertEqual(result.raw_action, "e5")
 
     def test_illegal_json_does_not_ghost_substitute_from_prose(self):
-        # The model's JSON answer (z99) isn't legal. The parser must NOT
-        # silently substitute a legal coord from the prose -- return None
-        # so the rethink loop asks the model to fix its answer.
         legal = ["B a1", "B e5"]
         response = (
             "I considered e5 but ruled it out.\n"
@@ -116,6 +117,27 @@ class ParseResponseTest(absltest.TestCase):
         self.assertIsNone(result.legal_action)
         self.assertEqual(result.raw_action, "z99")
 
+    def test_substring_coordinates_do_not_ghost_substitute(self):
+        legal = ["B a1", "B b1", "B b12"]
+        response = (
+            "Row 12 includes B12, and A10 appears elsewhere.\n"
+            '```json\n{"move": "b12"}\n```'
+        )
+        result = parse_response(response, legal)
+        self.assertEqual(result.legal_action, "B b12")
+        self.assertEqual(result.raw_action, "b12")
+
+    def test_rejects_color_prefixed_json_move(self):
+        legal = ["B e5"]
+        result = parse_response('```json\n{"move": "B e5"}\n```', legal)
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "B e5")
+
+    def test_parse_returns_parse_result(self):
+        """Verify the return type is ParseResult."""
+        legal = ["B a1"]
+        result = parse_response('```json\n{"move": "a1"}\n```', legal)
+        self.assertIsInstance(result, ParseResult)
 
 class GeneratePromptTest(absltest.TestCase):
     def test_basic_prompt(self):
@@ -128,6 +150,7 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("Tromp-Taylor", prompt)
         self.assertIn("suicide is illegal", prompt)
         self.assertIn("superko", prompt)
+        self.assertIn("Simple ko is also illegal", prompt)
 
     def test_white_player(self):
         observation = {
@@ -138,13 +161,53 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("White", prompt)
         self.assertIn("(W)", prompt)
 
-    def test_move_history_included(self):
+    def test_uses_full_move_history_from_state_not_agent_history(self):
         observation = {
-            "observationString": "{}",
+            "observationString": json.dumps({
+                "board_size": 13,
+                "move_history": ["B k10", "W d4", "B k4"],
+            }),
             "playerId": 0,
         }
-        prompt = generate_prompt(observation, ["B e5", "W d4", "B c3"])
-        self.assertIn("B e5 W d4 B c3", prompt)
+        prompt = generate_prompt(observation, ["B a1", "B b1"])
+        self.assertIn("The full game move history is:\nB k10 W d4 B k4", prompt)
+        self.assertNotIn("B a1 B b1", prompt)
+
+    def test_ascii_board_included_in_addition_to_raw_json(self):
+        state = {
+            "board_size": 9,
+            "komi": 7.5,
+            "ascii_board": " 9 +++++++++\n   ABCDEFGHJ",
+        }
+        observation = {
+            "observationString": json.dumps(state),
+            "playerId": 0,
+        }
+        prompt = generate_prompt(observation, [])
+        self.assertIn("The current game state JSON is:\n", prompt)
+        self.assertIn('"komi": 7.5', prompt)
+        self.assertIn("ASCII board for the same position", prompt)
+        self.assertIn(" 9 +++++++++\n   ABCDEFGHJ", prompt)
+
+    def test_coordinate_guidance_is_board_size_aware(self):
+        observation = {
+            "observationString": json.dumps({"board_size": 13}),
+            "playerId": 0,
+        }
+        prompt = generate_prompt(observation, [])
+        self.assertIn("this 13x13 board", prompt)
+        self.assertIn("columns are a-h,j-n", prompt)
+        self.assertIn("rows are 1-13", prompt)
+        self.assertNotIn("For example on a 9x9 board", prompt)
+
+    def test_prompt_requires_lowercase_coordinate_only(self):
+        observation = {
+            "observationString": json.dumps({"board_size": 13}),
+            "playerId": 0,
+        }
+        prompt = generate_prompt(observation, [])
+        self.assertIn("coordinate only", prompt)
+        self.assertIn("lowercase coordinate only", prompt)
 
     def test_rethink_suffix(self):
         observation = {
@@ -203,6 +266,23 @@ class GetLegalMovesTest(absltest.TestCase):
         for k, v in result.items():
             self.assertIsInstance(k, int)
             self.assertIsInstance(v, str)
+
+
+class GoProxyStateTest(absltest.TestCase):
+    def test_state_dict_includes_ascii_board_full_history_and_previous_move(self):
+        game = go_proxy.GoGame({"board_size": 9, "komi": 7.5})
+        state = game.new_initial_state()
+        state.apply_action(_gtp_to_action("E5"))
+        state.apply_action(_gtp_to_action("D4"))
+
+        data = state.state_dict()
+
+        self.assertEqual(data["move_history"], ["B e5", "W d4"])
+        self.assertEqual(data["previous_move"], "W d4")
+        self.assertNotIn("previous_move_a1", data)
+        self.assertIn("ascii_board", data)
+        self.assertIn("ABCDEFGHJ", data["ascii_board"])
+        self.assertNotIn("GoState(", data["ascii_board"])
 
 
 class _StreamDelta:
