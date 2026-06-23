@@ -24,7 +24,10 @@ The nine local boards are indexed 0 to 8, numbered left-to-right, top-to-bottom.
 Within each local board, the nine cells are also indexed 0 to 8 using the exact same left-to-right, top-to-bottom convention.
 The coordinates (row, col) also map to indexes as index = row * 3 + col (where row and col are 0 to 2).
 
-CRITICAL RULE: The cell you choose within a local board determines which local board your opponent must play in next. Specifically, the index of the chosen cell (0 to 8) maps directly to the index of the target local board. For example, playing cell index 4 (center cell, coordinates 1,1) sends your opponent to Local Board 4. If the target local board is already won, drawn, or full, your opponent gets a "free move" and can choose any active local board.
+A local board is considered *active* (or legal to play in) if it has not yet been won, drawn, or fully filled. Once a local board is won or drawn, it is no longer active, and no further moves can be played in it.
+In the overall game state display, finished local boards are listed under "Local Board Winners" with their status: '[x]', '[o]', or '[draw]'. Active boards are shown as '[ ]'.
+
+CRITICAL RULE: The cell you choose within a local board determines which local board your opponent must play in next. Specifically, the index of the chosen cell (0 to 8) maps directly to the index of the target local board. For example, playing cell index 4 (center cell, coordinates 1,1) sends your opponent to Local Board 4. If the target local board is not active (i.e. already won, drawn, or full), your opponent gets a "free move" and can choose any active local board.
 
 To win a local board, you must place three of your marks in a row on that 3x3 local board.
 A local board can also end in a draw (all 9 cells filled with no 3-in-a-row); drawn local boards count for neither player in the overall game.
@@ -157,7 +160,6 @@ def _reconstruct_move_history(observation: Mapping[str, Any]) -> list[str]:
         game, state = pyspiel.deserialize_game_and_state(serialized)
         temp_state = game.new_initial_state()
         history_strings = []
-        pending_board_choice = None
         for action in state.history():
             player = temp_state.current_player()
             action_str = temp_state.action_to_string(player, action)
@@ -165,17 +167,18 @@ def _reconstruct_move_history(observation: Mapping[str, Any]) -> list[str]:
 
             m_board = re.match(r"^choose local board (\d)", action_str, re.IGNORECASE)
             if m_board:
-                pending_board_choice = m_board.group(1)
+                board_idx = m_board.group(1)
+                history_strings.append(f"Player {player} ({symbol}): chose board {board_idx}")
             else:
-                m_cell = re.match(r"^local board \d:\s*(.*)", action_str, re.IGNORECASE)
-                cell_part = m_cell.group(1) if m_cell else action_str
-                if pending_board_choice is not None:
+                m_cell = re.match(r"^local board (\d):\s*([xo])\((\d),(\d)\)", action_str, re.IGNORECASE)
+                if m_cell:
+                    board_idx, sym, r, c = m_cell.groups()
+                    cell_idx = int(r) * 3 + int(c)
                     history_strings.append(
-                        f"Player {player} ({symbol}): choose board {pending_board_choice}, play {cell_part}"
+                        f"Player {player} ({symbol}): board {board_idx} cell ({r},{c}) [idx {cell_idx}]"
                     )
-                    pending_board_choice = None
                 else:
-                    history_strings.append(f"Player {player} ({symbol}): play {cell_part}")
+                    history_strings.append(f"Player {player} ({symbol}): {action_str}")
             temp_state.apply_action(action)
         return history_strings
     except Exception:
@@ -295,8 +298,10 @@ def generate_prompt(
     # Format phase-specific instructions and JSON templates
     if phase == "choose_subgrid":
         phase_instructions = (
-            "You are currently allowed to choose ANY active local board to play in (either because it is the first turn of the game, or because your opponent's previous move sent you to a local board that is already won or full).\n"
-            "Select one of the legal local boards (index 0 to 8) to target."
+            "You are currently allowed to choose ANY active local board to play in (either because it is the first turn of the game, or because your opponent's previous move sent you to a local board that is no longer active).\n"
+            "A local board is active if it has not yet been won, drawn, or fully filled.\n"
+            "Select one of the active local boards (index 0 to 8) to target.\n"
+            "(The CRITICAL RULE about cell->board routing applies to your *next* turn, when you select a cell within this board.)"
         )
         json_format_example = (
             '```json\n{\n  "move": "<subgrid_index>"\n}\n```\nFor example: `{"move": "0"}` to choose Local Board 0.'
@@ -314,9 +319,11 @@ def generate_prompt(
             '  "move": "<row>,<col>"\n'
             "}\n"
             "```\n"
-            'For example: `{"move": "1,1"}` to choose the center cell of the local board.'
+            'For example: `{"move": "1,1"}` or `{"move": "4"}` — both choose the center cell of the local board.'
         )
-        format_reminder = '```json\n{{\n  "move": "<row>,<col>"\n}}\n```\nFor example: `{{"move": "1,1"}}`'
+        format_reminder = (
+            '```json\n{{\n  "move": "<row>,<col>"\n}}\n```\nFor example: `{{"move": "1,1"}}` or `{{"move": "4"}}`'
+        )
     else:
         raise ValueError(f"Invalid or terminal phase: {phase}")
 

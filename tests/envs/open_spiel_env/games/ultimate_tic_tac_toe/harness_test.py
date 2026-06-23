@@ -153,8 +153,9 @@ class GeneratePromptTest(absltest.TestCase):
         self.state.apply_action(4)
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [])
-        # Reconstructed history covers all players
-        self.assertIn("Player 0 (x): choose board 0, play x(1,1)", prompt)
+        # Reconstructed history covers all players and shows board choices and cell indices
+        self.assertIn("Player 0 (x): chose board 0", prompt)
+        self.assertIn("Player 0 (x): board 0 cell (1,1) [idx 4]", prompt)
 
     def test_rethink_suffix(self):
         obs = _make_observation(self.state, self.game, player_id=0)
