@@ -1018,6 +1018,7 @@ GAMES_LIST = [
     "backgammon",
     "bargaining",
     "python_ant_foraging",
+    "breakthrough",
     "bridge_arena",
     "checkers",
     "chess",
