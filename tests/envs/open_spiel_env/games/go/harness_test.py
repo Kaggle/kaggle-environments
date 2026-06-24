@@ -148,9 +148,10 @@ class GeneratePromptTest(absltest.TestCase):
         prompt = generate_prompt(observation, [])
         self.assertIn("Black", prompt)
         self.assertIn("Tromp-Taylor", prompt)
-        self.assertIn("suicide is illegal", prompt)
-        self.assertIn("superko", prompt)
-        self.assertIn("Simple ko is also illegal", prompt)
+        self.assertIn("Suicide is illegal", prompt)
+        self.assertIn("single-stone ko recapture is illegal", prompt)
+        self.assertIn("non-pass move that repeats an earlier board position", prompt)
+        self.assertIn("ends the game in a draw", prompt)
 
     def test_white_player(self):
         observation = {

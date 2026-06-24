@@ -27,12 +27,12 @@ GO_PROMPT_TEMPLATE = """Let's play Go.
 
 Rules: Tromp-Taylor scoring (area scoring — count stones on the board plus
 empty territory enclosed by a single color; all stones are treated as alive).
-Komi is given in the game state JSON below. Two differences from standard
-Tromp-Taylor: (1) suicide is illegal — you may not place a stone that would
-be immediately captured unless it captures enemy stones first, and
-(2) positional superko violations end the game as a draw rather than simply
-making the move illegal. Simple ko is also illegal: after a single-stone
-capture, the opponent may not immediately recapture on that same point.
+Komi is given in the game state JSON below. Suicide is illegal: you may not
+place a stone that would be immediately captured unless it captures enemy
+stones first. Immediate single-stone ko recapture is illegal: after a move
+captures exactly one enemy stone in a ko shape, the opponent cannot play on
+the point vacated by that captured stone on the very next move. A legal
+non-pass move that repeats an earlier board position ends the game in a draw.
 The game ends when both players pass consecutively.
 
 The current game state JSON is:
