@@ -1,5 +1,6 @@
 import { createReplayVisualizer, ReplayAdapter } from '@kaggle-environments/core';
 import { renderer } from './renderer';
+import { ultimateTicTacToeTransformer } from './transformers/ultimateTicTacToeTransformer';
 import './style.css';
 
 const app = document.getElementById('app');
@@ -16,6 +17,11 @@ createReplayVisualizer(
   new ReplayAdapter({
     gameName: 'open_spiel_ultimate_tic_tac_toe',
     renderer: renderer as any,
-    ui: 'none',
+    ui: 'side-panel',
+    transformer: (replay) => ({
+      ...replay,
+      steps: ultimateTicTacToeTransformer(replay),
+      isTransformed: true,
+    }),
   })
 );
