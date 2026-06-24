@@ -1,7 +1,30 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { BaseGamePlayer, BaseGameStep } from '@kaggle-environments/core';
+
+/** One LLM call attempt within a single turn (initial + any retries). */
+export interface ChessAttempt {
+  /** Full LLM response text for this attempt. */
+  response: string;
+}
 
 export interface ChessPlayer extends BaseGamePlayer {
   reward: number | null;
+  generateReturns: string[] | null;
+  /**
+   * All LLM attempts on this turn (length 1 = no retries; >1 = retried).
+   * Order is initial → retry 1 → retry 2 → … Only the final attempt was
+   * actually submitted (or, on forfeit, all attempts failed and the
+   * player submitted -1).
+   */
+  attempts?: ChessAttempt[];
+  /** True when this player forfeited on this turn (submission === -1 with a non-null action.status). */
+  forfeited?: boolean;
+  /**
+   * Last attempted move string when the player forfeited. Comes from the
+   * harness's actionString (the raw move the parser rejected). null on
+   * non-forfeit turns.
+   */
+  forfeitLastAttempt?: string | null;
 }
 
 export interface FenState {
@@ -24,6 +47,7 @@ export interface ChessStep extends Omit<BaseGameStep, 'players'> {
   fenState: FenState;
   isTerminal: boolean;
   winner: string | null;
+  status: string | null;
 }
 
 /**
@@ -59,9 +83,10 @@ export interface ChessReplay {
  * Only used internally as part of the type for replay data,
  * do not use elsewhere.
  */
-interface ChessReplayStep {
+export interface ChessReplayStep {
   action?: {
     actionString?: string;
+    call_details?: Array<{ response?: string }>;
     generate_returns?: string[];
     status?: string;
     submission: number;
@@ -86,5 +111,5 @@ interface ChessReplayStep {
     step: number;
   };
   reward: number | null;
-  status: 'ACTIVE' | 'INACTIVE' | 'DONE';
+  status: 'ACTIVE' | 'INACTIVE' | 'DONE' | 'TIMEOUT' | 'ERROR' | 'INVALID';
 }
