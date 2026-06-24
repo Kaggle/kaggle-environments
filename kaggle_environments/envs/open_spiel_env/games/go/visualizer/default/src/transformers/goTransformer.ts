@@ -27,7 +27,7 @@ function parseBoardState(observationString: string): GoBoardState {
       komi: obs.komi,
       current_player_to_move: obs.current_player_to_move,
       move_number: obs.move_number,
-      previous_move_a1: obs.previous_move_a1,
+      previous_move: obs.previous_move ?? obs.previous_move_a1,
       board,
     };
   } catch {
@@ -36,7 +36,7 @@ function parseBoardState(observationString: string): GoBoardState {
       komi: 7.5,
       current_player_to_move: '',
       move_number: 0,
-      previous_move_a1: null,
+      previous_move: null,
       board: [],
     };
   }
