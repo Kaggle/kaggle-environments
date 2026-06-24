@@ -122,7 +122,7 @@ def _coordinate_guidance(board_size: int | None) -> str:
     if board_size is None or board_size <= 0:
         return (
             "Coordinates use GTP notation: column letters shown in "
-            'the board state, skipping "i", followed by row numbers starting '
+            'the board state, skipping "I", followed by row numbers starting '
             'from 1.'
         )
     return (
