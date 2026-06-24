@@ -114,6 +114,23 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response('```json\n{"move": "a7-a6"}\n```', self.legal)
         self.assertEqual(result.legal_action, "a7a6")
 
+    def test_arrow_separator_tolerated(self):
+        # Some models render the move as an arrow ("a7->a6").
+        result = parse_response('```json\n{"move": "a7->a6"}\n```', self.legal)
+        self.assertEqual(result.legal_action, "a7a6")
+
+    def test_trailing_punctuation_tolerated(self):
+        for raw in ("a7a6.", "a7a6,", "a7a6!"):
+            result = parse_response(
+                '```json\n{"move": "' + raw + '"}\n```',
+                self.legal,
+            )
+            self.assertEqual(result.legal_action, "a7a6", msg=raw)
+
+    def test_internal_whitespace_tolerated(self):
+        result = parse_response('```json\n{"move": "a7 a6"}\n```', self.legal)
+        self.assertEqual(result.legal_action, "a7a6")
+
 
 # ---------------------------------------------------------------------------
 # generate_prompt
@@ -262,6 +279,30 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("Your previous response", prompt)
         self.assertIn("I dunno what to do", prompt)
         self.assertIn('"move":', prompt)
+
+    def test_dimensions_derived_from_state_non_default(self):
+        # Loading the game at a non-default size: the prompt's Rules
+        # paragraph and win conditions must reflect the live dimensions,
+        # not the 8x8 default. Also exercises the < 6-row starting-rank
+        # branch (single back rank per side).
+        for rows, cols, file_range, black_start in [
+            (6, 6, "a-f", "ranks 5-6"),
+            (5, 5, "a-e", "rank 5"),  # single-rank start below threshold
+        ]:
+            game = breakthrough_proxy.BreakthroughGame(
+                {"rows": rows, "columns": cols}
+            )
+            state = game.new_initial_state()
+            obs = _make_observation(state, game, player_id=0)
+            prompt = generate_prompt(obs, [])
+            self.assertIn(f"{rows}x{cols} board", prompt)
+            self.assertIn(f"files {file_range}", prompt)
+            self.assertIn(f"ranks 1-{rows}", prompt)
+            self.assertIn(black_start, prompt)
+            self.assertIn(f"rank {rows} for White", prompt)
+            self.assertIn(f"toward rank {rows}", generate_prompt(
+                _make_observation(state, game, player_id=1), []
+            ))
 
     def test_no_rethink_on_first_attempt(self):
         obs = _make_observation(self.state, self.game, player_id=0)

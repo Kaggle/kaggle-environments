@@ -11,6 +11,7 @@ single source of truth.
 from __future__ import annotations
 
 import json
+import string
 from typing import Any, Mapping, Sequence
 
 import pyspiel
@@ -30,11 +31,12 @@ from kaggle_environments.envs.open_spiel_env.games.breakthrough.breakthrough_pro
 
 BREAKTHROUGH_PROMPT_TEMPLATE = """Let's play Breakthrough.
 
-Rules: 8x8 board with files a-h (left-to-right) and ranks 1-8
-(bottom-to-top). Player 0 ('b', Black) starts on ranks 7-8 and moves
-first toward rank 1. Player 1 ('w', White) starts on ranks 1-2 and moves
-toward rank 8. Each turn a player moves exactly one of their own pieces
-one square in one of three forward directions:
+Rules: {rows}x{columns} board with files {file_range} (left-to-right) and
+ranks 1-{rows} (bottom-to-top). Player 0 ('b', Black) starts on
+{black_start_ranks} and moves first toward rank 1. Player 1 ('w', White)
+starts on {white_start_ranks} and moves toward rank {rows}. Each turn a
+player moves exactly one of their own pieces one square in one of three
+forward directions:
 
 - straight forward (into an empty square),
 - forward-diagonal-left (into an empty square OR onto an opposing piece,
@@ -49,7 +51,7 @@ special rule. Captures are NOT mandatory.
 
 Win conditions (no draws are possible):
 - reach the opponent's back rank with any one of your pieces (rank 1 for
-  Black, rank 8 for White); OR
+  Black, rank {rows} for White); OR
 - capture all of the opponent's pieces (leaving them with none).
 
 Board (rank labels on the left, file labels on top; '.' = empty,
@@ -184,11 +186,17 @@ def _list_player_squares(board: Sequence[Sequence[str]], piece_char: str) -> lis
 def _normalize_move(raw: str) -> str:
     """Lowercase, strip whitespace, and remove obvious wrappers."""
     s = raw.strip().lower()
-    # Strip surrounding quotes/brackets a model might add.
-    s = s.strip("`'\"<>[](){} ")
-    # Some models write moves with a dash ("a7-a6") or an 'x' ("b2xc3").
-    # OpenSpiel uses neither; drop them so the from/to squares concatenate.
-    s = s.replace("-", "").replace("x", "")
+    # Strip surrounding quotes/brackets and trailing punctuation a model
+    # might add (e.g. `{"move": "a7a6."}` or `{"move": "a7a6,"}`).
+    s = s.strip("`'\"<>[](){}.,!? \t\n")
+    # Remove any internal whitespace ("a7 a6" or "a7\ta6") that some models
+    # insert between the from/to squares.
+    s = "".join(s.split())
+    # Some models write moves with separators OpenSpiel doesn't use: a dash
+    # ("a7-a6"), an 'x' ("b2xc3"), or an arrow ("a7->a6"). Drop them so the
+    # from/to squares concatenate. "->" first so the arrow is removed as a
+    # unit rather than leaving a stray ">".
+    s = s.replace("->", "").replace("-", "").replace("x", "")
     return s
 
 
@@ -264,8 +272,31 @@ def generate_prompt(
 
     move_history_str = ", ".join(full_history) if full_history else "None"
 
-    # Black ('b') moves toward rank 1; White ('w') moves toward rank 8.
-    forward_rank = 1 if player_id == 0 else 8
+    # Derive board dimensions from the live state so the prompt stays
+    # accurate if the game is loaded with a non-default `rows`/`columns`.
+    params = state.get("params") or {}
+    rows = int(params.get("rows") or state.get("rows") or len(board) or 8)
+    columns = int(
+        params.get("columns")
+        or state.get("columns")
+        or (len(board[0]) if board else 8)
+    )
+    if columns <= 0 or columns > 26:
+        columns = max(1, min(26, columns or 8))
+    file_letters = string.ascii_lowercase[:columns]
+    file_range = f"{file_letters[0]}-{file_letters[-1]}" if columns > 1 else file_letters
+    # OpenSpiel breakthrough fills two back ranks per side when rows >= 6
+    # (see breakthrough.cc kNumRowsForFullPieces); otherwise just the very
+    # back rank.
+    if rows >= 6:
+        black_start_ranks = f"ranks {rows - 1}-{rows}"
+        white_start_ranks = "ranks 1-2"
+    else:
+        black_start_ranks = f"rank {rows}"
+        white_start_ranks = "rank 1"
+
+    # Black ('b') moves toward rank 1; White ('w') moves toward rank `rows`.
+    forward_rank = 1 if player_id == 0 else rows
 
     prompt = BREAKTHROUGH_PROMPT_TEMPLATE.format(
         board_ascii=_format_board_ascii(board),
@@ -280,6 +311,11 @@ def generate_prompt(
         move_number=move_number,
         last_move=last_move,
         move_history=move_history_str,
+        rows=rows,
+        columns=columns,
+        file_range=file_range,
+        black_start_ranks=black_start_ranks,
+        white_start_ranks=white_start_ranks,
     )
 
     prompt += render_rethink_suffix(
