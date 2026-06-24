@@ -197,18 +197,18 @@ class GeneratePromptTest(absltest.TestCase):
         }
         prompt = generate_prompt(observation, [])
         self.assertIn("this 13x13 board", prompt)
-        self.assertIn("columns are a-h,j-n", prompt)
+        self.assertIn("columns are A-H,J-N", prompt)
         self.assertIn("rows are 1-13", prompt)
         self.assertNotIn("For example on a 9x9 board", prompt)
 
-    def test_prompt_requires_lowercase_coordinate_only(self):
+    def test_prompt_requires_coordinate_only_without_player_prefix(self):
         observation = {
             "observationString": json.dumps({"board_size": 13}),
             "playerId": 0,
         }
         prompt = generate_prompt(observation, [])
         self.assertIn("coordinate only", prompt)
-        self.assertIn("lowercase coordinate only", prompt)
+        self.assertIn("without the player prefix", prompt)
 
     def test_rethink_suffix(self):
         observation = {

@@ -56,9 +56,9 @@ conclude with your final move as a JSON formatted as follows:
 }}
 ```
 
-Where move is the coordinate only (e.g. "a1", "b2", "e5") or "PASS" if you wish to pass.
+Where move is the coordinate only (e.g. "A1", "B2", "E5") or "PASS" if you wish to pass.
 {coordinate_guidance}
-The board display may use uppercase labels, but your final JSON move must use the lowercase coordinate only.
+The final JSON move must be the coordinate only, without the player prefix.
 Failure to output your final answer in the specified format will result in a loss.
 Begin!
 """
@@ -85,7 +85,7 @@ as the original instructions required:
 {{"move": "<coordinate>"}}
 ```
 
-For example: `{{"move": "a1"}}`
+For example: `{{"move": "A1"}}`
 
 The move you choose must also be legal in the current state.
 """
@@ -112,22 +112,22 @@ def _gtp_column_range(board_size: int | None) -> str:
         return "the columns shown in the board state"
     columns = _GTP_COLUMNS[:board_size]
     if board_size <= 8:
-        return f"a-{columns[-1]}"
+        return f"A-{columns[-1].upper()}"
     if board_size == 9:
-        return "a-h,j"
-    return f"a-h,j-{columns[-1]}"
+        return "A-H,J"
+    return f"A-H,J-{columns[-1].upper()}"
 
 
 def _coordinate_guidance(board_size: int | None) -> str:
     if board_size is None or board_size <= 0:
         return (
-            "Coordinates use GTP notation: lowercase column letters shown in "
+            "Coordinates use GTP notation: column letters shown in "
             'the board state, skipping "i", followed by row numbers starting '
             'from 1.'
         )
     return (
         f"Coordinates use GTP notation for this {board_size}x{board_size} board: "
-        f"columns are {_gtp_column_range(board_size)} (the letter \"i\" is "
+        f"columns are {_gtp_column_range(board_size)} (the letter \"I\" is "
         f"skipped), and rows are 1-{board_size}."
     )
 
