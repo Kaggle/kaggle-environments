@@ -35,18 +35,18 @@ import pyspiel
 
 from ... import proxy
 
-_PIECE_BLACK = "b"
-_PIECE_WHITE = "w"
-_EMPTY = "."
+PIECE_BLACK = "b"
+PIECE_WHITE = "w"
+EMPTY = "."
 
 
 def _player_string(player: int) -> str:
     if player < 0:
         return pyspiel.PlayerId(player).name.lower()
     if player == 0:
-        return _PIECE_BLACK
+        return PIECE_BLACK
     if player == 1:
-        return _PIECE_WHITE
+        return PIECE_WHITE
     raise ValueError(f"Invalid player: {player}")
 
 
@@ -83,9 +83,9 @@ class BreakthroughState(proxy.State):
         if self.is_terminal():
             returns = self.returns()
             if returns[0] > returns[1]:
-                winner = _PIECE_BLACK
+                winner = PIECE_BLACK
             elif returns[1] > returns[0]:
-                winner = _PIECE_WHITE
+                winner = PIECE_WHITE
             else:
                 # Breakthrough cannot draw under standard rules, but keep
                 # the branch so a future rules change doesn't silently
@@ -93,12 +93,12 @@ class BreakthroughState(proxy.State):
                 winner = "draw"
 
         # Breakthrough has no chance phase; play actions alternate
-        # starting with player 0, so the last mover's id is parity of
-        # (move_number - 1).
+        # starting with player 0, so action i was played by (i % 2).
         history = self.history()
-        last_move = self.__wrapped__.action_to_string((len(history) - 1) % 2, history[-1]) if history else None
+        move_history: list[str] = [self.__wrapped__.action_to_string(i % 2, action) for i, action in enumerate(history)]
+        last_move = move_history[-1] if move_history else None
 
-        pieces = {_PIECE_BLACK: 0, _PIECE_WHITE: 0}
+        pieces = {PIECE_BLACK: 0, PIECE_WHITE: 0}
         for row in board:
             for cell in row:
                 if cell in pieces:
@@ -112,6 +112,7 @@ class BreakthroughState(proxy.State):
             "is_terminal": self.is_terminal(),
             "winner": winner,
             "last_move": last_move,
+            "move_history": move_history,
             "move_number": self.move_number(),
             "pieces": pieces,
             "params": {
