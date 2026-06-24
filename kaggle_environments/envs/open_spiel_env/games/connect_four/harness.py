@@ -11,7 +11,7 @@ from typing import Any, Mapping, Sequence
 
 import pyspiel
 
-from kaggle_environments.core_harness import ParseResult, create_agent_fn
+from kaggle_environments.core_harness import ParseResult
 
 # ---------------------------------------------------------------------------
 # Prompt templates — exact copies from GameArena
@@ -175,27 +175,3 @@ def _match_column_to_legal(
     return None
 
 
-# ---------------------------------------------------------------------------
-# Adapter and agent
-# ---------------------------------------------------------------------------
-
-
-class _ConnectFourHarness:
-    """Adapts module-level functions to the GameHarness protocol."""
-
-    def get_legal_moves(self, observation):
-        return get_legal_moves(observation)
-
-    def make_prompt(self, observation, move_history, previous_response=None, previous_action=None):
-        return generate_prompt(
-            observation,
-            move_history,
-            previous_response,
-            previous_action,
-        )
-
-    def parse_response(self, response, legal_action_strings):
-        return parse_response(response, legal_action_strings)
-
-
-agent_fn = create_agent_fn(_ConnectFourHarness())

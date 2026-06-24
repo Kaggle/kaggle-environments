@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { getPlayer } from './utils';
-import { makeStep } from '../test-utils';
+import { getPlayer, applyAgentNamesToReplay } from './utils';
+import { makeStep, makeReplay } from '../test-utils';
 
 const alice = { id: 0, name: 'Alice', thumbnail: '', isTurn: true };
 const bob = { id: 1, name: 'Bob', thumbnail: '', isTurn: false };
@@ -49,5 +49,62 @@ describe('getPlayer', () => {
       ],
     });
     expect(getPlayer(step)).toEqual(alice);
+  });
+});
+
+describe('applyAgentNamesToReplay', () => {
+  it('overrides info.TeamNames with agents[].name', () => {
+    const replay = makeReplay({ info: { TeamNames: ['Old A', 'Old B'] } });
+    const result = applyAgentNamesToReplay(replay, [{ name: 'New A' }, { name: 'New B' }]);
+    expect(result.info?.TeamNames).toEqual(['New A', 'New B']);
+  });
+
+  it('returns the same reference when no override is needed', () => {
+    const replay = makeReplay({ info: { TeamNames: ['A', 'B'] } });
+    const result = applyAgentNamesToReplay(replay, [{ name: 'A' }, { name: 'B' }]);
+    expect(result).toBe(replay);
+  });
+
+  it('returns the same reference when agents is empty', () => {
+    const replay = makeReplay({ info: { TeamNames: ['A', 'B'] } });
+    expect(applyAgentNamesToReplay(replay, [])).toBe(replay);
+    expect(applyAgentNamesToReplay(replay, undefined)).toBe(replay);
+    expect(applyAgentNamesToReplay(replay, null)).toBe(replay);
+  });
+
+  it('keeps existing TeamName when agent.name is missing or empty', () => {
+    const replay = makeReplay({ info: { TeamNames: ['Keep A', 'Keep B'] } });
+    const result = applyAgentNamesToReplay(replay, [{ name: '' }, {}]);
+    expect(result.info?.TeamNames).toEqual(['Keep A', 'Keep B']);
+    expect(result).toBe(replay);
+  });
+
+  it('seeds TeamNames when replay has no info.TeamNames', () => {
+    const replay = makeReplay({ info: {} });
+    const result = applyAgentNamesToReplay(replay, [{ name: 'A' }, { name: 'B' }]);
+    expect(result.info?.TeamNames).toEqual(['A', 'B']);
+  });
+
+  it('seeds TeamNames when replay has no info at all', () => {
+    const replay = makeReplay();
+    delete (replay as any).info;
+    const result = applyAgentNamesToReplay(replay, [{ name: 'A' }, { name: 'B' }]);
+    expect(result.info?.TeamNames).toEqual(['A', 'B']);
+  });
+
+  it('respects agent.index for sparse / out-of-order agents', () => {
+    const replay = makeReplay({ info: { TeamNames: ['x', 'y', 'z'] } });
+    const result = applyAgentNamesToReplay(replay, [
+      { name: 'Z', index: 2 },
+      { name: 'X', index: 0 },
+    ]);
+    expect(result.info?.TeamNames).toEqual(['X', 'y', 'Z']);
+  });
+
+  it('preserves other info fields', () => {
+    const replay = makeReplay({ info: { TeamNames: ['A'], LiveStats: { wins: 5 } } });
+    const result = applyAgentNamesToReplay(replay, [{ name: 'A2' }]);
+    expect(result.info?.LiveStats).toEqual({ wins: 5 });
+    expect(result.info?.TeamNames).toEqual(['A2']);
   });
 });

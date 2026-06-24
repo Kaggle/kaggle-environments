@@ -1,7 +1,10 @@
 import json
+import time
 from collections import defaultdict
 from os import path
 from random import Random
+
+from kaggle_environments.utils import resolve_episode_seed
 
 from .agents import agents  # noqa: F401
 
@@ -352,27 +355,14 @@ def initialize_game(state, env):
     width = config.width
     height = config.height
 
-    # Resolve the episode seed and stash it on env.info so it persists into
-    # the replay (via toJSON) but stays out of `configuration`, which agents
-    # can read. The seed determines maze layout and scroll-time row
-    # generation — both hidden info that agents must not be able to predict.
-    if not hasattr(env, "info") or env.info is None:
-        env.info = {}
-    seed = env.info.get("seed")
-    if seed is None:
-        seed = getattr(config, "randomSeed", None)
-        if seed is None and isinstance(config, dict):
-            seed = config.get("randomSeed")
-    if seed is None:
-        import time
-
-        seed = int(time.time() * 1000) % (2**31)
-    # Scrub the seed from configuration so agents can't read it.
-    try:
-        config.randomSeed = None
-    except (AttributeError, TypeError):
-        config["randomSeed"] = None
-    env.info["seed"] = seed
+    # The seed determines maze layout and scroll-time row generation -- both
+    # hidden info that agents must not be able to predict. resolve_episode_seed
+    # scrubs it from configuration and stashes it on env.info for the replay.
+    seed = resolve_episode_seed(
+        env,
+        config_key="randomSeed",
+        fallback=lambda: int(time.time() * 1000) % (2**31),
+    )
     rng = Random(seed)
 
     # Initialize hidden state

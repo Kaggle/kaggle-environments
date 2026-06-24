@@ -1,5 +1,14 @@
 import type { RendererOptions } from '@kaggle-environments/core';
-import { getStructureSprite, getTerrainSprite, getUnitSprite, isReady, onSpritesLoad } from './sprites';
+import {
+  getSpriteTheme,
+  getStructureSprite,
+  getTerrainSprite,
+  getUnitSprite,
+  isReady,
+  onSpritesLoad,
+  setSpriteTheme,
+} from './sprites';
+import type { SpriteTheme } from './sprites';
 
 interface Unit {
   type: string;
@@ -57,16 +66,33 @@ const TERRAIN_COLORS: Record<string, string> = {
   o: '#6093b4', // ocean
 };
 
-const PLAYER_COLORS: Record<number, string> = {
-  0: '#888888',
-  1: '#2f5fa1', // blue
-  2: '#b03939', // red
+// Player accent colours per art set. The game art follows the main
+// repository's PLAYER_COLORS (Player 1 red, Player 2 blue); the kaggle
+// placeholder art keeps the colours it originally shipped with.
+const THEME_PLAYER_COLORS: Record<SpriteTheme, Record<number, string>> = {
+  game: {
+    0: '#888888',
+    1: '#ff3232', // red (255, 50, 50)
+    2: '#4d79ff', // blue (77, 121, 255)
+  },
+  kaggle: {
+    0: '#888888',
+    1: '#2f5fa1', // blue
+    2: '#b03939', // red
+  },
 };
 
-const PLAYER_LIGHT: Record<number, string> = {
-  0: '#dcdcdc',
-  1: '#bcd0ec',
-  2: '#ecbcbc',
+const THEME_PLAYER_LIGHT: Record<SpriteTheme, Record<number, string>> = {
+  game: {
+    0: '#dcdcdc',
+    1: '#ecbcbc',
+    2: '#bcd0ec',
+  },
+  kaggle: {
+    0: '#dcdcdc',
+    1: '#bcd0ec',
+    2: '#ecbcbc',
+  },
 };
 
 const STRUCT_NAMES: Record<string, string> = {
@@ -75,7 +101,11 @@ const STRUCT_NAMES: Record<string, string> = {
   t: '▲',
 };
 
-// Latest renderer options, used to re-render once async sprite loads finish.
+// Board codes that are capturable structures rather than plain terrain.
+const STRUCT_TILE_CODES = new Set(['h', 'b', 't']);
+
+// Latest renderer options, used to re-render once async sprite loads
+// finish and when the sprite art set is toggled.
 let lastOptions: RendererOptions | null = null;
 onSpritesLoad(() => {
   if (lastOptions) renderer(lastOptions);
@@ -199,6 +229,11 @@ export function renderer(options: RendererOptions) {
   const curStep = steps[step];
   const prevStep = step > 0 ? steps[step - 1] : null;
 
+  const artTheme = getSpriteTheme();
+  const PLAYER_COLORS = THEME_PLAYER_COLORS[artTheme];
+  const PLAYER_LIGHT = THEME_PLAYER_LIGHT[artTheme];
+  const gameArt = artTheme === 'game';
+
   parent.innerHTML = `
     <div class="renderer-container">
       <div class="header"></div>
@@ -279,14 +314,30 @@ export function renderer(options: RendererOptions) {
   for (const s of curObs.structures) structByPos.set(`${s.x},${s.y}`, s);
 
   // Draw terrain — sprite per tile, with the solid color as a fallback
-  // while images are still loading.
-  c.imageSmoothingEnabled = true;
-  c.imageSmoothingQuality = 'medium';
+  // while images are still loading. The game art is pixel art, so it is
+  // scaled nearest-neighbour for a crisp look (matching the main game);
+  // the placeholder art is painted at high resolution and looks better
+  // smoothed.
+  c.imageSmoothingEnabled = !gameArt;
+  if (!gameArt) c.imageSmoothingQuality = 'medium';
   for (let y = 0; y < mapH; y++) {
     for (let x = 0; x < mapW; x++) {
       const tile = curObs.board[y]?.[x] ?? 'o';
       const px = xOff + x * cell;
       const py = yOff + y * cell;
+      const struct = structByPos.get(`${x},${y}`);
+
+      if (gameArt && STRUCT_TILE_CODES.has(tile)) {
+        // Game art: a structure IS the tile — draw it full-cell, already
+        // team-coloured by the palette swap (gray when neutral), exactly
+        // like the main game's renderer.
+        const sprite = getStructureSprite(tile, struct?.owner ?? 0);
+        if (isReady(sprite)) {
+          c.drawImage(sprite!, px, py, cell, cell);
+          continue;
+        }
+      }
+
       const terrain = getTerrainSprite(tile);
       if (isReady(terrain)) {
         c.drawImage(terrain!, px, py, cell, cell);
@@ -295,8 +346,9 @@ export function renderer(options: RendererOptions) {
         c.fillRect(px, py, cell, cell);
       }
 
-      // Ownership tint for capturable structures
-      const struct = structByPos.get(`${x},${y}`);
+      // Ownership tint for capturable structures (placeholder art only —
+      // game-art structures are team-coloured by the sprite itself, and
+      // this also covers the brief window before sprites finish loading).
       if (struct && struct.owner) {
         c.fillStyle = PLAYER_LIGHT[struct.owner] ?? '#dddddd';
         c.globalAlpha = 0.55;
@@ -324,8 +376,10 @@ export function renderer(options: RendererOptions) {
   c.stroke();
   c.globalAlpha = 1;
 
-  // Structure sprites (HQ, building, tower). Falls back to a glyph if the
-  // PNG hasn't finished loading yet.
+  // Structure sprites. With the game art the structure was already drawn
+  // as its tile above; the placeholder art draws an icon on top of the
+  // tinted tile here. Either way, fall back to a glyph while the PNG
+  // hasn't finished loading.
   const structSize = cell * 0.78;
   c.font = `${Math.max(8, Math.floor(cell * 0.36))}px 'Inter', sans-serif`;
   c.textAlign = 'center';
@@ -333,9 +387,11 @@ export function renderer(options: RendererOptions) {
   for (const s of curObs.structures) {
     const cx = xOff + s.x * cell + cell / 2;
     const cy = yOff + s.y * cell + cell / 2;
-    const sprite = getStructureSprite(s.type);
+    const sprite = getStructureSprite(s.type, s.owner);
     if (isReady(sprite)) {
-      c.drawImage(sprite!, cx - structSize / 2, cy - structSize / 2, structSize, structSize);
+      if (!gameArt) {
+        c.drawImage(sprite!, cx - structSize / 2, cy - structSize / 2, structSize, structSize);
+      }
     } else {
       const label = STRUCT_NAMES[s.type] ?? '';
       if (label) {
@@ -400,27 +456,50 @@ export function renderer(options: RendererOptions) {
     c.strokeRect(px + 1, py + 1, cell - 2, cell - 2);
   }
 
-  // Units — player-colored disc as ownership indicator, then sprite on top.
-  // Falls back to the letter glyph while sprites are still loading.
+  // Units.
+  //
+  // Game art: team-coloured sprite framed by a player-coloured border,
+  // matching the main game's renderer (sprites are palette-swapped, the
+  // border marks ownership).
+  //
+  // Placeholder art: player-coloured disc as ownership indicator, then
+  // the sprite on top.
+  //
+  // Both fall back to a disc with the letter glyph while sprites are
+  // still loading.
   const unitRadius = cell * 0.4;
-  const spriteSize = cell * 0.78;
+  const spriteSize = gameArt ? cell * 0.875 : cell * 0.78;
   const unitFont = Math.max(9, Math.floor(cell * 0.55));
   for (const u of curObs.units) {
     const px = xOff + u.x * cell + cell / 2;
     const py = yOff + u.y * cell + cell / 2;
     const color = PLAYER_COLORS[u.owner] ?? '#666';
 
-    // Ownership disc
-    c.fillStyle = color;
-    c.beginPath();
-    c.arc(px, py, unitRadius, 0, Math.PI * 2);
-    c.fill();
-    c.lineWidth = Math.max(1, cell * 0.04);
-    c.strokeStyle = '#050001';
-    c.stroke();
+    const sprite = getUnitSprite(u.type, u.owner);
+    const spriteReady = isReady(sprite);
 
-    const sprite = getUnitSprite(u.type);
-    if (isReady(sprite)) {
+    if (gameArt && spriteReady) {
+      // Player-coloured border around the unit's tile (main repo style)
+      c.lineWidth = Math.max(1.5, cell * 0.0625);
+      c.strokeStyle = color;
+      c.strokeRect(
+        xOff + u.x * cell + cell * 0.03 + 1,
+        yOff + u.y * cell + cell * 0.03 + 1,
+        cell * 0.94 - 2,
+        cell * 0.94 - 2
+      );
+    } else {
+      // Ownership disc
+      c.fillStyle = color;
+      c.beginPath();
+      c.arc(px, py, unitRadius, 0, Math.PI * 2);
+      c.fill();
+      c.lineWidth = Math.max(1, cell * 0.04);
+      c.strokeStyle = '#050001';
+      c.stroke();
+    }
+
+    if (spriteReady) {
       c.drawImage(sprite!, px - spriteSize / 2, py - spriteSize / 2, spriteSize, spriteSize);
     } else {
       // Letter fallback
@@ -483,4 +562,17 @@ export function renderer(options: RendererOptions) {
     statusHtml = `<span>Turn ${turnNum}</span>${actorLabel ? ' · ' + actorLabel : ''}${lastLabel ? ' · ' + lastLabel : ''}`;
   }
   statusContainer.innerHTML = statusHtml;
+
+  // Sprite art toggle — switches between the main game's pixel art and
+  // the original placeholder art.
+  const toggle = document.createElement('button');
+  toggle.className = 'art-toggle';
+  toggle.type = 'button';
+  toggle.textContent = gameArt ? 'Art: game' : 'Art: classic';
+  toggle.title = 'Switch between the main game pixel art and the original placeholder art';
+  toggle.onclick = () => {
+    setSpriteTheme(gameArt ? 'kaggle' : 'game');
+    if (lastOptions) renderer(lastOptions);
+  };
+  statusContainer.appendChild(toggle);
 }

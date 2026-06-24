@@ -308,6 +308,48 @@ grep -rnE 'reversed\(list\(|reversed\(.*\.findall|response\.rfind|extract_last_j
 grep -rE '_(MOVE|COORD|CELL|MOVE_TOKEN)_RE\s*=\s*re\.compile\(.*\\s\*' \
     kaggle_environments/envs/*/harness*.py
 
+# --- Prompt: hardcoded board dimensions ---
+# Module-level board-size constants — suspect on any size-configurable game.
+grep -rnE '_(BOARD|GRID|ROWS|COLS|NUM_(ROWS|COLS))[A-Z_]*\s*=\s*[0-9]+' \
+    kaggle_environments/envs/*/harness*.py \
+    kaggle_environments/envs/*/harness/*.py \
+    kaggle_environments/envs/open_spiel_env/games/*/harness*.py 2>/dev/null
+# Literal "NxM grid/board" or coordinate ranges baked into prompt templates.
+grep -rnE '[0-9]+\s*x\s*[0-9]+\s*(grid|board)|[a-z]-[a-z]|1-[0-9]+' \
+    kaggle_environments/envs/*/harness*.py \
+    kaggle_environments/envs/*/harness/*.py \
+    kaggle_environments/envs/open_spiel_env/games/*/harness*.py 2>/dev/null
+
+# --- Prompt: only per-agent move_history shown ---
+# Harnesses whose generate_prompt references move_history but NEVER reads a
+# full-game history surface (proxy state_dict, pyspiel state.history(),
+# PGN/movetext builder). A hit here means the prompt is likely showing only
+# this agent's moves and labelling it as if it were the full game.
+for f in kaggle_environments/envs/*/harness*.py \
+         kaggle_environments/envs/*/harness/*.py \
+         kaggle_environments/envs/open_spiel_env/games/*/harness*.py; do
+    [ -f "$f" ] || continue
+    grep -q 'move_history' "$f" || continue
+    grep -qE 'state\.history\(\)|state\.full_history\(\)|state_dict.*history|"move_history"|movetext|action_history' "$f" \
+        || echo "per-agent-only: $f"
+done
+
+# --- Prompt: move *count* shown instead of move *list* ---
+# Harnesses that interpolate move_number / moves_played / turn_count into the
+# template ("Moves played so far: 14") rather than rendering the actual moves
+# ("a1b1, b3a3, ..."). A hit needs manual confirmation — counts CAN be useful
+# alongside the move list (chess "Move 14:"), but a count with NO move list
+# anywhere in the prompt is the clobber bug.
+for f in kaggle_environments/envs/*/harness*.py \
+         kaggle_environments/envs/*/harness/*.py \
+         kaggle_environments/envs/open_spiel_env/games/*/harness*.py; do
+    [ -f "$f" ] || continue
+    grep -qE '\{(move_number|moves_played|turn_count|num_moves|ply)\}' "$f" || continue
+    # Has a count interpolation. Does it also render an actual move list?
+    grep -qE '\{(move_history|moves|history|movetext|pgn|action_log|move_list)[_a-z]*\}' "$f" \
+        || echo "count-only (no move list in template): $f"
+done
+
 # --- Branching prompts: apply the per-branch rule-coverage matrix ---
 # (See Step 2b. Hits here mean the harness emits structurally different
 # prompts for different roles/phases/turn types, so a rule disclosed to
@@ -370,6 +412,20 @@ Structure the writeup as:
 
 **Don't bury the lede.** Lead with the most game-impacting bug, not the first one you found.
 
+### Cite specific replay files for every replay-derived finding
+
+When a replay archive is provided, the human reviewer's first instinct on any claim ("models get confused by line X", "the parser drops the move here", "this rule is misread") is to open a replay and see it for themselves. Make that one click, not a hunt. **Every replay-derived finding must name at least one concrete episode file the reviewer can open**, and where possible point to the exact `step` index and player slot. The bar is "could a reviewer who hasn't read your scan script reproduce the finding by opening the file you cited?".
+
+Concretely:
+- Cite the episode by its real path or basename (e.g. `replays/episode_01234.json` or `1700123456789.json`), not by the index into your scan list. Internal indices mean nothing to the reviewer.
+- Pin the location inside the episode: `steps[12][0]` (step 12, agent 0) for a specific turn, plus the field you read (`action.thoughts`, `action.actionString`, `observation.observationString`).
+- For prompt-comprehension findings ("models repeatedly misread the move-count line"), quote the offending model snippet AND name 2–3 episodes where it appears. One example is anecdote; three is a pattern the reviewer can trust without re-running your scan.
+- For parser findings, name the episode and step whose `thoughts` exhibit the failure mode (multiple JSON blocks, prose-only response, etc.) — these are the files the reviewer will paste into a unit test.
+- For aggregate claims ("fired N times across M episodes"), list a representative handful (3–5) of the episode paths in addition to the totals. Don't dump the full list — a sample is enough to spot-check.
+- If your scan produced a per-finding artifact (CSV of mismatches, list of offending episodes), save it alongside the report and reference its path so the reviewer can drill in without re-running anything.
+
+A finding that says "the parser picked the wrong move on 47 turns" is unactionable; the same finding with "47 turns across 31 episodes, e.g. `episode_00481.json` step 14 agent 1 (`thoughts` shows `e5` chosen, `actionString` is `a1`)" is something the reviewer can verify in 30 seconds.
+
 ## Step 6: Ask before fixing
 
 When the review surfaces real bugs, ask the user whether to fix any/all before writing patches. The review is the deliverable — fixes are a follow-up.
@@ -412,6 +468,9 @@ Bugs that have been found in real reviews. Treat this as a starting point — fi
 | **Prompt enumerates legal moves** | Bloated prompt, trivializes legality-finding games | Read prompt | Describe rules; let the model derive legality |
 | **Prompt gives strategy advice** | Biases the model toward the author's preferred play | Read prompt | Remove strategy hints; keep only rules and mechanics |
 | **Move history framing wrong** | History includes events (collisions, retries) the prompt doesn't disclose | Compare `move_history` content with what the prompt says it contains | Annotate or describe accurately |
+| **Prompt shows only this agent's moves, not the opponent's** | The framework's `move_history` argument is per-agent — it lists this agent's past actions and nothing the opponent did. A prompt that interpolates it as "move history" or "moves played so far" is showing the model half the game and labelling it as if it were the full game. The model can't reconstruct the position from incomplete information, and every claim it tries to make about what the opponent has done is grounded in nothing. Worst on games where opponent intent matters most (chess, dots-and-boxes, anything with capture/retaliation dynamics). | Grep for `move_history` use in `generate_prompt`. If the only history surface in the prompt is the per-agent argument (no proxy `state_dict()["move_history"]`, no `state.history()` reconstruction from `serializedGameAndState`, no PGN/movetext builder), it's this bug. Confirm by rendering the prompt mid-game and checking whether opponent moves appear anywhere. | Source full-game history from the proxy's `state_dict()` if it surfaces one (e.g. coin_game, ant_foraging_arena), or reconstruct from the deserialized pyspiel state (`state.history()` / `state.full_history()`, see `chess/harness.py` `_build_pgn_movetext` for a worked example). Render with player labels so the model can tell whose move is whose. If the proxy doesn't expose a full history, add it there rather than papering over the gap in the prompt. |
+| **Prompt shows the move *count* instead of the move *list*** | The prompt interpolates a counter — `move_number`, `moves_played`, `turn_count`, `ply` — into a line like `"Moves played so far: 14"` instead of rendering the actual moves. The number tells the model how deep into the game it is and nothing else: it can't see what the opponent has been doing, can't detect repetitions, can't reason about threats that have been declared and not yet executed, and can't compare its current plan against what's already been tried. This is what clobber shipped with — the proxy exposed `move_number` and the harness echoed it; the model was effectively playing every position cold. Often co-occurs with the "per-agent only" bug above, but can stand alone when the harness has no history surface at all. | Grep the prompt template for count placeholders (`{move_number}`, `{moves_played}`, `{turn_count}`, `{num_moves}`, `{ply}`). For each hit, check whether the template ALSO renders an actual move list (a `{move_history}`/`{moves}`/`{movetext}`/`{pgn}` placeholder or equivalent rendered helper output). A count with NO move list in the same template is the bug. Render the prompt mid-game and look for an actual sequence of moves; if you only see `"Moves played so far: 14"` and never `"a1b1, b3a3, ..."`, that's it. | Replace the count interpolation with a rendered move list sourced from the proxy's `state_dict()["move_history"]` (add the field to the proxy if missing — clobber's proxy needed this; see `clobber_proxy.py` `state_dict()` for the parity-based player_id reconstruction), or reconstruct from `serializedGameAndState`. Render `"<move1>, <move2>, ..."` (or PGN-style for chess) and label it accurately: `"Moves played so far (both players, oldest first): a1b1, b3a3, ..."`. Keep `move_number` as a separate field if useful for orientation, but never as a substitute. |
+| **Board dimensions hardcoded in the prompt** | The prompt bakes in a specific board size (`"10x10 grid"`, column letters `"a-j"`, `"rows 1-9"`) or coordinate-system text derived from a constant rather than from the live observation. When the env is loaded with a non-default `board_size` / `num_rows` / `num_cols` (havannah, dark_hex, amazons, dots_and_boxes — anything configurable), the prompt lies to the model: it describes a different grid than the one being played on, and the column/row range it permits no longer matches the legal action set. Models then propose moves outside the rendered board and lose to retry exhaustion, or refuse to use coordinates the prompt didn't authorize. | Grep the prompt template for hardcoded dimension strings (digits next to "grid"/"board"/"rows"/"columns"), hardcoded coordinate ranges (`a-j`, `1-9`, etc.), and module-level constants like `_BOARD_SIZE = 10`. For each hit, ask: does the env support multiple sizes? (Check the env's `configuration` / the `pyspiel.load_game(name, params)` site for size parameters.) If yes, render the prompt at the non-default size and verify the dimension text matches. The `amazons/harness.py:113` `_board_dims` helper is the canonical pattern to compare against — anything simpler is suspect on a size-configurable game. | Read board dims from the parsed `observationString` (proxy typically exposes `board`, `num_rows`/`num_cols`, or `board_size`); fall back to `state.get_game().get_parameters()` from the deserialized pyspiel state. Interpolate `{num_rows}`/`{num_cols}` into the template and derive coordinate-range text from those dims (e.g. compute column letters as `string.ascii_lowercase[:num_cols]`, not a literal `"a-j"`). Add a unit test that renders the prompt at two different configured sizes and asserts each renders correctly. |
 | **Coordinate convention mismatch** | Prompt says "rows top→bottom" but proxy emits bottom→top | Print proxy's `state_dict()` for known position; cross-check | Align prompt or proxy |
 | **Overloaded symbol for distinct state** | The prompt uses one symbol (a glyph, token, label, marker) to represent two or more structurally distinct pieces of game state, with the disambiguator being context the model has to reconstruct (position in a grid, surrounding tokens, the legend, prior knowledge of the rules). Even when the legend documents the overload, models routinely conflate the meanings and reason about state that isn't there — proposing moves they think are legal but aren't, or missing options they think are blocked. This applies to any encoding choice: one character for two cell types, one label for two action kinds, one numeric for two resource pools, etc. | Render the prompt at a non-trivial mid-game state. For each symbol that appears (board glyphs, action tokens, history entries, status labels), list every distinct piece of game state it can represent. Any symbol with two or more meanings is a finding, regardless of whether the legend explains the disambiguation — the burden of disambiguation is the bug. Cross-check by reading replay `thoughts` for traces that confidently misclassify state. | Assign each semantic role its own unique symbol. Update the legend AND verify by eye that no two roles share an encoding. If the state has redundant structured form available (e.g. the proxy's JSON `state_dict`), consider surfacing it alongside the human-readable rendering as a second view the model can cross-check against. |
 | **Unit mismatch between two numbers in the same prompt** | The prompt shows two numerics with related meanings in different units, with no label saying which is which. Example: coin_game_arena rendered `episode_length: 20` (per board) and `moves_remaining: 36` (global, across both boards) on the same screen — a model planning end-game urgency had to divide by 2 to reconcile. Tends to appear when an obs field is computed at the engine level (in one unit) and then re-used in a prompt next to a constant defined in another unit. | Render the prompt and pick out paired numerics whose names invite comparison (durations, counts remaining, scores). If their units differ — per-player vs per-team, per-board vs global, per-turn vs per-step — that's the bug. | Normalize at the harness layer (e.g. compute per-board moves remaining from the per-board history length), or rename the noisy field so units are unambiguous. Surface the value as a dedicated sentence with units in the prose, not buried in a JSON dump. |
@@ -432,7 +491,6 @@ Bugs that have been found in real reviews. Treat this as a starting point — fi
 
 | Pattern | Symptom | Detection | Fix |
 |---|---|---|---|
-| **Missing `agent_fn`** | `env.run([harness.py, ...])` doesn't load an LLM agent | `grep create_agent_fn` in the harness | Add adapter class + `agent_fn = create_agent_fn(adapter())` |
 | **Relative imports in harness** | Production loader (single-file) fails to import | `grep 'from \.' harness.py` | Use absolute `kaggle_environments...` imports |
 | **No `test_llm_game.py`** | No in-repo end-to-end LLM sanity test | `ls` for `test_llm_game.py` | Create from `create-harness` template |
 | **No `harness_test.py`** | No unit tests for prompt/parser/legal-moves | `ls` for the test file | Create from `create-harness` template |

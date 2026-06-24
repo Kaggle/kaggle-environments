@@ -8,11 +8,30 @@ from absl.testing import absltest
 from kaggle_environments.core_harness import ParseResult, create_agent_fn
 from kaggle_environments.envs.open_spiel_env.games.repeated_poker.harness import (
     _extract_move_from_response,
-    _PokerHarness,
     generate_prompt,
     get_legal_moves,
     parse_response,
 )
+
+
+class _PokerHarness:
+    """Test-local GameHarness adapter for repeated_poker."""
+
+    def get_legal_moves(self, observation):
+        return get_legal_moves(observation)
+
+    def make_prompt(
+        self, observation, move_history,
+        previous_response=None, previous_action=None,
+    ):
+        return generate_prompt(
+            observation, move_history, previous_response, previous_action,
+        )
+
+    def parse_response(self, response, legal_action_strings, *, observation=None):
+        return parse_response(
+            response, legal_action_strings, observation=observation,
+        )
 
 _GAME_STRING = (
     "repeated_poker(max_num_hands=100,reset_stacks=True,rotate_dealer=True,"

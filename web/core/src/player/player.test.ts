@@ -202,6 +202,48 @@ describe('ReplayVisualizer', () => {
     });
   });
 
+  describe('host-supplied agent names override info.TeamNames', () => {
+    it('overrides TeamNames when agents arrive after replay', () => {
+      new ReplayVisualizer(container, adapter);
+      const replay = makeReplay({ info: { TeamNames: ['Stale A', 'Stale B'] } });
+      window.dispatchEvent(new MessageEvent('message', { data: { replay } }));
+
+      const agents = [{ name: 'Host A' }, { name: 'Host B' }];
+      window.dispatchEvent(new MessageEvent('message', { data: { agents } }));
+
+      expect(adapter.render).toHaveBeenLastCalledWith(
+        0,
+        expect.objectContaining({ info: expect.objectContaining({ TeamNames: ['Host A', 'Host B'] }) }),
+        agents
+      );
+    });
+
+    it('overrides TeamNames when agents arrive before replay', () => {
+      new ReplayVisualizer(container, adapter);
+      const agents = [{ name: 'Host A' }, { name: 'Host B' }];
+      window.dispatchEvent(new MessageEvent('message', { data: { agents } }));
+
+      const replay = makeReplay({ info: { TeamNames: ['Stale A', 'Stale B'] } });
+      window.dispatchEvent(new MessageEvent('message', { data: { replay } }));
+
+      expect(adapter.mount).toHaveBeenCalledWith(
+        expect.any(HTMLElement),
+        expect.objectContaining({ info: expect.objectContaining({ TeamNames: ['Host A', 'Host B'] }) })
+      );
+    });
+
+    it('leaves TeamNames intact when no agents are supplied', () => {
+      new ReplayVisualizer(container, adapter);
+      const replay = makeReplay({ info: { TeamNames: ['A', 'B'] } });
+      window.dispatchEvent(new MessageEvent('message', { data: { replay } }));
+
+      expect(adapter.mount).toHaveBeenCalledWith(
+        expect.any(HTMLElement),
+        expect.objectContaining({ info: expect.objectContaining({ TeamNames: ['A', 'B'] }) })
+      );
+    });
+  });
+
   describe('setAgents', () => {
     it('updates the agents list', () => {
       const rv = new ReplayVisualizer(container, adapter);

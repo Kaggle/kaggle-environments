@@ -158,6 +158,53 @@ class GeneratePromptTest(absltest.TestCase):
         prompt = generate_prompt(obs1, [])
         self.assertIn(f"Last move played: {first_str}", prompt)
 
+    def test_full_move_history_rendered_for_both_players(self):
+        # Apply one move from each player; prompt must list both.
+        first = self.state.legal_actions(0)[0]
+        first_str = self.state.action_to_string(0, first)
+        self.state.apply_action(first)
+        second = self.state.legal_actions(1)[0]
+        second_str = self.state.action_to_string(1, second)
+        self.state.apply_action(second)
+
+        obs = _make_observation(self.state, self.game, player_id=0)
+        prompt = generate_prompt(obs, [])
+        self.assertIn(
+            f"Moves played so far (both players, oldest first): "
+            f"{first_str}, {second_str}",
+            prompt,
+        )
+
+    def test_empty_move_history_rendered_as_none(self):
+        obs = _make_observation(self.state, self.game, player_id=0)
+        prompt = generate_prompt(obs, [])
+        self.assertIn(
+            "Moves played so far (both players, oldest first): (none yet)",
+            prompt,
+        )
+
+    def test_per_agent_move_history_arg_is_ignored(self):
+        # The framework's per-agent move_history arg only contains this
+        # agent's actions. The prompt must NOT reflect it -- it must source
+        # full-game history from the observation instead.
+        obs = _make_observation(self.state, self.game, player_id=0)
+        prompt = generate_prompt(obs, ["bogus_per_agent_token"])
+        self.assertNotIn("bogus_per_agent_token", prompt)
+
+    def test_non_default_board_size_rendered_in_prompt(self):
+        # Env is configurable: a 5x6 board must surface those dimensions
+        # (and matching coordinate range) rather than any hardcoded default.
+        game = clobber_proxy.ClobberGame({"rows": 5, "columns": 6})
+        state = game.new_initial_state()
+        obs = _make_observation(state, game, player_id=0)
+        prompt = generate_prompt(obs, [])
+        self.assertIn("5x6 checkerboard", prompt)
+        # Files run a..f (6 columns); ranks run 1..5.
+        self.assertIn("a..f", prompt)
+        self.assertIn("1..5", prompt)
+        # Board header lists every file letter.
+        self.assertIn("a b c d e f", prompt)
+
     def test_rethink_suffix(self):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(
@@ -225,7 +272,7 @@ class _ClobberHarness:
             previous_action=previous_action,
         )
 
-    def parse_response(self, response, legal_action_strings):
+    def parse_response(self, response, legal_action_strings, *, observation=None):
         return parse_response(response, legal_action_strings)
 
 

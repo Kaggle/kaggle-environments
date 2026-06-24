@@ -17,7 +17,7 @@ A harness module that implements three functions (the `GameHarness` protocol):
 | `make_prompt(observation, move_history, ...)` | Build the LLM prompt |
 | `parse_response(response, legal_action_strings)` | Extract the chosen action from the LLM's text |
 
-Plus an adapter class that wraps these into the protocol, and a call to `create_agent_fn()` to produce the final Kaggle agent.
+Production wires these three module-level functions into an agent via an external wrapper template — **do not write an adapter class or a `create_agent_fn(...)` line in `harness.py`**. Tests construct their own local adapter when they want end-to-end coverage; see Step 6 for the pattern.
 
 ## Step 1: Understand the game
 
@@ -175,6 +175,15 @@ For an imperfect-information variant (per-player observation, custom
 - **Cross-check rule claims against the env's *actual* `load_game` params.** Don't trust the game's name or docstring — read the env factory. Gin rummy's prompt described the "Oklahoma variant" because the author assumed the default, but the env loads `gin_rummy` with `oklahoma=false`. Whenever the prompt says "in this variant…" or names a ruleset, confirm the params at the `pyspiel.load_game(name, params)` call site match.
 - **Parameterize directional/orientation language on `player_id`.** Sentences like "lower is your goal", "toward the top edge", "first move", or "your stones are at the bottom" are almost always asymmetric — correct for one player and wrong for the other. Render the prompt for `player_id=0` AND `player_id=1` and diff them; any directional text that's byte-identical between the two is probably the bug. Factor through a per-player helper (e.g. `_player_info(player_id) -> (label, code, direction_text)` like dark_hex does) so the asymmetry is in one place. Oshi-zumo shipped with "lower is your goal" baked in once; 7.7% of P0 turns echoed the wrong direction.
 - **For multi-phase games, dispatch on an explicit phase identifier, not legals-shape.** When phases share `{Pass, Knock}`-shaped legals (gin rummy's Wall and Layoff) or any other coincidental legal-action signature, a legals-based fallback will silently misroute. Build a `{phase_name: template}` table keyed on the engine's own phase string/enum, assert at construction time that every engine phase is covered, and raise on an unknown phase instead of falling through to a default — a new phase should fail loudly, not silently get the wrong prompt.
+- **Read board dimensions from the observation, not hardcoded constants.** Many games support multiple board sizes via env configuration (havannah's `board_size`, dark_hex's `num_rows`/`num_cols`, amazons' build-dependent defaults). A prompt that bakes in `"10x10 grid"`, hardcodes column letters `a–j`, or assumes a fixed coordinate range will silently lie to the model whenever the env is loaded with a different size. Source dims from the parsed `observationString` (proxy `state_dict()` usually exposes `board` plus `num_rows`/`num_cols` or `board_size`), or — as a fallback — deserialize `serializedGameAndState` and read `state.get_game().get_parameters()`. See `amazons/harness.py:113` (`_board_dims`) for the canonical pattern: prefer the actual board grid, fall back to explicit dimension fields, only then a default. Interpolate `num_rows` / `num_cols` into the prompt template (`"on a {num_rows}x{num_cols} grid"`) and derive any coordinate-system text from those dims (e.g. compute the column-letter range from `num_cols` rather than literal `"a-j"`). Render the prompt at every configured size the env supports and verify each renders correctly.
+- **Include the full game's move history, not just this agent's moves — and render the actual moves, not a count of them.** Two distinct failure modes:
+  1. **Per-agent only.** The framework-provided `move_history` argument is *this agent's* past actions only — it omits the opponent's moves entirely. A prompt that uses only this is showing the model half the game.
+  2. **Count instead of moves.** The proxy exposes `move_number` (or `moves_played`, `turn_count`) and the prompt interpolates *that* — `"Moves played so far: 14"` — instead of the actual move list. This was the clobber bug: the prompt rendered the count and the model had no way to reconstruct what had been played. A count tells the model "we're 14 moves in" and nothing else; the model needs the actual sequence (`a1b1, b3a3, c2c3, ...`) to reason about threats, repetitions, and what the opponent has been doing.
+  Sources for the full move list, in order of preference:
+  - The proxy's `state_dict()` exposes a `move_history` (or `action_history`, `moves`, `played_moves`) field covering both players — see `coin_game/harness.py` and `ant_foraging_arena/harness.py` for proxies that surface this and harnesses that render it.
+  - If the proxy doesn't expose one, deserialize `serializedGameAndState` and walk `state.history()` / `state.full_history()` to reconstruct it (see `chess/harness.py:36` `_build_pgn_movetext` for a worked example that emits PGN-style movetext from the pyspiel state). For games with no chance phase, play actions alternate from player 0, so per-move player_ids fall out of index parity.
+  - Last resort: have the proxy add a `move_history` field (clobber's proxy did this — see `clobber_proxy.py`'s `state_dict()`). Don't fall back to the per-agent `move_history` argument and call it "history" — that's the "Move history framing wrong" anti-pattern.
+  Render the moves themselves (`"a1b1, b3a3, c2c3, ..."` or PGN-style for chess), readably and with player labels if alternation isn't obvious from order, and label the line accurately — `"Moves played so far this game (both players, oldest first): a1b1, b3a3, ..."` reads true; `"Moves played so far: 14"` does not. Keep `move_number` as a separate field if useful, but never as a substitute for the move list.
 - **Move history formatting.** Show it as a readable list or "None" if empty. Don't let an empty string confuse the model.
 
 ```python
@@ -358,35 +367,6 @@ empirical impact.
 - **Adapt the JSON key** to your game by passing `json_key=`: `"move"` for board games (default), `"bid"` for auction games, `"action"` for generic games — whatever matches your prompt.
 - **For numeric actions** (like bids), validate in the matcher: convert raw → int, check membership in the legal-action-encoded integers, and return the canonical legal string.
 
-## Step 5: Create the adapter class and agent function
-
-Wrap your module-level functions into a class that satisfies the `GameHarness` protocol, then call `create_agent_fn`:
-
-```python
-from kaggle_environments.core_harness import create_agent_fn
-
-class _MyGameHarness:
-    """Adapts module-level harness functions to the GameHarness protocol."""
-
-    def get_legal_moves(self, observation):
-        return get_legal_moves(observation)
-
-    def make_prompt(self, observation, move_history,
-                    previous_response=None, previous_action=None):
-        return generate_prompt(
-            observation, move_history, previous_response, previous_action
-        )
-
-    def parse_response(self, response, legal_action_strings):
-        return parse_response(response, legal_action_strings)
-
-agent_fn = create_agent_fn(_MyGameHarness())
-```
-
-The adapter is thin by design — it just bridges the naming convention. `create_agent_fn` handles everything else: model setup, the retry loop, inactive-call guards, move history tracking, and telemetry.
-
-`create_agent_fn` accepts an optional `max_retries` parameter (default 2) — the total number of LLM calls before giving up.
-
 ## Step 6: Write tests
 
 Harness tests follow a consistent 4-class structure. Create your test file at the same relative path as the harness, under `tests/`.
@@ -405,7 +385,31 @@ classes that together cover the surface area.
 | `ParseResponseTest` | Parser in isolation. Cover at minimum: fenced JSON, bare JSON, case-insensitive match, illegal-move-returns-raw, prose-only-returns-None (no ghost fallback), multiple-JSON-last-wins. Add a `test_illegal_json_does_not_ghost_substitute_from_prose` regression — the model writes a legal token in prose, then commits to an illegal one in JSON; the parser must NOT silently substitute the prose token. |
 | `GeneratePromptTest` | Prompt contents from a real proxy state. Cover: rules keywords present, board orientation, player-asymmetric text differs between `player_id=0` and `player_id=1`, captures/phase flags render correctly, rethink suffixes appear under the right conditions, the JSON example format is unambiguous. If the harness has multi-branch prompts (roles/phases), assert each branch contains its required rules. |
 | `GetLegalMovesTest` | Round-trip from `legalActions` + `legalActionStrings`, fallback from `serializedGameAndState`, empty-obs returns `{}`. |
-| `AgentIntegrationTest` | Full harness through `create_agent_fn` with `litellm.completion` patched. Cover: successful move, retry-on-bad-parse, raise-after-two-failures, terminal-step-returns-inactive, and a short scripted game (first-legal-each-turn) that round-trips through pyspiel without raising. |
+| `AgentIntegrationTest` | Full harness through `create_agent_fn` with `litellm.completion` patched. Cover: successful move, retry-on-bad-parse, raise-after-two-failures, terminal-step-returns-inactive, and a short scripted game (first-legal-each-turn) that round-trips through pyspiel without raising. Define a small test-local `_MyGameHarness` adapter (see the snippet below) at the top of the test file and pass it to `create_agent_fn`; do NOT import an adapter from `harness.py` (there isn't one). |
+
+Test-local adapter pattern (the only place an adapter class should live):
+
+```python
+class _MyGameHarness:
+    """Test-local GameHarness adapter; mirrors the prod wrapper shape."""
+
+    def get_legal_moves(self, observation):
+        return get_legal_moves(observation)
+
+    def make_prompt(self, observation, move_history,
+                    previous_response=None, previous_action=None):
+        return generate_prompt(
+            observation, move_history, previous_response, previous_action,
+        )
+
+    def parse_response(self, response, legal_action_strings, *, observation=None):
+        # Most parsers ignore `observation`. If yours forwards it to a
+        # module-level parse_response that needs the env state, pass it
+        # through here.
+        return parse_response(response, legal_action_strings)
+```
+
+The `*, observation` keyword on `parse_response` is required by the `GameHarness` protocol — `core_harness` always passes the current turn's observation. Most parsers can match the model's output against `legal_action_strings` alone and can ignore it; for parsers that genuinely need the env state at parse time (e.g. repeated_poker's bet-size soft-matching), declare an opt-in `*, observation: Mapping[str, Any] | None = None` kwarg on the *module-level* `parse_response` too and forward it through. See `kaggle_environments/envs/open_spiel_env/games/repeated_poker/harness.py` for that pattern.
 
 Mock helpers (`_StreamDelta`, `_StreamChoice`, `_StreamChunk`,
 `_make_mock_response`, `_ENV`) live at the top of checkers'
@@ -484,15 +488,15 @@ uv sync && uv run pytest tests/envs/open_spiel_env/games/<name>/harness_test.py 
 - [ ] Prompt includes: rules, state, move history, player identity, output format
 - [ ] Prompt does **not** enumerate the legal moves (let the model derive legality from the state and rules)
 - [ ] Every concrete field/value/rule in the prompt traces to a code path (no phantom claims; rules match the env's actual `load_game` params)
+- [ ] Board dimensions and coordinate-system text are derived from the observation / env config — not hardcoded — and the prompt renders correctly at every supported size
+- [ ] Move history shown to the model covers BOTH players (sourced from the proxy's `state_dict()` or reconstructed from `serializedGameAndState`), not just the per-agent `move_history` argument — and the prompt renders the **actual moves** (e.g. `"a1b1, b3a3, ..."`), not just a count like `"Moves played so far: 14"`
 - [ ] Prompt rendered for `player_id=0` and `player_id=1` — directional/orientation language mirrors correctly
 - [ ] Multi-phase games dispatch on the engine's explicit phase identifier, not legals-shape; unknown phase raises instead of silently falling through
 - [ ] Prompt has a rethink suffix for retries (uses `previous_response` and `previous_action`)
 - [ ] `parse_response` delegates to `parse_json_action` (uses last-mention-wins JSON extraction; no prose-scan fallback — that's the ghost-fallback anti-pattern)
 - [ ] `parse_response` does case-insensitive matching (default matcher) or passes a custom `matcher=` for notation tolerance (check `state.action_to_string` outputs for `*`, `x`, trailing `Pass`, `-`, etc. that models drop or add)
 - [ ] `ParseResult` fields are set correctly (enumerable: `legal_action`; free-form: `submission`)
-- [ ] Adapter class wraps functions into `GameHarness` protocol
-- [ ] `agent_fn = create_agent_fn(adapter)` is defined at module level
-- [ ] Tests cover: parsing, prompt generation, legal moves, and integration with mocked LLM
+- [ ] Tests cover: parsing, prompt generation, legal moves, and integration with mocked LLM (using a test-local adapter at the top of the test file)
 - [ ] `test_llm_game.py` script runs a full game with real LLM agents
 - [ ] Linting passes: `uv run ruff check --fix . && uv run ruff format .`
 

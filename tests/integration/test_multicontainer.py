@@ -36,7 +36,7 @@ def wait_for_orchestrator(timeout: int = 30) -> bool:
     while time.time() - start_time < timeout:
         if is_orchestrator_available():
             return True
-        time.sleep(1)
+        time.sleep(0.1)
     return False
 
 

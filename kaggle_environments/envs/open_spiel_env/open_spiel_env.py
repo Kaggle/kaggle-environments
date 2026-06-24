@@ -21,6 +21,7 @@ from open_spiel.python.games import (
 
 from kaggle_environments import core, utils
 from kaggle_environments.envs.open_spiel_env.games.ant_foraging_arena import ant_foraging_arena_game  # noqa: F401
+from kaggle_environments.envs.open_spiel_env.games.bridge_arena import bridge_arena_game  # noqa: F401
 from kaggle_environments.envs.open_spiel_env.games.coin_game_arena import coin_game_arena_game  # noqa: F401
 from kaggle_environments.envs.open_spiel_env.games.snake import snake_game  # noqa: F401
 
@@ -1015,7 +1016,10 @@ GAMES_LIST = [
     "amazons",
     "ant_foraging_arena",
     "backgammon",
+    "bargaining",
     "python_ant_foraging",
+    "breakthrough",
+    "bridge_arena",
     "checkers",
     "chess",
     "clobber",

@@ -45,7 +45,7 @@ Board (top to bottom; '.' = empty):
 {board_ascii}
 
 You are Player {player_label} ('{my_piece}').
-Moves played so far: {move_number}
+Moves played so far (both players, oldest first): {move_history_str}
 Last move played: {last_move}
 
 Choose your move. It must move one of your pieces onto an orthogonally
@@ -116,6 +116,42 @@ def _parse_observation_payload(observation: Mapping[str, Any]) -> dict[str, Any]
     return {}
 
 
+def _board_dims(state: Mapping[str, Any]) -> tuple[int, int]:
+    """Return ``(rows, columns)`` from a parsed state dict.
+
+    Prefers the actual board grid (always accurate for the current state),
+    falls back to the explicit ``rows``/``columns`` fields the proxy emits.
+    Returns ``(0, 0)`` only when nothing is available.
+    """
+    board = state.get("board") or []
+    if board:
+        return len(board), len(board[0])
+    rows = state.get("rows") or 0
+    columns = state.get("columns") or 0
+    return int(rows), int(columns)
+
+
+def _reconstruct_move_history(observation: Mapping[str, Any]) -> list[str]:
+    """Rebuild the full-game move history from the serialized pyspiel state.
+
+    Used only when the proxy state dict didn't surface ``move_history`` (e.g.
+    older replays). Clobber has no chance phase, so play actions alternate
+    starting with player 0.
+    """
+    serialized = observation.get("serializedGameAndState", "")
+    if not serialized:
+        return []
+    _, state = pyspiel.deserialize_game_and_state(serialized)
+    return [
+        state.action_to_string(idx % 2, action)
+        for idx, action in enumerate(state.history())
+    ]
+
+
+def _format_move_history(moves: Sequence[str]) -> str:
+    return ", ".join(moves) if moves else "(none yet)"
+
+
 def _format_board_ascii(board: Sequence[Sequence[str]], rows: int, columns: int) -> str:
     """Render the board with rank labels on the left and file labels on top.
 
@@ -162,15 +198,20 @@ def generate_prompt(
     previous_action: str | None = None,
 ) -> str:
     """Build the LLM prompt for the current clobber state."""
-    del move_history  # The full board state is sufficient context for clobber.
+    # The per-agent `move_history` argument only contains this agent's own
+    # actions. We need both players' moves, so we source the full game
+    # history from the proxy's state_dict (with a serialized-state fallback).
+    del move_history
     state = _parse_observation_payload(observation)
     player_id = observation.get("playerId", 0)
 
-    rows = int(state.get("rows") or 0)
-    columns = int(state.get("columns") or 0)
+    rows, columns = _board_dims(state)
     board = state.get("board") or []
-    move_number = state.get("move_number", 0)
-    last_move = state.get("last_move") or "(none yet)"
+    full_moves = state.get("move_history")
+    if not isinstance(full_moves, list):
+        full_moves = _reconstruct_move_history(observation)
+    last_move = state.get("last_move") or (full_moves[-1] if full_moves else None)
+    last_move_str = last_move or "(none yet)"
     my_piece = "o" if player_id == 0 else "x"
     last_file = chr(ord("a") + max(0, columns - 1))
 
@@ -181,8 +222,8 @@ def generate_prompt(
         board_ascii=_format_board_ascii(board, rows, columns),
         player_label=player_id,
         my_piece=my_piece,
-        move_number=move_number,
-        last_move=last_move,
+        move_history_str=_format_move_history(full_moves),
+        last_move=last_move_str,
     )
 
     prompt += render_rethink_suffix(
