@@ -1,12 +1,11 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { useTransition } from '../hooks/useReducedMotion';
-import svgSymbolPath from '../assets/icons.svg?url';
 import styles from './WithPopover.module.css';
 
 interface Props {
   children: ReactNode;
-  /** This refers to a symbol ID in the svg symbolset (`public/icons.svg`). */
+  /** This refers to a symbol ID in the svg symbolset (`src/assets/icons.svg`). */
   icon: string;
   id: string;
   label: string;
@@ -18,7 +17,6 @@ export function WithPopover({ children, icon, id, label, onChange }: Props) {
   const prevOpenRef = useRef(open);
   const onChangeRef = useRef(onChange);
   const transition = useTransition({ duration: 0.2, ease: 'easeOut' });
-  const iconPath = `${svgSymbolPath}#${icon}`;
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -79,7 +77,7 @@ export function WithPopover({ children, icon, id, label, onChange }: Props) {
           xmlns="http://www.w3.org/2000/svg"
           aria-hidden="true"
         >
-          <use xlinkHref={iconPath} />
+          <use xlinkHref={`#${icon}`} />
         </svg>
         <span className="visually-hidden">{label}</span>
       </button>

@@ -1,5 +1,6 @@
 import { memo, useEffect } from 'react';
 import HiddenHeader from './HiddenHeader';
+import SvgSprite from './SvgSprite';
 import BoardControls from './BoardControls';
 import GameBoard from './GameBoard';
 import Annotation from './Annotation';
@@ -25,6 +26,7 @@ export default memo(function Layout() {
 
   return (
     <main id="playable-area" className={styles.playableArea} data-loaded={loaded || undefined}>
+      <SvgSprite />
       <HiddenHeader />
       <PlayerBar color="b" />
       <div className={styles.board}>
