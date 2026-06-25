@@ -16,7 +16,11 @@ import styles from './Layout.module.css';
 import { Vignette } from './Vignette.tsx';
 import PlayerBar from './PlayerBar.tsx';
 
-export default memo(function Layout() {
+interface Props {
+  dense?: boolean;
+}
+
+export default memo(function Layout({ dense }: Props) {
   const loaded = usePreloader((s) => s.pixiReady && s.assetsReady);
   useBoardRect();
 
@@ -25,7 +29,12 @@ export default memo(function Layout() {
   }, []);
 
   return (
-    <main id="playable-area" className={styles.playableArea} data-loaded={loaded || undefined}>
+    <main
+      id="playable-area"
+      className={styles.playableArea}
+      data-loaded={loaded || undefined}
+      data-dense={dense || undefined}
+    >
       <SvgSprite />
       <HiddenHeader />
       <PlayerBar color="b" />

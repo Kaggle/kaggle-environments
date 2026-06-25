@@ -23,6 +23,20 @@
   opacity: 0;
 }
 
+.playableArea[data-dense] {
+  /* Dense embeds cap the visualizer area at 500px tall (see VisualizerContainer
+     in @kaggle-environments/core/EpisodePlayer). Switch to size containment so
+     the board can be sized by remaining height via cqh below. */
+  container-type: size;
+}
+
+.playableArea[data-dense] .board {
+  /* Default columns let the square board grow to 512px wide; in dense mode the
+     height budget after the two player bars + padding is much smaller than that,
+     so also cap by remaining vertical space to avoid scrolling. */
+  grid-template-columns: 1fr min(512px, calc(100% - 60px), calc(100cqh - 200px)) 1fr;
+}
+
 :global([data-reduced-motion]) .playableArea {
   transition: none;
 }
