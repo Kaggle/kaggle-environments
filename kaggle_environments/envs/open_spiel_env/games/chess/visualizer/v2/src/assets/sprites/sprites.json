@@ -1,0 +1,221 @@
+{
+  "frames": {
+    "bb.png": {
+      "frame": { "x": 1, "y": 1, "w": 256, "h": 256 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 256, "h": 256 },
+      "sourceSize": { "w": 256, "h": 256 }
+    },
+    "bk.png": {
+      "frame": { "x": 1, "y": 259, "w": 256, "h": 256 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 256, "h": 256 },
+      "sourceSize": { "w": 256, "h": 256 }
+    },
+    "bn.png": {
+      "frame": { "x": 259, "y": 1, "w": 256, "h": 256 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 256, "h": 256 },
+      "sourceSize": { "w": 256, "h": 256 }
+    },
+    "bp.png": {
+      "frame": { "x": 1, "y": 517, "w": 256, "h": 256 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 256, "h": 256 },
+      "sourceSize": { "w": 256, "h": 256 }
+    },
+    "bq.png": {
+      "frame": { "x": 259, "y": 259, "w": 256, "h": 256 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 256, "h": 256 },
+      "sourceSize": { "w": 256, "h": 256 }
+    },
+    "br.png": {
+      "frame": { "x": 517, "y": 1, "w": 256, "h": 256 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 256, "h": 256 },
+      "sourceSize": { "w": 256, "h": 256 }
+    },
+    "dark-tile.png": {
+      "frame": { "x": 476, "y": 775, "w": 128, "h": 128 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 128, "h": 128 },
+      "sourceSize": { "w": 128, "h": 128 }
+    },
+    "particles/bishop1.png": {
+      "frame": { "x": 184, "y": 775, "w": 144, "h": 144 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 144, "h": 144 },
+      "sourceSize": { "w": 144, "h": 144 }
+    },
+    "particles/bishop2.png": {
+      "frame": { "x": 330, "y": 775, "w": 144, "h": 144 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 144, "h": 144 },
+      "sourceSize": { "w": 144, "h": 144 }
+    },
+    "particles/knight-shadow.png": {
+      "frame": { "x": 606, "y": 775, "w": 128, "h": 128 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 128, "h": 128 },
+      "sourceSize": { "w": 128, "h": 128 }
+    },
+    "particles/pawn.png": {
+      "frame": { "x": 1013, "y": 775, "w": 18, "h": 96 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 18, "h": 96 },
+      "sourceSize": { "w": 18, "h": 96 }
+    },
+    "particles/puff1.png": {
+      "frame": { "x": 736, "y": 775, "w": 127, "h": 105 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 127, "h": 105 },
+      "sourceSize": { "w": 127, "h": 105 }
+    },
+    "particles/puff2.png": {
+      "frame": { "x": 1, "y": 775, "w": 181, "h": 153 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 181, "h": 153 },
+      "sourceSize": { "w": 181, "h": 153 }
+    },
+    "particles/puff3.png": {
+      "frame": { "x": 865, "y": 775, "w": 99, "h": 83 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 99, "h": 83 },
+      "sourceSize": { "w": 99, "h": 83 }
+    },
+    "particles/rook1.png": {
+      "frame": { "x": 736, "y": 882, "w": 72, "h": 72 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 72, "h": 72 },
+      "sourceSize": { "w": 72, "h": 72 }
+    },
+    "particles/rook2.png": {
+      "frame": { "x": 810, "y": 882, "w": 72, "h": 72 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 72, "h": 72 },
+      "sourceSize": { "w": 72, "h": 72 }
+    },
+    "particles/rook3.png": {
+      "frame": { "x": 884, "y": 860, "w": 72, "h": 72 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 72, "h": 72 },
+      "sourceSize": { "w": 72, "h": 72 }
+    },
+    "particles/rook4.png": {
+      "frame": { "x": 958, "y": 884, "w": 72, "h": 72 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 72, "h": 72 },
+      "sourceSize": { "w": 72, "h": 72 }
+    },
+    "particles/squiggle-1.png": {
+      "frame": { "x": 966, "y": 775, "w": 45, "h": 107 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 45, "h": 107 },
+      "sourceSize": { "w": 45, "h": 107 }
+    },
+    "particles/squiggle-2.png": {
+      "frame": { "x": 476, "y": 905, "w": 23, "h": 57 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 23, "h": 57 },
+      "sourceSize": { "w": 23, "h": 57 }
+    },
+    "particles/squiggle-3.png": {
+      "frame": { "x": 501, "y": 905, "w": 23, "h": 57 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 23, "h": 57 },
+      "sourceSize": { "w": 23, "h": 57 }
+    },
+    "wb.png": {
+      "frame": { "x": 775, "y": 1, "w": 256, "h": 256 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 256, "h": 256 },
+      "sourceSize": { "w": 256, "h": 256 }
+    },
+    "wk.png": {
+      "frame": { "x": 259, "y": 517, "w": 256, "h": 256 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 256, "h": 256 },
+      "sourceSize": { "w": 256, "h": 256 }
+    },
+    "wn.png": {
+      "frame": { "x": 517, "y": 259, "w": 256, "h": 256 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 256, "h": 256 },
+      "sourceSize": { "w": 256, "h": 256 }
+    },
+    "wp.png": {
+      "frame": { "x": 775, "y": 259, "w": 256, "h": 256 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 256, "h": 256 },
+      "sourceSize": { "w": 256, "h": 256 }
+    },
+    "wq.png": {
+      "frame": { "x": 517, "y": 517, "w": 256, "h": 256 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 256, "h": 256 },
+      "sourceSize": { "w": 256, "h": 256 }
+    },
+    "wr.png": {
+      "frame": { "x": 775, "y": 517, "w": 256, "h": 256 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 256, "h": 256 },
+      "sourceSize": { "w": 256, "h": 256 }
+    }
+  },
+  "animations": {
+    "particles/bishop": ["particles/bishop1.png", "particles/bishop2.png"],
+    "particles/puff": [
+      "particles/puff1.png",
+      "particles/puff2.png",
+      "particles/puff3.png"
+    ],
+    "particles/rook": [
+      "particles/rook1.png",
+      "particles/rook2.png",
+      "particles/rook3.png",
+      "particles/rook4.png"
+    ],
+    "particles/squiggle": [
+      "particles/squiggle-1.png",
+      "particles/squiggle-2.png",
+      "particles/squiggle-3.png"
+    ]
+  },
+  "meta": {
+    "app": "https://www.codeandweb.com/texturepacker",
+    "version": "1.1",
+    "image": "sprites.png?v=7acee2adc379",
+    "format": "RGBA8888",
+    "size": { "w": 1032, "h": 963 },
+    "scale": "1",
+    "smartupdate": "$TexturePacker:SmartUpdate:acb26ba2de6a637e3c76b02c82f0e95e:352ae16ea03b01a56e27ac13a412676a:1eabdf11f75e3a4fe3147baf7b5be24b$"
+  }
+}

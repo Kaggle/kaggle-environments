@@ -5,7 +5,7 @@ export interface GoBoardState {
   komi: number;
   current_player_to_move: string;
   move_number: number;
-  previous_move_a1: string | null;
+  previous_move: string | null;
   board: string[][];
 }
 

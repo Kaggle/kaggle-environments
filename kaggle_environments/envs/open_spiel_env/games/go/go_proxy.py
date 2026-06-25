@@ -136,6 +136,12 @@ class GoState(proxy.State):
             ])
         return result
 
+    def _ascii_board_string(self) -> str:
+        """Return the engine's board diagram without the state metadata line."""
+        board_string = self.__wrapped__.__str__()
+        lines = board_string.strip("\n").splitlines()
+        return "\n".join(lines[2:])
+
     def state_dict(self) -> dict[str, Any]:
         clone_state = self.get_game().__wrapped__.new_initial_state()
         action_strs = []
@@ -149,7 +155,9 @@ class GoState(proxy.State):
             "komi": self.get_game().get_parameters()["komi"],
             "current_player_to_move": self._player_string(self.current_player()),
             "move_number": len(self.history()) + 1,
-            "previous_move_a1": prev_move,
+            "previous_move": prev_move,
+            "move_history": action_strs,
+            "ascii_board": self._ascii_board_string(),
             "board_grid": self._board_string_to_dict(),
         }
         if self.is_terminal():

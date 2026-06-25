@@ -364,7 +364,8 @@ export function renderer(options: RendererOptions<GoStep[]>) {
     }
 
     const currentPlayer = step.players.find((player) => player.isTurn);
-    const { board, komi, previous_move_a1 } = step.boardState;
+    const { board, komi, previous_move } = step.boardState;
+    const previousMoveCoord = previous_move?.split(/\s+/).at(-1)?.toUpperCase();
 
     // Render stones on the board, from top to bottom
     // board[0] is the top row (row 9 in a 9x9 board), board[8] is bottom row (row 1)
@@ -387,10 +388,10 @@ export function renderer(options: RendererOptions<GoStep[]>) {
     }
 
     // Highlight the most recent move if available
-    if (previous_move_a1) {
+    if (previousMoveCoord && previousMoveCoord !== 'PASS') {
       // Parse the coordinate (e.g., "F4" -> column F, row 4)
-      const colLetter = previous_move_a1[0];
-      const rowNumber = parseInt(previous_move_a1.slice(1));
+      const colLetter = previousMoveCoord[0];
+      const rowNumber = parseInt(previousMoveCoord.slice(1));
 
       const colIndex = COLUMN_LABELS.indexOf(colLetter);
       const rowIndex = boardSize - rowNumber; // Convert Go row numbering to array index
@@ -421,8 +422,8 @@ export function renderer(options: RendererOptions<GoStep[]>) {
     // Update status display
     currentStatusTextElement.innerHTML = currentPlayer?.name || '';
 
-    if (previous_move_a1) {
-      currentWinnerTextElement.textContent = `Last move: ${previous_move_a1}${komi ? ` • Komi: ${komi}` : ''}`;
+    if (previous_move) {
+      currentWinnerTextElement.textContent = `Last move: ${previous_move}${komi ? ` • Komi: ${komi}` : ''}`;
     } else {
       currentWinnerTextElement.textContent = komi ? `Komi: ${komi}` : '';
     }
