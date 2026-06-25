@@ -15,12 +15,6 @@
 #   _GAME_NAME: "open_spiel_go"
 #   _VISUALIZER_NAME: "default"
 #
-# Chess v2 visualizer (dev-chess-v2 branch):
-#   _VISUALIZER_PACKAGE: "@kaggle-environments/open-spiel-chess-v2-visualizer"
-#   _VISUALIZER_PATH: "kaggle_environments/envs/open_spiel_env/games/chess/visualizer/v2"
-#   _GAME_NAME: "open_spiel_chess"
-#   _VISUALIZER_NAME: "v2"
-#
 # Open Spiel Repeated Game (IPD) visualizer:
 #   _VISUALIZER_PACKAGE: "@kaggle-environments/open-spiel-repeated-game-ipd-visualizer"
 #   _VISUALIZER_PATH: "kaggle_environments/envs/open_spiel_env/games/repeated_game/visualizer/ipd"

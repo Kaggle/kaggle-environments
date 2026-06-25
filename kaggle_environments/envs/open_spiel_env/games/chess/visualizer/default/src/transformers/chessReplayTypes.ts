@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { BaseGamePlayer, BaseGameStep } from '@kaggle-environments/core';
 
 /** One LLM call attempt within a single turn (initial + any retries). */
@@ -8,6 +9,7 @@ export interface ChessAttempt {
 
 export interface ChessPlayer extends BaseGamePlayer {
   reward: number | null;
+  generateReturns: string[] | null;
   /**
    * All LLM attempts on this turn (length 1 = no retries; >1 = retried).
    * Order is initial → retry 1 → retry 2 → … Only the final attempt was
@@ -45,8 +47,7 @@ export interface ChessStep extends Omit<BaseGameStep, 'players'> {
   fenState: FenState;
   isTerminal: boolean;
   winner: string | null;
-  /** Set when the loser failed to produce a valid action (e.g. ran out of overage time, errored, or submitted an illegal move). */
-  forfeitReason?: string | null;
+  status: string | null;
 }
 
 /**
@@ -82,7 +83,7 @@ export interface ChessReplay {
  * Only used internally as part of the type for replay data,
  * do not use elsewhere.
  */
-interface ChessReplayStep {
+export interface ChessReplayStep {
   action?: {
     actionString?: string;
     call_details?: Array<{ response?: string }>;
