@@ -1,4 +1,6 @@
-import { ChessAttempt, ChessReplay, ChessPlayer, ChessStep, FenState } from './chessReplayTypes';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { ChessAttempt, ChessReplay, ChessPlayer, ChessStep, FenState, ChessReplayStep } from './chessReplayTypes';
+import { FORFEIT_STATUSES } from './forfeit';
 
 function parseFen(fen?: string): FenState {
   if (!fen || typeof fen !== 'string') {
@@ -46,18 +48,9 @@ function parseFen(fen?: string): FenState {
   };
 }
 
-export function getChessStepLabel(step: ChessStep) {
-  if (step.isTerminal) {
-    return '';
-  }
-
-  return step.players.find((player) => player.isTurn)?.actionDisplayText ?? '';
-}
-
 export function getChessStepDescription(step: ChessStep) {
   if (step.isTerminal) {
-    const winner = step.winner ?? '';
-    return step.forfeitReason ? `${winner}\n${step.forfeitReason}` : winner;
+    return '';
   }
 
   const player = step.players.find((p) => p.isTurn);
@@ -92,10 +85,10 @@ function renderAttemptsMarkdown(player: ChessPlayer): string {
 
   if (player.forfeited) {
     const lastMove = player.forfeitLastAttempt ? ` \`${player.forfeitLastAttempt}\`` : '';
-    lines.push(`> ⚠️ **Forfeited after ${total} attempt${total === 1 ? '' : 's'}.** Last attempt:${lastMove}`);
+    lines.push(`⚠️ **Forfeited after ${total} attempt${total === 1 ? '' : 's'}.** Last attempt:${lastMove}`);
     lines.push('');
   } else {
-    lines.push(`> 🔁 **Took ${total} attempts** to find a legal move.`);
+    lines.push(`🔁 **Took ${total} attempts** to find a legal move.`);
     lines.push('');
   }
 
@@ -114,51 +107,15 @@ function renderAttemptsMarkdown(player: ChessPlayer): string {
   return lines.join('\n').trim();
 }
 
-export function deriveWinnerFromRewards(players: ChessPlayer[]) {
-  if (players.length < 2) return '';
-
-  const player0Reward = players[0].reward;
-  const player1Reward = players[1].reward;
-
-  if (player0Reward === player1Reward) {
-    return 'Draw';
-  }
-
-  const winnerPlayerIndex = player0Reward === 1 ? 0 : 1;
-  const color = winnerPlayerIndex === 0 ? 'Black' : 'White';
-
-  return `🎉 ${color} (${players[winnerPlayerIndex].name}) Wins!`;
+function deriveWinner(step: ChessReplayStep[]): string | null {
+  if (step[0].reward === 1) return 'black';
+  if (step[1].reward === 1) return 'white';
+  return null;
 }
 
 /**
- * Statuses set by open_spiel_env when an agent fails to produce a valid action:
- *   TIMEOUT — exceeded the per-move / overage time budget
- *   ERROR   — agent crashed or response was unparsable / cut off
- *   INVALID — submitted an illegal move
- * In all three cases the opponent wins by default.
- *
- * Note: when illegalMoveForfeit:true and the env's INVALID branch runs, both
- * players' top-level status gets overwritten to DONE — the per-player forfeit
- * is only visible via action.submission === -1 + a non-null action.status on
- * the offender. detectForfeitLoser() below handles that case.
- */
-const FORFEIT_STATUSES = new Set(['TIMEOUT', 'ERROR', 'INVALID']);
-
-function describeForfeit(status: string): string {
-  switch (status) {
-    case 'TIMEOUT':
-      return 'ran out of time';
-    case 'INVALID':
-      return 'submitted an illegal move';
-    case 'ERROR':
-    default:
-      return 'failed to produce valid input';
-  }
-}
-
-/**
- * Find the index of the player who forfeited, or -1 if there's no
- * unambiguous single forfeiter. Returns ``{loserIndex, reason}``.
+ * Detect the forfeit status from the terminal replay step, or null if no
+ * single player unambiguously forfeited.
  *
  * Two signals:
  *   1. Top-level player.status in FORFEIT_STATUSES — used in strict mode
@@ -168,62 +125,77 @@ function describeForfeit(status: string): string {
  *      top-level statuses to DONE but leaves the offender's self-reported
  *      forfeit message on action.status.
  *
- * Returns -1 / null when no detector fires OR when both players match
- * (genuinely undetermined — episode voided).
+ * Returns null when no detector fires OR when both players match (genuinely
+ * undetermined — episode voided).
  */
-function detectForfeitLoser(rawLastStep: any[]): { loserIndex: number; reason: string | null } {
-  if (rawLastStep.length < 2) return { loserIndex: -1, reason: null };
+function deriveStatus(step: ChessReplayStep[]): string | null {
+  if (step.length < 2) return null;
 
-  const statusForfeits = rawLastStep
-    .map((player, index) => (FORFEIT_STATUSES.has(player.status) ? index : -1))
-    .filter((index) => index !== -1);
-  if (statusForfeits.length === 1) {
-    const i = statusForfeits[0];
-    return { loserIndex: i, reason: describeForfeit(rawLastStep[i].status) };
-  }
-  if (statusForfeits.length > 1) {
-    return { loserIndex: -1, reason: null };
-  }
+  const statusForfeiters = step.filter((p) => FORFEIT_STATUSES.has(p.status));
+  if (statusForfeiters.length === 1) return statusForfeiters[0].status;
+  if (statusForfeiters.length > 1) return null;
 
-  const actionForfeits = rawLastStep
-    .map((player, index) => (player.action?.submission === -1 && player.action?.status ? index : -1))
-    .filter((index) => index !== -1);
-  if (actionForfeits.length === 1) {
-    // Reuse INVALID phrasing — submission=-1 is the same forfeit-by-illegal-
-    // move mechanism, just routed through the env's invalid_action branch
-    // (which normalizes top-level status to DONE).
-    return { loserIndex: actionForfeits[0], reason: describeForfeit('INVALID') };
+  const actionForfeiters = step.filter((p) => p.action?.submission === -1 && p.action?.status);
+  if (actionForfeiters.length === 1) {
+    // Reuse INVALID phrasing — submission=-1 with action.status is the same
+    // forfeit-by-illegal-move mechanism, routed through the env's
+    // invalid_action branch (which normalizes top-level status to DONE).
+    return 'INVALID';
   }
 
-  return { loserIndex: -1, reason: null };
+  return null;
 }
 
-export const chessTransformer = (environment: any) => {
+export const chessTransformer = (environment: any): ChessStep[] => {
   const chessReplay = environment as ChessReplay;
-  const agents = environment.info.TeamNames;
-
   const chessSteps: ChessStep[] = [];
 
-  chessReplay.steps.forEach((step, index) => {
+  const extraStepPlayers = [0, 1].map(
+    (index): ChessPlayer => ({
+      id: index,
+      name: environment.info.TeamNames[index],
+      thumbnail: '',
+      isTurn: false,
+      actionDisplayText: '',
+      thoughts: '',
+      reward: null,
+      generateReturns: null,
+    })
+  );
+
+  chessSteps.push({
+    step: chessSteps.length,
+    players: extraStepPlayers,
+    fenState: parseFen(''),
+    isTerminal: false,
+    winner: null,
+    status: null,
+  });
+
+  for (const step of chessReplay.steps) {
     // Each step contains a tuple of players, one who acted and one who's waiting
-    const stepPlayers: ChessPlayer[] = step.map((player, playerIndex): ChessPlayer => {
+    const stepPlayers: ChessPlayer[] = step.map((player, index): ChessPlayer => {
       const attempts: ChessAttempt[] = player.action?.call_details?.map((c) => ({ response: c.response ?? '' })) ?? [];
-      // A forfeit step is one where the player submitted -1 *and* the harness
-      // wrote a self-reported status (action.status). Inactive turns also
-      // have submission === -1 but with null action.status.
-      const forfeited = player.action?.submission === -1 && !!player.action?.status;
+      // A forfeit step is one where the player submitted -1 *and* we have a
+      // non-null action.status. Inactive turns also have submission === -1
+      // but with null action.status.
+      const submission = player.action?.submission;
+      const forfeited = submission === -1 && !!player.action?.status;
       return {
-        id: playerIndex,
-        name: agents[playerIndex],
+        id: index,
+        name: environment.info.TeamNames[index],
         thumbnail: '',
-        // Treat forfeits as a "turn" too so the reasoning panel surfaces the
-        // attempts — the player did act, they just failed every attempt.
-        isTurn: player.action?.submission !== -1 || forfeited,
-        actionDisplayText: forfeited
-          ? `(forfeited: ${player.action?.actionString ?? 'no move'})`
-          : (player.action?.actionString ?? ''),
+        // A turn requires submission to be a real action id. -1 means the player
+        // didn't act this step (inactive or forfeited). null/undefined shows up
+        // in init steps, we don't need those rendered. Treat forfeits as a
+        // "turn" too so the step is preserved.
+        isTurn: (typeof submission === 'number' && submission !== -1) || forfeited,
+        // Raw move only — chess.js consumes this directly. Forfeit decoration
+        // happens at display sites (getStepLabel) using the `forfeited` flag.
+        actionDisplayText: player.action?.actionString ?? '',
         thoughts: player.action?.thoughts ?? '',
         reward: player.reward,
+        generateReturns: player.action?.generate_returns ?? null,
         attempts,
         forfeited,
         forfeitLastAttempt: forfeited ? (player.action?.actionString ?? null) : null,
@@ -233,71 +205,26 @@ export const chessTransformer = (environment: any) => {
     // Ignore setup steps where no one acted
     if (stepPlayers.findIndex((player) => player.isTurn) !== -1) {
       chessSteps.push({
-        step: index,
+        step: chessSteps.length,
         players: stepPlayers,
         // Both agents have the same observation string for the step, just grab the first one
         fenState: parseFen(step[0].observation.observationString),
         isTerminal: false,
         winner: '',
+        status: null,
       });
-    }
-  });
-
-  const lastStep = chessSteps[chessSteps.length - 1];
-
-  // The raw terminal step is the only place rewards are populated — earlier
-  // steps have reward: null. The chessSteps filter above drops any step
-  // where neither player has isTurn (submission !== -1), which means the
-  // terminal step (both submitted -1) gets dropped when the game ended by
-  // forfeit. Always pull rewards and statuses from the raw last step.
-  const rawLastStep = chessReplay.steps[chessReplay.steps.length - 1] ?? [];
-  const terminalPlayers: ChessPlayer[] =
-    rawLastStep.length >= 2
-      ? lastStep.players.map((p, i) => ({ ...p, reward: rawLastStep[i]?.reward ?? null }))
-      : lastStep.players;
-
-  // If the loser exceeded their time budget / errored / submitted an illegal
-  // move, declare the opponent the winner. Otherwise fall back to the
-  // rewards-based detection (normal checkmate/stalemate paths).
-  let winDescription: string;
-  let forfeitReason: string | null = null;
-  const { loserIndex, reason } = detectForfeitLoser(rawLastStep);
-
-  if (loserIndex !== -1) {
-    const winnerIndex = 1 - loserIndex;
-    const loserName = agents[loserIndex] || `Player ${loserIndex + 1}`;
-    const winnerName = agents[winnerIndex] || `Player ${winnerIndex + 1}`;
-    const winnerColor = winnerIndex === 0 ? 'Black' : 'White';
-    forfeitReason = `${loserName} ${reason}. ${winnerName} wins by default.`;
-    winDescription = `🎉 ${winnerColor} (${winnerName}) Wins!`;
-  } else {
-    winDescription = deriveWinnerFromRewards(terminalPlayers);
-    const multiStatusForfeit = rawLastStep.filter((p) => FORFEIT_STATUSES.has(p.status)).length > 1;
-    if (multiStatusForfeit) {
-      // Both players forfeited (e.g. non-strict mode where any agent error
-      // marks everyone ERROR). The episode is voided rather than a draw.
-      forfeitReason = 'Both players failed to produce valid input; episode voided.';
     }
   }
 
-  // Artificially insert a step at the end to emphasize the win state
+  const lastReplayStep = chessReplay.steps[chessReplay.steps.length - 1];
+
   chessSteps.push({
-    players: [
-      {
-        id: -1,
-        name: 'System',
-        thumbnail: '',
-        isTurn: false,
-        actionDisplayText: '',
-        thoughts: '',
-        reward: 0,
-      },
-    ],
+    players: extraStepPlayers,
     isTerminal: true,
-    fenState: lastStep.fenState,
-    step: lastStep.step + 1,
-    winner: winDescription,
-    forfeitReason,
+    fenState: chessSteps[chessSteps.length - 1].fenState,
+    step: chessSteps.length,
+    winner: deriveWinner(lastReplayStep),
+    status: deriveStatus(lastReplayStep),
   });
 
   return chessSteps;
