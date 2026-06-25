@@ -1,0 +1,162 @@
+"""Prompt variants for the {GAME_NAME} ablation study.
+
+Each variant implements the :class:`core_harness.GameHarness` protocol so the
+ablation runner can do ``create_agent_fn(variant)`` directly. The production
+prompt lives in :mod:`harness`; this file is the experimental surface.
+
+Conventions enforced by ``python -m kaggle_environments.ablation check``:
+  * The ``baseline`` variant in ``VARIANTS`` must produce a prompt
+    BYTE-IDENTICAL to ``harness.generate_prompt`` for the same observation.
+  * Every variant must render without error on five seeded observations.
+
+This template is for non-OpenSpiel envs (custom kaggle-environments games
+with their own observation format). For OpenSpiel games, use
+``prompt_variants_openspiel.py.tmpl`` instead — it has the proxy/serialized-
+state plumbing pre-wired.
+"""
+
+from __future__ import annotations
+
+import json
+from typing import Any, Mapping, Sequence
+
+from kaggle_environments.core_harness import (
+    ParseResult,
+    extract_last_json_object,
+    render_rethink_suffix,
+)
+
+# JSON keys we treat as carriers of a real action (filters stray JSON objects
+# in the model's reasoning blocks). Replace with your game's keys.
+_PAYLOAD_KEYS = ("action", "move")
+
+
+# ---------------------------------------------------------------------------
+# BASELINE — port the production prompt VERBATIM
+# ---------------------------------------------------------------------------
+#
+# This is the control arm. Copy the prompt template and per-state helpers
+# from harness.py into the methods below WITHOUT paraphrasing. The
+# ``ablation check`` subcommand will diff this against ``harness.generate_prompt``
+# across seeded observations and fail loudly if they diverge.
+
+# TODO: paste your harness.py prompt template here unchanged.
+_BASELINE_TEMPLATE = """\
+{TODO: copy from harness.py — must be byte-identical}
+"""
+
+# TODO: paste your rethink templates here unchanged.
+_RETHINK_ILLEGAL = """{TODO: copy from harness.py}"""
+_RETHINK_UNPARSABLE = """{TODO: copy from harness.py}"""
+
+
+class BaselineVariant:
+    """Byte-identical port of harness.py. DO NOT paraphrase."""
+
+    name = "baseline"
+
+    # -- GameHarness protocol -------------------------------------------------
+
+    def get_legal_moves(
+        self,
+        observation: Mapping[str, Any],
+    ) -> dict[int, str] | None:
+        """Return {action_id: action_string} for legal moves, or None for
+        free-form action spaces. Copy the production logic from harness.py.
+        """
+        raise NotImplementedError("TODO: port from harness.py get_legal_moves")
+
+    def make_prompt(
+        self,
+        observation: Mapping[str, Any],
+        move_history: list[str],
+        previous_response: str | None = None,
+        previous_action: str | None = None,
+    ) -> str:
+        body = self._build_body(observation, move_history)
+        body += render_rethink_suffix(
+            _RETHINK_ILLEGAL,
+            _RETHINK_UNPARSABLE,
+            previous_response,
+            previous_action,
+        )
+        return body
+
+    def parse_response(
+        self,
+        response: str,
+        legal_action_strings: Sequence[str] | None,
+        *,
+        observation: Mapping[str, Any] | None = None,
+    ) -> ParseResult:
+        del observation
+        if not legal_action_strings:
+            return ParseResult(raw_action=None)
+        payload = extract_last_json_object(response, required_keys=_PAYLOAD_KEYS)
+        if payload is None:
+            return ParseResult(legal_action=None, raw_action=None)
+        candidate = self._payload_to_action_string(payload)
+        if candidate is None:
+            return ParseResult(legal_action=None, raw_action=None)
+        raw_repr = json.dumps(payload, separators=(",", ":"))
+        if candidate in set(legal_action_strings):
+            return ParseResult(legal_action=candidate, raw_action=raw_repr)
+        return ParseResult(legal_action=None, raw_action=raw_repr)
+
+    # -- Variants typically override these -----------------------------------
+
+    def _build_body(
+        self,
+        observation: Mapping[str, Any],
+        move_history: list[str],
+    ) -> str:
+        """Render the prompt body (no rethink suffix).
+
+        TODO: implement using _BASELINE_TEMPLATE.format(...) with whatever
+        fields the production prompt needs.
+        """
+        return _BASELINE_TEMPLATE.format()  # TODO: pass fields
+
+    def _payload_to_action_string(self, payload: Mapping[str, Any]) -> str | None:
+        """Convert a parsed JSON dict into the canonical action string.
+
+        TODO: implement the same conversion harness.py's parse_response does.
+        Variants that change the JSON schema override this method to use a
+        different alias map but emit the SAME canonical action string the
+        env expects.
+        """
+        raise NotImplementedError("TODO: port from harness.py parse_response")
+
+
+# ---------------------------------------------------------------------------
+# Example variant: COMPACT (same info, terser language)
+# ---------------------------------------------------------------------------
+
+_COMPACT_TEMPLATE = """\
+{TODO: terser rewrite of the baseline template — same fields, less prose}
+"""
+
+
+class CompactVariant(BaselineVariant):
+    """Same information as baseline, much terser. Drops worked examples,
+    repeated reminders, loss-threat sentences. Tests whether the verbose
+    scaffolding in the baseline is load-bearing."""
+
+    name = "compact"
+
+    def _build_body(self, observation, move_history):
+        return _COMPACT_TEMPLATE.format()  # TODO
+
+
+# ---------------------------------------------------------------------------
+# Add more variants here. One class per variant; subclass BaselineVariant
+# unless the variant changes the parser schema (in that case also override
+# _payload_to_action_string).
+# ---------------------------------------------------------------------------
+
+
+VARIANTS = {
+    "baseline": BaselineVariant(),
+    "compact": CompactVariant(),
+    # TODO: add the variants you and the user agreed on in Step 3.
+}

@@ -611,6 +611,7 @@ def create_agent_fn(
     game_harness: GameHarness,
     *,
     max_retries: int = 2,
+    model_override: tuple[str, dict[str, Any]] | None = None,
 ) -> Callable[[Any, dict[str, Any]], dict[str, Any]]:
     """Create a Kaggle-compatible agent function from a ``GameHarness``.
 
@@ -619,6 +620,13 @@ def create_agent_fn(
             methods.
         max_retries: Maximum number of prompt attempts (including the initial
             attempt).
+        model_override: Optional ``(model_name, litellm_kwargs)`` pair. When
+            provided, ``_setup_model`` is bypassed entirely -- useful for
+            test harnesses or multi-agent runners (e.g. the ablation runner)
+            that need per-agent model selection without polluting global env
+            vars. The caller is responsible for any model-name prefixing
+            (``openai/...``, ``gemini/...``) and litellm kwargs (api_base,
+            api_key, reasoning_effort) the chosen model needs.
 
     Returns:
         ``agent_fn(obs, config) -> {"submission": <action>, ...}``
@@ -637,7 +645,10 @@ def create_agent_fn(
 
         # -- one-time setup --
         if not setup_done:
-            model_name, litellm_kwargs = _setup_model()
+            if model_override is not None:
+                model_name, litellm_kwargs = model_override
+            else:
+                model_name, litellm_kwargs = _setup_model()
             _TELEMETRY(
                 setup_complete=True,
                 model_name=model_name,
