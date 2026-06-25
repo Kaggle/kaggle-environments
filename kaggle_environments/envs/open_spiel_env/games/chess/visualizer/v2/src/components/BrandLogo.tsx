@@ -1,5 +1,4 @@
-import svgSymbolPath from '../assets/icons.svg?url';
-import geminiLogoPath from '../assets/gemini.svg?url';
+import geminiLogoPath from '../assets/gemini.svg';
 import { getAgentBrand } from '../utils/agentLogos.ts';
 import styles from './Playerbar.module.css';
 
@@ -29,7 +28,7 @@ export function BrandLogo({ name }: Props) {
       viewBox="0 0 128 128"
       className={styles.brandLogo}
     >
-      <use href={`${svgSymbolPath}#${brand}`} />
+      <use href={`#${brand}`} />
     </svg>
   );
 }

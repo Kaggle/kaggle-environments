@@ -1,7 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { useTransition } from '../hooks/useReducedMotion';
-import svgSymbolPath from '../assets/icons.svg?url';
 import styles from './WithPopover.module.css';
 
 interface Props {
@@ -18,7 +17,7 @@ export function WithPopover({ children, icon, id, label, onChange }: Props) {
   const prevOpenRef = useRef(open);
   const onChangeRef = useRef(onChange);
   const transition = useTransition({ duration: 0.2, ease: 'easeOut' });
-  const iconPath = `${svgSymbolPath}#${icon}`;
+  const iconPath = `#${icon}`;
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
