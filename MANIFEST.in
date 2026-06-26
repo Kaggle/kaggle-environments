@@ -7,5 +7,6 @@ recursive-include kaggle_environments *.json
 recursive-include kaggle_environments *.jsonl
 recursive-include kaggle_environments/envs/cabt *.so
 recursive-include kaggle_environments/envs/cabt *.dll
+recursive-include kaggle_environments/envs/cabt *.dylib
 global-exclude */node_modules
 global-exclude */visualizer
