@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "agents": [2],
   "configuration": {
-    "episodeSteps": 10000,
+    "episodeSteps": 10000000,
     "actTimeout": 0,
     "runTimeout": 2000
   },
