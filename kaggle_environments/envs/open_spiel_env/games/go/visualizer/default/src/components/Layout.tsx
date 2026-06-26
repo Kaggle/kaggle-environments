@@ -1,4 +1,5 @@
 import { memo, useEffect } from 'react';
+import SvgSprite from './SvgSprites';
 import HiddenHeader from './HiddenHeader';
 import BoardControls from './BoardControls';
 import GameBoard from './GameBoard';
@@ -13,6 +14,7 @@ import useBoardRect from '../hooks/useBoardRect';
 import { assetsReady } from '../utils/preloadAssets';
 import styles from './Layout.module.css';
 
+
 export default memo(function Layout() {
   const loaded = usePreloader((s) => s.pixiReady && s.assetsReady);
   useBoardRect();
@@ -23,6 +25,7 @@ export default memo(function Layout() {
 
   return (
     <main id="go-playable-area" className={styles.playableArea} data-loaded={loaded || undefined}>
+      <SvgSprite />
       <HiddenHeader />
       <div className={styles.board}>
         <BoardControls />
