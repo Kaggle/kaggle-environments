@@ -371,8 +371,19 @@ def run_one_game(
     )
 
 
+class _AblationTimeout(BaseException):
+    """Raised by the SIGALRM handler to enforce --game-timeout.
+
+    Subclasses BaseException (not Exception) on purpose: the LLM agent loop
+    in core_harness.agent_fn catches Exception broadly and retries on
+    failure, which would swallow a plain TimeoutError. BaseException
+    subclasses propagate through that handler so the timeout actually
+    fires through to the worker's outer catch.
+    """
+
+
 def _alarm_handler(signum, frame):
-    raise TimeoutError("game exceeded --game-timeout")
+    raise _AblationTimeout("game exceeded --game-timeout")
 
 
 def _worker_entry(args: tuple) -> GameResult:
@@ -397,7 +408,7 @@ def _worker_entry(args: tuple) -> GameResult:
             env_name, cell, variant_obj, api_key, api_base,
             status_dir=status_dir, started_at=started_at,
         )
-    except TimeoutError:
+    except _AblationTimeout:
         return GameResult(
             variant=cell.variant, model_p0=cell.model_p0, model_p1=cell.model_p1,
             pair_role=cell.pair_role, seed=cell.seed,
@@ -819,6 +830,11 @@ def cmd_run(args: argparse.Namespace) -> int:
         )
         return 2
 
+    # Propagate the per-call timeout via env var so forked workers (and the
+    # core_harness._call_llm inside them) inherit it without an API change.
+    if args.llm_call_timeout and args.llm_call_timeout > 0:
+        os.environ["LLM_CALL_TIMEOUT"] = str(int(args.llm_call_timeout))
+
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
     csv_path = out_dir / "games.csv"
@@ -1014,11 +1030,18 @@ def _build_parser() -> argparse.ArgumentParser:
                     help="Comma-separated variant names; default all.")
     pr.add_argument("--concurrency", type=int, default=8,
                     help="Max concurrent games (worker process count).")
-    pr.add_argument("--game-timeout", type=int, default=180,
-                    help="Per-game timeout in seconds (SIGALRM watchdog "
-                         "in the worker). Stuck games return a crash row "
-                         "and the worker is freed for the next cell. "
-                         "Set to 0 to disable.")
+    pr.add_argument("--llm-call-timeout", type=int, default=900,
+                    help="Per-LLM-call timeout in seconds. Passed to "
+                         "litellm via the LLM_CALL_TIMEOUT env var, which "
+                         "core_harness._call_llm reads. Single hung calls "
+                         "fail at this limit so the agent's retry loop "
+                         "can recover. Default 900s = 15 min.")
+    pr.add_argument("--game-timeout", type=int, default=0,
+                    help="Per-game SIGALRM watchdog (seconds). Default 0 "
+                         "(disabled) -- the per-call timeout above is the "
+                         "primary protection. Set to e.g. 3600 if you want "
+                         "a hard ceiling on cumulative game wall time on "
+                         "top of the per-call limit.")
     pr.add_argument("--status-interval", type=float, default=10.0,
                     help="Seconds between live status snapshots printed "
                          "by the monitor thread. Set to 0 to disable.")

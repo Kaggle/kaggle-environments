@@ -551,14 +551,15 @@ hidden from you.)
 Each turn, either OFFER an allocation you keep (the opponent gets the
 complement) or AGREE to the opponent's last offer. Agreement ends the
 game; each player scores the dot product of their valuations with what
-they receive. If {max_turns} offers pass without agreement, both score
-0. Win by ending with a higher score than the opponent.
+they receive. If {max_turns} total offers (combined from both players)
+pass without agreement, both score 0. Win by ending with a higher score
+than the opponent.
 {discount_note}
 History ({num_offers}/{max_turns} offers used):
 {history_str}
 {accept_help}
 
-End your response with JSON:
+Respond with your reasoning, then end your response with JSON:
 
 ```json
 {{"action": "offer", "keep": {{"book": <int>, "hat": <int>, "basketball": <int>}}}}
@@ -602,21 +603,26 @@ def _build_compact(ctx: PromptContext, variant: PromptVariant) -> str:
 _MINIMAL_TEMPLATE = """Bargaining. Player {player_label}.
 
 Pool: {pool_inline}
-Values: {values_inline}
+Your private values (opponent has different, hidden values): {values_inline}
+Reward = your values dotted with the items you receive. Max possible reward = 10 for each player (your values dot the pool sum to 10). If {max_turns} total offers (combined from both players) pass without agreement, both score 0.
+Each turn: OFFER = what YOU keep (opponent gets the complement). AGREE = accept opponent's last offer, ending the game.
 
 History:
 {history_str}
 
-Respond with JSON, one of:
+Respond with your reasoning, then end your response with JSON, one of:
 {{"action": "offer", "keep": {{"book": N, "hat": N, "basketball": N}}}}
 {{"action": "agree"}}
 """
 
 
 def _build_minimal(ctx: PromptContext, variant: PromptVariant) -> str:
-    # Deliberately drops the rules, goal, accept-help branch, discount
-    # note, and offers-remaining counter. The history uses the terse
-    # formatter (no per-row complement). Tests how much the model knows.
+    # Strips decoration (worked examples, rules paragraphs, accept-help
+    # branch, discount note, offers-remaining counter, complement-rendered
+    # history) but keeps every piece of game-mechanics info -- values are
+    # private, action semantics, reward formula, tie condition. Without
+    # those, performance would conflate "model didn't understand the
+    # game" with "model is good at this specific prompt design".
     labels = variant.item_labels
     pool_inline = " ".join(f"{labels[k]}={int(ctx.pool.get(k, 0))}" for k in _ITEM_KEYS)
     values_inline = " ".join(
@@ -627,6 +633,7 @@ def _build_minimal(ctx: PromptContext, variant: PromptVariant) -> str:
         player_label=ctx.player_id + 1,
         pool_inline=pool_inline,
         values_inline=values_inline,
+        max_turns=ctx.max_turns,
         history_str=history_str,
     )
 
@@ -649,12 +656,14 @@ _MINIMAL_WITH_GOAL_TEMPLATE = """Bargaining. Player {player_label}.
 Your goal is to end the game with a higher reward than your opponent.
 
 Pool: {pool_inline}
-Values: {values_inline}
+Your private values (opponent has different, hidden values): {values_inline}
+Reward = your values dotted with the items you receive. Max possible reward = 10 for each player (your values dot the pool sum to 10). If {max_turns} total offers (combined from both players) pass without agreement, both score 0.
+Each turn: OFFER = what YOU keep (opponent gets the complement). AGREE = accept opponent's last offer, ending the game.
 
 History:
 {history_str}
 
-Respond with JSON, one of:
+Respond with your reasoning, then end your response with JSON, one of:
 {{"action": "offer", "keep": {{"book": N, "hat": N, "basketball": N}}}}
 {{"action": "agree"}}
 """
@@ -671,6 +680,7 @@ def _build_minimal_with_goal(ctx: PromptContext, variant: PromptVariant) -> str:
         player_label=ctx.player_id + 1,
         pool_inline=pool_inline,
         values_inline=values_inline,
+        max_turns=ctx.max_turns,
         history_str=history_str,
     )
 
@@ -815,6 +825,21 @@ BASELINE = PromptVariant(
     rethink_unparsable=_make_rethink_unparsable(("book", "hat", "basketball")),
 )
 
+# Null variant: a second copy of BASELINE with a different name so the
+# runner schedules independent cells for it. Rendered prompts are
+# byte-identical to baseline, so any observed Σ|Δrank| between null and
+# baseline is pure LLM sampling noise. Use it as the noise floor in
+# permutation tests on the real variants.
+NULL = PromptVariant(
+    name="null",
+    item_labels=_BASELINE_LABELS,
+    schema_keys=("book", "hat", "basketball"),
+    aliases=_BASELINE_ALIASES,
+    build_body=_build_baseline,
+    rethink_illegal=_RETHINK_ILLEGAL,
+    rethink_unparsable=_make_rethink_unparsable(("book", "hat", "basketball")),
+)
+
 COMPACT = PromptVariant(
     name="compact",
     item_labels=_BASELINE_LABELS,
@@ -868,6 +893,7 @@ GENERIC_NAMES = PromptVariant(
 
 VARIANTS: dict[str, PromptVariant] = {
     BASELINE.name: BASELINE,
+    NULL.name: NULL,
     COMPACT.name: COMPACT,
     MINIMAL.name: MINIMAL,
     MINIMAL_WITH_GOAL.name: MINIMAL_WITH_GOAL,
