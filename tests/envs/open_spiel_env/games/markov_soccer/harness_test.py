@@ -211,15 +211,54 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("held by Player A", prompt_b)
         self.assertIn("opponent currently holds the ball", prompt_b)
 
-    def test_my_history_rendered(self):
-        obs = _make_observation(self.state, self.game, player_id=0)
-        prompt = generate_prompt(obs, ["up", "right"])
-        self.assertIn("up, right", prompt)
-
     def test_no_history_fallback(self):
+        # Initial sim-move state: ball has spawned but no rounds have been
+        # played. The full-history reconstruction sees no completed rounds.
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [])
-        self.assertIn("(none yet)", prompt)
+        self.assertIn("No moves have been played yet.", prompt)
+
+    def test_full_history_rendered_for_both_players(self):
+        # After two completed rounds, each player's prompt should show the
+        # SAME shared history (perfect-info game) -- both players' moves
+        # AND the initiative coin-flip outcome for each round.
+        self.state.apply_actions([0, 4])      # R1: A up, B stand
+        self.state.apply_action(0)            # R1 initiative: A first
+        self.state.apply_actions([3, 2])      # R2: A right, B left
+        self.state.apply_action(1)            # R2 initiative: B first
+
+        prompt_a = generate_prompt(_make_observation(self.state, self.game, 0), [])
+        prompt_b = generate_prompt(_make_observation(self.state, self.game, 1), [])
+        for prompt in (prompt_a, prompt_b):
+            self.assertIn("Move history so far (both players, oldest first):", prompt)
+            self.assertIn("Round 1: A=up, B=stand (A's move resolved first)", prompt)
+            self.assertIn("Round 2: A=right, B=left (B's move resolved first)", prompt)
+
+    def test_full_history_ignores_per_agent_history_argument(self):
+        # With a serialized state available, the prompt should reconstruct
+        # history from the engine, not from the per-agent argument. Pass a
+        # bogus per-agent history to prove it doesn't leak through.
+        self.state.apply_actions([0, 4])
+        self.state.apply_action(0)
+        obs = _make_observation(self.state, self.game, player_id=0)
+        prompt = generate_prompt(obs, ["nonsense_token_xyz"])
+        self.assertNotIn("nonsense_token_xyz", prompt)
+        self.assertIn("Round 1: A=up, B=stand", prompt)
+
+    def test_history_fallback_when_no_serialized_state(self):
+        # When the harness has only the per-agent move_history (no
+        # serialized state to reconstruct from), it falls back to a
+        # self-only rendering.
+        prompt = generate_prompt({"playerId": 0}, ["up", "right"])
+        self.assertIn("Your past moves (oldest first): up, right", prompt)
+
+    def test_horizon_disclosure_is_horizon_minus_one(self):
+        # The engine increments total_moves on the initial ball-spawn
+        # chance node too, so a horizon=H game actually plays H-1 sim
+        # rounds before drawing. The prompt should disclose H-1.
+        obs = _make_observation(self.state, self.game, player_id=0)
+        prompt = generate_prompt(obs, [])
+        self.assertIn("If 999 rounds pass with no goal", prompt)
 
     def test_rethink_suffix_illegal(self):
         obs = _make_observation(self.state, self.game, player_id=0)

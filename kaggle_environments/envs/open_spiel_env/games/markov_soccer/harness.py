@@ -87,8 +87,8 @@ Scoring edges:
     from column 0) while holding the ball, from row 1 or row 2.
 
 The game ends as soon as either player scores (winner gets +1, loser -1).
-If {horizon} rounds pass with no goal, the game is a draw (0 / 0). There
-are no other terminal conditions.
+If {max_rounds} rounds pass with no goal, the game is a draw (0 / 0).
+There are no other terminal conditions.
 
 Current board (row 0 on top; columns labelled 0..{max_col} on top):
 {board_ascii}
@@ -96,13 +96,12 @@ Current board (row 0 on top; columns labelled 0..{max_col} on top):
 Player positions: A at {a_pos}, B at {b_pos}.
 Ball: {ball_status}
 
-You are Player {player_label} ('{my_piece_lower}' without ball,
-'{my_piece_upper}' with ball). {ball_for_you}
+You are Player {player_label} ('{my_piece_lower}' without ball, '{my_piece_upper}' with ball). {ball_for_you}
 {your_goal_sentence}
 {opponent_goal_sentence}
 
-Round: {move_number}
-Your past moves (oldest first): {move_history}
+Round: {move_number} (you are about to choose this round's move)
+{move_history_block}
 
 It is your turn. Choose one of: up, down, left, right, stand.
 
@@ -190,6 +189,55 @@ def _pos_str(pos: Any) -> str:
     return "(unknown)"
 
 
+_ACTION_NAMES = ["up", "down", "left", "right", "stand"]
+
+
+def _render_full_history(observation: Mapping[str, Any]) -> str | None:
+    """Reconstruct per-round move history (both players + initiative outcome).
+
+    OpenSpiel's ``state.full_history()`` records, in order: the initial
+    ball-spawn chance outcome, then for each completed round Player A's
+    move, Player B's move, and the initiative chance outcome (0 = A's
+    move resolved first, 1 = B's move resolved first). Both players see
+    the same history.
+
+    Returns a multi-line string ready to drop into the prompt, or
+    ``None`` when the serialized state isn't available or no full round
+    has completed yet (so callers can fall back to a simpler line).
+    """
+    serialized = observation.get("serializedGameAndState", "")
+    if not serialized:
+        return None
+    try:
+        _, state = pyspiel.deserialize_game_and_state(serialized)
+    except Exception:
+        return None
+
+    rounds: list[tuple[str, str, str]] = []
+    a_move: str | None = None
+    b_move: str | None = None
+    saw_ball_spawn = False
+    for h in state.full_history():
+        if h.player == 0:
+            a_move = _ACTION_NAMES[h.action]
+        elif h.player == 1:
+            b_move = _ACTION_NAMES[h.action]
+        elif h.player == -1:
+            if not saw_ball_spawn:
+                saw_ball_spawn = True
+                continue
+            init = "A" if h.action == 0 else "B"
+            rounds.append((a_move or "?", b_move or "?", init))
+            a_move = b_move = None
+
+    if not rounds:
+        return None
+    lines = ["Move history so far (both players, oldest first):"]
+    for i, (a, b, init) in enumerate(rounds, start=1):
+        lines.append(f"  Round {i}: A={a}, B={b} ({init}'s move resolved first)")
+    return "\n".join(lines)
+
+
 # --- Public functions (called by main.py) -----------------------------------
 
 
@@ -217,10 +265,12 @@ def generate_prompt(
 ) -> str:
     """Build the LLM prompt for the current markov-soccer state.
 
-    ``move_history`` contains the agent's own past moves (e.g. ["up",
-    "right"]). The opponent's move history is not available to the harness
-    (core_harness only forwards this agent's own action history); the model
-    can only infer it from board changes.
+    ``move_history`` contains this agent's own past moves; we ignore it in
+    favour of reconstructing both players' move sequences plus initiative
+    outcomes from ``state.full_history()`` of the deserialized pyspiel
+    state, which is public information in this perfect-info game. The
+    per-agent argument is used as a fallback only if the serialized state
+    is unavailable.
     """
     state = _parse_observation_payload(observation)
     player_id = observation.get("playerId", 0)
@@ -236,10 +286,7 @@ def generate_prompt(
     ball_owner = state.get("ball_owner")
     ball_pos = state.get("ball_pos")
     if ball_owner is None:
-        if ball_pos is not None:
-            ball_status = f"loose at {_pos_str(ball_pos)} (walk onto it to pick it up)"
-        else:
-            ball_status = "not yet on the field"
+        ball_status = f"loose at {_pos_str(ball_pos)} (walk onto it to pick it up)"
     else:
         ball_status = f"held by Player {ball_owner} at {_pos_str(ball_pos)}"
 
@@ -281,16 +328,26 @@ def generate_prompt(
             horizon = int(params.get("horizon", horizon))
         except Exception:
             pass
+    # The engine increments total_moves on the initial ball-spawn chance
+    # node too, so only horizon-1 simultaneous-move rounds actually run.
+    max_rounds = max(horizon - 1, 0)
 
     move_number = len(move_history) + 1
-    move_history_str = ", ".join(move_history) if move_history else "(none yet)"
+    move_history_block = _render_full_history(observation)
+    if move_history_block is None:
+        if move_history:
+            move_history_block = (
+                f"Your past moves (oldest first): {', '.join(move_history)}"
+            )
+        else:
+            move_history_block = "No moves have been played yet."
 
     prompt = MARKOV_SOCCER_PROMPT_TEMPLATE.format(
         num_rows=num_rows,
         num_cols=num_cols,
         max_row=max_row,
         max_col=max_col,
-        horizon=horizon,
+        max_rounds=max_rounds,
         board_ascii=_format_board_ascii(board),
         a_pos=a_pos_str,
         b_pos=b_pos_str,
@@ -302,7 +359,7 @@ def generate_prompt(
         your_goal_sentence=your_goal_sentence,
         opponent_goal_sentence=opponent_goal_sentence,
         move_number=move_number,
-        move_history=move_history_str,
+        move_history_block=move_history_block,
     )
 
     prompt += render_rethink_suffix(
