@@ -68,6 +68,15 @@ def _parse_observation_payload(observation: Mapping[str, Any]) -> dict[str, Any]
 # across seeded observations and fail loudly if they diverge.
 
 # TODO: paste your harness.py prompt template here unchanged.
+#
+# HARD RULE: every prompt template (baseline AND every variant) must
+# explicitly ask the model to reason BEFORE outputting the final JSON.
+# Something like "Respond with your reasoning, then conclude with a
+# JSON block of EITHER form:" right above the JSON schema. Models
+# perform noticeably worse on these games when they skip straight to
+# JSON; reasoning is a load-bearing part of the harness contract, not
+# a stylistic nicety. If you strip *anything* from baseline, keep the
+# reasoning ask.
 _BASELINE_TEMPLATE = """\
 {TODO: copy from harness.py — must be byte-identical}
 """
@@ -165,7 +174,8 @@ class BaselineVariant:
 # ---------------------------------------------------------------------------
 
 _COMPACT_TEMPLATE = """\
-{TODO: terser rewrite of the baseline template — same fields, less prose}
+{TODO: terser rewrite of the baseline template — same fields, less prose.
+ KEEP the "reason first, then JSON" instruction; that is non-negotiable.}
 """
 
 

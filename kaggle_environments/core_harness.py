@@ -443,10 +443,15 @@ def _call_llm(
     start = time.perf_counter()
     first_token_secs: float | None = None
     try:
+        # Per-LLM-call timeout. Honors LLM_CALL_TIMEOUT env var so the
+        # ablation runner (or any orchestrator) can dial it without
+        # changing the harness contract. Default 3600s preserves the
+        # historical behavior.
+        call_timeout = int(os.environ.get("LLM_CALL_TIMEOUT", "3600"))
         stream = litellm.completion(
             model=model_name,
             messages=[{"role": "user", "content": prompt}],
-            timeout=3600,
+            timeout=call_timeout,
             stream=True,
             stream_options={"include_usage": True},
             **litellm_kwargs,
