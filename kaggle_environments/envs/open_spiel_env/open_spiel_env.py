@@ -1037,6 +1037,7 @@ GAMES_LIST = [
     "hive",
     "lines_of_action",
     "mancala",
+    "markov_soccer",
     "matching_pennies_3p",
     "negotiation",
     "oshi_zumo",
