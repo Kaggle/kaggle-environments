@@ -1,0 +1,37 @@
+{
+  "name": "weeping_angel",
+  "title": "Weeping Angel Arena",
+  "description": "Adversarial timestomp game: Angels (red) forge file timestamps only when unobserved; an out-of-band recorder (blue) catches them under a coverage budget. A staging cost makes acting require exposure, so there is no dominant strategy.",
+  "version": "2.0.0",
+  "agents": [2],
+  "configuration": {
+    "episodeSteps": { "type": "integer", "default": 31, "minimum": 2 },
+    "nFiles": { "type": "integer", "default": 12, "minimum": 1 },
+    "nAngels": { "type": "integer", "default": 4, "minimum": 1 },
+    "coverageBudget": { "type": "integer", "default": 3, "minimum": 0 },
+    "benignRate": { "type": "number", "default": 0.15, "minimum": 0, "maximum": 1 },
+    "angelRate": { "type": "number", "default": 0.5, "minimum": 0, "maximum": 1 },
+    "armTicks": { "type": "integer", "default": 3, "minimum": 0 },
+    "seed": { "type": "integer", "default": 0 },
+    "actTimeout": 2
+  },
+  "reward": { "type": "number", "default": 0 },
+  "observation": {
+    "angels": {
+      "description": "Red-only. [id, file, status, armed] per Angel; status 0=lurk, 1=caught, 2=corrupt.",
+      "type": "array",
+      "default": []
+    },
+    "coverageLog": {
+      "description": "Blue-only. [tick, file, kind] on covered files; kind 0=activity, 1=catch.",
+      "type": "array",
+      "default": []
+    },
+    "remainingOverageTime": 60
+  },
+  "action": {
+    "description": "Blue: file indices to cover. Red: Angel ids to stomp.",
+    "type": "array",
+    "default": []
+  }
+}
