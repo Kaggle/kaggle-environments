@@ -168,6 +168,33 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("1000 moves", prompt)
         self.assertNotIn("no draws", prompt.lower())
 
+    def test_prompt_repetition_rule_matches_engine_not_rulebook(self):
+        """Regression: the engine's visited_boards_ set keys on the board
+        string only (lines_of_action.cc BoardToString), not on the
+        (board, player_to_move) pair the OpenSpiel header docstring
+        describes. The prompt previously qualified the rule with 'with the
+        same player to move' (matching the docstring); on the rare board
+        repetition where the mover differs, the engine still draws and the
+        model would be surprised. Drop the parenthetical so the prompt
+        describes realized behavior."""
+        observation = {"observationString": "{}", "playerId": 0}
+        prompt = generate_prompt(observation, [])
+        self.assertNotIn("same player to move", prompt)
+
+    def test_prompt_states_capture_to_one_loses(self):
+        """Regression: a single piece is trivially connected, so capturing
+        the opponent down to one piece makes their pieces 'connected' and
+        triggers an immediate opponent-wins terminal (lines_of_action.cc
+        CheckTerminalState flood-fill from any opponent piece yields
+        group_size == num_opponent_pieces). The previous prompt only
+        warned about 'careless capture' in general terms; make the
+        suicide-by-final-capture rule explicit so models don't blunder
+        into it."""
+        observation = {"observationString": "{}", "playerId": 0}
+        prompt = generate_prompt(observation, [])
+        self.assertIn("lone piece", prompt)
+        self.assertIn("last-but-one", prompt)
+
     def test_prompt_double_connect_awards_mover(self):
         """Regression: OpenSpiel awards the win to the moving player when a
         move connects both groups (the my_piece check fires first in

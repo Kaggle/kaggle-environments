@@ -44,10 +44,12 @@ and your opponent's pieces simultaneously, you (the moving player) win.
 Conversely, if after your move only the opponent's pieces are connected
 into a single group and yours are not, the opponent wins immediately --
 so a careless capture or moving a piece that was breaking up the
-opponent's group can lose the game on your own turn.
+opponent's group can lose the game on your own turn. In particular, a
+lone piece counts as connected, so capturing the opponent's last-but-one
+piece loses the game on the spot.
 A player who has no legal moves on their turn loses. The game is drawn
-if the same position (with the same player to move) occurs for the
-second time, or if 1000 moves are played without a winner.
+if the same board position occurs for the second time, or if 1000 moves
+are played without a winner.
 
 Board ('.' = empty, 'x' = Black, 'o' = White). Each rank has its total
 piece count on the right ("row"); each file's total is below ("col"):
