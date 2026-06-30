@@ -12,7 +12,7 @@ test.describe('Ultimate Tic-Tac-Toe Visualizer', () => {
     await expect(page.locator('.renderer-container canvas')).toBeVisible();
 
     // Check player indicators in header
-    const players = page.locator('.header .player-card');
+    const players = page.locator('.header .player');
     await expect(players.first()).toBeVisible();
     expect(await players.count()).toBe(2);
 
@@ -45,6 +45,6 @@ test.describe('Ultimate Tic-Tac-Toe Visualizer', () => {
     await page.waitForTimeout(200);
 
     // End state will show won/draw text
-    await expect(page.locator('.status-container')).toContainText(/won the match|ended in a draw/i);
+    await expect(page.locator('.status-container')).toContainText(/wins|draw/i);
   });
 });
