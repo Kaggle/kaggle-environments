@@ -112,6 +112,8 @@ def initialize_game(state, config):
 
     num_rounds = config.num_rounds
     max_attempts = config.max_attempts
+    first_try_bonus = config.get("first_try_bonus", 1)
+    max_art_chars = config.get("max_art_chars", 4000)
     all_words = _load_words()
     if num_rounds > len(all_words):
         raise ValueError(f"num_rounds={num_rounds} exceeds the size of the word list ({len(all_words)}).")
@@ -120,6 +122,8 @@ def initialize_game(state, config):
     for i, s in enumerate(state):
         s.observation.num_rounds = num_rounds
         s.observation.max_attempts = max_attempts
+        s.observation.first_try_bonus = first_try_bonus
+        s.observation.max_art_chars = max_art_chars
         s.observation.current_round = 0
         s.observation.phase = "art"
         s.observation.role = get_role(i, 0)
@@ -157,8 +161,19 @@ def _reset_round_internals(obs0):
     obs0._round_yellow_points = 0
 
 
+# Statuses set by the kaggle framework when an agent fails. We must NOT
+# overwrite them on phase transitions: a TIMEOUT'd or ERROR'd agent has
+# forfeited and should stay in that state for the rest of the episode, so
+# the framework stops calling them and the failure remains visible in the
+# replay. Without this guard, an artist that times out gets silently
+# resurrected as ACTIVE on the next round and times out again.
+_TERMINAL_FAILURE_STATUSES = ("TIMEOUT", "ERROR", "INVALID")
+
+
 def _set_art_statuses(state, round_idx):
     for i in range(4):
+        if state[i].status in _TERMINAL_FAILURE_STATUSES:
+            continue
         role = get_role(i, round_idx)
         state[i].status = "ACTIVE" if role == "artist" else "INACTIVE"
 
@@ -166,9 +181,12 @@ def _set_art_statuses(state, round_idx):
 def _set_guess_statuses(state, round_idx, obs0):
     """During the guess phase: a team's guesser stays ACTIVE until they score
     or exhaust attempts; once done, they go INACTIVE. Artists are always
-    INACTIVE in the guess phase.
+    INACTIVE in the guess phase. Agents in a terminal failure state
+    (TIMEOUT/ERROR/INVALID) are left alone -- see _TERMINAL_FAILURE_STATUSES.
     """
     for i in range(4):
+        if state[i].status in _TERMINAL_FAILURE_STATUSES:
+            continue
         role = get_role(i, round_idx)
         if role == "artist":
             state[i].status = "INACTIVE"
@@ -304,6 +322,8 @@ def _advance_after_round(state, obs0, round_idx, words, target):
 
     if is_done:
         for i in range(4):
+            if state[i].status in _TERMINAL_FAILURE_STATUSES:
+                continue
             state[i].status = "DONE"
     else:
         _set_art_statuses(state, next_round)
@@ -318,7 +338,6 @@ def process_step(state, env):
 
     if phase == "art":
         max_chars = env.configuration.get("max_art_chars", 4000)
-        enforce_no_word = env.configuration.get("enforce_no_word_in_art", True)
         blue_action = _unwrap(state[_blue_artist(rnd)].action)
         yellow_action = _unwrap(state[_yellow_artist(rnd)].action)
         blue_art = _coerce_str(blue_action, max_chars)
@@ -331,8 +350,8 @@ def process_step(state, env):
         # guesser's view and the history-entry annotation.
         obs0._round_blue_art = blue_art
         obs0._round_yellow_art = yellow_art
-        obs0._round_blue_art_disqualified = enforce_no_word and _art_contains_word(blue_art, target)
-        obs0._round_yellow_art_disqualified = enforce_no_word and _art_contains_word(yellow_art, target)
+        obs0._round_blue_art_disqualified = _art_contains_word(blue_art, target)
+        obs0._round_yellow_art_disqualified = _art_contains_word(yellow_art, target)
 
         blue_art_for_guesser = DISQUALIFIED_ART_PLACEHOLDER if obs0._round_blue_art_disqualified else blue_art
         yellow_art_for_guesser = DISQUALIFIED_ART_PLACEHOLDER if obs0._round_yellow_art_disqualified else yellow_art

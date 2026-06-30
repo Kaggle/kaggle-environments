@@ -1,15 +1,26 @@
 from kaggle_environments import make
+from kaggle_environments.errors import DeadlineExceeded
 
 
 def _make(**config):
-    """Convenience: tests that exercise scoring/mechanics use the verbatim
-    `cheating` agent, which the env's no-word-in-art enforcement would
-    disqualify. Default these tests to ``enforce_no_word_in_art=False`` so
-    they stay focused on the mechanic they're testing. The dedicated
-    disqualification tests below override this.
-    """
-    config.setdefault("enforce_no_word_in_art", False)
     return make("word_art", configuration=config)
+
+
+# Tests that exercise scoring/role/history mechanics need a deterministic way
+# for the artist to convey the target word to the guesser without tripping the
+# no-word-in-art enforcement (which always applies). We encode each letter as
+# a zero-padded 2-digit code (A=01, B=02, ..., Z=26): the encoded art contains
+# only digits, so the word never appears as a substring forwards or reversed.
+# Tests that DO want to test enforcement override this and send the raw word
+# (see the "no-word-in-art enforcement" section).
+
+
+def _encode_word(word):
+    return "".join(f"{ord(c) - ord('A') + 1:02d}" for c in word.upper())
+
+
+def _decode_art(art):
+    return "".join(chr(int(art[i:i + 2]) + ord('A') - 1) for i in range(0, len(art), 2))
 
 
 def silent(observation, configuration):
@@ -17,19 +28,19 @@ def silent(observation, configuration):
 
 
 def cheating(observation, configuration):
-    """Artist sends the word verbatim; guesser parses it back on the first try."""
+    """Artist encodes the word in digits; guesser decodes."""
     if observation.role == "artist":
-        return observation.target_word
-    return observation.teammate_art
+        return _encode_word(observation.target_word)
+    return _decode_art(observation.teammate_art)
 
 
 def lazy_second_try(observation, configuration):
     """Guesses 'NOPE' on the first attempt, then the correct word on the second."""
     if observation.role == "artist":
-        return observation.target_word
+        return _encode_word(observation.target_word)
     if not observation.previous_guesses:
         return "NOPE"
-    return observation.teammate_art
+    return _decode_art(observation.teammate_art)
 
 
 def random_letter(observation, configuration):
@@ -111,7 +122,7 @@ def test_guesser_sees_previous_guesses():
 
     def recorder(observation, configuration):
         if observation.role == "artist":
-            return observation.target_word
+            return _encode_word(observation.target_word)
         if observation.team == "blue":
             seen["blue"].append(list(observation.previous_guesses))
         # Always wrong → forces all 3 attempts
@@ -222,8 +233,10 @@ def test_art_hidden_from_opponent():
 def test_case_insensitive_guess():
     def lowercase_guess(observation, configuration):
         if observation.role == "artist":
-            return observation.target_word
-        return observation.teammate_art.lower()
+            return _encode_word(observation.target_word)
+        # Decode → uppercase word, then lowercase before submitting. The env
+        # should still accept it (matching is case-insensitive).
+        return _decode_art(observation.teammate_art).lower()
 
     env = _make(num_rounds=2, seed=17)
     env.run([lowercase_guess] * 4)
@@ -274,8 +287,9 @@ def test_max_art_chars_truncation():
 
 # --- No-word-in-art enforcement --------------------------------------------
 #
-# These tests use the env's DEFAULT configuration (enforce_no_word_in_art=True)
-# rather than the _make() helper, since the helper turns enforcement off.
+# These tests exercise the (always-on) enforcement that disqualifies art
+# containing the target word. They use _make() directly — there's no flag
+# to flip; enforcement is unconditional.
 
 
 def _word_smuggler(transform):
@@ -386,20 +400,6 @@ def test_guesser_sees_placeholder_on_disqualification():
     assert target.lower() not in captured["art_seen"].lower()
 
 
-def test_enforcement_can_be_disabled():
-    """With enforce_no_word_in_art=False, the original verbatim cheating
-    strategy works and scores 2 points."""
-    env = make(
-        "word_art",
-        configuration={"num_rounds": 1, "seed": 5, "enforce_no_word_in_art": False},
-    )
-    env.run([cheating] * 4)
-    j = env.toJSON()
-    entry = j["steps"][-1][0]["observation"]["history"][0]
-    assert entry["blue_art_disqualified"] is False
-    assert entry["blue_points"] == 2
-
-
 def test_disqualification_does_not_block_guessing():
     """Even with a disqualified art panel, the guesser still gets their full
     attempt budget and can still score if they correctly guess the word."""
@@ -436,3 +436,118 @@ def test_substring_word_is_disqualified():
     j = _run_smuggle(lambda w: f"A {w}-shape")
     entry = j["steps"][-1][0]["observation"]["history"][0]
     assert entry["blue_art_disqualified"] is True
+
+
+# --- Config surfaced on observation ----------------------------------------
+
+
+def test_first_try_bonus_surfaced_on_observation():
+    """The env must surface first_try_bonus on every agent's observation so
+    the harness can interpolate the correct scoring text. Hardcoding in the
+    harness silently lies to the model when this config is non-default."""
+    env = _make(num_rounds=1, seed=1, first_try_bonus=4)
+    for s in env.state:
+        assert s.observation.first_try_bonus == 4
+
+
+def test_max_art_chars_surfaced_on_observation():
+    """Same contract as first_try_bonus: the artist prompt needs to warn
+    about the truncation length, so the env must hand it to the harness."""
+    env = _make(num_rounds=1, seed=1, max_art_chars=2500)
+    for s in env.state:
+        assert s.observation.max_art_chars == 2500
+
+
+def test_config_defaults_surfaced_on_observation():
+    """Defaults match word_art.json (first_try_bonus=1, max_art_chars=4000)."""
+    env = _make(num_rounds=1, seed=1)
+    for s in env.state:
+        assert s.observation.first_try_bonus == 1
+        assert s.observation.max_art_chars == 4000
+
+
+# --- Failure-status preservation across phase / round transitions ----------
+#
+# When the framework marks an agent TIMEOUT/ERROR/INVALID, the interpreter
+# must NOT flip that status back to ACTIVE on the next phase transition.
+# Otherwise a timed-out artist gets silently resurrected, times out again,
+# and the round's failure is invisible in the replay.
+
+
+def test_artist_timeout_preserved_into_guess_phase():
+    """An artist that raises DeadlineExceeded during the art phase must
+    remain TIMEOUT after the env transitions into the guess phase — NOT
+    get flipped to INACTIVE by _set_guess_statuses."""
+
+    def slow_artist(observation, configuration):
+        if observation.role == "artist":
+            return DeadlineExceeded()
+        return observation.teammate_art
+
+    env = _make(num_rounds=2, seed=1)
+    env.run([slow_artist, slow_artist, slow_artist, slow_artist])
+    # After the env runs, both timed-out artists from round 0 (agents 0 and 2)
+    # should still carry TIMEOUT — not be silently flipped back to ACTIVE/DONE.
+    assert env.state[0].status == "TIMEOUT"
+    assert env.state[2].status == "TIMEOUT"
+
+
+def test_timed_out_artist_not_resurrected_in_later_round():
+    """An agent that timed out in round 0's art phase must NOT be flipped
+    back to ACTIVE when _set_art_statuses runs at the start of round 2
+    (the next even-numbered round, where agent 0 would otherwise be the
+    blue artist again)."""
+
+    # Time out the first artist call; thereafter everyone plays normally.
+    state_bag = {"timed_out_once": False}
+
+    def timeout_first_blue_artist(observation, configuration):
+        if (
+            not state_bag["timed_out_once"]
+            and observation.role == "artist"
+            and observation.team == "blue"
+            and observation.current_round == 0
+        ):
+            state_bag["timed_out_once"] = True
+            return DeadlineExceeded()
+        if observation.role == "artist":
+            return observation.target_word
+        return observation.teammate_art
+
+    env = _make(num_rounds=3, seed=1)
+    env.run([timeout_first_blue_artist] * 4)
+    # Agent 0 (blue artist on even rounds) must stay TIMEOUT for the whole
+    # episode — even though _set_art_statuses runs at the start of round 2
+    # and would otherwise flip them back to ACTIVE.
+    assert env.state[0].status == "TIMEOUT"
+    assert env.state[0].reward is None
+    # Scan every recorded step: agent 0 was never ACTIVE after the timeout
+    # fired in step 1 (so it was never even given a chance to time out again).
+    j = env.toJSON()
+    post_timeout_active = [
+        i
+        for i, step in enumerate(j["steps"])
+        if i > 0 and step[0]["status"] == "ACTIVE"
+    ]
+    assert post_timeout_active == [], (
+        f"agent 0 was resurrected to ACTIVE at steps {post_timeout_active}"
+    )
+
+
+def test_guesser_timeout_preserved_across_round_boundary():
+    """A guesser that errors out in round 1 must not be reactivated for
+    round 2's art phase."""
+
+    def fail_guesser(observation, configuration):
+        if observation.role == "guesser" and observation.team == "yellow":
+            return DeadlineExceeded()
+        if observation.role == "artist":
+            return observation.target_word
+        return observation.teammate_art
+
+    env = _make(num_rounds=2, seed=1)
+    env.run([fail_guesser] * 4)
+    # Yellow guesser in round 0 is agent 3. Should stay TIMEOUT — must not
+    # be flipped to ACTIVE/INACTIVE for the round-1 art phase, and must
+    # remain TIMEOUT after the game DONE sweep.
+    assert env.state[3].status == "TIMEOUT"
