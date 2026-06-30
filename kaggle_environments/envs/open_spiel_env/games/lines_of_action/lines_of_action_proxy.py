@@ -34,6 +34,26 @@ class LinesOfActionState(proxy.State):
         # Reverse so board[0] is rank 1 (bottom), matching algebraic notation.
         return list(reversed(ranks_top_down))
 
+    def _move_history(self) -> list[str]:
+        """Full game history as a list of action strings, oldest first.
+
+        Black moves first, then White, then alternating. The framework's
+        per-agent ``move_history`` argument only contains the calling
+        agent's own moves, which leaves the model unable to see the
+        opponent's prior moves (and therefore unable to detect imminent
+        twofold-repetition draws). Surfacing the full history here lets
+        the harness render both players' moves in the prompt.
+        """
+        history = self.history()
+        if not history:
+            return []
+        state = self.__wrapped__.get_game().new_initial_state()
+        out: list[str] = []
+        for action in history:
+            out.append(state.action_to_string(state.current_player(), action))
+            state.apply_action(action)
+        return out
+
     def _last_move_str(self) -> str | None:
         history = self.history()
         if not history:
@@ -62,6 +82,7 @@ class LinesOfActionState(proxy.State):
             "winner": winner,
             "move_number": self.move_number(),
             "last_move": self._last_move_str(),
+            "move_history": self._move_history(),
         }
 
     def to_json(self, player: int | None = None) -> str:

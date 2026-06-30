@@ -1,5 +1,6 @@
 """Tests for Lines of Action LLM harness."""
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pyspiel
@@ -188,16 +189,65 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("no legal moves", prompt)
         self.assertIn("loses", prompt)
 
+    def test_prompt_states_only_opponent_connected_loses(self):
+        """Regression: the engine awards a win to the opponent if, after
+        your move, only the opponent's pieces are connected and yours are
+        not (CheckTerminalState in lines_of_action.cc checks current_player
+        first, then opponent). The old prompt only described the
+        simultaneous-connection case, so the model couldn't see that a
+        careless capture or moving a 'blocker' piece can lose the game on
+        its own turn."""
+        observation = {"observationString": "{}", "playerId": 0}
+        prompt = generate_prompt(observation, [])
+        self.assertIn("only the opponent's pieces are connected", prompt)
+        self.assertIn("opponent wins", prompt)
+
     def test_basic_prompt_white(self):
         observation = {"observationString": "{}", "playerId": 1}
         prompt = generate_prompt(observation, [])
         self.assertIn("White", prompt)
         self.assertIn("(O)", prompt)
 
-    def test_move_history_included(self):
+    def test_move_history_section_dropped_when_proxy_history_missing(self):
+        """When the proxy's full history is unavailable, the harness must
+        NOT render the framework's per-agent argument as if it were the
+        full game's history. The per-agent list contains only the calling
+        agent's own moves, so rendering it in alternating-pair notation
+        would mislabel White's plies as Black's (or vice versa). Instead
+        the whole 'Moves played so far' section is dropped -- in practice
+        this path only fires for synthetic test observations because the
+        proxy always supplies move_history at runtime."""
         observation = {"observationString": "{}", "playerId": 0}
-        prompt = generate_prompt(observation, ["b1-h1", "a3-c3", "c1-c3"])
-        self.assertIn("b1-h1 a3-c3 c1-c3", prompt)
+        prompt = generate_prompt(observation, ["any-move", "another-move"])
+        self.assertNotIn("Moves played so far", prompt)
+        self.assertNotIn("any-move", prompt)
+
+    def test_move_history_prefers_proxy_full_history(self):
+        """Regression: the per-agent ``move_history`` argument from the
+        framework only contains the calling agent's own actions, so a
+        prompt that interpolates it as "Moves played so far" silently
+        hides every opponent move past ``last_move``. The harness must
+        prefer ``state["move_history"]`` (set by the proxy) when it is
+        present, even if the per-agent argument lists conflicting moves."""
+        full_history = ["b1-h1", "h7-h4", "c1-c3", "a6-c8"]
+        observation = {
+            "observationString": json.dumps({"move_history": full_history}),
+            "playerId": 0,
+        }
+        # Pass a per-agent stub that does NOT match: the proxy history
+        # should win.
+        prompt = generate_prompt(observation, ["ignored-per-agent-move"])
+        self.assertIn("1. b1-h1 h7-h4", prompt)
+        self.assertIn("2. c1-c3 a6-c8", prompt)
+        self.assertNotIn("ignored-per-agent-move", prompt)
+
+    def test_move_history_empty(self):
+        observation = {
+            "observationString": json.dumps({"move_history": []}),
+            "playerId": 0,
+        }
+        prompt = generate_prompt(observation, [])
+        self.assertIn("None", prompt)
 
     def test_rethink_suffix(self):
         observation = {"observationString": "{}", "playerId": 0}
