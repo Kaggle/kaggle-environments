@@ -59,9 +59,7 @@ line: row=horizontal, col=vertical, /=NE-SW diagonal, \\=NW-SE diagonal):
 {piece_line_counts}
 
 Move number: {move_number}
-Last move played: {last_move}
-Moves played so far (oldest first; Black moves first, then alternates):
-{move_history}
+Last move played: {last_move}{move_history_section}
 
 You are playing as {player_name} ({player_code}).
 It is now your turn. Play your strongest move.
@@ -291,20 +289,29 @@ def generate_prompt(
     last_move = state.get("last_move") or "(none yet)"
 
     my_piece = "x" if player_id == 0 else "o"
-    # Prefer the proxy's full-game move history (both players) over the
-    # framework's `move_history` argument (this agent's moves only) -- the
-    # latter is missing the opponent's plies, which prevents the model
-    # from detecting impending twofold-repetition draws or reading the
-    # opponent's recent strategy.
+    # The harness needs the full game's move history (both players) to
+    # render a faithful "moves played so far" section. The framework's
+    # `move_history` argument only contains the calling agent's own
+    # moves, which would mislabel White's plies as Black's if rendered
+    # in alternating-pair notation, so we only render the section when
+    # the proxy supplies its full history. In production the proxy is
+    # always present; the section is dropped only for synthetic test
+    # observations.
     full_history = state.get("move_history")
-    history_to_render = full_history if full_history is not None else list(move_history)
+    if full_history is not None:
+        move_history_section = (
+            "\nMoves played so far (oldest first; Black moves first, "
+            "then alternates):\n" + _format_move_history(full_history)
+        )
+    else:
+        move_history_section = ""
 
     prompt = LOA_PROMPT_TEMPLATE.format(
         board_ascii=_format_board_ascii(board),
         piece_line_counts=_format_piece_line_counts(board, my_piece),
         move_number=move_number,
         last_move=last_move,
-        move_history=_format_move_history(history_to_render),
+        move_history_section=move_history_section,
         player_name=player_name,
         player_code=player_code,
     )

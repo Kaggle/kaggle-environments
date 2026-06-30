@@ -208,14 +208,19 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("White", prompt)
         self.assertIn("(O)", prompt)
 
-    def test_move_history_fallback_to_per_agent_arg(self):
-        """When the proxy's full history is unavailable (no observationString
-        payload), fall back to rendering the framework's per-agent argument
-        in chess-style numbered-pair notation."""
+    def test_move_history_section_dropped_when_proxy_history_missing(self):
+        """When the proxy's full history is unavailable, the harness must
+        NOT render the framework's per-agent argument as if it were the
+        full game's history. The per-agent list contains only the calling
+        agent's own moves, so rendering it in alternating-pair notation
+        would mislabel White's plies as Black's (or vice versa). Instead
+        the whole 'Moves played so far' section is dropped -- in practice
+        this path only fires for synthetic test observations because the
+        proxy always supplies move_history at runtime."""
         observation = {"observationString": "{}", "playerId": 0}
-        prompt = generate_prompt(observation, ["b1-h1", "a3-c3", "c1-c3"])
-        self.assertIn("1. b1-h1 a3-c3", prompt)
-        self.assertIn("2. c1-c3", prompt)
+        prompt = generate_prompt(observation, ["any-move", "another-move"])
+        self.assertNotIn("Moves played so far", prompt)
+        self.assertNotIn("any-move", prompt)
 
     def test_move_history_prefers_proxy_full_history(self):
         """Regression: the per-agent ``move_history`` argument from the
