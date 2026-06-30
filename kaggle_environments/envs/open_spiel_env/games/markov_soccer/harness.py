@@ -31,9 +31,6 @@ from kaggle_environments.core_harness import (
     render_rethink_suffix,
 )
 
-# --- Prompt -----------------------------------------------------------------
-
-
 MARKOV_SOCCER_PROMPT_TEMPLATE = """Let's play Markov Soccer (Littman 1994).
 
 Rules: Two players (A and B) move on a {num_rows} row x {num_cols} col grid.
@@ -47,7 +44,7 @@ one of five actions:
   - ``right`` -> column index increases by 1
   - ``stand`` -> no movement
 
-After both choices are revealed a hidden coin flip picks which player's move
+After both choices are revealed, a hidden coin flip picks which player's move
 is resolved first; the other player's move resolves immediately after. You
 cannot know the resolution order in advance.
 
@@ -60,21 +57,21 @@ Piece encoding on the board:
 Movement and ball mechanics (applied per player in initiative order):
 
   1. ``stand`` keeps the player in place.
-  2. Moving into an empty cell ('.') just moves the player there.
-  3. Moving into the loose ball ('O') picks it up; the player becomes
+  2. Moving into an empty cell ('.') moves the player there.
+  3. Moving into a cell with the loose ball ('O') picks it up; the player becomes
      uppercase ('a' -> 'A' or 'b' -> 'B') and now holds the ball.
   4. THE BALL-HOLDER moving into the OPPONENT's cell loses the ball: the
      ball-holder stays in place but becomes lowercase, and the opponent
      becomes uppercase (now holds the ball) without moving. Neither piece
      changes square; only possession transfers.
-  5. ANY OTHER attempt to move into an occupied cell silently fails -- the
+  5. ANY OTHER attempt to move into an occupied cell silently fails. The
      mover stays where they are and nothing else changes. In particular,
      a player WITHOUT the ball who tries to walk into the ball-holder
      does NOT steal the ball; the move just fails. The only way to take
      the ball from the opponent is to wait for the ball-holder to walk
      into you.
-  6. Trying to move off the edge of the field normally does nothing -- the
-     mover stays in place -- EXCEPT for scoring: a ball-holder in row 1 or
+  6. Trying to move off the edge of the field normally does nothing (the
+     mover stays in place) EXCEPT for scoring: a ball-holder in row 1 or
      row 2 who tries to step off the opponent's goal edge SCORES and wins
      immediately. Stepping off any other edge (or any edge while not
      holding the ball) is a no-op. Only rows 1 and 2 are valid goal rows.
@@ -100,7 +97,7 @@ You are Player {player_label} ('{my_piece_lower}' without ball, '{my_piece_upper
 {your_goal_sentence}
 {opponent_goal_sentence}
 
-Round: {move_number} (you are about to choose this round's move)
+Round: {move_number}
 {move_history_block}
 
 It is your turn. Choose one of: up, down, left, right, stand.
@@ -145,10 +142,6 @@ For example: `{{"move": "right"}}`
 
 The move you choose must also be one of: up, down, left, right, stand.
 """
-
-
-# --- Helpers ----------------------------------------------------------------
-
 
 def _parse_observation_payload(observation: Mapping[str, Any]) -> dict[str, Any]:
     """Pull the structured markov-soccer state dict out of the observation."""
@@ -236,10 +229,6 @@ def _render_full_history(observation: Mapping[str, Any]) -> str | None:
     for i, (a, b, init) in enumerate(rounds, start=1):
         lines.append(f"  Round {i}: A={a}, B={b} ({init}'s move resolved first)")
     return "\n".join(lines)
-
-
-# --- Public functions (called by main.py) -----------------------------------
-
 
 def get_legal_moves(observation: Mapping[str, Any]) -> dict[int, str]:
     """Return ``{action_id: action_string}`` for the current state."""
@@ -378,10 +367,6 @@ def parse_response(
 ) -> ParseResult:
     """Trust the model's JSON answer; let the rethink loop fix anything else."""
     return parse_json_action(response, legal_action_strings)
-
-
-# --- Adapter + Kaggle agent function ----------------------------------------
-
 
 class _MarkovSoccerHarness:
     """Adapts module-level harness functions to the GameHarness protocol."""
