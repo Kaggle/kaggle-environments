@@ -1,9 +1,5 @@
 """LLM harness for OpenSpiel Markov Soccer.
 
-Drop the body of this file into the notebook attached to the competition via
-HarnessKernelId. The auto-generated ``main.py`` calls these three module-level
-functions: ``get_legal_moves``, ``generate_prompt``, ``parse_response``.
-
 Markov Soccer (Littman 1994) is a 2-player simultaneous-move grid game. On
 the default 4 row x 5 col field, Player A starts at (2, 1) and Player B at
 (1, 3); a loose ball spawns at random in column 2. Each round both players
