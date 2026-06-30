@@ -16,15 +16,18 @@ loaded by Kaggle in production -- the production loader uses the per-call
 from __future__ import annotations
 
 import argparse
+import importlib.util
+import inspect
 import json
 import os
 import sys
 from typing import Any
 
 from kaggle_environments import make
+from kaggle_environments.core_harness import create_agent_fn
 
 
-_DEFAULT_MODEL = "gemini-2.5-flash"
+_DEFAULT_MODEL = "google/gemini-3.1-pro-preview"
 _REPLAY_SUBDIR = os.path.join("visualizer", "default", "replays")
 
 
@@ -64,6 +67,81 @@ def _parse_cli(argv: list[str] | None) -> argparse.Namespace:
         help="Override the replay save path (default: <caller_dir>/visualizer/default/replays/<replay_filename>).",
     )
     return parser.parse_args(argv)
+
+
+def _load_module_from_path(path: str) -> Any | None:
+    """Load a .py file as a module without polluting sys.modules permanently.
+
+    Returns None if the file can't be loaded as a Python module.
+    """
+    try:
+        spec = importlib.util.spec_from_file_location(
+            f"_harness_{abs(hash(path))}", path,
+        )
+        if spec is None or spec.loader is None:
+            return None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+    except Exception:
+        return None
+
+
+def _wrap_module_harness(path: str) -> Any | None:
+    """If ``path`` is a module-style harness, return an agent callable.
+
+    A module-style harness exposes the three ``GameHarness`` protocol
+    functions at module level (``get_legal_moves``, ``generate_prompt``
+    or ``make_prompt``, and ``parse_response``). Production wires these
+    into an agent via an external wrapper; we mirror that wrapping here
+    so ``env.run`` doesn't end up calling ``parse_response`` directly
+    with the raw observation.
+
+    Returns ``None`` if the file isn't a module-style harness, so the
+    caller falls back to passing the path straight to ``env.run``.
+    """
+    module = _load_module_from_path(path)
+    if module is None:
+        return None
+
+    parse_response = getattr(module, "parse_response", None)
+    generate_prompt = getattr(module, "generate_prompt", None) or getattr(
+        module, "make_prompt", None,
+    )
+    if parse_response is None or generate_prompt is None:
+        return None
+
+    get_legal_moves = getattr(module, "get_legal_moves", None)
+    parse_accepts_obs = "observation" in inspect.signature(parse_response).parameters
+
+    class _ModuleAdapter:
+        """GameHarness adapter that delegates to module-level functions."""
+
+        def get_legal_moves(self, observation):
+            if get_legal_moves is None:
+                return None
+            return get_legal_moves(observation)
+
+        def make_prompt(
+            self, observation, move_history,
+            previous_response=None, previous_action=None,
+        ):
+            return generate_prompt(
+                observation, move_history,
+                previous_response=previous_response,
+                previous_action=previous_action,
+            )
+
+        def parse_response(
+            self, response, legal_action_strings, *, observation=None,
+        ):
+            if parse_accepts_obs:
+                return parse_response(
+                    response, legal_action_strings, observation=observation,
+                )
+            return parse_response(response, legal_action_strings)
+
+    return create_agent_fn(_ModuleAdapter())
 
 
 def _print_steps_and_results(env: Any) -> None:
@@ -135,7 +213,11 @@ def run_llm_game(
     )
 
     print(f"Running {env_name} with LLM agents (model={os.environ['MODEL_NAME']})...")
-    env.run([agent_path] * num_agents)
+    agent_callable = _wrap_module_harness(agent_path)
+    if agent_callable is not None:
+        env.run([agent_callable] * num_agents)
+    else:
+        env.run([agent_path] * num_agents)
 
     _print_steps_and_results(env)
     _save_replay(env, replay_path)

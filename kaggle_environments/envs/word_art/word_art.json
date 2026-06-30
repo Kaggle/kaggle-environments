@@ -36,8 +36,8 @@
     },
     "actTimeout": {
       "type": "number",
-      "default": 60,
-      "description": "Timeout in seconds for agent actions."
+      "default": 180,
+      "description": "Timeout in seconds for agent actions. Bumped from the framework default to accommodate reasoning-heavy LLM artists: a 60s budget caused observed wall durations of 70-140s with current frontier reasoning models, silently forfeiting artist turns once banked overage was exhausted."
     },
     "seed": {
       "type": ["integer", "null"],
@@ -70,6 +70,16 @@
       "description": "Total guesses allowed per artwork (same value all episode; mirrors configuration.max_attempts).",
       "type": "integer",
       "default": 3
+    },
+    "first_try_bonus": {
+      "description": "Extra points awarded on top of the base correct-guess point when the guesser nails the word on the first attempt (mirrors configuration.first_try_bonus).",
+      "type": "integer",
+      "default": 1
+    },
+    "max_art_chars": {
+      "description": "Maximum length (in characters) of an artist's ASCII art submission; longer art is truncated (mirrors configuration.max_art_chars).",
+      "type": "integer",
+      "default": 4000
     },
     "current_round": {
       "description": "Index of the current round (0-based).",

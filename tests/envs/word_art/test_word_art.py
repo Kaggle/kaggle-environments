@@ -1,4 +1,5 @@
 from kaggle_environments import make
+from kaggle_environments.errors import DeadlineExceeded
 
 
 def _make(**config):
@@ -436,3 +437,118 @@ def test_substring_word_is_disqualified():
     j = _run_smuggle(lambda w: f"A {w}-shape")
     entry = j["steps"][-1][0]["observation"]["history"][0]
     assert entry["blue_art_disqualified"] is True
+
+
+# --- Config surfaced on observation ----------------------------------------
+
+
+def test_first_try_bonus_surfaced_on_observation():
+    """The env must surface first_try_bonus on every agent's observation so
+    the harness can interpolate the correct scoring text. Hardcoding in the
+    harness silently lies to the model when this config is non-default."""
+    env = _make(num_rounds=1, seed=1, first_try_bonus=4)
+    for s in env.state:
+        assert s.observation.first_try_bonus == 4
+
+
+def test_max_art_chars_surfaced_on_observation():
+    """Same contract as first_try_bonus: the artist prompt needs to warn
+    about the truncation length, so the env must hand it to the harness."""
+    env = _make(num_rounds=1, seed=1, max_art_chars=2500)
+    for s in env.state:
+        assert s.observation.max_art_chars == 2500
+
+
+def test_config_defaults_surfaced_on_observation():
+    """Defaults match word_art.json (first_try_bonus=1, max_art_chars=4000)."""
+    env = _make(num_rounds=1, seed=1)
+    for s in env.state:
+        assert s.observation.first_try_bonus == 1
+        assert s.observation.max_art_chars == 4000
+
+
+# --- Failure-status preservation across phase / round transitions ----------
+#
+# When the framework marks an agent TIMEOUT/ERROR/INVALID, the interpreter
+# must NOT flip that status back to ACTIVE on the next phase transition.
+# Otherwise a timed-out artist gets silently resurrected, times out again,
+# and the round's failure is invisible in the replay.
+
+
+def test_artist_timeout_preserved_into_guess_phase():
+    """An artist that raises DeadlineExceeded during the art phase must
+    remain TIMEOUT after the env transitions into the guess phase — NOT
+    get flipped to INACTIVE by _set_guess_statuses."""
+
+    def slow_artist(observation, configuration):
+        if observation.role == "artist":
+            return DeadlineExceeded()
+        return observation.teammate_art
+
+    env = _make(num_rounds=2, seed=1)
+    env.run([slow_artist, slow_artist, slow_artist, slow_artist])
+    # After the env runs, both timed-out artists from round 0 (agents 0 and 2)
+    # should still carry TIMEOUT — not be silently flipped back to ACTIVE/DONE.
+    assert env.state[0].status == "TIMEOUT"
+    assert env.state[2].status == "TIMEOUT"
+
+
+def test_timed_out_artist_not_resurrected_in_later_round():
+    """An agent that timed out in round 0's art phase must NOT be flipped
+    back to ACTIVE when _set_art_statuses runs at the start of round 2
+    (the next even-numbered round, where agent 0 would otherwise be the
+    blue artist again)."""
+
+    # Time out the first artist call; thereafter everyone plays normally.
+    state_bag = {"timed_out_once": False}
+
+    def timeout_first_blue_artist(observation, configuration):
+        if (
+            not state_bag["timed_out_once"]
+            and observation.role == "artist"
+            and observation.team == "blue"
+            and observation.current_round == 0
+        ):
+            state_bag["timed_out_once"] = True
+            return DeadlineExceeded()
+        if observation.role == "artist":
+            return observation.target_word
+        return observation.teammate_art
+
+    env = _make(num_rounds=3, seed=1)
+    env.run([timeout_first_blue_artist] * 4)
+    # Agent 0 (blue artist on even rounds) must stay TIMEOUT for the whole
+    # episode — even though _set_art_statuses runs at the start of round 2
+    # and would otherwise flip them back to ACTIVE.
+    assert env.state[0].status == "TIMEOUT"
+    assert env.state[0].reward is None
+    # Scan every recorded step: agent 0 was never ACTIVE after the timeout
+    # fired in step 1 (so it was never even given a chance to time out again).
+    j = env.toJSON()
+    post_timeout_active = [
+        i
+        for i, step in enumerate(j["steps"])
+        if i > 0 and step[0]["status"] == "ACTIVE"
+    ]
+    assert post_timeout_active == [], (
+        f"agent 0 was resurrected to ACTIVE at steps {post_timeout_active}"
+    )
+
+
+def test_guesser_timeout_preserved_across_round_boundary():
+    """A guesser that errors out in round 1 must not be reactivated for
+    round 2's art phase."""
+
+    def fail_guesser(observation, configuration):
+        if observation.role == "guesser" and observation.team == "yellow":
+            return DeadlineExceeded()
+        if observation.role == "artist":
+            return observation.target_word
+        return observation.teammate_art
+
+    env = _make(num_rounds=2, seed=1)
+    env.run([fail_guesser] * 4)
+    # Yellow guesser in round 0 is agent 3. Should stay TIMEOUT — must not
+    # be flipped to ACTIVE/INACTIVE for the round-1 art phase, and must
+    # remain TIMEOUT after the game DONE sweep.
+    assert env.state[3].status == "TIMEOUT"
