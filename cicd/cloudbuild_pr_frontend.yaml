@@ -8,6 +8,22 @@
 # This is significantly faster than the backend build since it skips Docker image build
 
 steps:
+  # Install dependencies once into the shared /workspace volume.
+  # All subsequent node:22 steps reuse this node_modules instead of racing
+  # parallel `pnpm install`s into the same directory (which previously caused
+  # ERR_PNPM_ENOTEMPTY and partially-installed workspaces).
+  - id: "install"
+    name: "node:22"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        set -e
+        corepack enable
+        corepack prepare pnpm@9.15.3 --activate
+        pnpm install --frozen-lockfile
+    waitFor: ["-"]
+
   # Check code formatting
   - id: "format-check"
     name: "node:22"
@@ -16,10 +32,10 @@ steps:
       - "-c"
       - |
         set -e
-        npm install -g pnpm
-        pnpm install
+        corepack enable
+        corepack prepare pnpm@9.15.3 --activate
         pnpm format-check
-    waitFor: ["-"]
+    waitFor: ["install"]
 
   # Build visualizers to validate frontend changes
   - id: "build-all-visualizers"
@@ -30,11 +46,11 @@ steps:
       - |
         set -e
         apt-get update && apt-get install -y jq
-        npm install -g pnpm
-        pnpm install
+        corepack enable
+        corepack prepare pnpm@9.15.3 --activate
         node web/scripts/sync-version.js
         pnpm build-ci
-    waitFor: ["-"]
+    waitFor: ["install"]
 
   # Run web/core unit tests
   - id: "run-unit-tests"
@@ -44,10 +60,10 @@ steps:
       - "-c"
       - |
         set -e
-        npm install -g pnpm@9
-        pnpm install
+        corepack enable
+        corepack prepare pnpm@9.15.3 --activate
         pnpm --filter @kaggle-environments/core test
-    waitFor: ["-"]
+    waitFor: ["install"]
 
   # Run Playwright e2e tests for visualizers
   - id: "run-e2e-tests"
@@ -57,8 +73,8 @@ steps:
       - "-c"
       - |
         set -e
-        npm install -g pnpm
-        pnpm install
+        corepack enable
+        corepack prepare pnpm@9.15.3 --activate
         # Install browsers matching the installed Playwright version
         pnpm exec playwright install chromium --with-deps
         pnpm test:e2e
