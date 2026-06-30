@@ -210,16 +210,21 @@ Rules:
 
 {scoring}
 
-CRITICAL (engine-enforced): you MUST NOT include the target word in
-your art. The check works by stripping every non-alphanumeric character
-and lowercasing the result, then looking for the word as a substring
-forwards OR reversed -- so 'cat', 'CAT', 'C A T', 'C-A-T', 'C.A.T',
-'C\\nA\\nT', 'TAC', and any of these padded with extra punctuation all
-trip it. If disqualified, your teammate sees a placeholder instead of
-your drawing (no info, no first-try bonus, almost certainly 0 points).
-NATO alphabet ('Charlie Alpha Tango'), synonyms, translations, and
-rhymes aren't engine-caught but are against the spirit of the game --
-convey the WORD through the IMAGE.
+Do not include ANY words in your art -- not the target, not a synonym,
+not a label, not a NATO-alphabet or other phonetic spelling, not a
+translation or a rhyme. The point of the game is to convey the WORD
+through the IMAGE. Letters are fine as visual elements (an 'O' for an
+eye, a 'V' for a beak); spelling things out is not.
+
+CRITICAL (engine-enforced): the target word specifically is checked
+mechanically. The check works by stripping every non-alphanumeric
+character from your submission and lowercasing the result, then looking
+for the target as a substring forwards OR reversed -- so 'cat', 'CAT',
+'C A T', 'C-A-T', 'C.A.T', 'C\\nA\\nT', 'TAC', and any of these padded
+with extra punctuation all trip it. If disqualified, your teammate sees a
+placeholder instead of your drawing (no info, no first-try bonus,
+almost certainly 0 points). The other "no words" rules above aren't
+engine-enforced -- they're on your honor.
 
 Art must be printable ASCII only, and is silently truncated at
 {max_art_chars} characters -- keep it compact.
@@ -253,7 +258,7 @@ def _build_guesser_prompt(
     attempt_number = max_attempts - attempts_remaining + 1
 
     if previous_guesses:
-        prev_block = f"Your previous guesses this round (all wrong, do NOT repeat them): {previous_guesses!r}"
+        prev_block = f"Your previous guesses this round (all wrong): {previous_guesses!r}"
     else:
         prev_block = "This is your first guess this round."
 
@@ -328,7 +333,10 @@ def parse_response(
     """
     parsed = extract_last_json_object(response, required_keys=("art", "guess"))
     if parsed is None:
-        return ParseResult(raw_action=response[-200:])
+        # No JSON object found at all -- raw_action=None so core_harness
+        # categorizes this as UNPARSABLE (not ILLEGAL) in telemetry. The
+        # rethink loop still has the full response via `previous_response`.
+        return ParseResult(raw_action=None)
 
     thinking = parsed.get("thinking")
     role = (observation or {}).get("role", "")

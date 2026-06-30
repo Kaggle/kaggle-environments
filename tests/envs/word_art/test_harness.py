@@ -168,17 +168,33 @@ class ParseResponseTest(absltest.TestCase):
         self.assertEqual(result.submission, "FINAL_DRAWING")
 
     def test_artist_missing_art_key_returns_no_submission(self):
+        # JSON emitted but neither "art" nor "guess" is present →
+        # extract_last_json_object returns None → telemetry UNPARSABLE.
         obs = _artist_obs()
         response = '{"thinking": "I forgot the art key"}'
         result = parse_response(response, None, observation=obs)
         self.assertIsNone(result.submission)
+        self.assertIsNone(result.raw_action)
+
+    def test_artist_wrong_role_key_returns_no_submission_but_surfaces_raw(self):
+        # JSON with the OTHER role's key (a guess on an artist turn) -- the
+        # model did emit structured output; it just answered the wrong
+        # question. Surfaces raw_action so the rethink prompt can quote it
+        # back and the telemetry categorizes as ILLEGAL.
+        obs = _artist_obs()
+        response = '{"guess": "ELEPHANT"}'
+        result = parse_response(response, None, observation=obs)
+        self.assertIsNone(result.submission)
         self.assertIsNotNone(result.raw_action)
+        self.assertIn("guess", result.raw_action)
 
     def test_artist_prose_only_returns_no_submission(self):
         obs = _artist_obs()
         response = "Here is a drawing of a cat: ^.^"
         result = parse_response(response, None, observation=obs)
         self.assertIsNone(result.submission)
+        # No JSON at all → raw_action=None → telemetry UNPARSABLE.
+        self.assertIsNone(result.raw_action)
 
     # --- Guesser ---
 
@@ -244,15 +260,33 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("0 points", prompt)
 
     def test_artist_prompt_warns_about_writing_word_verbatim(self):
-        # Critical mechanic: artists shouldn't write the word into the art.
+        # Critical mechanic: the engine catches the target word verbatim,
+        # obfuscated, or reversed. The prompt must spell out the rule, the
+        # normalization that powers it, and the consequence.
         prompt = generate_prompt(_artist_obs(target="ELEPHANT"), [])
-        self.assertIn("MUST NOT include the target word", prompt)
-        # The prompt MUST describe the env-level normalization so the model
-        # understands what is actually caught (not just a vague "don't do it").
+        self.assertIn("target word", prompt.lower())
+        self.assertIn("engine-enforced", prompt.lower())
+        # The prompt MUST describe the normalization so the model understands
+        # what's actually caught (not just a vague "don't do it").
         self.assertIn("stripping every non-alphanumeric", prompt)
         self.assertIn("reversed", prompt)
-        # And it MUST spell out the consequence (placeholder shown to teammate).
+        # Consequence (placeholder shown to teammate).
         self.assertIn("placeholder", prompt)
+
+    def test_artist_prompt_broad_no_words_rule(self):
+        # Beyond the engine-enforced target-word check, the prompt must
+        # tell artists not to include ANY words (synonyms, labels, NATO,
+        # translations, rhymes) -- soft rule, but it has to be stated.
+        prompt = generate_prompt(_artist_obs(), [])
+        lower = prompt.lower()
+        self.assertIn("any words", lower)
+        # Examples of what counts as "words" should appear, so the model
+        # isn't left guessing what we mean by "no words":
+        for kw in ("synonym", "label", "nato", "translation", "rhyme"):
+            self.assertIn(kw, lower)
+        # And the prompt must clarify that letters as visual elements are
+        # fine -- otherwise the rule reads as "no letters at all".
+        self.assertIn("visual element", lower)
 
     def test_artist_prompt_requests_thinking_before_json(self):
         # Memory contract: every prompt asks for reasoning BEFORE JSON.

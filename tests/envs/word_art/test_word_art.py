@@ -3,14 +3,24 @@ from kaggle_environments.errors import DeadlineExceeded
 
 
 def _make(**config):
-    """Convenience: tests that exercise scoring/mechanics use the verbatim
-    `cheating` agent, which the env's no-word-in-art enforcement would
-    disqualify. Default these tests to ``enforce_no_word_in_art=False`` so
-    they stay focused on the mechanic they're testing. The dedicated
-    disqualification tests below override this.
-    """
-    config.setdefault("enforce_no_word_in_art", False)
     return make("word_art", configuration=config)
+
+
+# Tests that exercise scoring/role/history mechanics need a deterministic way
+# for the artist to convey the target word to the guesser without tripping the
+# no-word-in-art enforcement (which always applies). We encode each letter as
+# a zero-padded 2-digit code (A=01, B=02, ..., Z=26): the encoded art contains
+# only digits, so the word never appears as a substring forwards or reversed.
+# Tests that DO want to test enforcement override this and send the raw word
+# (see the "no-word-in-art enforcement" section).
+
+
+def _encode_word(word):
+    return "".join(f"{ord(c) - ord('A') + 1:02d}" for c in word.upper())
+
+
+def _decode_art(art):
+    return "".join(chr(int(art[i:i + 2]) + ord('A') - 1) for i in range(0, len(art), 2))
 
 
 def silent(observation, configuration):
@@ -18,19 +28,19 @@ def silent(observation, configuration):
 
 
 def cheating(observation, configuration):
-    """Artist sends the word verbatim; guesser parses it back on the first try."""
+    """Artist encodes the word in digits; guesser decodes."""
     if observation.role == "artist":
-        return observation.target_word
-    return observation.teammate_art
+        return _encode_word(observation.target_word)
+    return _decode_art(observation.teammate_art)
 
 
 def lazy_second_try(observation, configuration):
     """Guesses 'NOPE' on the first attempt, then the correct word on the second."""
     if observation.role == "artist":
-        return observation.target_word
+        return _encode_word(observation.target_word)
     if not observation.previous_guesses:
         return "NOPE"
-    return observation.teammate_art
+    return _decode_art(observation.teammate_art)
 
 
 def random_letter(observation, configuration):
@@ -112,7 +122,7 @@ def test_guesser_sees_previous_guesses():
 
     def recorder(observation, configuration):
         if observation.role == "artist":
-            return observation.target_word
+            return _encode_word(observation.target_word)
         if observation.team == "blue":
             seen["blue"].append(list(observation.previous_guesses))
         # Always wrong → forces all 3 attempts
@@ -223,8 +233,10 @@ def test_art_hidden_from_opponent():
 def test_case_insensitive_guess():
     def lowercase_guess(observation, configuration):
         if observation.role == "artist":
-            return observation.target_word
-        return observation.teammate_art.lower()
+            return _encode_word(observation.target_word)
+        # Decode → uppercase word, then lowercase before submitting. The env
+        # should still accept it (matching is case-insensitive).
+        return _decode_art(observation.teammate_art).lower()
 
     env = _make(num_rounds=2, seed=17)
     env.run([lowercase_guess] * 4)
@@ -275,8 +287,9 @@ def test_max_art_chars_truncation():
 
 # --- No-word-in-art enforcement --------------------------------------------
 #
-# These tests use the env's DEFAULT configuration (enforce_no_word_in_art=True)
-# rather than the _make() helper, since the helper turns enforcement off.
+# These tests exercise the (always-on) enforcement that disqualifies art
+# containing the target word. They use _make() directly — there's no flag
+# to flip; enforcement is unconditional.
 
 
 def _word_smuggler(transform):
@@ -385,20 +398,6 @@ def test_guesser_sees_placeholder_on_disqualification():
     assert "disqualified" in captured["art_seen"].lower()
     # The actual word must not be present in what the guesser saw.
     assert target.lower() not in captured["art_seen"].lower()
-
-
-def test_enforcement_can_be_disabled():
-    """With enforce_no_word_in_art=False, the original verbatim cheating
-    strategy works and scores 2 points."""
-    env = make(
-        "word_art",
-        configuration={"num_rounds": 1, "seed": 5, "enforce_no_word_in_art": False},
-    )
-    env.run([cheating] * 4)
-    j = env.toJSON()
-    entry = j["steps"][-1][0]["observation"]["history"][0]
-    assert entry["blue_art_disqualified"] is False
-    assert entry["blue_points"] == 2
 
 
 def test_disqualification_does_not_block_guessing():

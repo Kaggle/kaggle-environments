@@ -338,7 +338,6 @@ def process_step(state, env):
 
     if phase == "art":
         max_chars = env.configuration.get("max_art_chars", 4000)
-        enforce_no_word = env.configuration.get("enforce_no_word_in_art", True)
         blue_action = _unwrap(state[_blue_artist(rnd)].action)
         yellow_action = _unwrap(state[_yellow_artist(rnd)].action)
         blue_art = _coerce_str(blue_action, max_chars)
@@ -351,8 +350,8 @@ def process_step(state, env):
         # guesser's view and the history-entry annotation.
         obs0._round_blue_art = blue_art
         obs0._round_yellow_art = yellow_art
-        obs0._round_blue_art_disqualified = enforce_no_word and _art_contains_word(blue_art, target)
-        obs0._round_yellow_art_disqualified = enforce_no_word and _art_contains_word(yellow_art, target)
+        obs0._round_blue_art_disqualified = _art_contains_word(blue_art, target)
+        obs0._round_yellow_art_disqualified = _art_contains_word(yellow_art, target)
 
         blue_art_for_guesser = DISQUALIFIED_ART_PLACEHOLDER if obs0._round_blue_art_disqualified else blue_art
         yellow_art_for_guesser = DISQUALIFIED_ART_PLACEHOLDER if obs0._round_yellow_art_disqualified else yellow_art

@@ -29,11 +29,6 @@
       "minimum": 1,
       "description": "Maximum length (in characters) of an artist's ASCII art submission. Longer art is truncated."
     },
-    "enforce_no_word_in_art": {
-      "type": "boolean",
-      "default": true,
-      "description": "If true (default), the env detects when the artist's submission contains the target word -- verbatim, reversed, letter-by-letter with any separator (e.g. 'C A T', 'C-A-T', 'C\\nA\\nT'), or with any other non-alphanumeric padding. The raw art is preserved in history (with a disqualification flag) but the guesser sees a placeholder string instead of the original art. Set to false to disable enforcement (useful for tests or for evaluating models without the constraint)."
-    },
     "actTimeout": {
       "type": "number",
       "default": 180,
