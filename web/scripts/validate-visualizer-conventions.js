@@ -85,6 +85,7 @@ const KNOWN_STANDALONE_GAME_DIRS = new Set([
   'reinforce_tactics',
   'rps',
   'werewolf',
+  'word_art',
   'word_association',
 ]);
 
