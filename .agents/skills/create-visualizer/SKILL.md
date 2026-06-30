@@ -16,6 +16,8 @@ Build a web visualizer for any Kaggle game environment -- regular or OpenSpiel. 
 
 Both variants use the same boilerplate, shared workspace dependency, and renderer interface. The only differences are the directory depth (which affects relative paths to base configs) and the replay data shape.
 
+**Standalone (regular env) extra step:** add `'<name>'` to `KNOWN_STANDALONE_GAME_DIRS` in `web/scripts/validate-visualizer-conventions.js`. The validator (run on Kaggle's deployment side and via `pnpm validate-conventions` locally) treats any visualizer directly under `kaggle_environments/envs/<game>/` as suspect by default to catch OpenSpiel games accidentally placed at the standalone path; the allowlist is what tells it "yes, this one really is standalone". OpenSpiel visualizers live under `kaggle_environments/envs/open_spiel_env/games/<game>/visualizer/` and don't need an entry.
+
 ## Step 2: Create the project structure
 
 Create the visualizer directory with these files:
@@ -529,6 +531,8 @@ pnpm format
 - [ ] `pnpm test:e2e --project <name>` passes
 - [ ] `pnpm build` produces output in `dist/`
 - [ ] `pnpm format` passes
+- [ ] `pnpm validate-conventions` passes (catches missing allowlist entry)
+- [ ] If standalone (non-OpenSpiel): game dir added to `KNOWN_STANDALONE_GAME_DIRS` in `web/scripts/validate-visualizer-conventions.js`
 - [ ] If transformer: registered in `web/core/src/transformers.ts` switch statements
 
 ## Reference implementations
