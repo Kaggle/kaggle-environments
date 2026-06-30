@@ -1,0 +1,150 @@
+{
+  "name": "word_art",
+  "title": "Word Art",
+  "description": "A 2v2 cooperative-vs-competitive game. Each round a secret word is shown to one artist per team; that artist draws ASCII art and passes it to their teammate, who has up to max_attempts guesses. Getting it right on the first guess scores 1 + first_try_bonus points; getting it right on a later attempt scores 1 point; failing all attempts scores 0. After N rounds the higher score wins. The artist and guesser within each team swap every round.",
+  "version": "1.1.0",
+  "agents": [4],
+  "configuration": {
+    "num_rounds": {
+      "type": "integer",
+      "default": 8,
+      "minimum": 1,
+      "description": "Number of rounds in the episode. Each round draws one word; both teams play in parallel."
+    },
+    "max_attempts": {
+      "type": "integer",
+      "default": 3,
+      "minimum": 1,
+      "description": "Number of guesses the guesser gets per artwork. The round ends for a team once they answer correctly or exhaust all attempts."
+    },
+    "first_try_bonus": {
+      "type": "integer",
+      "default": 1,
+      "minimum": 0,
+      "description": "Extra points awarded on top of the base correct-guess point when the guesser nails the word on the first attempt."
+    },
+    "max_art_chars": {
+      "type": "integer",
+      "default": 4000,
+      "minimum": 1,
+      "description": "Maximum length (in characters) of an artist's ASCII art submission. Longer art is truncated."
+    },
+    "enforce_no_word_in_art": {
+      "type": "boolean",
+      "default": true,
+      "description": "If true (default), the env detects when the artist's submission contains the target word -- verbatim, reversed, letter-by-letter with any separator (e.g. 'C A T', 'C-A-T', 'C\\nA\\nT'), or with any other non-alphanumeric padding. The raw art is preserved in history (with a disqualification flag) but the guesser sees a placeholder string instead of the original art. Set to false to disable enforcement (useful for tests or for evaluating models without the constraint)."
+    },
+    "actTimeout": {
+      "type": "number",
+      "default": 60,
+      "description": "Timeout in seconds for agent actions."
+    },
+    "seed": {
+      "type": ["integer", "null"],
+      "default": null,
+      "description": "Seed for random word sampling. Set to null for nondeterministic play."
+    },
+    "freeForm": {
+      "description": "If true, the core harness allows free-form actions on turns where the action space is not enumerable (artist drawing, guesser typing). Always true for word_art.",
+      "type": "boolean",
+      "default": true
+    },
+    "savePrompt": {
+      "description": "If disabled, skip logging LLM prompts in the replay file.",
+      "type": "boolean",
+      "default": true
+    },
+    "saveResponse": {
+      "description": "If disabled, skip logging raw LLM responses in the replay file.",
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "observation": {
+    "num_rounds": {
+      "description": "Total number of rounds in this episode.",
+      "type": "integer",
+      "default": 0
+    },
+    "max_attempts": {
+      "description": "Total guesses allowed per artwork (same value all episode; mirrors configuration.max_attempts).",
+      "type": "integer",
+      "default": 3
+    },
+    "current_round": {
+      "description": "Index of the current round (0-based).",
+      "type": "integer",
+      "default": 0
+    },
+    "phase": {
+      "description": "Current phase of the round: 'art' (artists drawing) or 'guess' (guessers guessing). Empty string before initialization.",
+      "type": "string",
+      "default": ""
+    },
+    "role": {
+      "description": "This agent's role in the current round: 'artist' or 'guesser'.",
+      "type": "string",
+      "default": ""
+    },
+    "team": {
+      "description": "This agent's team: 'blue' (agents 0,1) or 'yellow' (agents 2,3).",
+      "type": "string",
+      "defaults": ["blue", "blue", "yellow", "yellow"]
+    },
+    "target_word": {
+      "description": "The word to draw, shown ONLY to the artist for this round. Empty string for guessers.",
+      "type": "string",
+      "default": ""
+    },
+    "teammate_art": {
+      "description": "ASCII art from this agent's teammate (the artist), shown ONLY to the guesser in the guess phase. Empty string otherwise.",
+      "type": "string",
+      "default": ""
+    },
+    "previous_guesses": {
+      "description": "On a guesser's observation during the guess phase: the list of this team's prior incorrect guesses for the current artwork (so the agent knows what NOT to guess again). Empty list otherwise.",
+      "type": "array",
+      "default": []
+    },
+    "attempts_remaining": {
+      "description": "On a guesser's observation during the guess phase: how many guesses this team has left for the current artwork (between 1 and max_attempts). 0 outside the guess phase.",
+      "type": "integer",
+      "default": 0
+    },
+    "blue_score": {
+      "description": "Total points scored by team Blue so far.",
+      "type": "integer",
+      "default": 0
+    },
+    "yellow_score": {
+      "description": "Total points scored by team Yellow so far.",
+      "type": "integer",
+      "default": 0
+    },
+    "blue_attempts_used": {
+      "description": "How many guesses team Blue has used on the current artwork (0..max_attempts).",
+      "type": "integer",
+      "default": 0
+    },
+    "yellow_attempts_used": {
+      "description": "How many guesses team Yellow has used on the current artwork (0..max_attempts).",
+      "type": "integer",
+      "default": 0
+    },
+    "history": {
+      "description": "List of completed rounds, each {word, blue_art, blue_art_disqualified, blue_guesses (list), blue_points, yellow_art, yellow_art_disqualified, yellow_guesses (list), yellow_points}. blue_art / yellow_art are the artist's raw submission (preserved for replay transparency even when the env disqualified it).",
+      "type": "array",
+      "default": []
+    }
+  },
+  "action": {
+    "description": "Artist phase: a string containing ASCII art of the target word. Guess phase: a string with the guessed word (matched case-insensitively after trimming). May also be a dict with key 'submission' wrapping the string, or null (counts as empty submission).",
+    "type": ["string", "object", "null"],
+    "default": ""
+  },
+  "reward": {
+    "description": "Cumulative points scored by this agent's team. Each round contributes 0, 1, or 1+first_try_bonus.",
+    "type": "integer",
+    "default": 0
+  }
+}
