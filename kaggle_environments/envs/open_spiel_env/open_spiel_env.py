@@ -1044,6 +1044,7 @@ GAMES_LIST = [
     "othello",
     "quoridor",
     "repeated_game(stage_game=matrix_pd(),num_repetitions=100)",
+    "shogi",
     "tic_tac_toe",
     "ultimate_tic_tac_toe",
     "snake",
