@@ -315,7 +315,7 @@ class GeneratePromptTest(absltest.TestCase):
             [],
         )
         self.assertIn("'DOG'", prompt)
-        self.assertIn("do NOT repeat", prompt)
+        self.assertIn("all wrong", prompt)
         self.assertIn("attempt 2 of 3", prompt)
 
     def test_guesser_prompt_requests_thinking_before_json(self):
