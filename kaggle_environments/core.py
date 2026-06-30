@@ -35,6 +35,10 @@ environments: dict[str, dict[str, Any]] = {}
 # Registered Interactive Sessions.
 interactives: dict[str, tuple[Any, Any]] = {}
 
+# Agent status values that indicate a failed step. Source of truth is the enum
+# in schemas.json; kept here for cheap reuse without re-reading the schema.
+FAILURE_STATUSES = ("ERROR", "INVALID", "TIMEOUT")
+
 
 def register(name: str, environment: dict[str, Any]) -> None:
     """
@@ -255,18 +259,39 @@ class Environment:
             if isinstance(action, DeadlineExceeded):
                 self.debug_print(f"Timeout: {str(action)}")
                 action_state[index]["status"] = "TIMEOUT"
+                self._record_error(index, "TIMEOUT", str(action))
             elif isinstance(action, BaseException):
-                self.debug_print(f"Error: {traceback.format_exception(None, action, action.__traceback__)}")
+                tb = "".join(traceback.format_exception(None, action, action.__traceback__))
+                self.debug_print(f"Error: {tb}")
                 action_state[index]["status"] = "ERROR"
+                message = f"{type(action).__name__}: {action}" if str(action) else type(action).__name__
+                self._record_error(index, "ERROR", message, traceback_text=tb)
             else:
                 err, data = process_schema(self.__state_schema.properties.action, action)
                 if err:
                     self.debug_print(f"Invalid Action: {str(err)}")
                     action_state[index]["status"] = "INVALID"
+                    self._record_error(index, "INVALID", str(err))
                 else:
                     action_state[index]["action"] = data
 
         self.state = self.__run_interpreter(action_state, logs)
+
+        # Reconcile error entries with the post-interpreter statuses. Interpreters
+        # may have called set_error() with a reason but no type; fill type from
+        # the resulting status. For any failure status with no entry yet, fall
+        # back to a generic placeholder.
+        for index, agent in enumerate(self.state):
+            if agent.status not in FAILURE_STATUSES:
+                continue
+            entry = self.errors[index]
+            if entry is None:
+                self.errors[index] = {
+                    "type": agent.status,
+                    "message": f"Agent marked {agent.status} by interpreter.",
+                }
+            elif entry.get("type") is None:
+                entry["type"] = agent.status
 
         # Max Steps reached. Mark ACTIVE/INACTIVE agents as DONE.
         if self.state[0].observation.step >= self.configuration.episodeSteps - 1:
@@ -514,10 +539,32 @@ class Environment:
                 "steps": self.steps,
                 "rewards": [state.reward for state in self.steps[-1]],
                 "statuses": [state.status for state in self.steps[-1]],
+                "errors": self.errors,
                 "schema_version": 1,
                 "info": self.info,
             }
         )
+
+    def set_error(self, index: int, message: str) -> None:
+        """Record a detailed error reason for an agent. Intended to be called from
+        interpreters when marking an agent ERROR/INVALID/TIMEOUT so the underlying
+        cause is preserved in the replay. The status is filled in automatically
+        from the agent's post-interpreter status. First call per step wins, so
+        callers don't need to coordinate ordering."""
+        if not 0 <= index < len(self.errors):
+            raise InvalidArgument(f"set_error index {index} out of range.")
+        if self.errors[index] is None:
+            self.errors[index] = {"type": None, "message": message}
+
+    def _record_error(
+        self, index: int, error_type: str, message: str, traceback_text: str | None = None
+    ) -> None:
+        if self.errors[index] is not None:
+            return
+        entry: dict[str, Any] = {"type": error_type, "message": message}
+        if traceback_text is not None:
+            entry["traceback"] = traceback_text
+        self.errors[index] = entry
 
     def clone(self) -> "Environment":
         """
@@ -566,6 +613,7 @@ class Environment:
 
         self.state = structify([self.__get_state(index, s) for index, s in enumerate(state)])
         self.steps = [self.state]
+        self.errors = [None] * len(self.state)
         return self.state
 
     def __get_state(self, position: int, state: dict[str, Any]) -> dict[str, Any]:
@@ -609,7 +657,7 @@ class Environment:
             if agent.status not in self.__state_schema.properties.status.enum:
                 self.debug_print(f"Invalid Action: {agent.status}")
                 agent.status = "INVALID"
-            if agent.status in ["ERROR", "INVALID", "TIMEOUT"]:
+            if agent.status in FAILURE_STATUSES:
                 agent.reward = None
         return new_state
 
