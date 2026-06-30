@@ -41,6 +41,10 @@ You win by connecting all of your remaining pieces into a single group
 (connectivity is 8-directional: horizontal, vertical, or diagonal
 neighbours count as connected). If your move connects both your pieces
 and your opponent's pieces simultaneously, you (the moving player) win.
+Conversely, if after your move only the opponent's pieces are connected
+into a single group and yours are not, the opponent wins immediately --
+so a careless capture or moving a piece that was breaking up the
+opponent's group can lose the game on your own turn.
 A player who has no legal moves on their turn loses. The game is drawn
 if the same position (with the same player to move) occurs for the
 second time, or if 1000 moves are played without a winner.
@@ -56,7 +60,8 @@ line: row=horizontal, col=vertical, /=NE-SW diagonal, \\=NW-SE diagonal):
 
 Move number: {move_number}
 Last move played: {last_move}
-Moves played so far: {move_history}
+Moves played so far (oldest first; Black moves first, then alternates):
+{move_history}
 
 You are playing as {player_name} ({player_code}).
 It is now your turn. Play your strongest move.
@@ -195,6 +200,26 @@ def _format_piece_line_counts(
     return "\n".join(lines) if lines else "  (no pieces)"
 
 
+def _format_move_history(moves: Sequence[str]) -> str:
+    """Render the full game's move list as chess-style numbered pairs.
+
+    Each numbered pair is one full move: Black's reply, then White's. The
+    final pair may have only Black's move when the history ends on Black's
+    turn. Returns ``"  None"`` when there is no history yet.
+    """
+    if not moves:
+        return "  None"
+    pairs: list[str] = []
+    for i in range(0, len(moves), 2):
+        n = i // 2 + 1
+        black = moves[i]
+        if i + 1 < len(moves):
+            pairs.append(f"{n}. {black} {moves[i + 1]}")
+        else:
+            pairs.append(f"{n}. {black}")
+    return "  " + "  ".join(pairs)
+
+
 def _normalize(move: str) -> str:
     """Strip whitespace and lowercase a candidate move string."""
     return re.sub(r"\s+", "", move).lower()
@@ -266,14 +291,20 @@ def generate_prompt(
     last_move = state.get("last_move") or "(none yet)"
 
     my_piece = "x" if player_id == 0 else "o"
-    move_history_str = " ".join(move_history) if move_history else "None"
+    # Prefer the proxy's full-game move history (both players) over the
+    # framework's `move_history` argument (this agent's moves only) -- the
+    # latter is missing the opponent's plies, which prevents the model
+    # from detecting impending twofold-repetition draws or reading the
+    # opponent's recent strategy.
+    full_history = state.get("move_history")
+    history_to_render = full_history if full_history is not None else list(move_history)
 
     prompt = LOA_PROMPT_TEMPLATE.format(
         board_ascii=_format_board_ascii(board),
         piece_line_counts=_format_piece_line_counts(board, my_piece),
         move_number=move_number,
         last_move=last_move,
-        move_history=move_history_str,
+        move_history=_format_move_history(history_to_render),
         player_name=player_name,
         player_code=player_code,
     )
