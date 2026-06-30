@@ -9,7 +9,7 @@ resolved first; then the other's. Walking onto the loose ball ('O') picks it
 up. The ball-holder loses possession to a defender by walking into the
 defender's cell -- the reverse direction does nothing. A player holding the
 ball wins by walking off the opponent's goal edge from row 1 or row 2; A
-scores on the right edge, B on the left. If the horizon (default 1000) is
+scores on the right edge, B on the left. If the horizon (default 100) is
 reached without a goal, the game is a draw.
 """
 
@@ -304,7 +304,7 @@ def generate_prompt(
             "the ball."
         )
 
-    horizon = 1000
+    horizon = 100
     serialized = observation.get("serializedGameAndState", "")
     if serialized:
         try:
