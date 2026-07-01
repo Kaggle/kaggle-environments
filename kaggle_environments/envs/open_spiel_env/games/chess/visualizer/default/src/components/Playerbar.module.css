@@ -107,6 +107,11 @@
   }
 }
 
+.playableArea[data-dense] .playerBar {
+  width: 100%;
+  max-width: min(318px, calc(100% - 60px));
+}
+
 @container (max-width: 600px) {
   .logo {
     scale: 2.25;

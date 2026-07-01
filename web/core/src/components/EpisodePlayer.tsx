@@ -88,6 +88,8 @@ export interface GameRendererProps<TSteps extends BaseGameStep[] = BaseGameStep[
   onRegisterPlaybackHandlers?: (handlers: { onPlay?: () => boolean | void; onPause?: () => void }) => void;
   /** Callback to announce a message to screen readers via the aria-live region */
   onAnnounce?: (message: string) => void;
+  /** Whether the player is being rendered in a compact/embedded (dense) layout. */
+  dense?: boolean;
 }
 
 const PlayerContainer = styled('div')<{ $uiMode?: UiMode; $dense: boolean }>`
@@ -391,6 +393,7 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
           replay={processedReplay}
           step={state.step}
           agents={currentAgents}
+          dense={dense}
           onSetStep={actions.setStepOnly}
           onSetPlaying={actions.setPlayingState}
           onRegisterPlaybackHandlers={handleRegisterPlaybackHandlers}
