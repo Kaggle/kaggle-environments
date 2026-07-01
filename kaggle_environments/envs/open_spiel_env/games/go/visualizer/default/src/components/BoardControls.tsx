@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'motion/react';
 import arrowPath from '../assets/arrow.webp';
-import svgSymbolPath from '../assets/icons.svg?url';
+
 import usePreferences from '../stores/usePreferences';
 import useGameStore from '../stores/useGameStore';
 import { useTransition } from '../hooks/useReducedMotion';
@@ -58,8 +58,8 @@ export default function BoardControls() {
           xmlns="http://www.w3.org/2000/svg"
           aria-hidden="true"
         >
-          <use xlinkHref={`${svgSymbolPath}#sound-on`} />
-          <use xlinkHref={`${svgSymbolPath}#sound-off`} />
+          <use xlinkHref={`#sound-on`} />
+          <use xlinkHref={`#sound-off`} />
         </svg>
       </label>
       <WithPopover

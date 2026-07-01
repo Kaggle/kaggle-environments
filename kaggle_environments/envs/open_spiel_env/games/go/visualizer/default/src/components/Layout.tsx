@@ -1,4 +1,5 @@
 import { memo, useEffect } from 'react';
+import SvgSprite from './SvgSprites';
 import HiddenHeader from './HiddenHeader';
 import BoardControls from './BoardControls';
 import GameBoard from './GameBoard';
@@ -23,6 +24,7 @@ export default memo(function Layout() {
 
   return (
     <main id="go-playable-area" className={styles.playableArea} data-loaded={loaded || undefined}>
+      <SvgSprite />
       <HiddenHeader />
       <div className={styles.board}>
         <BoardControls />

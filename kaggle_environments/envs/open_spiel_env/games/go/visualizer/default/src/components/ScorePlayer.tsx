@@ -1,8 +1,7 @@
 import { motion } from 'motion/react';
 import { useTransition } from '../hooks/useReducedMotion';
 import styles from './ScorePlayer.module.css';
-import svgSymbolPath from '../assets/icons.svg?url';
-import geminiLogoPath from '../assets/gemini.svg?url';
+import geminiLogoPath from '../assets/gemini.svg';
 import blackStonePath from '../assets/scoreboard-player-black.webp';
 import whiteStonePath from '../assets/scoreboard-player-white.webp';
 
@@ -25,7 +24,7 @@ function BrandLogo({ brand }: { brand: string }) {
       viewBox="0 0 128 128"
       className={styles.brandLogo}
     >
-      <use href={`${svgSymbolPath}#${brand}`} />
+      <use href={`#${brand}`} />
     </svg>
   );
 }
