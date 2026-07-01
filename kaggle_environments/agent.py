@@ -26,7 +26,7 @@ import requests
 from requests.exceptions import Timeout
 
 from .errors import DeadlineExceeded, InvalidArgument
-from .utils import read_file, structify
+from .utils import format_traceback, read_file, structify
 
 
 def is_url(url: str) -> bool:
@@ -210,6 +210,13 @@ class Agent:
             "stdout": out,
             "stderr": err,
         }
+
+        if isinstance(action, BaseException):
+            log["error"] = {
+                "type": type(action).__name__,
+                "message": str(action),
+                "traceback": format_traceback(action),
+            }
 
         if self.debug:
             if not log["stdout"].isspace():
