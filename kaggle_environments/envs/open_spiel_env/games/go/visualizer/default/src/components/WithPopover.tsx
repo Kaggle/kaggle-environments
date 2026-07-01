@@ -72,7 +72,7 @@ export function WithPopover({ children, icon, id, label, onChange }: Props) {
           xmlns="http://www.w3.org/2000/svg"
           aria-hidden="true"
         >
-         <use xlinkHref={`#${icon}`} />
+          <use xlinkHref={`#${icon}`} />
         </svg>
         <span className="visually-hidden">{label}</span>
       </button>

@@ -14,7 +14,6 @@ import useBoardRect from '../hooks/useBoardRect';
 import { assetsReady } from '../utils/preloadAssets';
 import styles from './Layout.module.css';
 
-
 export default memo(function Layout() {
   const loaded = usePreloader((s) => s.pixiReady && s.assetsReady);
   useBoardRect();
