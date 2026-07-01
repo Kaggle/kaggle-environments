@@ -29,7 +29,12 @@ export default memo(function Layout({ dense }: Props) {
   }, []);
 
   return (
-    <main id="playable-area" className={styles.playableArea} data-loaded={loaded || undefined} data-dense={dense || undefined}>
+    <main
+      id="playable-area"
+      className={styles.playableArea}
+      data-loaded={loaded || undefined}
+      data-dense={dense || undefined}
+    >
       <SvgSprite />
       <HiddenHeader />
       <div className={styles.playableContent}>
