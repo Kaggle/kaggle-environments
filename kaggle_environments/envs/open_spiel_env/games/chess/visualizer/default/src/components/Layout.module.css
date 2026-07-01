@@ -4,7 +4,9 @@
   position: relative;
   display: grid;
   align-content: safe center;
+  justify-items: center;
   overflow: auto;
+  width: 100%;
   min-height: 100%;
   max-height: 100dvh;
   overscroll-behavior: none;
@@ -17,6 +19,12 @@
   color: #050001;
   transition: opacity 400ms ease;
   padding-block: 1.5rem;
+}
+
+.playableContent {
+  width: 100%;
+  min-width: 0;
+  container-type: inline-size;
 }
 
 .playableArea:not([data-loaded]) {
@@ -45,7 +53,25 @@
 }
 
 @container (max-width: 600px) {
-  :where(.playableArea > *) {
+  :where(.playableContent > *) {
     font-size: 11px;
+  }
+}
+
+.playableArea[data-dense] .playableContent {
+  width: min(100%, 378px);
+}
+
+.playableArea[data-dense] .board {
+  grid-template-columns: 1fr min(318px, calc(100% - 60px)) 1fr;
+  width: 100%;
+  max-width: 378px;
+  margin-inline: auto;
+}
+
+@media (max-width: 600px) {
+  .playableArea[data-dense] {
+    padding-inline: 0.75em;
+    padding-block: 1rem;
   }
 }

@@ -24,5 +24,5 @@ export default memo(function GameRenderer(options: GameRendererProps<ChessStep[]
     setState(game, options);
   }, [setState, options]);
 
-  return <Layout />;
+  return <Layout dense={options.dense} />;
 });
