@@ -1,13 +1,22 @@
 import type { RendererOptions } from '@kaggle-environments/core';
 
+// The engine writes both a bool and a reason string per team per round; the
+// reason ("target_word" | "contains_words" | null) is the source of truth,
+// the bool is derived. Old replays predate the reason field and only have
+// the bool, so we default those to "target_word" (the only reason the old
+// engine could produce).
+type DisqReason = 'target_word' | 'contains_words' | null;
+
 interface HistoryEntry {
   word: string;
   blue_art: string;
   blue_art_disqualified?: boolean;
+  blue_art_disqualification_reason?: DisqReason;
   blue_guesses: string[];
   blue_points: number;
   yellow_art: string;
   yellow_art_disqualified?: boolean;
+  yellow_art_disqualification_reason?: DisqReason;
   yellow_guesses: string[];
   yellow_points: number;
 }
@@ -68,13 +77,34 @@ function pointsLabel(points: number): string {
   return '0 pts';
 }
 
+function disqReasonText(reason: DisqReason): string {
+  // Matches the phrasing the harness uses in the artist prompt so the
+  // visualizer reader sees the same rule name the model was told about.
+  if (reason === 'contains_words') {
+    return 'contained text (a run of 3+ letters with 2+ distinct chars)';
+  }
+  return 'contained the target word';
+}
+
+function normalizeDisqReason(entry: Partial<HistoryEntry>, team: 'blue' | 'yellow'): DisqReason {
+  const reasonKey = team === 'blue' ? 'blue_art_disqualification_reason' : 'yellow_art_disqualification_reason';
+  const flagKey = team === 'blue' ? 'blue_art_disqualified' : 'yellow_art_disqualified';
+  const reason = (entry as any)[reasonKey] as DisqReason | undefined;
+  if (reason) return reason;
+  return (entry as any)[flagKey] ? 'target_word' : null;
+}
+
 export function renderer(options: RendererOptions) {
   const { step, replay, parent } = options;
   const steps = (replay?.steps as any[]) ?? [];
   if (!steps.length) return;
 
   const stepIdx = Math.min(Math.max(step ?? 0, 0), steps.length - 1);
-  const currentStep = steps[stepIdx] as any[];
+  // When a transformer is applied, each step becomes {step, players,
+  // rawAgents}; when not, it's the bare 4-element agent array. Unwrap
+  // so downstream helpers can iterate either shape uniformly.
+  const rawStep = steps[stepIdx] as any;
+  const currentStep: any[] = Array.isArray(rawStep) ? rawStep : (rawStep?.rawAgents ?? []);
   const obs0 = getStepObservation(currentStep, 0);
   const phase: string = obs0.phase ?? '';
   const currentRound: number = obs0.current_round ?? 0;
@@ -102,11 +132,11 @@ export function renderer(options: RendererOptions) {
   let yellowPoints: number | null = null;
   let blueAttemptsRemaining = Math.max(0, maxAttempts - blueAttemptsUsed);
   let yellowAttemptsRemaining = Math.max(0, maxAttempts - yellowAttemptsUsed);
-  // Disqualification flags. For historical rounds these live on the history
-  // entry. For the current round we infer from the placeholder string that
-  // the env writes into teammate_art (see DISQUALIFIED_ART_PLACEHOLDER).
-  let blueDisqualified = false;
-  let yellowDisqualified = false;
+  // Disqualification reason. For historical rounds it's on the history
+  // entry; for the current round it lives on obs0._round_*_disq_reason
+  // (the env writes both reason and bool for symmetry). Null = passed.
+  let blueDisqReason: DisqReason = null;
+  let yellowDisqReason: DisqReason = null;
 
   if (isHistoricalView) {
     const h = history[displayRound];
@@ -118,14 +148,33 @@ export function renderer(options: RendererOptions) {
     yellowPoints = h.yellow_points ?? 0;
     blueAttemptsRemaining = 0;
     yellowAttemptsRemaining = 0;
-    blueDisqualified = h.blue_art_disqualified === true;
-    yellowDisqualified = h.yellow_art_disqualified === true;
+    blueDisqReason = normalizeDisqReason(h, 'blue');
+    yellowDisqReason = normalizeDisqReason(h, 'yellow');
   } else {
     blueGuesses = getLiveGuesses(currentStep, 'blue', displayRound);
     yellowGuesses = getLiveGuesses(currentStep, 'yellow', displayRound);
-    blueDisqualified = typeof blueArt === 'string' && blueArt.includes('disqualified');
-    yellowDisqualified = typeof yellowArt === 'string' && yellowArt.includes('disqualified');
+    // Reading _round_* fields directly: they're technically "private"
+    // (underscore-prefixed) but the replay JSON exposes them and they
+    // are the only in-round signal for correct-guess detection and
+    // disqualification reason before the round rolls into history.
+    bluePoints = typeof obs0._round_blue_points === 'number' ? obs0._round_blue_points : null;
+    yellowPoints = typeof obs0._round_yellow_points === 'number' ? obs0._round_yellow_points : null;
+    const rawBlueReason = obs0._round_blue_disq_reason as DisqReason | undefined;
+    const rawYellowReason = obs0._round_yellow_disq_reason as DisqReason | undefined;
+    // Fallback: if reason isn't present but the bool is (or the
+    // placeholder text made it into teammate_art), still show as
+    // disqualified with the older "target_word" default.
+    blueDisqReason =
+      rawBlueReason
+      ?? (obs0._round_blue_art_disqualified ? 'target_word' : null)
+      ?? ((typeof blueArt === 'string' && blueArt.includes('disqualified')) ? 'target_word' : null);
+    yellowDisqReason =
+      rawYellowReason
+      ?? (obs0._round_yellow_art_disqualified ? 'target_word' : null)
+      ?? ((typeof yellowArt === 'string' && yellowArt.includes('disqualified')) ? 'target_word' : null);
   }
+  const blueDisqualified = blueDisqReason !== null;
+  const yellowDisqualified = yellowDisqReason !== null;
 
   const activeSet = new Set<number>();
   currentStep?.forEach?.((p: any, i: number) => {
@@ -202,6 +251,7 @@ export function renderer(options: RendererOptions) {
     const label = document.createElement('div');
     label.className = `wa-art-label ${team}`;
     const disqualified = team === 'blue' ? blueDisqualified : yellowDisqualified;
+    const disqReason = team === 'blue' ? blueDisqReason : yellowDisqReason;
     label.textContent = disqualified ? `${TEAM_LABEL[team]}'s drawing — DISQUALIFIED` : `${TEAM_LABEL[team]}'s drawing`;
     if (disqualified) label.classList.add('disqualified');
     cell.appendChild(label);
@@ -212,11 +262,12 @@ export function renderer(options: RendererOptions) {
     const art = team === 'blue' ? blueArt : yellowArt;
     if (disqualified && isHistoricalView) {
       // History view: show the raw art the artist tried to submit, plus an
-      // explanatory header so the reader sees the cheat AND the consequence.
+      // explanatory header naming which mechanical check fired so the reader
+      // can see both the cheat and the specific consequence.
       const note = document.createElement('div');
       note.className = 'wa-art-disqualified-note';
       note.textContent =
-        '⚠ Engine disqualified this art: it contained the target word. Teammate saw a placeholder instead.';
+        `⚠ Engine disqualified this art: it ${disqReasonText(disqReason)}. Teammate saw a placeholder instead.`;
       box.appendChild(note);
       const pre = document.createElement('div');
       pre.className = 'wa-art-raw';
@@ -225,7 +276,7 @@ export function renderer(options: RendererOptions) {
     } else if (disqualified) {
       const note = document.createElement('div');
       note.className = 'wa-art-disqualified-note';
-      note.textContent = '⚠ Disqualified: art contained the target word. Guesser sees placeholder.';
+      note.textContent = `⚠ Disqualified: art ${disqReasonText(disqReason)}. Guesser sees placeholder.`;
       box.appendChild(note);
     } else if (art && art.length > 0) {
       box.textContent = art;

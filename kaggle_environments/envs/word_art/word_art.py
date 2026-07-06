@@ -1,5 +1,7 @@
 import json
 import random
+import re
+import unicodedata
 from os import path
 
 dir_path = path.dirname(__file__)
@@ -50,12 +52,36 @@ def _unwrap(action):
     return action
 
 
+def _sanitize_art(s):
+    """Drop characters that break monospace alignment.
+
+    Keeps: printable ASCII, `\\n`/`\\t`, and any Unicode character whose
+    East Asian Width is single-cell (Na/N/H/A) — box-drawing (─│┌┐),
+    blocks (▀█░▒), geometric shapes (●○▲), arrows (←→), common symbols
+    (★♥), Braille, etc.
+    Drops: control/format/surrogate/private chars (Cc/Cf/Cs/Co/Cn),
+    combining marks (Mn/Mc/Me), and wide/fullwidth glyphs
+    (CJK ideographs, most emoji) — anything that would shift subsequent
+    characters in a monospace grid and desync the guesser's view.
+    """
+    def _keep(ch):
+        if ch in "\n\t":
+            return True
+        cat = unicodedata.category(ch)
+        if cat[0] in ("C", "M"):
+            return False
+        return unicodedata.east_asian_width(ch) in ("Na", "N", "H", "A")
+    return "".join(c for c in s if _keep(c))
+
+
 def _coerce_str(value, max_chars):
     if value is None:
         return ""
     if not isinstance(value, str):
         value = str(value)
-    return value[:max_chars]
+    # Sanitize BEFORE truncating so the max_chars budget reflects
+    # what actually reaches the guesser.
+    return _sanitize_art(value)[:max_chars]
 
 
 def _normalize_guess(value):
@@ -66,10 +92,19 @@ def _normalize_guess(value):
     return value.strip().upper()
 
 
-# Placeholder shown to the guesser when their teammate's art was disqualified
-# for containing the target word. Kept short and unambiguous so a guesser can
-# tell it apart from a normal empty submission.
-DISQUALIFIED_ART_PLACEHOLDER = "<your teammate's drawing was disqualified for containing the target word>"
+# Placeholders shown to the guesser when their teammate's art was
+# disqualified. One variant per reason so the guesser can distinguish "the
+# artist named the word" from "the artist added a caption/label", and each
+# is unambiguously distinct from a normal empty submission.
+DISQUALIFIED_ART_PLACEHOLDERS = {
+    "target_word": (
+        "<your teammate's drawing was disqualified for containing the target word>"
+    ),
+    "contains_words": (
+        "<your teammate's drawing was disqualified for containing text "
+        "(a run of 3+ letters with 2+ distinct chars)>"
+    ),
+}
 
 
 def _alnum_lower(s):
@@ -87,9 +122,7 @@ def _art_contains_word(art, word):
 
     Catches: verbatim ('CAT'), case variants ('Cat'), letter-by-letter
     with any/no separator ('C A T', 'C-A-T', 'C.A.T', 'C\\nA\\nT'),
-    and reversed spellings ('TAC'). Does NOT catch semantically close
-    words (NATO alphabet, synonyms, translations) — those require model
-    judgement and the prompt asks the artist not to use them.
+    and reversed spellings ('TAC').
     """
     if not art or not word:
         return False
@@ -98,6 +131,43 @@ def _art_contains_word(art, word):
     if not word_norm:
         return False
     return word_norm in art_norm or word_norm[::-1] in art_norm
+
+
+_WORD_LIKE_RE = re.compile(r"[A-Za-z]{3,}")
+
+
+def _art_contains_any_word(art):
+    """Return True if `art` contains any run of 3+ letters with 2+
+    distinct characters (case-insensitive).
+
+    Same-letter clusters ('OOO' for eyes, 'III' for columns, 'TTT' for
+    texture) pass so models can still use letters as visual elements.
+    Anything else — 'top', 'the', 'HOUSE', 'grid', 'axe' — is treated as
+    a text label and rejected. Complementary to _art_contains_word; that
+    catches only the target word, this catches every OTHER word.
+    """
+    if not art:
+        return False
+    for m in _WORD_LIKE_RE.finditer(art):
+        if len(set(m.group(0).lower())) > 1:
+            return True
+    return False
+
+
+def _disqualification_reason(art, target):
+    """Return why this art submission is disqualified, or None if it passes.
+
+    Priority order: target-word check first (more specific message for the
+    artist to learn from), then the general any-word check. None means the
+    art reached the guesser unmodified.
+    """
+    if not art:
+        return None
+    if _art_contains_word(art, target):
+        return "target_word"
+    if _art_contains_any_word(art):
+        return "contains_words"
+    return None
 
 
 def _score_for_attempt(attempt_num, first_try_bonus):
@@ -153,6 +223,8 @@ def _reset_round_internals(obs0):
     obs0._round_yellow_art = ""
     obs0._round_blue_art_disqualified = False
     obs0._round_yellow_art_disqualified = False
+    obs0._round_blue_disq_reason = None
+    obs0._round_yellow_disq_reason = None
     obs0._round_blue_guesses = []
     obs0._round_yellow_guesses = []
     obs0._round_blue_done = False
@@ -289,10 +361,12 @@ def _advance_after_round(state, obs0, round_idx, words, target):
         "word": target,
         "blue_art": obs0._round_blue_art,
         "blue_art_disqualified": obs0._round_blue_art_disqualified,
+        "blue_art_disqualification_reason": obs0._round_blue_disq_reason,
         "blue_guesses": list(obs0._round_blue_guesses),
         "blue_points": obs0._round_blue_points,
         "yellow_art": obs0._round_yellow_art,
         "yellow_art_disqualified": obs0._round_yellow_art_disqualified,
+        "yellow_art_disqualification_reason": obs0._round_yellow_disq_reason,
         "yellow_guesses": list(obs0._round_yellow_guesses),
         "yellow_points": obs0._round_yellow_points,
     }
@@ -343,18 +417,30 @@ def process_step(state, env):
         blue_art = _coerce_str(blue_action, max_chars)
         yellow_art = _coerce_str(yellow_action, max_chars)
 
-        # The artist's RAW submission is preserved in obs0._round_*_art (and
-        # then in history) so the replay shows what they tried. What the
-        # guesser sees may be replaced by a placeholder if the art smuggles
-        # the target word in. Per-team disqualification flags drive both the
-        # guesser's view and the history-entry annotation.
+        # The artist's RAW (already-sanitized-and-truncated) submission is
+        # preserved in obs0._round_*_art — and then in history — so the
+        # replay shows what actually reached the engine. What the guesser
+        # sees may be replaced by a placeholder if the art smuggles the
+        # target word in or contains text-like letter clusters. Per-team
+        # disqualification reason drives both the guesser's placeholder
+        # variant and the history-entry annotation; the boolean is kept
+        # alongside so the visualizer's disqualified-label check keeps
+        # working without needing to know about reasons.
         obs0._round_blue_art = blue_art
         obs0._round_yellow_art = yellow_art
-        obs0._round_blue_art_disqualified = _art_contains_word(blue_art, target)
-        obs0._round_yellow_art_disqualified = _art_contains_word(yellow_art, target)
+        obs0._round_blue_disq_reason = _disqualification_reason(blue_art, target)
+        obs0._round_yellow_disq_reason = _disqualification_reason(yellow_art, target)
+        obs0._round_blue_art_disqualified = obs0._round_blue_disq_reason is not None
+        obs0._round_yellow_art_disqualified = obs0._round_yellow_disq_reason is not None
 
-        blue_art_for_guesser = DISQUALIFIED_ART_PLACEHOLDER if obs0._round_blue_art_disqualified else blue_art
-        yellow_art_for_guesser = DISQUALIFIED_ART_PLACEHOLDER if obs0._round_yellow_art_disqualified else yellow_art
+        blue_art_for_guesser = (
+            DISQUALIFIED_ART_PLACEHOLDERS[obs0._round_blue_disq_reason]
+            if obs0._round_blue_disq_reason else blue_art
+        )
+        yellow_art_for_guesser = (
+            DISQUALIFIED_ART_PLACEHOLDERS[obs0._round_yellow_disq_reason]
+            if obs0._round_yellow_disq_reason else yellow_art
+        )
         _enter_guess_phase(state, obs0, rnd, blue_art_for_guesser, yellow_art_for_guesser)
         return
 

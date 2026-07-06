@@ -7,7 +7,12 @@ body,
   height: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden;
+  /* overflow: hidden alone hides the scrollbar but doesn't prevent
+     content from painting outside the viewport; the two-axis form
+     ensures nothing scrolls the iframe root. Individual art boxes
+     handle their own overflow internally. */
+  overflow-x: hidden;
+  overflow-y: hidden;
 }
 
 .renderer-container {
@@ -17,8 +22,26 @@ body,
   width: 100%;
   height: 100%;
   min-height: 0;
+  min-width: 0;
+  max-width: 100%;
+  /* Kaggle's core wraps us in a `.game-renderer-isolation` block that
+     can end up ~64px taller than the actual viewport (its own layout
+     doesn't honor 100vh strictly). Capping to viewport height here
+     guarantees the status bar sits inside the visible area no matter
+     what height the wrapper hands us. */
+  max-height: 100vh;
+  /* Include padding in the 100% height, otherwise the container ends up
+     24px taller than its parent (2×12px padding) and pushes the status
+     bar off the viewport even with overflow:hidden. !important is
+     required because Kaggle core injects a `.game-renderer-isolation *`
+     rule that forces content-box on every descendant. */
+  box-sizing: border-box !important;
   background-color: #f5f1e2;
-  overflow: auto;
+  /* Pin the layout to the viewport so header/teams/status always stay
+     visible; any overflow lives inside the art boxes (which scroll
+     themselves). Two-axis form so neither axis leaks a scrollbar. */
+  overflow-x: hidden;
+  overflow-y: hidden;
   font-family: 'Inter', sans-serif;
   box-sizing: border-box;
   padding: 12px;
@@ -36,6 +59,8 @@ body,
   align-items: center;
   width: 100%;
   max-width: 880px;
+  min-width: 0;
+  box-sizing: border-box !important;
   padding: 4px 0;
   font-size: 1rem;
   font-weight: 600;
@@ -74,6 +99,8 @@ body,
   align-items: stretch;
   width: 100%;
   max-width: 880px;
+  min-width: 0;
+  box-sizing: border-box !important;
   gap: 16px;
   margin-top: 8px;
   flex-shrink: 0;
@@ -133,12 +160,23 @@ body,
   flex-direction: column;
   width: 100%;
   max-width: 880px;
+  min-width: 0;
+  box-sizing: border-box !important;
   margin-top: 12px;
   padding: 12px;
   background-color: white;
   flex: 1;
-  min-height: 200px;
+  /* min-height:0 lets the stage shrink when the viewport is short —
+     without it the stage would insist on its content height and push
+     the status bar off screen. min-width:0 lets art content that's
+     wider than the stage stay inside its own overflow instead of
+     forcing the stage (and root) to grow horizontally. */
+  min-height: 0;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
   gap: 8px;
+  box-sizing: border-box;
 }
 
 .wa-stage-title {
@@ -153,6 +191,11 @@ body,
   flex: 1;
   align-items: stretch;
   min-height: 0;
+  /* Without min-width:0, wide art content in either cell can widen the
+     row past its intended `width: 100%`, which then forces the stage
+     and root to overflow horizontally. */
+  min-width: 0;
+  width: 100%;
 }
 
 .wa-art-cell {
@@ -161,6 +204,10 @@ body,
   flex-direction: column;
   gap: 4px;
   min-width: 0;
+  min-height: 0;
+  /* Belt-and-braces: prevents the cell from ever extending past its
+     flex share when the art box has a very wide line. */
+  overflow: hidden;
 }
 
 .wa-art-label {
@@ -186,7 +233,11 @@ body,
   font-family: 'Courier New', monospace;
   font-size: 0.75rem;
   line-height: 1.05;
-  min-height: 120px;
+  /* Lowered from 120px: the previous floor could stack up (title + art
+     row + guesses) and push the status bar out of the viewport on short
+     screens. 60 is enough to keep the box visible-as-a-box while
+     letting the parent stage shrink further. */
+  min-height: 60px;
 }
 
 .wa-art-empty {

@@ -30,6 +30,12 @@ from kaggle_environments.core_harness import ParseResult, extract_last_json_obje
 # --- Helpers ----------------------------------------------------------------
 
 
+_DISQ_REASON_TEXT = {
+    "target_word": "contained the target word",
+    "contains_words": "contained text (a run of 3+ letters with 2+ distinct chars)",
+}
+
+
 def _format_history(history: Sequence[Mapping[str, Any]]) -> str:
     """Render a compact, human-readable view of completed rounds.
 
@@ -38,11 +44,12 @@ def _format_history(history: Sequence[Mapping[str, Any]]) -> str:
     JSON because the ASCII art channel is multi-line and JSON-escaping
     obliterates it.
 
-    Disqualified art is labelled explicitly: the env preserves the raw
-    submission in history for replay transparency, but the guesser ONLY
-    saw a placeholder at game time. Rendering the raw art without that
-    annotation would mislead the model into thinking the teammate
-    successfully communicated something.
+    Disqualified art is labelled explicitly with the reason the engine
+    rejected it: the env preserves the raw submission in history for
+    replay transparency, but the guesser ONLY saw a placeholder at game
+    time. Rendering the raw art without that annotation would mislead
+    the model into thinking the teammate successfully communicated
+    something.
     """
     if not history:
         return "No rounds completed yet."
@@ -51,24 +58,25 @@ def _format_history(history: Sequence[Mapping[str, Any]]) -> str:
         word = entry.get("word", "?")
         blue_art = entry.get("blue_art", "")
         yellow_art = entry.get("yellow_art", "")
-        blue_disq = bool(entry.get("blue_art_disqualified"))
-        yellow_disq = bool(entry.get("yellow_art_disqualified"))
+        blue_reason = entry.get("blue_art_disqualification_reason")
+        yellow_reason = entry.get("yellow_art_disqualification_reason")
         blue_guesses = entry.get("blue_guesses", []) or []
         yellow_guesses = entry.get("yellow_guesses", []) or []
         blue_points = entry.get("blue_points", 0)
         yellow_points = entry.get("yellow_points", 0)
         lines.append(f"Round {i + 1}: word was '{word}'.")
-        lines.extend(_render_team_history_art("Blue", blue_art, blue_disq))
+        lines.extend(_render_team_history_art("Blue", blue_art, blue_reason))
         lines.append(f"  Blue guesses: {blue_guesses!r} -> {blue_points} pt{'s' if blue_points != 1 else ''}")
-        lines.extend(_render_team_history_art("Yellow", yellow_art, yellow_disq))
+        lines.extend(_render_team_history_art("Yellow", yellow_art, yellow_reason))
         lines.append(f"  Yellow guesses: {yellow_guesses!r} -> {yellow_points} pt{'s' if yellow_points != 1 else ''}")
     return "\n".join(lines)
 
 
-def _render_team_history_art(team_label: str, art: str, disqualified: bool) -> list[str]:
-    if disqualified:
+def _render_team_history_art(team_label: str, art: str, disq_reason: str | None) -> list[str]:
+    if disq_reason:
+        why = _DISQ_REASON_TEXT.get(disq_reason, "was disqualified")
         return [
-            f"  {team_label} art: (DISQUALIFIED -- contained the target word; "
+            f"  {team_label} art: (DISQUALIFIED -- {why}; "
             "the guesser saw a placeholder, not the raw drawing below)",
             _indent(art or "(empty)", 4),
         ]
@@ -210,24 +218,36 @@ Rules:
 
 {scoring}
 
-Do not include ANY words in your art -- not the target, not a synonym,
-not a label, not a NATO-alphabet or other phonetic spelling, not a
-translation or a rhyme. The point of the game is to convey the WORD
-through the IMAGE. Letters are fine as visual elements (an 'O' for an
-eye, a 'V' for a beak); spelling things out is not.
+The point of the game is to convey the WORD through the IMAGE. Letters
+are fine as visual elements (an 'O' for an eye, a 'V' for a beak, '|||'
+as columns, 'OOO' as wheels); spelling out words -- targets, synonyms,
+labels, captions, section headers, arrow annotations, NATO-alphabet,
+translations, rhymes -- is not.
 
-CRITICAL (engine-enforced): the target word specifically is checked
-mechanically. The check works by stripping every non-alphanumeric
-character from your submission and lowercasing the result, then looking
-for the target as a substring forwards OR reversed -- so 'cat', 'CAT',
-'C A T', 'C-A-T', 'C.A.T', 'C\\nA\\nT', 'TAC', and any of these padded
-with extra punctuation all trip it. If disqualified, your teammate sees a
-placeholder instead of your drawing (no info, no first-try bonus,
-almost certainly 0 points). The other "no words" rules above aren't
-engine-enforced -- they're on your honor.
+CRITICAL (engine-enforced): TWO mechanical checks run on your art. If
+either fires, your teammate sees a placeholder instead of your drawing
+(no info, no first-try bonus, almost certainly 0 points).
 
-Art must be printable ASCII only, and is silently truncated at
-{max_art_chars} characters -- keep it compact.
+  1. TARGET-WORD check. The engine strips every non-alphanumeric
+     character and lowercases the result, then looks for the target as
+     a substring forwards OR reversed. So 'cat', 'CAT', 'C A T',
+     'C-A-T', 'C.A.T', 'C\\nA\\nT', 'TAC', and any of these padded with
+     extra punctuation all trip it -- including annotations like
+     '(scale: CAT)', arrow labels like '<- CAT', or section headers
+     like 'CAT close-up:'.
+
+  2. ANY-WORD check. Any run of 3+ consecutive letters with 2+ distinct
+     characters (case-insensitive) disqualifies the drawing. Words like
+     'top', 'the', 'HOUSE', 'MINERAL', 'grid', 'axe' all trip it. Same-
+     character runs pass -- 'OOO' (eyes), 'III' (columns), 'TTT'
+     (texture) are all fine -- as are 1- and 2-letter clusters like
+     'V', 'OO', 'H2'. Break letters up with spaces, punctuation, or
+     newlines to avoid tripping this check.
+
+Your art is silently sanitized before scoring: combining marks, wide
+characters (CJK, most emoji), and other non-single-cell Unicode are
+dropped so monospace alignment holds for the guesser. It's then
+truncated at {max_art_chars} characters -- keep it compact.
 
 The secret word you must depict is: '{target_word}'.
 
@@ -235,7 +255,7 @@ Past rounds in this game so far:
 {history_text}
 
 Think step by step about how to depict the word visually, then return
-your reasoning in 'thinking' and the ASCII art string in 'art' (escape
+your reasoning in 'thinking' and the art string in 'art' (escape
 newlines as '\\n'). No text or markdown outside the JSON block. Example:
 
 ```json
@@ -282,10 +302,12 @@ Rules:
   and whitespace-trimmed; only the exact word counts (no plurals,
   synonyms, or partial matches).
 - The opposing team plays in parallel and cannot see your art or guesses.
-- If the artist included the target word in their drawing, the engine
-  REPLACES it with a disqualification marker -- you'll see the marker
-  text instead of a picture. Past rounds in the history below are
-  likewise labelled "DISQUALIFIED" when this happened.
+- The engine mechanically disqualifies art that contains either the
+  target word or any run of 3+ letters with 2+ distinct characters
+  (labels, captions, headings). When that happens you'll see a
+  placeholder marker instead of a picture -- the marker text tells you
+  which check fired. Past rounds in the history below are likewise
+  labelled "DISQUALIFIED" when this happened.
 
 {scoring}
 
@@ -322,14 +344,15 @@ def parse_response(
     contains either ``"art"`` or ``"guess"`` (the helper does the
     multi-block / fenced / bare-JSON disambiguation for us).
 
-    Dispatch is role-strict: in production ``observation`` is always
-    supplied, so we route on ``observation.role`` and require the
-    matching key. If the model emits the wrong key (e.g. ``"guess"`` on
-    an artist turn) we return ``ParseResult(raw_action=...)`` so the
-    rethink loop can correct them rather than silently accepting an
-    obviously-wrong submission. The trailing key-agnostic fallback only
-    fires when ``observation`` isn't forwarded -- in practice only some
-    unit tests hit it.
+    Dispatch is role-strict: routes on ``observation.role`` and requires
+    the matching key with a non-empty string value. Anything else --
+    wrong key, non-string value, empty or whitespace-only string, or a
+    missing role -- returns ``ParseResult(raw_action=...)`` without a
+    submission so the rethink loop can correct the model rather than
+    silently burning an attempt on garbage the model didn't meaningfully
+    submit. In production ``core_harness`` always forwards
+    ``observation``, so the missing-role branch only fires from ad-hoc
+    test callers.
     """
     parsed = extract_last_json_object(response, required_keys=("art", "guess"))
     if parsed is None:
@@ -340,40 +363,16 @@ def parse_response(
 
     thinking = parsed.get("thinking")
     role = (observation or {}).get("role", "")
+    key = "art" if role == "artist" else "guess" if role == "guesser" else None
+    if key is None:
+        return ParseResult(raw_action=json.dumps(parsed)[:500], thoughts=thinking)
 
-    if role == "artist":
-        art = parsed.get("art")
-        if art is None:
-            # Model emitted JSON but used the wrong key. Surface what they
-            # said so the rethink loop can correct them.
-            return ParseResult(raw_action=json.dumps(parsed)[:500], thoughts=thinking)
-        art_str = art if isinstance(art, str) else str(art)
-        return ParseResult(
-            submission=art_str,
-            raw_action=art_str[:200],
-            thoughts=thinking,
-        )
+    value = parsed.get(key)
+    if not isinstance(value, str) or value.strip() == "":
+        return ParseResult(raw_action=json.dumps(parsed)[:500], thoughts=thinking)
 
-    if role == "guesser":
-        guess = parsed.get("guess")
-        if guess is None:
-            return ParseResult(raw_action=json.dumps(parsed)[:500], thoughts=thinking)
-        guess_str = guess if isinstance(guess, str) else str(guess)
-        return ParseResult(
-            submission=guess_str,
-            raw_action=guess_str[:200],
-            thoughts=thinking,
-        )
-
-    # No role available (e.g. observation kwarg not forwarded). Accept
-    # whichever key was present.
-    for key in ("art", "guess"):
-        value = parsed.get(key)
-        if value is not None:
-            value_str = value if isinstance(value, str) else str(value)
-            return ParseResult(
-                submission=value_str,
-                raw_action=value_str[:200],
-                thoughts=thinking,
-            )
-    return ParseResult(raw_action=json.dumps(parsed)[:500], thoughts=thinking)
+    return ParseResult(
+        submission=value,
+        raw_action=value[:200],
+        thoughts=thinking,
+    )
