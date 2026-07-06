@@ -220,7 +220,9 @@ class ParseResponseTest(absltest.TestCase):
         response = '{"clue": "ANIMAL", "number": "two"}'
         result = parse_response(response, None)
         self.assertIsNone(result.submission)
-        self.assertIsNotNone(result.raw_action)
+        # raw_action=None → routes to RETHINK_UNPARSABLE (the parsed
+        # object was structurally invalid, not just illegal).
+        self.assertIsNone(result.raw_action)
 
     def test_cluemaster_number_null_returns_none(self):
         response = '{"clue": "ANIMAL", "number": null}'
@@ -308,12 +310,20 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("0: APPLE", prompt)
         self.assertIn("24: ZEBRA", prompt)
 
-    def test_rethink_appended(self):
+    def test_rethink_illegal_appended(self):
+        # previous_action set → RETHINK_ILLEGAL, which quotes the action
+        # but deliberately omits the full previous response.
         obs = _cluemaster_obs()
         prompt = generate_prompt(obs, [], previous_response="bad response", previous_action="FAIL")
-        self.assertIn("bad response", prompt)
         self.assertIn("FAIL", prompt)
-        self.assertIn("could not be parsed", prompt)
+        self.assertIn("not a legal move", prompt)
+
+    def test_rethink_unparsable_appended(self):
+        # previous_action=None → RETHINK_UNPARSABLE, which quotes the response.
+        obs = _cluemaster_obs()
+        prompt = generate_prompt(obs, [], previous_response="bad response", previous_action=None)
+        self.assertIn("bad response", prompt)
+        self.assertIn("No valid action could be parsed", prompt)
 
     def test_memory_context_injected(self):
         obs = _cluemaster_obs(
