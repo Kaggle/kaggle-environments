@@ -269,16 +269,26 @@ def interpreter(state, env):
     prev_blue_reward = state[0].reward or 0
     prev_yellow_reward = state[2].reward or 0
 
+    # Snapshot pre-action context for memory tracking. track_turn needs the
+    # acting agent's index (current_turn is rewritten by process_action) and
+    # the pre-action revealed mask (so it can attribute new reveals to the
+    # right event — a guess vs. an invalid-clue penalty).
+    acting_turn = state[0].observation.current_turn
+    acting_action = state[acting_turn].action
+    pre_revealed = list(state[0].observation.revealed)
+
     process_action(state, env.configuration)
     update_visibility(state)
-    
+
     # Custom Memory Logic
     obs = state[0].observation
     games_per_episode = env.configuration.get("games_per_episode", 1)
-    
-    # Always track turns within the current game for all agents
+
+    # Track this step in every agent's observation. Each agent has its own
+    # current_game_turns list; the shared pre_revealed snapshot is safe to
+    # reuse because obs.revealed is symmetric across agents.
     for s in state:
-        track_turn(s.observation, state)
+        track_turn(s.observation, state, acting_turn, acting_action, pre_revealed)
     
     if games_per_episode > 1:
         is_done = all(s.status in ["DONE", "INVALID"] for s in state)
@@ -306,8 +316,6 @@ def interpreter(state, env):
                 for s in state:
                     s.observation.current_game += 1
                     s.observation.current_game_turns = []
-                    s.observation._last_clue = ""
-                    s.observation._last_revealed = [False] * len(s.observation.revealed)
 
                 # Reset board (re-init)
                 initialize_game(state, env.configuration)

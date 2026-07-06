@@ -21,6 +21,7 @@ from typing import Any, Mapping, Sequence
 from kaggle_environments.core_harness import (
     ParseResult,
     extract_last_json_object,
+    render_rethink_suffix,
 )
 
 BOARD_SIZE = 25
@@ -211,13 +212,24 @@ def _extract_json(response: str) -> dict[str, Any] | None:
 # --- Rethink ----------------------------------------------------------------
 
 
-RETHINK_SUFFIX = """
+RETHINK_ILLEGAL = """
 
-Your previous response was:
+You suggested "{previous_action}" but this is not a legal move right now
+(the index may be out of range, already revealed, or -1 with no prior guess
+this turn). Reconsider the current state and pick a legal action.
+
+(Keep using the same JSON output format as before -- only the value needs to change.)
+"""
+
+RETHINK_UNPARSABLE = """
+
+Your previous response ended with:
 {previous_response}
 
-You suggested "{previous_action}" but it could not be parsed as a valid
-action. Reconsider and provide a valid response in the required JSON format.
+No valid action could be parsed from that. Conclude your response with your
+final answer as JSON in the exact format the original instructions required
+(a Cluemaster answer needs both "clue" and "number"; a Guesser answer needs
+an integer "guess").
 """
 
 
@@ -390,11 +402,10 @@ def generate_prompt(
             "of the JSON block."
         )
 
-    if previous_response is not None:
-        prompt += RETHINK_SUFFIX.format(
-            previous_response=previous_response[:500],
-            previous_action=previous_action or "(could not parse)",
-        )
+    prompt += render_rethink_suffix(
+        RETHINK_ILLEGAL, RETHINK_UNPARSABLE,
+        previous_response, previous_action,
+    )
 
     return prompt
 
@@ -412,30 +423,35 @@ def parse_response(
         Returns ``ParseResult(legal_action=matched_string)``.
     """
     parsed = _extract_json(response)
+    # raw_action=None → framework routes to RETHINK_UNPARSABLE. We use this
+    # for every failure where we don't have a specific value worth quoting
+    # back at the model; RETHINK_ILLEGAL is reserved for cases where the
+    # model did produce a parseable answer that just wasn't legal.
     if parsed is None:
-        return ParseResult(raw_action=response[:200])
+        return ParseResult(raw_action=None)
+
+    thinking = parsed.get("thinking")
 
     # --- Cluemaster (free-form) ---
-    thinking = parsed.get("thinking")
     if legal_action_strings is None:
         clue = parsed.get("clue")
         number = parsed.get("number")
-        if clue is not None and number is not None:
-            try:
-                num = int(number)
-            except (ValueError, TypeError):
-                return ParseResult(raw_action=response[:200], thoughts=thinking)
-            return ParseResult(
-                submission={"clue": str(clue), "number": num},
-                raw_action=json.dumps({"clue": str(clue), "number": num}),
-                thoughts=thinking,
-            )
-        return ParseResult(raw_action=response[:200], thoughts=thinking)
+        if clue is None or number is None:
+            return ParseResult(raw_action=None, thoughts=thinking)
+        try:
+            num = int(number)
+        except (ValueError, TypeError):
+            return ParseResult(raw_action=None, thoughts=thinking)
+        return ParseResult(
+            submission={"clue": str(clue), "number": num},
+            raw_action=json.dumps({"clue": str(clue), "number": num}),
+            thoughts=thinking,
+        )
 
     # --- Guesser (enumerable) ---
     guess = parsed.get("guess")
     if guess is None:
-        return ParseResult(raw_action=response[:200], thoughts=thinking)
+        return ParseResult(raw_action=None, thoughts=thinking)
 
     raw = str(guess)
     try:
