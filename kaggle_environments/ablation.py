@@ -67,7 +67,11 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from kaggle_environments import make
-from kaggle_environments.core_harness import GameHarness, create_agent_fn
+from kaggle_environments.core_harness import (
+    GameHarness,
+    _call_llm,
+    create_agent_fn,
+)
 
 _log = logging.getLogger("kaggle_environments.ablation")
 
@@ -113,6 +117,30 @@ def load_variants(env_name: str) -> dict[str, GameHarness]:
 # ---------------------------------------------------------------------------
 # Model wiring
 # ---------------------------------------------------------------------------
+
+
+def preflight_probe(
+    models: list[str],
+    api_key: str,
+    api_base: str,
+) -> list[tuple[str, str | None]]:
+    """One tiny LLM call per model. Returns ``[(model, error_or_None), ...]``.
+
+    Catches auth, quota, and connectivity failures in ~seconds so the
+    tournament doesn't spend budget on a broken configuration. Called
+    automatically from :func:`cmd_run` unless ``--skip-preflight`` is
+    passed.
+    """
+    results: list[tuple[str, str | None]] = []
+    prompt = "Reply with the single word: ok."
+    for m in models:
+        model_name, kw = build_model_setup(m, api_key, api_base)
+        try:
+            _call_llm(prompt, model_name, kw)
+            results.append((m, None))
+        except Exception as exc:  # noqa: BLE001
+            results.append((m, f"{type(exc).__name__}: {exc}"))
+    return results
 
 
 def build_model_setup(
@@ -215,6 +243,26 @@ class GameResult:
     crash_p1: bool
     error: str
     duration_s: float
+    failure_reason: str = ""
+
+
+def _categorize_failure(msg: str) -> str:
+    """Bucket an exception/error message into a coarse failure category.
+
+    Categories: "quota" (proxy budget rejected the call), "timeout" (our
+    watchdog or a per-call timeout fired), "parse_failure" (LLM produced
+    N attempts of unparseable/illegal output), "agent_error" (anything
+    else raised from inside the agent loop), "env_error" (raised from
+    env.run itself, outside any agent).
+    """
+    m = (msg or "").lower()
+    if ("quota" in m and ("cost" in m or "exceeds" in m)) or "max estimated cost" in m:
+        return "quota"
+    if "timeout" in m or "ablationtimeout" in m:
+        return "timeout"
+    if "failed to parse a legal move" in m:
+        return "parse_failure"
+    return "agent_error"
 
 
 def _extract_scores(env: Any) -> tuple[float, float, int]:
@@ -319,6 +367,11 @@ def run_one_game(
 
     # Per-seat move counters used by the status writer below.
     moves = [0, 0]
+    # Per-seat last exception captured from agent invocations. kaggle
+    # env.run swallows agent exceptions and marks the agent ERROR without
+    # surfacing the reason, so we stash the last one here to categorize
+    # into failure_reason after the game ends.
+    last_agent_exc: list[str | None] = [None, None]
 
     def _wrap(seat: int, real_agent):
         def tracked(obs: Any, cfg: dict[str, Any]) -> dict[str, Any]:
@@ -327,7 +380,11 @@ def run_one_game(
                 status_dir or "", cell, "running", started_at,
                 moves_p0=moves[0], moves_p1=moves[1],
             )
-            return real_agent(obs, cfg)
+            try:
+                return real_agent(obs, cfg)
+            except Exception as exc:  # noqa: BLE001
+                last_agent_exc[seat] = f"{type(exc).__name__}: {exc}"
+                raise
         return tracked
 
     agent_p0 = _wrap(0, create_agent_fn(
@@ -340,12 +397,19 @@ def run_one_game(
     ))
 
     env = make(env_name, configuration=config, debug=False)
+    failure_reason = ""
     try:
         env.run([agent_p0, agent_p1])
         p0, p1, winner = _extract_scores(env)
         length = len(env.steps)
         crash_p0 = _agent_crashed(env, 0)
         crash_p1 = _agent_crashed(env, 1)
+        if crash_p0 or crash_p1:
+            # Prefer the exception message from the seat that crashed.
+            src = last_agent_exc[0] if crash_p0 else last_agent_exc[1]
+            if src is None:
+                src = last_agent_exc[1] if crash_p0 and last_agent_exc[1] else src
+            failure_reason = _categorize_failure(src or "")
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
         _log.warning("Game crashed (%s): %s", cell, exc)
@@ -353,6 +417,8 @@ def run_one_game(
         winner = 0
         length = 0
         crash_p0 = crash_p1 = True
+        # Env-level exception; use the exception itself for categorization.
+        failure_reason = _categorize_failure(error) or "env_error"
 
     return GameResult(
         variant=cell.variant,
@@ -368,6 +434,7 @@ def run_one_game(
         crash_p1=crash_p1,
         error=error,
         duration_s=time.perf_counter() - start,
+        failure_reason=failure_reason,
     )
 
 
@@ -416,15 +483,18 @@ def _worker_entry(args: tuple) -> GameResult:
             crash_p0=True, crash_p1=True,
             error=f"TimeoutError: exceeded {timeout_secs}s",
             duration_s=time.perf_counter() - start,
+            failure_reason="timeout",
         )
     except Exception as exc:  # noqa: BLE001
+        err = f"{type(exc).__name__}: {exc}"
         return GameResult(
             variant=cell.variant, model_p0=cell.model_p0, model_p1=cell.model_p1,
             pair_role=cell.pair_role, seed=cell.seed,
             score_p0=0.0, score_p1=0.0, winner=0, length_moves=0,
             crash_p0=True, crash_p1=True,
-            error=f"{type(exc).__name__}: {exc}",
+            error=err,
             duration_s=time.perf_counter() - start,
+            failure_reason=_categorize_failure(err) or "env_error",
         )
     finally:
         if timeout_secs and timeout_secs > 0:
@@ -533,16 +603,30 @@ _CSV_FIELDS = [
     "variant", "model_p0", "model_p1", "pair_role", "seed",
     "score_p0", "score_p1", "winner", "length_moves",
     "crash_p0", "crash_p1", "error", "duration_s",
+    "failure_reason",
 ]
 
 
-def _read_existing_cells(csv_path: Path) -> set[tuple]:
-    """Return the set of cell keys already present in games.csv (for --resume)."""
+def _read_existing_cells(
+    csv_path: Path,
+    *,
+    include_crashed: bool = True,
+) -> set[tuple]:
+    """Return the set of cell keys already present in games.csv (for --resume).
+
+    If ``include_crashed`` is False, rows where crash_p0 or crash_p1 is
+    True are excluded from the "done" set -- callers using
+    ``--redo-crashed`` want to re-schedule those cells.
+    """
     if not csv_path.exists():
         return set()
     done: set[tuple] = set()
     with csv_path.open() as f:
         for row in csv.DictReader(f):
+            if not include_crashed:
+                if (str(row.get("crash_p0", "")).lower() == "true"
+                        or str(row.get("crash_p1", "")).lower() == "true"):
+                    continue
             done.add((
                 row["variant"], row["model_p0"], row["model_p1"],
                 row["pair_role"], int(row["seed"]),
@@ -550,14 +634,87 @@ def _read_existing_cells(csv_path: Path) -> set[tuple]:
     return done
 
 
+def _strip_crashed_rows(csv_path: Path) -> int:
+    """Rewrite games.csv without rows where crash_p0 or crash_p1 is True.
+
+    Returns the number of rows removed. Used by ``--redo-crashed`` so
+    those cells can be re-scheduled without leaving stale duplicates in
+    the CSV (which would double-count in aggregation).
+    """
+    if not csv_path.exists():
+        return 0
+    tmp = csv_path.with_suffix(csv_path.suffix + ".stripping")
+    removed = 0
+    with csv_path.open() as f_in, tmp.open("w", newline="") as f_out:
+        r = csv.DictReader(f_in)
+        w = csv.DictWriter(f_out, fieldnames=_CSV_FIELDS)
+        w.writeheader()
+        for row in r:
+            if (str(row.get("crash_p0", "")).lower() == "true"
+                    or str(row.get("crash_p1", "")).lower() == "true"):
+                removed += 1
+                continue
+            w.writerow({k: row.get(k, "") for k in _CSV_FIELDS})
+    tmp.replace(csv_path)
+    return removed
+
+
+def _interleave_by_variant(cells: list[GameCell]) -> list[GameCell]:
+    """Round-robin cells across variants.
+
+    Original scheduling was variant-major (all baseline, then all null,
+    ...). If a variant is broken or the proxy dies partway through, that
+    ordering means one variant is fully corrupted while others aren't
+    even started. Interleaving spreads each variant's cells across the
+    whole run so systemic failures surface early (and, combined with
+    --max-crash-rate, are caught before wasting budget on one variant).
+    """
+    by_variant: dict[str, list[GameCell]] = {}
+    for c in cells:
+        by_variant.setdefault(c.variant, []).append(c)
+    order = list(by_variant.keys())
+    out: list[GameCell] = []
+    while any(by_variant[v] for v in order):
+        for v in order:
+            if by_variant[v]:
+                out.append(by_variant[v].pop(0))
+    return out
+
+
 def _cell_key(c: GameCell) -> tuple:
     return (c.variant, c.model_p0, c.model_p1, c.pair_role, c.seed)
+
+
+def _migrate_csv_columns(csv_path: Path) -> None:
+    """Add any missing columns to an existing games.csv (fill with "")."""
+    if not csv_path.exists():
+        return
+    with csv_path.open() as f:
+        first_line = f.readline().strip()
+    if not first_line:
+        return
+    existing = first_line.split(",")
+    missing = [c for c in _CSV_FIELDS if c not in existing]
+    if not missing:
+        return
+    tmp = csv_path.with_suffix(csv_path.suffix + ".migrate")
+    with csv_path.open() as f_in, tmp.open("w", newline="") as f_out:
+        r = csv.DictReader(f_in)
+        w = csv.DictWriter(f_out, fieldnames=_CSV_FIELDS)
+        w.writeheader()
+        for row in r:
+            for c in missing:
+                row.setdefault(c, "")
+            w.writerow({k: row.get(k, "") for k in _CSV_FIELDS})
+    tmp.replace(csv_path)
 
 
 def _open_csv_for_append(csv_path: Path) -> tuple[Any, csv.DictWriter]:
     """Open ``games.csv`` for appending; write header if new."""
     new_file = not csv_path.exists()
     csv_path.parent.mkdir(parents=True, exist_ok=True)
+    if not new_file:
+        _migrate_csv_columns(csv_path)
     f = csv_path.open("a", newline="")
     writer = csv.DictWriter(f, fieldnames=_CSV_FIELDS)
     if new_file:
@@ -835,13 +992,50 @@ def cmd_run(args: argparse.Namespace) -> int:
     if args.llm_call_timeout and args.llm_call_timeout > 0:
         os.environ["LLM_CALL_TIMEOUT"] = str(int(args.llm_call_timeout))
 
+    # Preflight: one short LLM call per model to confirm auth/quota/
+    # connectivity BEFORE we spend budget on the tournament. Skips only
+    # in --dry-run mode, offline mode, or with --skip-preflight.
+    if (not args.skip_preflight
+            and api_base != "dummy_url"):
+        print(f"Preflight: probing {len(models)} model(s)...", flush=True)
+        probe_results = preflight_probe(models, api_key, api_base)
+        failed = [(m, e) for m, e in probe_results if e is not None]
+        for m, e in probe_results:
+            if e is None:
+                print(f"  {m}: ok")
+            else:
+                print(f"  {m}: FAIL -- {e}", file=sys.stderr)
+        if failed:
+            print(
+                f"\nPreflight failed for {len(failed)}/{len(models)} model(s). "
+                f"Aborting before scheduling. Re-run with --skip-preflight to "
+                f"override (not recommended).",
+                file=sys.stderr,
+            )
+            return 3
+
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
     csv_path = out_dir / "games.csv"
     summary_path = out_dir / "summary.md"
 
-    done = _read_existing_cells(csv_path) if args.resume else set()
+    # --redo-crashed rewrites games.csv without crashed rows so those
+    # cells can be re-scheduled without leaving stale duplicates behind.
+    # Only meaningful with --resume; harmless otherwise.
+    if args.redo_crashed and args.resume:
+        removed = _strip_crashed_rows(csv_path)
+        if removed:
+            print(f"--redo-crashed: stripped {removed} crashed row(s) from games.csv.")
+
+    include_crashed_as_done = not args.redo_crashed
+    done = (
+        _read_existing_cells(csv_path, include_crashed=include_crashed_as_done)
+        if args.resume else set()
+    )
     todo = [c for c in cells if _cell_key(c) not in done]
+    # Interleave so per-variant crashes surface early even without
+    # --max-crash-rate protection.
+    todo = _interleave_by_variant(todo)
     if args.resume:
         print(f"Resume: {len(done)} cells already done, {len(todo)} to go.")
     else:
@@ -883,6 +1077,11 @@ def cmd_run(args: argparse.Namespace) -> int:
         )
         monitor.start()
 
+    # Per-variant tallies for the crash-rate auto-abort.
+    v_total: dict[str, int] = defaultdict(int)
+    v_crash: dict[str, int] = defaultdict(int)
+    auto_abort_msg: str | None = None
+
     try:
         ctx = mp.get_context("fork")
         with ProcessPoolExecutor(
@@ -895,6 +1094,9 @@ def cmd_run(args: argparse.Namespace) -> int:
                 writer.writerow(_row_dict(result))
                 csv_file.flush()
                 completed += 1
+                v_total[result.variant] += 1
+                if result.crash_p0 or result.crash_p1:
+                    v_crash[result.variant] += 1
                 if (
                     completed % max(1, len(todo) // 20) == 0
                     or completed == len(todo)
@@ -906,6 +1108,35 @@ def cmd_run(args: argparse.Namespace) -> int:
                         f" -> ({result.score_p0:+.2f}, {result.score_p1:+.2f})"
                         f" in {result.duration_s:.1f}s"
                     )
+                # Auto-abort on runaway crash rate. A variant that
+                # crosses --max-crash-rate after --min-cells-per-variant
+                # cells is almost always a broken prompt or a dead proxy
+                # -- pushing through wastes budget on data we'll discard.
+                if args.max_crash_rate > 0:
+                    tot = v_total[result.variant]
+                    if tot >= args.min_cells_per_variant:
+                        rate = v_crash[result.variant] / tot
+                        if rate >= args.max_crash_rate:
+                            auto_abort_msg = (
+                                f"AUTO-ABORT: variant '{result.variant}' "
+                                f"crash rate {v_crash[result.variant]}/{tot} "
+                                f"= {rate:.0%} (>= {args.max_crash_rate:.0%} "
+                                f"after >= {args.min_cells_per_variant} cells)."
+                            )
+                            print(f"\n{auto_abort_msg}", file=sys.stderr)
+                            print(
+                                "Cancelling remaining futures. Inspect games.csv "
+                                "'failure_reason' column to diagnose. Common "
+                                "causes: proxy quota exhausted (quota), model "
+                                "unable to comply with prompt (parse_failure), "
+                                "hung LLM calls (timeout). Re-run with "
+                                "--resume --redo-crashed once the root cause "
+                                "is fixed.",
+                                file=sys.stderr,
+                            )
+                            for other_fut in futures:
+                                other_fut.cancel()
+                            break
     finally:
         stop_event.set()
         if monitor is not None:
@@ -921,6 +1152,8 @@ def cmd_run(args: argparse.Namespace) -> int:
     summary_path.write_text(summary)
     print(f"\nWrote {len(all_rows)} rows to {csv_path}")
     print(f"Wrote summary to {summary_path}")
+    if auto_abort_msg is not None:
+        return 4
     return 0
 
 
@@ -1049,6 +1282,29 @@ def _build_parser() -> argparse.ArgumentParser:
                     help="Add the M self-play cells per leaderboard.")
     pr.add_argument("--resume", action="store_true",
                     help="Skip cells already present in games.csv.")
+    pr.add_argument("--redo-crashed", action="store_true",
+                    help="With --resume, treat rows where crash_p0 or "
+                         "crash_p1 is True as unfinished; they're stripped "
+                         "from games.csv and re-scheduled. Useful for "
+                         "recovering from a proxy-quota or transient-"
+                         "network partial run without discarding the "
+                         "cleanly-completed cells.")
+    pr.add_argument("--skip-preflight", action="store_true",
+                    help="Skip the per-model connectivity probe that runs "
+                         "before scheduling. The probe does one short LLM "
+                         "call per model and aborts if any fail (auth, "
+                         "quota, connectivity). Skip only when you're sure "
+                         "your models work (CI, cached configs).")
+    pr.add_argument("--max-crash-rate", type=float, default=0.6,
+                    help="Auto-abort threshold on per-variant crash rate. "
+                         "If a variant's crash rate exceeds this after "
+                         "--min-cells-per-variant cells have completed, "
+                         "the run halts with an error message. Default "
+                         "0.6 (60%%). Set to 0 or negative to disable.")
+    pr.add_argument("--min-cells-per-variant", type=int, default=8,
+                    help="Cells a variant must complete before the crash-"
+                         "rate auto-abort can fire. Default 8. Prevents "
+                         "1/1 = 100%% false triggers early in a run.")
     pr.add_argument("--dry-run", action="store_true",
                     help="Print the cell count and exit.")
     pr.add_argument("--out", default="ablation_results",

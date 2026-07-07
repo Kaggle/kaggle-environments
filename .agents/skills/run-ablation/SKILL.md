@@ -10,8 +10,11 @@ This skill drives the end-to-end prompt-sensitivity workflow for one game's harn
 Two CLI tools work together:
 
 ```bash
-# Run the tournament
+# Verify baseline parity + variant rendering before spending any budget
 python -m kaggle_environments.ablation check --env <env_name>
+
+# Run the tournament. Auto-preflight, auto-abort on runaway crashes, and
+# --redo-crashed for recovery are all on by default; see Step 7.
 python -m kaggle_environments.ablation run --env <env_name> --models <csv> --games <N> --out <dir>
 
 # Post-hoc statistical analysis (permutation test against the null variant's noise floor)
@@ -183,10 +186,14 @@ Before spending API budget, confirm the run with the user. Use `AskUserQuestion`
 
 * The env, the variant list (always including `null`), the model list, `--games` (paired games per matchup — must be even).
 * The total cell count: `K · M(M−1)/2 · games`, where K **includes** the null variant. Add `M · games` per leaderboard if `--self-play`.
-* A rough cost estimate. For Bargaining-class games (≤10 prompt-response rounds, ~1k–3k prompt tokens), assume ~20 LLM calls per game.
+* A rough cost estimate. For Bargaining-class games (≤10 prompt-response rounds, ~1k–3k prompt tokens), assume ~20 LLM calls per game. For longer-horizon or simultaneous-move games (e.g. Markov Soccer at horizon 100), assume 40+.
 * The output directory.
 
 Default suggestion if the user hasn't specified: `--games 30`, all variants (including `null`), `--concurrency 8`. **Don't go below N=20** unless smoke-testing — at N=10, the permutation test has poor power and most variants come back inside noise even when their qualitative rank shifts look real. Wait for explicit go before invoking the runner.
+
+### Set expectations from existing leaderboard CIs
+
+If the user has an existing Bradley-Terry leaderboard for this game, look at the CI widths across models before promising results. If the middle tiers have CIs of ±30 Elo or more (overlapping bands), most prompt-ablation effects will be inside noise regardless of how well the ablation is run — the game is not distinguishing prompts because it's not distinguishing anything below the extremes. Say this upfront: the ablation can still tell them "is it safe to simplify?" (a valuable answer) but is unlikely to tell them "which prompt wins" (because no prompt does, at that noise level). Steer them toward asking specific behavioral questions ("does model X drop when helper Y is stripped?") rather than expecting wholesale rank shifts.
 
 ## Step 7: Run the tournament
 
@@ -197,12 +204,37 @@ uv run python -m kaggle_environments.ablation run \
   --models <csv of model names> \
   --games <N> \
   --concurrency 8 \
-  --out results/<env>_<date>/
+  --out results/<env>_<slug>/
 ```
+
+**Prefer a stable slug over a date** in the output directory (e.g. `open_spiel_markov_soccer_v1`, not `20260706`). Long runs can cross date boundaries and stale dates in results paths are confusing.
 
 Stream the runner's progress to the user. It writes `games.csv` (one row per game) and `summary.md` (per-variant leaderboards + cross-variant rank shifts + anomalies) into `--out`.
 
-If the run is interrupted, re-run with `--resume` to skip the cells already in `games.csv`.
+### Built-in safety nets
+
+The runner protects budget with three mechanisms — all on by default, all overridable:
+
+* **Preflight probe.** Before scheduling any game, the runner calls each model with a one-token prompt. If any model fails auth/quota/connectivity, the run aborts with the error message and zero games spent. Override with `--skip-preflight` only when you're sure your models work (CI, cached configs).
+* **Auto-abort on crash rate.** After every completed cell, the runner checks per-variant crash rate. If a variant crosses `--max-crash-rate` (default 0.6, i.e. 60%) after `--min-cells-per-variant` (default 8) completions, the run halts and prints the failure category. Combined with the interleaved scheduling (variants round-robin, not sequential), a broken variant or a dying proxy is caught in the first few minutes rather than after burning the whole budget on one leaderboard.
+* **Interleaved scheduling.** Cells are scheduled round-robin across variants, so each variant gets some completions early. Even without auto-abort, this means a systemic failure surfaces on the *first* pass through the variants rather than after 3/4 of the run.
+
+Disable auto-abort with `--max-crash-rate 0` for smoke tests.
+
+### Recovering from a partial run
+
+If the run halts mid-way — auto-abort, network hiccup, ctrl-C, quota exhaustion — `games.csv` is preserved with everything completed so far. To resume:
+
+* **Straight resume** (skip anything already in games.csv): re-run with `--resume`. Good when the interruption was clean and the completed cells are trustworthy.
+* **Redo the crashed cells** (proxy died, some cells contaminated): re-run with `--resume --redo-crashed`. This strips rows where `crash_p0` or `crash_p1` is True from games.csv and re-schedules only those cells. Cleanly-completed cells are preserved. Use this when the crashes were driven by a transient environmental cause (quota, network) rather than a real variant bug.
+
+Before choosing between these, inspect the `failure_reason` column in games.csv to diagnose:
+
+```bash
+awk -F',' 'NR>1 && $NF!="" {print $NF}' games.csv | sort | uniq -c
+```
+
+Categories: `quota` (proxy budget rejected the call), `timeout` (LLM call or game watchdog fired), `parse_failure` (model produced illegal/unparseable output after retries), `agent_error` (uncategorized agent-side exception), `env_error` (env.run itself raised). A concentration of `quota` or `timeout` is fixable with `--redo-crashed` once the environment is healthy; a concentration of `parse_failure` on one variant usually means the variant's prompt is broken and needs a fix in `prompt_variants.py` first.
 
 ## Step 8: Report findings
 
@@ -245,8 +277,26 @@ If every real variant has Σ|Δrank| at or below the null floor, the honest answ
 * **Asking before proposing.** "What variants would you like?" is the wrong question. The user is invoking this skill *because* they want concrete suggestions. Always propose 3–5 concrete variants first, then iterate.
 * **Picking too few games per matchup.** With N=2 (one pair per matchup), confidence intervals on win-rate span nearly the full [0%, 100%] range. Default to N=30 (15 pairs) for the permutation test to have real power; drop to N=4 only for smoke tests. At N=10 most real prompt effects come back inside the noise envelope.
 * **Self-play by default.** `--self-play` doubles cost and rarely changes conclusions. Off unless the user asks.
-* **Modifying `harness.py`.** The production prompt stays in `harness.py`. All experimental prompts live in `prompt_variants.py`. If a variant turns out to be a win, promote it to `harness.py` in a *separate* PR.
-* **Per-game extra metrics.** The runner ships generic columns (score, winner, length, crash, duration). If you want game-specific columns (Bargaining's `agreement_step`, chess's `mate_in_n`), add them to `games.csv` in a follow-up post-processing step — the runner's schema is intentionally minimal.
+* **Modifying `harness.py`.** The production prompt stays in `harness.py`. All experimental prompts live in `prompt_variants.py`. If a variant turns out to be a win, promote it to `harness.py` in a *separate* PR (see the promotion workflow section below).
+* **Per-game extra metrics.** The runner ships generic columns (score, winner, length, crash, duration, failure_reason). If you want game-specific columns (Bargaining's `agreement_step`, chess's `mate_in_n`), add them to `games.csv` in a follow-up post-processing step — the runner's schema is intentionally minimal.
+* **Ignoring the failure_reason column.** If crashes cluster in `quota` or `timeout`, the environment is the problem, not the variant — recover with `--resume --redo-crashed`. If they cluster in `parse_failure` on one variant, the variant's prompt is under-specified for at least one model — fix it and re-run just that variant with `--variants X --resume --redo-crashed`. Never conflate the two: rerunning a broken variant burns budget on data you'll discard again.
+* **Skipping the preflight probe habitually.** `--skip-preflight` exists for CI where the model list has been validated by a prior run. In interactive use it's the "trust me, they work" button and it will bite you. Cost of the probe is ~30s and one token per model.
+
+## Promotion workflow: from variant win to production
+
+The ablation's `prompt_variants.py` stays checked in permanently — it's the experimental surface for future re-testing. When an ablation identifies a winning variant that should replace baseline in production, do NOT edit `prompt_variants.py` to make the winner the new baseline. Instead, promote in a **separate PR**:
+
+1. **This PR (the ablation itself):** commit `prompt_variants.py`, the results directory (`games.csv`, `summary.md`, `analysis.md`), and any notes. This is the evidence trail.
+2. **Follow-up PR (the promotion):** modify `harness.py` (and its test) only, applying the winning variant's specific changes. Reference the ablation PR in the description for justification. Do not touch `prompt_variants.py` in this PR.
+
+Canonical example: Bargaining. PR [`#1279`](https://github.com/Kaggle/kaggle-environments/pull/1279) introduced the ablation tool + skill; PR [`#1273`](https://github.com/Kaggle/kaggle-environments/pull/1273) ("Save Bargaining prompt changes from experiment") promoted the winning variant into `harness.py` in an isolated 16-line diff that only touched harness + test.
+
+Why the separation:
+* The ablation stays reproducible — future runs can re-verify or challenge the finding.
+* The promotion PR is easy to review — it's just the diff to production.
+* Reverting production is a one-commit revert, not a partial rollback.
+
+If the ablation produced no statistically supported winner, just do step 1. Don't ship prompt changes on directional-but-inside-noise signal; add a note to the results dir describing what was tried so future work doesn't retread the same axes.
 
 ## Reference: the contract enforced by the runner
 
