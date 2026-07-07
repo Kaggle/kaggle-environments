@@ -60,6 +60,12 @@ export function renderer(options: RendererOptions<UltimateTicTacToeStep[]>) {
         
         <div class="board-wrap">
           <canvas></canvas>
+          <div class="utt-winner-overlay" style="display: none;">
+            <div class="utt-winner-card">
+              <div class="utt-winner-title"></div>
+              <div class="utt-winner-subtitle"></div>
+            </div>
+          </div>
         </div>
         
         <div class="status-container sketched-border"></div>
@@ -224,23 +230,25 @@ export function renderer(options: RendererOptions<UltimateTicTacToeStep[]>) {
       container.querySelector('.board-wrap')!.appendChild(winnerOverlay);
     }
 
+    winnerOverlay.style.display = 'flex';
+
     const newClassName = `utt-winner-overlay ${overlayClass}`;
     if (winnerOverlay.className !== newClassName) {
       winnerOverlay.className = newClassName;
     }
 
-    const newInnerHTML = `
-      <div class="utt-winner-card">
-        <div class="utt-winner-title">${winnerLabel}</div>
-        <div class="utt-winner-subtitle">${subtitle}</div>
-      </div>
-    `;
-    if (winnerOverlay.innerHTML !== newInnerHTML) {
-      winnerOverlay.innerHTML = newInnerHTML;
+    const titleEl = winnerOverlay.querySelector('.utt-winner-title');
+    if (titleEl && titleEl.textContent !== winnerLabel) {
+      titleEl.textContent = winnerLabel;
+    }
+
+    const subtitleEl = winnerOverlay.querySelector('.utt-winner-subtitle');
+    if (subtitleEl && subtitleEl.textContent !== subtitle) {
+      subtitleEl.textContent = subtitle;
     }
   } else {
     if (winnerOverlay) {
-      winnerOverlay.remove();
+      winnerOverlay.style.display = 'none';
     }
   }
 
