@@ -502,4 +502,4 @@ Bugs that have been found in real reviews. Treat this as a starting point — fi
 - Golden examples to anchor expectations:
   - `kaggle_environments/envs/open_spiel_env/games/checkers/harness.py` — modern enumerable shape: delegates to `parse_json_action`, branches `render_rethink_suffix`, demonstrates a phase-conditional prompt section (multi-jump continuation)
   - `kaggle_environments/envs/open_spiel_env/games/dark_hex/harness.py` — same modern shape with a custom `matcher=` callable for notation tolerance; per-player rendering for imperfect-information games
-  - `kaggle_environments/envs/word_association/harness/main.py` — mixed free-form + enumerable (non-OpenSpiel)
+  - `kaggle_environments/envs/word_association/harness.py` — mixed free-form + enumerable (non-OpenSpiel)

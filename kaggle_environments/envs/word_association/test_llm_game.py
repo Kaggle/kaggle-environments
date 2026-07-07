@@ -13,7 +13,6 @@ if __name__ == "__main__":
     env = run_llm_game(
         "word_association",
         caller_file=__file__,
-        agent_module="harness/main.py",
         num_agents=4,
         configuration={"games_per_episode": 1},
     )
