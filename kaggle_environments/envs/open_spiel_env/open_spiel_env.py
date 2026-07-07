@@ -1040,6 +1040,7 @@ GAMES_LIST = [
     "markov_soccer",
     "matching_pennies_3p",
     "negotiation",
+    "nine_mens_morris",
     "oshi_zumo",
     "othello",
     "quoridor",
