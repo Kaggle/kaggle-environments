@@ -91,8 +91,26 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     }
 
     // 3. (PRIORITY 3) Production build (or not DEV) and no HMR data.
+    //    Check for a Python-injected window.kaggle payload (notebook iframe
+    //    srcdoc path from kaggle_environments.utils.get_player).
     else {
-      this.viewer.innerHTML = '<div>Loading...</div>';
+      const initial = (window as unknown as { kaggle?: any }).kaggle;
+      if (initial?.environment) {
+        const data = initial.environment;
+        let agents = data.info?.Agents;
+        if (!agents && data.steps?.[0]) {
+          const playerCount = Array.isArray(data.steps[0]) ? data.steps[0].length : 0;
+          const teamNames = data.info?.TeamNames || [];
+          agents = Array.from({ length: playerCount }, (_, i) => ({
+            index: i,
+            name: teamNames[i] || `Player ${i + 1}`,
+          }));
+        }
+        if (typeof initial.step === 'number') this.step = initial.step;
+        this.setData(data, agents);
+      } else {
+        this.viewer.innerHTML = '<div>Loading...</div>';
+      }
     }
 
     // 4. Add listener (always)

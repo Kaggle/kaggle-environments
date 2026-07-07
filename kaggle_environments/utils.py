@@ -241,6 +241,22 @@ window.kaggle = {json.dumps(window_kaggle, indent=2)};\n\n
         """
         return read_file(renderer[1]).replace(key, value)
 
+    # Vite-built visualizers return a self-contained HTML document. Inject the
+    # window.kaggle payload directly so the visualizer picks it up on load —
+    # notebook iframes are srcdoc'd with no parent to postMessage from.
+    if isinstance(renderer, str) and renderer.lstrip().startswith("<"):
+        snippet = f"<script>window.kaggle = {json.dumps(window_kaggle)};</script>"
+        lower = renderer.lower()
+        head_close = lower.find("</head>")
+        if head_close != -1:
+            return renderer[:head_close] + snippet + renderer[head_close:]
+        body_open = lower.find("<body")
+        if body_open != -1:
+            body_end = renderer.find(">", body_open)
+            if body_end != -1:
+                return renderer[: body_end + 1] + snippet + renderer[body_end + 1 :]
+        return snippet + renderer
+
     key = "/*window.kaggle*/"
     value = f"""
 window.kaggle = {json.dumps(window_kaggle, indent=2)};\n\n
