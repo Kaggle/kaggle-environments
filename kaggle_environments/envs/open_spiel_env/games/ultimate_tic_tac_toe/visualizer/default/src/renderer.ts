@@ -193,13 +193,12 @@ export function renderer(options: RendererOptions<UltimateTicTacToeStep[]>) {
   if (lastMovedPlayer && lastMovedPlayer.actionDisplayText) {
     statusHTML += `<span class="annotation" style="margin-left: 12px; opacity: 0.8;">(Last: ${lastMovedPlayer.actionDisplayText})</span>`;
   }
-  statusContainer.innerHTML = statusHTML;
+  if (statusContainer.innerHTML !== statusHTML) {
+    statusContainer.innerHTML = statusHTML;
+  }
 
   // 6. Winner Overlay
   let winnerOverlay = container.querySelector('.utt-winner-overlay') as HTMLDivElement;
-  if (winnerOverlay) {
-    winnerOverlay.remove();
-  }
 
   const p0Wins = parsedObs.subgrid_winners.filter((w: string) => w === 'x').length;
   const p1Wins = parsedObs.subgrid_winners.filter((w: string) => w === 'o').length;
@@ -220,15 +219,29 @@ export function renderer(options: RendererOptions<UltimateTicTacToeStep[]>) {
       overlayClass = 'o';
     }
 
-    winnerOverlay = document.createElement('div');
-    winnerOverlay.className = `utt-winner-overlay ${overlayClass}`;
-    winnerOverlay.innerHTML = `
+    if (!winnerOverlay) {
+      winnerOverlay = document.createElement('div');
+      container.querySelector('.board-wrap')!.appendChild(winnerOverlay);
+    }
+
+    const newClassName = `utt-winner-overlay ${overlayClass}`;
+    if (winnerOverlay.className !== newClassName) {
+      winnerOverlay.className = newClassName;
+    }
+
+    const newInnerHTML = `
       <div class="utt-winner-card">
         <div class="utt-winner-title">${winnerLabel}</div>
         <div class="utt-winner-subtitle">${subtitle}</div>
       </div>
     `;
-    container.querySelector('.board-wrap')!.appendChild(winnerOverlay);
+    if (winnerOverlay.innerHTML !== newInnerHTML) {
+      winnerOverlay.innerHTML = newInnerHTML;
+    }
+  } else {
+    if (winnerOverlay) {
+      winnerOverlay.remove();
+    }
   }
 
   // 7. Render Board Canvas
