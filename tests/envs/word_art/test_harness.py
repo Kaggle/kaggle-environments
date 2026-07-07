@@ -205,11 +205,47 @@ class ParseResponseTest(absltest.TestCase):
         self.assertEqual(result.submission, "CAT")
         self.assertEqual(result.thoughts, "looks like a cat")
 
-    def test_guesser_coerces_non_string_guess(self):
+    def test_guesser_rejects_non_string_guess(self):
+        # A number (or any non-string) in the guess slot is not a submission.
+        # The parser deliberately does NOT coerce -- the model said something
+        # structurally wrong and should get a rethink, not have the harness
+        # silently invent a string on its behalf. raw_action is set so the
+        # rethink can quote the offending JSON back.
         obs = _guesser_obs()
         response = '{"guess": 42}'
         result = parse_response(response, None, observation=obs)
-        self.assertEqual(result.submission, "42")
+        self.assertIsNone(result.submission)
+        self.assertIsNotNone(result.raw_action)
+        self.assertIn("42", result.raw_action)
+
+    def test_guesser_rejects_empty_guess(self):
+        obs = _guesser_obs()
+        response = '{"guess": ""}'
+        result = parse_response(response, None, observation=obs)
+        self.assertIsNone(result.submission)
+        self.assertIsNotNone(result.raw_action)
+
+    def test_guesser_rejects_whitespace_only_guess(self):
+        obs = _guesser_obs()
+        response = '{"guess": "   "}'
+        result = parse_response(response, None, observation=obs)
+        self.assertIsNone(result.submission)
+        self.assertIsNotNone(result.raw_action)
+
+    def test_artist_rejects_empty_art(self):
+        obs = _artist_obs()
+        response = '{"art": ""}'
+        result = parse_response(response, None, observation=obs)
+        self.assertIsNone(result.submission)
+        self.assertIsNotNone(result.raw_action)
+
+    def test_artist_rejects_non_string_art(self):
+        # e.g. model returned art as a list of lines instead of a string.
+        obs = _artist_obs()
+        response = '{"art": ["line1", "line2"]}'
+        result = parse_response(response, None, observation=obs)
+        self.assertIsNone(result.submission)
+        self.assertIsNotNone(result.raw_action)
 
     def test_guesser_missing_guess_key_returns_no_submission(self):
         obs = _guesser_obs()
@@ -223,17 +259,24 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response(response, None, observation=obs)
         self.assertEqual(result.submission, "CAT")
 
-    # --- No-role fallback (e.g. obs not forwarded) ---
+    # --- No-role dispatch (e.g. obs not forwarded) ---
 
-    def test_no_observation_accepts_either_key(self):
-        response = '{"art": "X"}'
-        self.assertEqual(parse_response(response, None).submission, "X")
-        response = '{"guess": "CAT"}'
-        self.assertEqual(parse_response(response, None).submission, "CAT")
+    def test_no_observation_rejects_both_keys(self):
+        # Parser is role-strict. Without a role we can't tell whether a
+        # response containing "guess" on an artist turn is the model
+        # answering the wrong question, so we refuse to submit. raw_action
+        # is still set for the rethink to quote back. In production
+        # core_harness always forwards `observation`; this only fires from
+        # ad-hoc test callers.
+        for response in ('{"art": "X"}', '{"guess": "CAT"}'):
+            result = parse_response(response, None)
+            self.assertIsNone(result.submission)
+            self.assertIsNotNone(result.raw_action)
 
     def test_prose_returns_no_submission(self):
         result = parse_response("Just some text", None)
         self.assertIsNone(result.submission)
+        self.assertIsNone(result.raw_action)
 
 
 # --- generate_prompt --------------------------------------------------------
@@ -264,29 +307,36 @@ class GeneratePromptTest(absltest.TestCase):
         # obfuscated, or reversed. The prompt must spell out the rule, the
         # normalization that powers it, and the consequence.
         prompt = generate_prompt(_artist_obs(target="ELEPHANT"), [])
-        self.assertIn("target word", prompt.lower())
-        self.assertIn("engine-enforced", prompt.lower())
+        # Accept either the hyphenated check name ("target-word check")
+        # or the plain phrase.
+        lower = prompt.lower()
+        self.assertTrue("target-word" in lower or "target word" in lower)
+        self.assertIn("engine-enforced", lower)
         # The prompt MUST describe the normalization so the model understands
         # what's actually caught (not just a vague "don't do it").
-        self.assertIn("stripping every non-alphanumeric", prompt)
+        self.assertIn("strips every non-alphanumeric", prompt)
         self.assertIn("reversed", prompt)
         # Consequence (placeholder shown to teammate).
         self.assertIn("placeholder", prompt)
 
     def test_artist_prompt_broad_no_words_rule(self):
         # Beyond the engine-enforced target-word check, the prompt must
-        # tell artists not to include ANY words (synonyms, labels, NATO,
-        # translations, rhymes) -- soft rule, but it has to be stated.
+        # explain the ANY-WORD mechanical check, enumerate examples of what
+        # counts as a "word" (synonyms, labels, NATO, translations, rhymes),
+        # and state the broad rule ("do not include any words") in
+        # unambiguous language so the model doesn't get lost in the
+        # mechanical details.
         prompt = generate_prompt(_artist_obs(), [])
-        lower = prompt.lower()
-        self.assertIn("any words", lower)
-        # Examples of what counts as "words" should appear, so the model
-        # isn't left guessing what we mean by "no words":
+        # Normalise whitespace: the prose paragraph flow-wraps and can put
+        # a newline between adjacent words we care about matching.
+        squished = " ".join(prompt.lower().split())
+        self.assertIn("do not include any words", squished)
+        self.assertIn("any-word check", squished)
         for kw in ("synonym", "label", "nato", "translation", "rhyme"):
-            self.assertIn(kw, lower)
+            self.assertIn(kw, squished)
         # And the prompt must clarify that letters as visual elements are
         # fine -- otherwise the rule reads as "no letters at all".
-        self.assertIn("visual element", lower)
+        self.assertIn("visual element", squished)
 
     def test_artist_prompt_requests_thinking_before_json(self):
         # Memory contract: every prompt asks for reasoning BEFORE JSON.
@@ -353,7 +403,10 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("Blue 4", prompt)
         self.assertIn("Yellow 2", prompt)
 
-    def test_rethink_suffix_appended_on_retry(self):
+    def test_rethink_no_json_branch(self):
+        # When previous_action is None the parser found no JSON; the rethink
+        # should quote back the tail of the response so the model can see
+        # how its answer trailed off.
         prompt = generate_prompt(
             _artist_obs(),
             [],
@@ -361,10 +414,29 @@ class GeneratePromptTest(absltest.TestCase):
         )
         self.assertIn("Last 500 characters", prompt)
         self.assertIn("my last try was junk text", prompt)
+        # Must NOT use the bad-value template's phrasing.
+        self.assertNotIn("Your submitted JSON was", prompt)
+
+    def test_rethink_bad_value_branch(self):
+        # When previous_action is set the parser DID find a JSON object but
+        # the required key was missing / non-string / empty. The rethink
+        # should quote the offending JSON back verbatim rather than telling
+        # the model "you didn't include the key" when it did.
+        prompt = generate_prompt(
+            _artist_obs(),
+            [],
+            previous_response='thinking ... {"guess": "CAT"}',
+            previous_action='{"guess": "CAT"}',
+        )
+        self.assertIn("required key was\nmissing or had an invalid value", prompt)
+        self.assertIn('{"guess": "CAT"}', prompt)
+        # Must NOT use the no-JSON template's phrasing.
+        self.assertNotIn("Last 500 characters", prompt)
 
     def test_rethink_not_appended_on_first_attempt(self):
         prompt = generate_prompt(_artist_obs(), [])
         self.assertNotIn("Last 500 characters", prompt)
+        self.assertNotIn("Your submitted JSON was", prompt)
 
     def test_max_attempts_propagates_to_prompt(self):
         # Env supports configurable max_attempts; prompt must reflect it.
@@ -396,9 +468,11 @@ class GeneratePromptTest(absltest.TestCase):
         """Guesser must be told what the placeholder string means when their
         teammate's art gets disqualified for containing the target word."""
         prompt = generate_prompt(_guesser_obs(), [])
-        # The rule statement must call out the placeholder mechanic in
-        # GAME RULES (so the model isn't surprised by the marker text).
-        self.assertIn("disqualification", prompt.lower())
+        # The rule statement must call out the placeholder mechanic (so the
+        # model isn't surprised by the marker text). Match a stem so we
+        # accept "disqualifies" / "disqualified" / "disqualification".
+        self.assertIn("disqualif", prompt.lower())
+        self.assertIn("placeholder", prompt.lower())
         # And the wording must mention WHY (target word in the art).
         self.assertIn("target word", prompt.lower())
 
@@ -411,17 +485,21 @@ class GeneratePromptTest(absltest.TestCase):
                 "word": "CAT",
                 "blue_art": "C A T",  # was disqualified
                 "blue_art_disqualified": True,
+                "blue_art_disqualification_reason": "target_word",
                 "blue_guesses": ["DOG", "BEAR", "LION"],
                 "blue_points": 0,
                 "yellow_art": "MEOW",
                 "yellow_art_disqualified": False,
+                "yellow_art_disqualification_reason": None,
                 "yellow_guesses": ["CAT"],
                 "yellow_points": 2,
             }
         ]
         prompt = generate_prompt(_guesser_obs(history=hist, current_round=1), [])
-        # Blue art line must carry the disqualification label.
+        # Blue art line must carry the disqualification label with a
+        # human-readable reason (target-word check fired here).
         self.assertIn("Blue art: (DISQUALIFIED", prompt)
+        self.assertIn("contained the target word", prompt)
         self.assertIn("placeholder", prompt.lower())
         # Yellow art line must NOT carry the label.
         self.assertIn("Yellow art:", prompt)
@@ -433,16 +511,20 @@ class GeneratePromptTest(absltest.TestCase):
                 "word": "DOG",
                 "blue_art": "WOOF",
                 "blue_art_disqualified": False,
+                "blue_art_disqualification_reason": None,
                 "blue_guesses": ["DOG"],
                 "blue_points": 2,
-                "yellow_art": "D-O-G",
+                "yellow_art": "the dog runs",  # disqualified by any-word check
                 "yellow_art_disqualified": True,
+                "yellow_art_disqualification_reason": "contains_words",
                 "yellow_guesses": ["WOLF", "FOX"],
                 "yellow_points": 0,
             }
         ]
         prompt = generate_prompt(_artist_obs(history=hist, current_round=1), [])
         self.assertIn("Yellow art: (DISQUALIFIED", prompt)
+        # any-word rejection should surface its specific reason text.
+        self.assertIn("contained text", prompt)
         self.assertNotIn("Blue art: (DISQUALIFIED", prompt)
 
 

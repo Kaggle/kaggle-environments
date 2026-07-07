@@ -120,18 +120,38 @@ def _round_status_block(observation: Mapping[str, Any]) -> str:
 # --- Rethink templates ------------------------------------------------------
 
 
-# Both phases are free-form, so all parse failures fall into the
-# "unparsable" bucket: the model didn't emit the JSON key we needed. The
-# matched-but-illegal case (legal-action mismatch) doesn't exist here.
-RETHINK_UNPARSABLE = """
+# Free-form means there's no "illegal action" case (any string is a legal
+# submission), but parse failure comes in two flavours that need different
+# corrections:
+#   NO_JSON    -> the response had no parseable JSON object with the right key
+#                 at all. Show the last 500 chars of the response so the model
+#                 can see how its answer trailed off.
+#   BAD_VALUE  -> a JSON object with the required key was found, but the value
+#                 was missing / non-string / empty / whitespace-only. Quote the
+#                 offending object back so the model sees exactly what got
+#                 rejected instead of guessing what tripped the parser.
+RETHINK_NO_JSON = """
 
-Your previous response did not contain a valid JSON object with the required key.
-Last 500 characters of your previous response:
+Your previous response did not contain a parseable JSON object with the
+required key ('art' for artists, 'guess' for guessers). Last 500 characters
+of your previous response:
 {previous_response}
 
 Re-read the output format above and respond again. The JSON must include the
 required key and be parseable (no comments, no trailing commas, no surrounding
 prose inside the JSON itself)."""
+
+
+RETHINK_BAD_VALUE = """
+
+Your previous response included a JSON object but the required key was
+missing or had an invalid value (must be a non-empty string). Your submitted
+JSON was:
+{previous_action}
+
+Re-read the output format above and respond again. The JSON must include the
+required key ('art' for artists, 'guess' for guessers) with a non-empty
+string value."""
 
 
 # --- Public functions (GameHarness protocol) --------------------------------
@@ -147,7 +167,7 @@ def generate_prompt(
     observation: Mapping[str, Any],
     move_history: list[str],  # noqa: ARG001 -- protocol arg; history shown via observation.history
     previous_response: str | None = None,
-    previous_action: str | None = None,  # noqa: ARG001 -- never set in free-form path
+    previous_action: str | None = None,
 ) -> str:
     """Build the LLM prompt for the current turn."""
     role = observation.get("role", "")
@@ -188,8 +208,14 @@ def generate_prompt(
         # agent as inactive on an empty obs anyway.
         prompt = "Word Art has not started this round yet. Wait for your role (artist or guesser) to be assigned."
 
-    if previous_response is not None:
-        prompt += RETHINK_UNPARSABLE.format(previous_response=previous_response[-500:])
+    # core_harness sets previous_action to the parser's raw_action on failure:
+    # None when no JSON was found, populated when JSON was found but the value
+    # was missing/non-string/empty. Branch on that so the model sees a
+    # correction tailored to what actually broke.
+    if previous_action is not None:
+        prompt += RETHINK_BAD_VALUE.format(previous_action=previous_action)
+    elif previous_response is not None:
+        prompt += RETHINK_NO_JSON.format(previous_response=previous_response[-500:])
 
     return prompt
 
@@ -218,11 +244,12 @@ Rules:
 
 {scoring}
 
-The point of the game is to convey the WORD through the IMAGE. Letters
-are fine as visual elements (an 'O' for an eye, a 'V' for a beak, '|||'
-as columns, 'OOO' as wheels); spelling out words -- targets, synonyms,
-labels, captions, section headers, arrow annotations, NATO-alphabet,
-translations, rhymes -- is not.
+The point of the game is to convey the WORD through the IMAGE.
+DO NOT INCLUDE ANY WORDS IN YOUR ART. Letters are fine as visual
+elements (an 'O' for an eye, a 'V' for a beak, '|||' as columns, 'OOO'
+as wheels); spelling out words -- targets, synonyms, labels, captions,
+section headers, arrow annotations, NATO-alphabet, translations, rhymes
+-- is not.
 
 CRITICAL (engine-enforced): TWO mechanical checks run on your art. If
 either fires, your teammate sees a placeholder instead of your drawing
