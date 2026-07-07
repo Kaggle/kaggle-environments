@@ -60,15 +60,15 @@ export function renderer(options: RendererOptions<UltimateTicTacToeStep[]>) {
         
         <div class="board-wrap">
           <canvas></canvas>
-          <div class="utt-winner-overlay" style="display: none;">
-            <div class="utt-winner-card">
-              <div class="utt-winner-title"></div>
-              <div class="utt-winner-subtitle"></div>
-            </div>
-          </div>
         </div>
         
-        <div class="status-container sketched-border"></div>
+        <div class="bottom-panel">
+          <div class="status-container sketched-border"></div>
+          <div class="details-container sketched-border">
+            <div class="details-move"></div>
+            <div class="details-thoughts"></div>
+          </div>
+        </div>
       </div>
     `;
 
@@ -170,6 +170,10 @@ export function renderer(options: RendererOptions<UltimateTicTacToeStep[]>) {
 
   // 5. Update Status Container Text
   const statusContainer = container.querySelector('.status-container') as HTMLDivElement;
+  const detailsContainer = container.querySelector('.details-container') as HTMLDivElement;
+  const detailsMove = detailsContainer.querySelector('.details-move') as HTMLDivElement;
+  const detailsThoughts = detailsContainer.querySelector('.details-thoughts') as HTMLDivElement;
+
   const playerNames = [getPlayerName(replay, 0), getPlayerName(replay, 1)];
 
   let statusHTML = '';
@@ -195,12 +199,38 @@ export function renderer(options: RendererOptions<UltimateTicTacToeStep[]>) {
     }
   }
 
-  const lastMovedPlayer = currentStep.players.find((p: any) => p.isTurn);
-  if (lastMovedPlayer && lastMovedPlayer.actionDisplayText) {
-    statusHTML += `<span class="annotation" style="margin-left: 12px; opacity: 0.8;">(Last: ${lastMovedPlayer.actionDisplayText})</span>`;
-  }
   if (statusContainer.innerHTML !== statusHTML) {
     statusContainer.innerHTML = statusHTML;
+  }
+
+  let actingPlayer = currentStep.players.find((p: any) => p.isTurn);
+  if (!actingPlayer && step > 0) {
+    actingPlayer = steps[step - 1]?.players.find((p: any) => p.isTurn);
+  }
+
+  if (actingPlayer) {
+    let moveText = '';
+    if (actingPlayer.actionDisplayText) {
+      moveText = `<strong>Action:</strong> ${actingPlayer.actionDisplayText}`;
+    } else {
+      moveText = `<strong>Action:</strong> Pending...`;
+    }
+
+    if (detailsMove.innerHTML !== moveText) {
+      detailsMove.innerHTML = moveText;
+    }
+
+    let thoughtsHTML = '';
+    if (actingPlayer.thoughts) {
+      const escapedThoughts = actingPlayer.thoughts.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      thoughtsHTML = `<strong>Thoughts:</strong>\n${escapedThoughts}`;
+    } else {
+      thoughtsHTML = `<strong>Thoughts:</strong> No thoughts available.`;
+    }
+
+    if (detailsThoughts.innerHTML !== thoughtsHTML) {
+      detailsThoughts.innerHTML = thoughtsHTML;
+    }
   }
 
   // 6. Winner Overlay
@@ -227,10 +257,16 @@ export function renderer(options: RendererOptions<UltimateTicTacToeStep[]>) {
 
     if (!winnerOverlay) {
       winnerOverlay = document.createElement('div');
+      winnerOverlay.className = 'utt-winner-overlay';
+      winnerOverlay.style.display = 'none';
+      winnerOverlay.innerHTML = `
+        <div class="utt-winner-card">
+          <div class="utt-winner-title"></div>
+          <div class="utt-winner-subtitle"></div>
+        </div>
+      `;
       container.querySelector('.board-wrap')!.appendChild(winnerOverlay);
     }
-
-    winnerOverlay.style.display = 'flex';
 
     const newClassName = `utt-winner-overlay ${overlayClass}`;
     if (winnerOverlay.className !== newClassName) {
@@ -245,10 +281,6 @@ export function renderer(options: RendererOptions<UltimateTicTacToeStep[]>) {
     const subtitleEl = winnerOverlay.querySelector('.utt-winner-subtitle');
     if (subtitleEl && subtitleEl.textContent !== subtitle) {
       subtitleEl.textContent = subtitle;
-    }
-  } else {
-    if (winnerOverlay) {
-      winnerOverlay.style.display = 'none';
     }
   }
 
@@ -270,9 +302,27 @@ export function renderer(options: RendererOptions<UltimateTicTacToeStep[]>) {
 
   const sizeAndDraw = () => {
     if (stateObj.activeStep !== step) return; // Stale draw call
+    let needsRefigStep = false;
     const wrapRect = wrap.getBoundingClientRect();
     const cssW = Math.max(1, Math.floor(wrapRect.width));
     const cssH = Math.max(1, Math.floor(wrapRect.height));
+
+    if (isTerminal && winnerOverlay) {
+      const elapsed = Date.now() - stateObj.animationStartTime;
+      if (elapsed > 1000) {
+        if (winnerOverlay.style.display !== 'flex') {
+          winnerOverlay.style.display = 'flex';
+          winnerOverlay.style.animation = 'none';
+          void winnerOverlay.offsetWidth;
+          winnerOverlay.style.animation = '';
+        }
+      } else {
+        winnerOverlay.style.display = 'none';
+        needsRefigStep = true;
+      }
+    } else if (winnerOverlay) {
+      winnerOverlay.style.display = 'none';
+    }
 
     if (canvas.width !== cssW || canvas.height !== cssH) {
       canvas.width = cssW;
@@ -385,7 +435,6 @@ export function renderer(options: RendererOptions<UltimateTicTacToeStep[]>) {
     const moveOrders = calculateMoveOrders(step, steps);
 
     // 5. Draw cell marks & subgrid winners
-    let needsRefigStep = false;
     for (let s = 0; s < 9; s++) {
       const majorRow = Math.floor(s / 3);
       const majorCol = s % 3;
