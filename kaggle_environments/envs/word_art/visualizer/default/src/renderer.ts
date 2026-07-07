@@ -4,7 +4,7 @@ import type { RendererOptions } from '@kaggle-environments/core';
 // reason ("target_word" | "contains_words" | null) is the source of truth,
 // the bool is derived. Old replays predate the reason field and only have
 // the bool, so we default those to "target_word" (the only reason the old
-// engine could produce).
+// engine could produce)
 type DisqReason = 'target_word' | 'contains_words' | null;
 
 interface HistoryEntry {
@@ -165,13 +165,13 @@ export function renderer(options: RendererOptions) {
     // placeholder text made it into teammate_art), still show as
     // disqualified with the older "target_word" default.
     blueDisqReason =
-      rawBlueReason
-      ?? (obs0._round_blue_art_disqualified ? 'target_word' : null)
-      ?? ((typeof blueArt === 'string' && blueArt.includes('disqualified')) ? 'target_word' : null);
+      rawBlueReason ??
+      (obs0._round_blue_art_disqualified ? 'target_word' : null) ??
+      (typeof blueArt === 'string' && blueArt.includes('disqualified') ? 'target_word' : null);
     yellowDisqReason =
-      rawYellowReason
-      ?? (obs0._round_yellow_art_disqualified ? 'target_word' : null)
-      ?? ((typeof yellowArt === 'string' && yellowArt.includes('disqualified')) ? 'target_word' : null);
+      rawYellowReason ??
+      (obs0._round_yellow_art_disqualified ? 'target_word' : null) ??
+      (typeof yellowArt === 'string' && yellowArt.includes('disqualified') ? 'target_word' : null);
   }
   const blueDisqualified = blueDisqReason !== null;
   const yellowDisqualified = yellowDisqReason !== null;
@@ -266,8 +266,7 @@ export function renderer(options: RendererOptions) {
       // can see both the cheat and the specific consequence.
       const note = document.createElement('div');
       note.className = 'wa-art-disqualified-note';
-      note.textContent =
-        `⚠ Engine disqualified this art: it ${disqReasonText(disqReason)}. Teammate saw a placeholder instead.`;
+      note.textContent = `⚠ Engine disqualified this art: it ${disqReasonText(disqReason)}. Teammate saw a placeholder instead.`;
       box.appendChild(note);
       const pre = document.createElement('div');
       pre.className = 'wa-art-raw';

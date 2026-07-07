@@ -18,7 +18,7 @@ const TEAM_LABEL = ['Blue', 'Blue', 'Yellow', 'Yellow'] as const;
  * We surface: role-aware action text (drew art / guessed a word), and
  * the raw ``thoughts`` field written by ``core_harness`` for LLM agents.
  * The side panel's default label/description getters read these off
- * ``player.actionDisplayText`` and ``player.thoughts``.
+ * ``player.actionDisplayText`` and ``player.thoughts``
  */
 export const wordArtTransformer = (environment: ReplayData, _gameName: string): ReplayData => {
   const rawSteps = environment.steps as unknown as any[][];
@@ -35,8 +35,7 @@ export const wordArtTransformer = (environment: ReplayData, _gameName: string): 
 
       // core_harness wraps as {submission, thoughts, status, ...}.
       const rawAction = agent.action;
-      const isCoreHarness =
-        typeof rawAction === 'object' && rawAction !== null && 'submission' in rawAction;
+      const isCoreHarness = typeof rawAction === 'object' && rawAction !== null && 'submission' in rawAction;
       const submission = isCoreHarness ? rawAction.submission : rawAction;
       const thoughts: string = (isCoreHarness && rawAction?.thoughts) || '';
 
