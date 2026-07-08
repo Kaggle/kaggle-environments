@@ -4,8 +4,16 @@ import type { ShogiBoardState, ShogiCell, ShogiHandCounts, ShogiStep } from './t
 const INK = '#050001';
 const SOFT_INK = '#3c3b37';
 const SECONDARY_TEXT = '#444343';
-const P0_COLOR = '#222222'; // Sente accent
-const P1_COLOR = '#b8801f'; // Gote accent
+const P0_COLOR = '#a63a1c'; // Sente accent (warm red)
+const P1_COLOR = '#1f4f8b'; // Gote accent (deep blue)
+const SENTE_PIECE_FILL = '#fbe7a4';
+const SENTE_PIECE_FILL_PROMOTED = '#f2d27a';
+const SENTE_PIECE_TEXT = INK;
+const SENTE_PIECE_TEXT_PROMOTED = '#c9381c';
+const GOTE_PIECE_FILL = '#2f2e2b';
+const GOTE_PIECE_FILL_PROMOTED = '#3f2a24';
+const GOTE_PIECE_TEXT = '#f5ecc7';
+const GOTE_PIECE_TEXT_PROMOTED = '#ff9a6a';
 const BOARD_BG = '#f3e6b6'; // Warm wood tone for the board surface
 const PROMOTED_COLOR = '#c9381c';
 const HIGHLIGHT_FROM = 'rgba(60, 59, 55, 0.55)';
@@ -128,13 +136,21 @@ function drawPiece(
   ctx.lineTo(-sideX * 0.85, baseY);
   ctx.lineTo(-sideX, shoulderY);
   ctx.closePath();
-  ctx.fillStyle = promoted ? '#f2d27a' : '#fbe7a4';
+  if (sente) {
+    ctx.fillStyle = promoted ? SENTE_PIECE_FILL_PROMOTED : SENTE_PIECE_FILL;
+  } else {
+    ctx.fillStyle = promoted ? GOTE_PIECE_FILL_PROMOTED : GOTE_PIECE_FILL;
+  }
   ctx.fill();
   ctx.lineWidth = 1.25;
   ctx.strokeStyle = SOFT_INK;
   ctx.stroke();
 
-  ctx.fillStyle = promoted ? PROMOTED_COLOR : INK;
+  if (sente) {
+    ctx.fillStyle = promoted ? SENTE_PIECE_TEXT_PROMOTED : SENTE_PIECE_TEXT;
+  } else {
+    ctx.fillStyle = promoted ? GOTE_PIECE_TEXT_PROMOTED : GOTE_PIECE_TEXT;
+  }
   ctx.font = `700 ${Math.round(fontPx)}px 'Inter', sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -280,6 +296,7 @@ export function renderer(options: RendererOptions<ShogiStep[]>) {
   parent.innerHTML = `
     <div class="renderer-container">
       <div class="header"></div>
+      <div class="winner-banner"></div>
       <div class="body-wrap">
         <div class="hand p1 sketched-border"></div>
         <div class="board-wrap"><canvas></canvas></div>
@@ -289,6 +306,7 @@ export function renderer(options: RendererOptions<ShogiStep[]>) {
     </div>
   `;
   const header = parent.querySelector('.header') as HTMLDivElement;
+  const winnerBanner = parent.querySelector('.winner-banner') as HTMLDivElement;
   const wrap = parent.querySelector('.board-wrap') as HTMLDivElement;
   const canvas = wrap.querySelector('canvas') as HTMLCanvasElement;
   const handGote = parent.querySelector('.hand.p1') as HTMLDivElement;
@@ -356,13 +374,21 @@ export function renderer(options: RendererOptions<ShogiStep[]>) {
   let statusHTML = '';
   if (isTerminal) {
     if (obs.winner === 'b') {
-      statusHTML = `<span style="color: ${P0_COLOR};">${playerNames[0]} (Sente) wins!</span>`;
+      winnerBanner.className = 'winner-banner active sente-win';
+      winnerBanner.innerHTML = `<span class="crown">♛</span><span class="winner-name">${playerNames[0]}</span><span class="winner-side">(Sente)</span><span class="wins-label">WINS</span>`;
+      statusHTML = `<span>Game over</span>`;
     } else if (obs.winner === 'w') {
-      statusHTML = `<span style="color: ${P1_COLOR};">${playerNames[1]} (Gote) wins!</span>`;
+      winnerBanner.className = 'winner-banner active gote-win';
+      winnerBanner.innerHTML = `<span class="crown">♛</span><span class="winner-name">${playerNames[1]}</span><span class="winner-side">(Gote)</span><span class="wins-label">WINS</span>`;
+      statusHTML = `<span>Game over</span>`;
     } else {
-      statusHTML = `<span>Game over: ${obs.winner ?? 'finished'}</span>`;
+      winnerBanner.className = 'winner-banner active draw';
+      winnerBanner.innerHTML = `<span class="wins-label">Game over: ${obs.winner ?? 'finished'}</span>`;
+      statusHTML = `<span>Game over</span>`;
     }
   } else {
+    winnerBanner.className = 'winner-banner';
+    winnerBanner.innerHTML = '';
     const turnColor = activeIdx === 0 ? P0_COLOR : P1_COLOR;
     const turnName = activeIdx >= 0 ? playerNames[activeIdx] : '';
     const turnSide = activeIdx === 0 ? 'Sente' : activeIdx === 1 ? 'Gote' : '';

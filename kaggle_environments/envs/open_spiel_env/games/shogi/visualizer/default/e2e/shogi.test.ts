@@ -40,6 +40,7 @@ test.describe('Shogi Visualizer', () => {
     await slider.fill(maxValue || '0');
     await page.waitForTimeout(200);
 
-    await expect(page.locator('.status-container').filter({ hasText: /wins|Draw/i })).toBeVisible();
+    await expect(page.locator('.status-container').filter({ hasText: /Game over/i })).toBeVisible();
+    await expect(page.locator('.winner-banner.active').filter({ hasText: /WINS|Game over/i })).toBeVisible();
   });
 });
