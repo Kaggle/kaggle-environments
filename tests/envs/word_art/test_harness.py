@@ -730,13 +730,6 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn(phrase, artist)
         self.assertIn(phrase, guesser)
 
-    def test_guesser_prompt_discloses_sanitization(self):
-        prompt = generate_prompt(_guesser_obs(), [])
-        lower = prompt.lower()
-        self.assertIn("silently strip", lower)
-        self.assertIn("cjk", lower)
-        self.assertIn("monospace", lower)
-
     def test_guesser_prompt_explains_disqualification_marker(self):
         prompt = generate_prompt(_guesser_obs(), [])
         self.assertIn("disqualif", prompt.lower())

@@ -410,11 +410,6 @@ Rules:
   placeholder marker instead of a picture -- the marker text tells you
   which check fired. Past rounds in the history below are likewise
   labelled "DISQUALIFIED" when this happened.
-- The engine also silently strips combining marks, wide characters
-  (CJK, most emoji), and other non-single-cell Unicode from the art
-  before you see it, so monospace alignment holds. If the drawing
-  looks oddly truncated or a glyph is missing where one seems intended,
-  that's why.
 
 {scoring}
 
