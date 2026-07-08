@@ -62,12 +62,14 @@ name = "kaggle_environments"
 # If using another build backend (setuptools, poetry), you can remove this
 # section.
 #
-# NOTE: only the sdist is affected by these excludes. The CI publish step
-# (docker/cicd-publish-to-pypi.sh) uses `flit build --format wheel` — which
-# copies the module directory from disk and ignores this list — and does
-# NOT ship the sdist. The `visualizer/*/dist/index.html` files that
-# `html_renderer()` needs are shaped for the wheel by the prune loop in
-# that script, not by any pattern here.
+# NOTE: `flit publish` applies these excludes when building the sdist, and
+# then builds the wheel from the sdist — so anything listed here is stripped
+# from both. The CI publish step (docker/cicd-publish-to-pypi.sh) prunes
+# each `visualizer/<variant>/` down to just `dist/index.html` before
+# publishing (with `--no-use-vcs` so the untracked pruned files are
+# included), and `**/visualizer/` is deliberately NOT in this list so those
+# files survive to the wheel. That HTML is what `html_renderer()` returns
+# in notebook / iframe srcdoc contexts.
 [tool.flit.sdist]
 exclude = [
   # Do not release tests files on PyPI

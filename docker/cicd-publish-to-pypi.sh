@@ -68,16 +68,12 @@ else
   export FLIT_USERNAME=__token__
   export FLIT_PASSWORD=$PYPI_TOKEN
 
-  # Build and upload the wheel directly, skipping the sdist. `flit publish`
-  # would build the sdist first (which runs a `git status` check) and refuse
-  # because the prune loop above leaves the working tree dirty vs. git
-  # (visualizer sources deleted, dist/index.html untracked). `flit build
-  # --format wheel` copies the module directory from disk with no VCS check
-  # and no exclude-list filtering, so the pruned dist/index.html files
-  # reach the wheel unchanged.
-  rm -rf dist
-  flit build --format wheel
-  flit publish --repository pypi dist/*.whl
+  # `--no-use-vcs` tells flit's sdist builder to walk the filesystem
+  # instead of `git ls-files`, so it (a) picks up the pruned, untracked
+  # `dist/index.html` files, and (b) skips the git-cleanliness check that
+  # would otherwise reject the pruned tree. Slated to become flit's
+  # default in a future release.
+  flit publish --no-use-vcs
   
   # It takes a bit for the package to show up on PyPI. Make sure it's visible through Pip before proceeding.
   # --- RETRY LOGIC START ---
