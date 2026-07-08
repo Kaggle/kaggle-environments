@@ -105,13 +105,13 @@ html, body, #app {
 }
 
 .board-wrap canvas {
-  position: relative;
+  position: absolute;
+  inset: 0;
   display: block;
-  max-width: 100%;
-  max-height: 100%;
+  width: 100%;
+  height: 100%;
   background: transparent;
   filter: drop-shadow(0 10px 25px rgba(15, 23, 42, 0.08));
-  object-fit: contain;
 }
 
 .bottom-panel {
@@ -145,37 +145,6 @@ html, body, #app {
 .status-container .annotation {
   font-weight: 500;
   color: #334155;
-}
-
-.details-container {
-  display: flex;
-  flex-direction: column;
-  background-color: white;
-  padding: 12px 16px;
-  font-size: 0.85rem;
-  color: #334155;
-  text-align: left;
-  border-radius: 4px;
-  height: 120px;
-  overflow-y: scroll;
-  box-sizing: border-box;
-  width: 100%;
-  flex-shrink: 0;
-  gap: 8px;
-}
-
-.details-move {
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 0.9rem;
-  color: #0f172a;
-  border-bottom: 1px dashed #cbd5e1;
-  padding-bottom: 4px;
-}
-
-.details-thoughts {
-  white-space: pre-wrap;
-  line-height: 1.4;
-  color: #475569;
 }
 
 /* Grand Winner Overlay */

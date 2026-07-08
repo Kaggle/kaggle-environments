@@ -48,18 +48,15 @@ function humanizeActionString(raw: string | null | undefined, playerLabel: strin
   if (raw.startsWith('Choose local board')) {
     const parts = raw.split(' ');
     const subgridIdx = parseInt(parts[parts.length - 1]);
-    const row = Math.floor(subgridIdx / 3);
-    const col = subgridIdx % 3;
-    return `${playerLabel} chose Sub-grid [Row ${row}, Col ${col}]`;
+    return `${playerLabel} chose Sub-grid ${subgridIdx}`;
   }
   const match = raw.match(/Local board (\d+): [xo]\(([0-2]),([0-2])\)/);
   if (match) {
     const subgridIdx = parseInt(match[1]);
     const cellRow = parseInt(match[2]);
     const cellCol = parseInt(match[3]);
-    const subRow = Math.floor(subgridIdx / 3);
-    const subCol = subgridIdx % 3;
-    return `${playerLabel} placed at [Row ${cellRow}, Col ${cellCol}] of Sub-grid [Row ${subRow}, Col ${subCol}]`;
+    const cellIdx = cellRow * 3 + cellCol;
+    return `${playerLabel} placed at cell ${cellIdx} of Sub-grid ${subgridIdx}`;
   }
   return `${playerLabel}: ${raw}`;
 }

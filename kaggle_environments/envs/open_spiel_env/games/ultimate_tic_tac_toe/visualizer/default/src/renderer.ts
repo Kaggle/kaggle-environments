@@ -64,10 +64,6 @@ export function renderer(options: RendererOptions<UltimateTicTacToeStep[]>) {
         
         <div class="bottom-panel">
           <div class="status-container sketched-border"></div>
-          <div class="details-container sketched-border">
-            <div class="details-move"></div>
-            <div class="details-thoughts"></div>
-          </div>
         </div>
       </div>
     `;
@@ -170,9 +166,6 @@ export function renderer(options: RendererOptions<UltimateTicTacToeStep[]>) {
 
   // 5. Update Status Container Text
   const statusContainer = container.querySelector('.status-container') as HTMLDivElement;
-  const detailsContainer = container.querySelector('.details-container') as HTMLDivElement;
-  const detailsMove = detailsContainer.querySelector('.details-move') as HTMLDivElement;
-  const detailsThoughts = detailsContainer.querySelector('.details-thoughts') as HTMLDivElement;
 
   const playerNames = [getPlayerName(replay, 0), getPlayerName(replay, 1)];
 
@@ -201,36 +194,6 @@ export function renderer(options: RendererOptions<UltimateTicTacToeStep[]>) {
 
   if (statusContainer.innerHTML !== statusHTML) {
     statusContainer.innerHTML = statusHTML;
-  }
-
-  let actingPlayer = currentStep.players.find((p: any) => p.isTurn);
-  if (!actingPlayer && step > 0) {
-    actingPlayer = steps[step - 1]?.players.find((p: any) => p.isTurn);
-  }
-
-  if (actingPlayer) {
-    let moveText = '';
-    if (actingPlayer.actionDisplayText) {
-      moveText = `<strong>Action:</strong> ${actingPlayer.actionDisplayText}`;
-    } else {
-      moveText = `<strong>Action:</strong> Pending...`;
-    }
-
-    if (detailsMove.innerHTML !== moveText) {
-      detailsMove.innerHTML = moveText;
-    }
-
-    let thoughtsHTML = '';
-    if (actingPlayer.thoughts) {
-      const escapedThoughts = actingPlayer.thoughts.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      thoughtsHTML = `<strong>Thoughts:</strong>\n${escapedThoughts}`;
-    } else {
-      thoughtsHTML = `<strong>Thoughts:</strong> No thoughts available.`;
-    }
-
-    if (detailsThoughts.innerHTML !== thoughtsHTML) {
-      detailsThoughts.innerHTML = thoughtsHTML;
-    }
   }
 
   // 6. Winner Overlay
@@ -327,8 +290,6 @@ export function renderer(options: RendererOptions<UltimateTicTacToeStep[]>) {
     if (canvas.width !== cssW || canvas.height !== cssH) {
       canvas.width = cssW;
       canvas.height = cssH;
-      canvas.style.width = `${cssW}px`;
-      canvas.style.height = `${cssH}px`;
     }
 
     const c = canvas.getContext('2d');
