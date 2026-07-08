@@ -147,6 +147,69 @@ _JSON_FENCE_RE = re.compile(
 _JSON_DECODER = json.JSONDecoder(strict=False)
 
 
+def extract_last_json_object_with_position(
+    response: str,
+    *,
+    required_keys: Sequence[str] | None = None,
+) -> tuple[dict[str, Any] | None, int]:
+    """Find the LAST parseable JSON object in an LLM response AND return
+    its start position.
+
+    Same two-strategy scan and last-wins semantics as
+    :func:`extract_last_json_object` (see that function for the model-
+    behaviour rationale). The extra return value is the character index
+    at which the winning object starts in ``response`` -- useful for
+    callers that want to slice out the prose reasoning that precedes
+    the JSON answer for a ``ParseResult.thoughts`` field.
+
+    Args:
+        response: The full LLM response text.
+        required_keys: If given, candidates lacking every one of these keys
+            at the top level are skipped. Lets callers ignore JSON-shaped
+            content in the model's reasoning that isn't an action object.
+
+    Returns:
+        ``(dict, start)`` for the winning object, or ``(None, -1)`` if no
+        candidate parses. ``start`` is the index of the opening ``{`` (bare
+        strategy) or the opening ``` ``` ``` fence (fenced strategy) --
+        i.e., everything at ``response[:start]`` is prose that preceded
+        the answer.
+    """
+
+    def _passes_filter(d: dict[str, Any]) -> bool:
+        if required_keys is None:
+            return True
+        return any(k in d for k in required_keys)
+
+    winner: dict[str, Any] | None = None
+    winner_start = -1
+
+    for match in _JSON_FENCE_RE.finditer(response):
+        try:
+            obj = json.loads(match.group(1), strict=False)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(obj, dict) and _passes_filter(obj):
+            winner, winner_start = obj, match.start()
+    if winner is not None:
+        return winner, winner_start
+
+    i = 0
+    while True:
+        i = response.find("{", i)
+        if i < 0:
+            break
+        try:
+            obj, end = _JSON_DECODER.raw_decode(response, i)
+        except json.JSONDecodeError:
+            i += 1
+            continue
+        if isinstance(obj, dict) and _passes_filter(obj):
+            winner, winner_start = obj, i
+        i = end
+    return winner, winner_start
+
+
 def extract_last_json_object(
     response: str,
     *,
@@ -168,6 +231,10 @@ def extract_last_json_object(
     2. Balanced top-level ``{...}`` substrings, parsed with
        ``json.JSONDecoder.raw_decode`` so nested objects work correctly.
 
+    Thin wrapper over :func:`extract_last_json_object_with_position` that
+    drops the position -- callers that need to slice prose reasoning out
+    should use that variant directly.
+
     Args:
         response: The full LLM response text.
         required_keys: If given, candidates lacking every one of these keys
@@ -177,41 +244,10 @@ def extract_last_json_object(
     Returns:
         The matching dict, or ``None`` if no candidate parses.
     """
-
-    def _passes_filter(d: dict[str, Any]) -> bool:
-        if required_keys is None:
-            return True
-        return any(k in d for k in required_keys)
-
-    fenced: list[dict[str, Any]] = []
-    for match in _JSON_FENCE_RE.finditer(response):
-        try:
-            obj = json.loads(match.group(1), strict=False)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(obj, dict) and _passes_filter(obj):
-            fenced.append(obj)
-    if fenced:
-        return fenced[-1]
-
-    bare: list[dict[str, Any]] = []
-    i = 0
-    while True:
-        i = response.find("{", i)
-        if i < 0:
-            break
-        try:
-            obj, end = _JSON_DECODER.raw_decode(response, i)
-        except json.JSONDecodeError:
-            i += 1
-            continue
-        if isinstance(obj, dict) and _passes_filter(obj):
-            bare.append(obj)
-        i = end
-    if bare:
-        return bare[-1]
-
-    return None
+    parsed, _ = extract_last_json_object_with_position(
+        response, required_keys=required_keys,
+    )
+    return parsed
 
 
 # ---------------------------------------------------------------------------
