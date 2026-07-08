@@ -23,9 +23,37 @@ rounds the higher score wins. Roles within each team swap every round.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Mapping, Sequence
 
 from kaggle_environments.core_harness import ParseResult, extract_last_json_object
+
+# Standard JSON permits only \", \\, \/, \b, \f, \n, \r, \t, \uXXXX after a
+# backslash; any other bare `\` inside a string is an invalid escape and
+# json.loads rejects the whole object. In word_art specifically, models
+# routinely write ASCII-art snippets like `\ | /`, `/\`, `\_/`, `\-`
+# inside the `thinking` field (guessers describing what they see) or the
+# `art` field (artists drawing) without doubling the backslash. Against
+# a 624-episode / 35.5k-turn replay archive this bug rejected ~1.1% of
+# first-attempt responses and forced a retry. Recovery rate of the
+# repair fallback on that dataset: 421/449 (93.8%).
+#
+# We keep this in the word_art harness rather than pushing it into
+# core_harness because ASCII-art-in-string is a word_art-shaped problem;
+# other games don't have prose about `/\` in their reasoning nearly as
+# often, and touching the shared helper would risk changing behaviour
+# for every harness in the repo.
+#
+# The scan matches valid JSON escapes atomically (leaving them alone --
+# crucial, because `\\` is already valid and must not be split into two
+# lone `\`s) OR a truly lone `\`. Only the lone case gets doubled.
+_JSON_ESCAPE_SCAN_RE = re.compile(r'\\(?:["\\/bfnrtu]|u[0-9a-fA-F]{4})|\\')
+
+
+def _repair_lone_backslashes(text: str) -> str:
+    def _sub(m: re.Match[str]) -> str:
+        return "\\\\" if m.group(0) == "\\" else m.group(0)
+    return _JSON_ESCAPE_SCAN_RE.sub(_sub, text)
 
 # --- Helpers ----------------------------------------------------------------
 
@@ -104,8 +132,10 @@ def _scoring_block(max_attempts: int, first_try_bonus: int) -> str:
         f"(1 base + {first_try_bonus} first-try bonus)\n"
         f"  - Correct on attempt 2 through {max_attempts}: 1 point\n"
         f"  - No correct guess within {max_attempts} attempts: 0 points\n"
-        "Both teams play in parallel; your score is independent of the "
-        "other team's outcome for the round."
+        "Both teams play the same secret word each round in parallel; your "
+        "score is independent of the other team's outcome for the round. "
+        "After all rounds are played, the team with the higher total wins; "
+        "equal totals are a tie."
     )
 
 
@@ -240,7 +270,7 @@ Rules:
   each round.
 - The guesser has up to {max_attempts} attempts. Matching is
   case-insensitive and whitespace-trimmed; only the exact word counts
-  (no spelling variants).
+  (no plurals, synonyms, partial matches, or other spelling variants).
 
 {scoring}
 
@@ -327,8 +357,9 @@ Rules:
   below; you don't see the word. Roles swap each round.
 - You have up to {max_attempts} guesses. Matching is case-insensitive
   and whitespace-trimmed; only the exact word counts (no plurals,
-  synonyms, or partial matches).
-- The opposing team plays in parallel and cannot see your art or guesses.
+  synonyms, partial matches, or other spelling variants).
+- The opposing team plays the same secret word each round in parallel
+  and cannot see your art or guesses.
 - The engine mechanically disqualifies art that contains either the
   target word or any run of 3+ letters with 2+ distinct characters
   (labels, captions, headings). When that happens you'll see a
@@ -382,6 +413,13 @@ def parse_response(
     test callers.
     """
     parsed = extract_last_json_object(response, required_keys=("art", "guess"))
+    if parsed is None:
+        # Retry once against a copy with lone backslashes doubled --
+        # otherwise-usable answers where the model wrote `\ | /` etc. in a
+        # string get through. See _repair_lone_backslashes above.
+        repaired = _repair_lone_backslashes(response)
+        if repaired != response:
+            parsed = extract_last_json_object(repaired, required_keys=("art", "guess"))
     if parsed is None:
         # No JSON object found at all -- raw_action=None so core_harness
         # categorizes this as UNPARSABLE (not ILLEGAL) in telemetry. The

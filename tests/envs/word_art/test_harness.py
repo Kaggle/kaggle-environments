@@ -464,6 +464,45 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("2500", prompt)
         self.assertIn("truncated", prompt.lower())
 
+    def test_scoring_block_states_win_and_tie_conditions(self):
+        # Prior gap: scoring block explained per-round points but never told
+        # the model how the game as a whole ends. 12% of episodes in the
+        # 624-replay archive were ties -- if the model doesn't know ties are
+        # possible it can't strategize around a close score.
+        for obs in (_artist_obs(), _guesser_obs()):
+            prompt = generate_prompt(obs, [])
+            lower = prompt.lower()
+            self.assertIn("higher total wins", lower)
+            self.assertIn("tie", lower)
+
+    def test_scoring_block_states_teams_share_secret_word(self):
+        # Prior gap: nothing in the prompt said both teams got the SAME
+        # secret word each round. Implicit from history (both teams' entries
+        # share `word`) but never disclosed upfront.
+        for obs in (_artist_obs(), _guesser_obs()):
+            prompt = generate_prompt(obs, [])
+            self.assertIn("same secret word", prompt)
+
+    def test_match_rule_wording_is_consistent_across_roles(self):
+        # Prior gap: artist said "no spelling variants" and guesser said
+        # "no plurals, synonyms, or partial matches" -- same rule, different
+        # phrasing. Both prompts should now use the same fuller list.
+        artist = " ".join(generate_prompt(_artist_obs(), []).split())
+        guesser = " ".join(generate_prompt(_guesser_obs(), []).split())
+        phrase = "no plurals, synonyms, partial matches, or other spelling variants"
+        self.assertIn(phrase, artist)
+        self.assertIn(phrase, guesser)
+
+    def test_guesser_prompt_discloses_sanitization(self):
+        # Prior gap: artist prompt described the silent sanitization pass
+        # (combining marks / CJK / wide chars dropped) but the guesser
+        # prompt didn't, leaving the guesser confused if art rendered oddly.
+        prompt = generate_prompt(_guesser_obs(), [])
+        lower = prompt.lower()
+        self.assertIn("silently strip", lower)
+        self.assertIn("cjk", lower)
+        self.assertIn("monospace", lower)
+
     def test_guesser_prompt_explains_disqualification_marker(self):
         """Guesser must be told what the placeholder string means when their
         teammate's art gets disqualified for containing the target word."""
@@ -630,6 +669,68 @@ class AgentIntegrationTest(absltest.TestCase):
         ):
             with self.assertRaises(ValueError):
                 agent(obs, {"freeForm": True})
+
+
+# --- Parser regression: lone-backslash repair fallback ---------------------
+
+
+class LoneBackslashRepairTest(absltest.TestCase):
+    """Models discussing / drawing ASCII art routinely write `\\ | /`,
+    `/\\`, `\\_/` etc. in JSON string values without doubling the
+    backslash. Strict json.loads rejects the whole object; the harness
+    tries once more against a repaired copy where lone backslashes are
+    doubled. In a 624-episode replay archive this recovered ~94% of
+    otherwise-forced retries."""
+
+    def test_guesser_thoughts_contain_lone_backslashes(self):
+        obs = _guesser_obs()
+        response = (
+            '```json\n'
+            '{"thinking": "The drawing shows \\ | / on top and \\_ _/ below",'
+            ' "guess": "FISHBOWL"}\n'
+            '```'
+        )
+        result = parse_response(response, None, observation=obs)
+        self.assertEqual(result.submission, "FISHBOWL")
+
+    def test_bare_json_guess_with_lone_backslashes(self):
+        obs = _guesser_obs()
+        response = (
+            'Reasoning: {"thinking":"peaked /\\ shapes suggest mountain",'
+            '"guess":"MOUNTAIN"}'
+        )
+        result = parse_response(response, None, observation=obs)
+        self.assertEqual(result.submission, "MOUNTAIN")
+
+    def test_artist_art_with_lone_backslashes(self):
+        obs = _artist_obs()
+        # Model wrote "/\" and "\_/" inside `art` without doubling.
+        response = '{"thinking": "cat", "art": "/\\_/\\\n( o.o )"}'
+        # First loads: `\_` inside `art` is invalid; repair should recover.
+        # (Note: the `\n` after `\\_/\\` is a real Python `\n` in this
+        # source, not an escape in the JSON text, so json.loads would fail
+        # even without the `\_`. Repair fixes both.)
+        result = parse_response(response, None, observation=obs)
+        self.assertIsNotNone(result.submission)
+        self.assertIn("_/", result.submission)
+
+    def test_repair_preserves_real_escapes(self):
+        """Response with legitimate `\\n`, `\\"`, `\\\\` escapes must parse
+        the same before/after the repair path -- no double-escaping."""
+        obs = _artist_obs()
+        response = '```json\n{"art": "line1\\nline2\\n\\\\end"}\n```'
+        result = parse_response(response, None, observation=obs)
+        self.assertEqual(result.submission, "line1\nline2\n\\end")
+
+    def test_repair_does_not_fire_on_valid_json(self):
+        """When strict parse succeeds on the first try, the repair path
+        is skipped -- confirmed indirectly: a response whose lone `\\`
+        appears OUTSIDE the JSON object shouldn't have to trigger the
+        fallback for the primary block to parse."""
+        obs = _guesser_obs()
+        response = 'Some prose with a lone \\ here\n```json\n{"guess": "CAT"}\n```'
+        result = parse_response(response, None, observation=obs)
+        self.assertEqual(result.submission, "CAT")
 
 
 # --- Parser regression: no ghost-substitution for guess responses -----------
