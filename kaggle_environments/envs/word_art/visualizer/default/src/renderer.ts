@@ -118,8 +118,32 @@ export function renderer(options: RendererOptions) {
 
   const isDone = currentStep?.every?.((p: any) => p?.status === 'DONE') ?? false;
 
-  // Anchor the display to the last completed round once the game ends.
-  const displayRound = isDone ? Math.max(0, numRounds - 1) : currentRound;
+  // Detect a round-transition step: on the sub-step where both teams
+  // finish their guesses, the env immediately clears the round state and
+  // advances current_round. Without adjustment, that step renders as an
+  // empty next-round art phase and the final guesses that ended the round
+  // are never shown before we move on. History grew relative to the
+  // previous RAW step iff this is that transition step. The transformer
+  // splits simultaneous-move ticks into multiple transformed sub-steps
+  // that share a rawAgents reference, so walk back past siblings before
+  // comparing — otherwise a same-tick transition (both teams finishing
+  // on the same guess attempt) would only render the banner on the
+  // first sub-step and drop it on the second.
+  let isRoundTransition = false;
+  if (!isDone && stepIdx > 0 && history.length > 0) {
+    let prevIdx = stepIdx - 1;
+    while (prevIdx > 0 && (steps[prevIdx] as any)?.rawAgents === currentStep) {
+      prevIdx--;
+    }
+    const prevRaw = steps[prevIdx] as any;
+    const prevStepArr: any[] = Array.isArray(prevRaw) ? prevRaw : (prevRaw?.rawAgents ?? []);
+    const prevHistoryLen = (getStepObservation(prevStepArr, 0).history ?? []).length;
+    isRoundTransition = history.length > prevHistoryLen;
+  }
+
+  // Anchor the display to the last completed round once the game ends,
+  // or to the just-completed round on a transition step.
+  const displayRound = isDone ? Math.max(0, numRounds - 1) : isRoundTransition ? history.length - 1 : currentRound;
   const isHistoricalView = displayRound < history.length;
 
   const word = getCurrentWord(currentStep, history, displayRound);
@@ -183,9 +207,11 @@ export function renderer(options: RendererOptions) {
 
   const phaseLabel = isDone
     ? 'Final'
-    : phase === 'art'
-      ? `Round ${displayRound + 1} / ${numRounds} — Artists drawing`
-      : `Round ${displayRound + 1} / ${numRounds} — Guessers guessing`;
+    : isRoundTransition
+      ? `Round ${displayRound + 1} / ${numRounds} — Complete`
+      : phase === 'art'
+        ? `Round ${displayRound + 1} / ${numRounds} — Artists drawing`
+        : `Round ${displayRound + 1} / ${numRounds} — Guessers guessing`;
 
   parent.innerHTML = '';
   const container = document.createElement('div');
@@ -359,6 +385,8 @@ export function renderer(options: RendererOptions) {
     final.className = 'wa-final';
     final.textContent = outcome;
     statusBar.appendChild(final);
+  } else if (isRoundTransition) {
+    statusBar.textContent = `Round ${displayRound + 1} complete. Round ${displayRound + 2} begins next.`;
   } else if (phase === 'art') {
     statusBar.textContent = 'Artists are drawing — guessers wait.';
   } else {
