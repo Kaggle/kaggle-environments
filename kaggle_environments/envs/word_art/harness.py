@@ -407,9 +407,8 @@ Rules:
 - The engine mechanically disqualifies art that contains either the
   target word or any run of 3+ letters with 2+ distinct characters
   (labels, captions, headings). When that happens you'll see a
-  placeholder marker instead of a picture -- the marker text tells you
-  which check fired. Past rounds in the history below are likewise
-  labelled "DISQUALIFIED" when this happened.
+  placeholder marker instead of a picture. Past rounds in the history
+  below are likewise labelled "DISQUALIFIED" when this happened.
 
 {scoring}
 
