@@ -38,11 +38,15 @@ function getCurrentArt(stepArr: any[], team: 'blue' | 'yellow', round: number): 
 }
 
 function getCurrentWord(stepArr: any[], history: HistoryEntry[], round: number): string {
+  // Prefer history for any completed round — on a round-transition step the
+  // env has already advanced current_round and the new artists' observations
+  // already carry the NEXT round's target_word, which would otherwise leak
+  // into the just-completed round's display.
+  if (round < history.length) return history[round].word;
   for (const p of stepArr ?? []) {
     const tw = p?.observation?.target_word;
     if (tw) return tw;
   }
-  if (round < history.length) return history[round].word;
   return stepArr?.[0]?.observation?._words?.[round] ?? '';
 }
 
