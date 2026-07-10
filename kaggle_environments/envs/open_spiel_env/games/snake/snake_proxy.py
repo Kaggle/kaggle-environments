@@ -60,7 +60,10 @@ class SnakeState(proxy.State):
         food_respawn_interval = int(getattr(wrapped, "food_respawn_interval", 0))
         turn = int(getattr(wrapped, "_steps", 0))
         if food_respawn_interval > 0:
-            turns_until_respawn = food_respawn_interval - (turn % food_respawn_interval)
+            last_spawn = int(getattr(wrapped, "_last_food_spawn_step", 0))
+            turns_until_respawn = max(
+                0, food_respawn_interval - (turn - last_spawn)
+            )
         else:
             turns_until_respawn = None
 

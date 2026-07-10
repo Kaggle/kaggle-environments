@@ -29,10 +29,12 @@ dies if its new head:
   - collides head-to-head with another snake (both die).
 A snake that moves onto a food cell ("*") grows by one and earns one
 point. Food spawns in 180°-rotationally-symmetric pairs (one cell and
-its mirror through the board center). Every {food_respawn_interval}
-turns a fresh pair is spawned and any uneaten food on the board is
-removed -- there is NO respawn when food is eaten. Snakes that do NOT
-eat lose their tail on the same turn. The game ends when at most one
+its mirror through the board center). A fresh pair is spawned whenever
+the board runs out of food OR when {food_respawn_interval} turns have
+elapsed since the last spawn (whichever comes first); on a timed
+respawn any uneaten food is cleared. Either trigger resets the timer
+for the next spawn. Snakes that do NOT eat lose their tail on the same
+turn. The game ends when at most one
 snake is alive, or when the board has no room left for a new food pair.
 
 Your goal is to maximize your food score (1 point per food eaten).

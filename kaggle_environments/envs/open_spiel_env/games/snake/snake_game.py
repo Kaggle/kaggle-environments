@@ -124,8 +124,9 @@ class SnakeState(pyspiel.State):
             self.snakes.append([(start_r, start_c)])
 
         self.foods: List[Tuple[int, int]] = []
-        self._place_foods()
         self._steps = 0
+        self._last_food_spawn_step = 0
+        self._place_foods()
         self._next_player = 0
         self._move_buffer = [None] * self.num_players
         # Per-round log of applied actions (one inner list per simultaneous
@@ -172,6 +173,7 @@ class SnakeState(pyspiel.State):
 
         a, b = random.choice(candidates)
         self.foods = [a, b]
+        self._last_food_spawn_step = self._steps
 
     def current_player(self):
         """Returns id of the next player to move."""
@@ -335,10 +337,16 @@ class SnakeState(pyspiel.State):
             else:
                 self.snakes[i] = []  # Remove dead snakes
 
-        # Timed food respawn: every food_respawn_interval turns, clear any
-        # uneaten food and place a fresh symmetric pair.
-        if self.food_respawn_interval > 0 and self._steps % self.food_respawn_interval == 0:
-            self._place_foods()
+        # Food respawn: place a fresh symmetric pair (clearing any uneaten
+        # food) whenever the board is empty, OR whenever food_respawn_interval
+        # turns have elapsed since the last spawn. Either trigger resets the
+        # timer for the next spawn.
+        if self.food_respawn_interval > 0:
+            interval_elapsed = (
+                self._steps - self._last_food_spawn_step >= self.food_respawn_interval
+            )
+            if not self.foods or interval_elapsed:
+                self._place_foods()
 
         # Check termination
         # Game ends if 0 or 1 player alive (if started with >1)

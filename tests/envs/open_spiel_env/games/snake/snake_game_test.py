@@ -131,6 +131,63 @@ class SnakeGameTest(absltest.TestCase):
     self.assertNotIn((0, 0), state.foods)
     self.assertNotIn((9, 9), state.foods)
 
+  def test_food_respawns_immediately_when_board_empty(self):
+    game = pyspiel.load_game(
+        "snake",
+        {"rows": 10, "columns": 10, "players": 2, "food_respawn_interval": 10},
+    )
+    state = game.new_initial_state()
+
+    # Pin food where P0 will eat it on step 1 (and its symmetric partner
+    # where P1 will eat it on step 1).
+    state.snakes[0] = [(1, 1)]
+    state.snakes[1] = [(8, 8)]
+    state.foods = [(2, 1), (7, 8)]
+
+    state.apply_action(1)  # P0 DOWN -> eats (2,1)
+    state.apply_action(0)  # P1 UP   -> eats (7,8)
+
+    # Both eaten in one turn: new pair should be placed immediately (not
+    # wait 10 turns for the timer).
+    self.assertLen(state.foods, 2)
+    self.assertNotIn((2, 1), state.foods)
+    self.assertNotIn((7, 8), state.foods)
+
+  def test_immediate_respawn_resets_timer(self):
+    game = pyspiel.load_game(
+        "snake",
+        {"rows": 10, "columns": 10, "players": 2, "food_respawn_interval": 5},
+    )
+    state = game.new_initial_state()
+    state.snakes[0] = [(1, 1)]
+    state.snakes[1] = [(8, 8)]
+    state.foods = [(2, 1), (7, 8)]
+
+    # Turn 1: both foods eaten -> immediate respawn resets the timer.
+    state.apply_action(1)  # P0 DOWN
+    state.apply_action(0)  # P1 UP
+    respawned = list(state.foods)
+
+    # Pin the fresh pair somewhere unreachable so it survives 4 more turns.
+    state.foods = [(0, 4), (9, 5)]
+
+    # 4 more safe turns: timer must NOT have fired yet (5 turns since the
+    # last spawn haven't elapsed).
+    for _ in range(4):
+      state.apply_action(1)  # P0 DOWN
+      state.apply_action(0)  # P1 UP
+    self.assertIn((0, 4), state.foods)
+    self.assertIn((9, 5), state.foods)
+
+    # 5th turn since the immediate respawn: timer fires, uneaten food is
+    # cleared, fresh pair placed.
+    state.apply_action(1)
+    state.apply_action(0)
+    self.assertNotIn((0, 4), state.foods)
+    self.assertNotIn((9, 5), state.foods)
+    self.assertLen(state.foods, 2)
+    del respawned
+
   def test_simultaneous_movement(self):
     game = pyspiel.load_game(
         "snake", {"rows": 5, "columns": 5, "players": 2}
