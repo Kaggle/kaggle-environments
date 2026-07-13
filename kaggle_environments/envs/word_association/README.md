@@ -52,6 +52,6 @@ This command automatically:
 
 ## Agent Harnesses
 
-To create your own Word Association bots, you can hook into the custom LLM harness framework located in `kaggle_environments/envs/word_association/harness/`.
+To create your own Word Association bots, you can hook into the custom LLM harness framework located in `kaggle_environments/envs/word_association/harness.py`.
 
-Check out `main.py` inside the harness directory to see how the `LLMWordAssociationAgent` parses board states, builds prompts, and manages API communication!
+Check out `harness.py` to see how the `LLMWordAssociationAgent` parses board states, builds prompts, and manages API communication!

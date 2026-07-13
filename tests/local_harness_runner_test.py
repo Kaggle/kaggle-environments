@@ -125,7 +125,7 @@ class RunLlmGameTest(absltest.TestCase):
             with tempfile.TemporaryDirectory() as tmp:
                 caller_file = os.path.join(tmp, "test_llm_game.py")
                 local_harness_runner.run_llm_game(
-                    "word_association",
+                    "werewolf",
                     caller_file=caller_file,
                     agent_module="harness/main.py",
                     num_agents=4,

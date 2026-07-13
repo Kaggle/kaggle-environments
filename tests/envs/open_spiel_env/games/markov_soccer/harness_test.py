@@ -139,7 +139,7 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("Markov Soccer", prompt)
         self.assertIn("SIMULTANEOUSLY", prompt)
         self.assertIn("Player A", prompt)
-        self.assertIn("4 row x 5 col", prompt)
+        self.assertIn("4 x 5 field", prompt)
         # All five actions named.
         for action in ("up", "down", "left", "right", "stand"):
             self.assertIn(action, prompt)
@@ -150,7 +150,7 @@ class GeneratePromptTest(absltest.TestCase):
         # most likely to surprise a model that "knows soccer" generically.
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [])
-        self.assertIn("does NOT steal", prompt)
+        self.assertIn("cannot steal by walking into the ball-holder", prompt)
         self.assertIn("wait for the ball-holder to walk", prompt)
 
     def test_goal_row_restriction_present(self):
@@ -158,7 +158,7 @@ class GeneratePromptTest(absltest.TestCase):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [])
         self.assertIn("row 1 or row 2", prompt)
-        self.assertIn("Only rows 1 and 2", prompt)
+        self.assertIn("from row 1 or 2", prompt)
 
     def test_player_label_swap(self):
         obs0 = _make_observation(self.state, self.game, player_id=0)
@@ -258,7 +258,7 @@ class GeneratePromptTest(absltest.TestCase):
         # rounds before drawing. The prompt should disclose H-1.
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [])
-        self.assertIn("If 999 rounds pass with no goal", prompt)
+        self.assertIn("Draw at 999 rounds with no goal", prompt)
 
     def test_rethink_suffix_illegal(self):
         obs = _make_observation(self.state, self.game, player_id=0)

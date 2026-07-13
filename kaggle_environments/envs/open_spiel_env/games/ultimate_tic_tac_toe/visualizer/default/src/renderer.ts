@@ -327,8 +327,6 @@ export function renderer(options: RendererOptions<UltimateTicTacToeStep[]>) {
     if (canvas.width !== cssW || canvas.height !== cssH) {
       canvas.width = cssW;
       canvas.height = cssH;
-      canvas.style.width = `${cssW}px`;
-      canvas.style.height = `${cssH}px`;
     }
 
     const c = canvas.getContext('2d');

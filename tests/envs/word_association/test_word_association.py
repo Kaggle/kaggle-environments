@@ -189,7 +189,7 @@ def test_first_game_prompt_has_no_multi_game_status():
     # On the first game (single-game session or game 0 of a multi-game
     # session) the status block should not render — there is nothing useful
     # to report and the single-game prompt should be unchanged.
-    from kaggle_environments.envs.word_association.harness.main import generate_prompt
+    from kaggle_environments.envs.word_association.harness import generate_prompt
     for cfg in ({}, {"games_per_episode": 5, "seed": 0}):
         env = make("word_association", configuration=cfg)
         obs = env.state[0].observation
@@ -201,7 +201,7 @@ def test_first_game_prompt_has_no_multi_game_status():
 def test_subsequent_game_prompt_has_status_block():
     # After the first game completes, the status line should appear with the
     # current game number and score — but never the total number of games.
-    from kaggle_environments.envs.word_association.harness.main import generate_prompt
+    from kaggle_environments.envs.word_association.harness import generate_prompt
     env = make("word_association", configuration={"games_per_episode": 5, "seed": 0})
     env.reset()
     while env.state[0].observation.current_game == 0 and not env.done:

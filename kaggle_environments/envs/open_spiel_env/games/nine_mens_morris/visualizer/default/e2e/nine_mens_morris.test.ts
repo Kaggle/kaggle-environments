@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Shogi Visualizer', () => {
+test.describe("Nine Men's Morris Visualizer", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
   });
@@ -12,9 +12,6 @@ test.describe('Shogi Visualizer', () => {
     const players = page.locator('.header .player');
     await expect(players.first()).toBeVisible();
     expect(await players.count()).toBe(2);
-
-    // Both komadai (hand panels) are mounted.
-    expect(await page.locator('.hand').count()).toBe(2);
 
     await expect(page.locator('.status-container')).toBeVisible();
   });
@@ -29,7 +26,7 @@ test.describe('Shogi Visualizer', () => {
     await page.waitForTimeout(200);
 
     await expect(page.locator('.renderer-container canvas')).toBeVisible();
-    await expect(page.locator('.status-container')).toBeVisible();
+    await expect(page.locator('.status-container').filter({ hasText: /Turn:/ })).toBeVisible();
   });
 
   test('displays winner status at final step', async ({ page }) => {
@@ -40,7 +37,6 @@ test.describe('Shogi Visualizer', () => {
     await slider.fill(maxValue || '0');
     await page.waitForTimeout(200);
 
-    await expect(page.locator('.status-container').filter({ hasText: /Game over/i })).toBeVisible();
-    await expect(page.locator('.winner-banner.active').filter({ hasText: /WINS|Game over/i })).toBeVisible();
+    await expect(page.locator('.status-container').filter({ hasText: /wins!|Draw/ })).toBeVisible();
   });
 });

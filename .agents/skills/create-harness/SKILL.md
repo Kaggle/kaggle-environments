@@ -437,7 +437,7 @@ if __name__ == "__main__":
 For games that need extra config, pass `configuration=`,
 `replay_filename=`, `num_agents=`, or `agent_module=`. See
 `havannah/test_llm_game.py` (custom board size), `word_association/test_llm_game.py`
-(4 agents, packaged harness, custom post-run output), and
+(4 agents, custom post-run output), and
 `python_ant_foraging/test_llm_game.py` (custom replay filename) for
 real examples. Capture the returned `env` if you need to print
 game-specific results after the run.
@@ -465,9 +465,7 @@ tests/envs/open_spiel_env/games/<name>/
 
 ```
 kaggle_environments/envs/<name>/
-├── harness/
-│   ├── __init__.py
-│   └── main.py               # <-- your harness
+├── harness.py                # <-- your harness
 ├── test_llm_game.py          # local LLM integration test
 └── ...
 
@@ -508,7 +506,7 @@ uv sync && uv run pytest tests/envs/open_spiel_env/games/<name>/harness_test.py 
 | **Canonical templates — start here:** | |
 | `kaggle_environments/envs/open_spiel_env/games/checkers/harness.py` | Modern enumerable shape: delegates to `parse_json_action`, branches `render_rethink_suffix`, demonstrates a phase-conditional prompt section (multi-jump continuation) |
 | `kaggle_environments/envs/open_spiel_env/games/dark_hex/harness.py` | Same modern shape with a custom `matcher=` callable for notation tolerance; per-player rendering for imperfect-information games |
-| `kaggle_environments/envs/word_association/harness/main.py` | Mixed free-form + enumerable harness (non-OpenSpiel) |
+| `kaggle_environments/envs/word_association/harness.py` | Mixed free-form + enumerable harness (non-OpenSpiel) |
 | **Test patterns:** | |
 | `tests/envs/open_spiel_env/games/checkers/harness_test.py` | Full enumerable test suite (parser stress, prompt assertions, `create_agent_fn` integration with mocked LLM) |
 | `tests/core_harness_test.py` | Framework test patterns |

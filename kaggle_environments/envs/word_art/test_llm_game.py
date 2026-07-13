@@ -17,7 +17,6 @@ if __name__ == "__main__":
     env = run_llm_game(
         "word_art",
         caller_file=__file__,
-        agent_module="harness/main.py",
         num_agents=4,
         configuration={"num_rounds": 4},
     )

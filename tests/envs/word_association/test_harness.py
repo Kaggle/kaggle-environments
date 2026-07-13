@@ -7,7 +7,7 @@ from absl.testing import absltest
 
 from kaggle_environments import core_harness
 from kaggle_environments.core_harness import ParseResult, create_agent_fn, set_telemetry_exporter
-from kaggle_environments.envs.word_association.harness.main import (
+from kaggle_environments.envs.word_association.harness import (
     generate_prompt,
     get_legal_moves,
     parse_response,

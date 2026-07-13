@@ -9,8 +9,21 @@ Implements the ``GameHarness`` protocol:
 - ``generate_prompt(observation, move_history, ...)`` -- dispatches on
   ``observation.role`` (``"artist"`` vs ``"guesser"``).
 - ``parse_response(response, legal_action_strings, *, observation=None)``
-  -- pulls ``"art"`` or ``"guess"`` from the last JSON object in the model
-  response and returns it as a free-form ``submission``.
+  -- extracts the answer from the last role-appropriate answer marker in
+  the model response and returns it as a free-form ``submission``.
+
+Output formats differ by role:
+
+- **Artist** writes prose reasoning, then wraps the drawing in
+  ``<art>...</art>`` tags. Tags -- not JSON -- because ASCII art is
+  full of newlines, backslashes, and quotes that would need escaping
+  inside a JSON string. In practice models routinely forget to escape
+  those, which forced ~1% of turns into an avoidable retry when this
+  harness used JSON for the art payload.
+- **Guesser** writes prose reasoning, then a JSON object
+  ``{"guess": "..."}``. Single-word answers don't have the escaping
+  problem, and JSON keeps the guesser consistent with the rest of the
+  repo's harnesses.
 
 Word Art is 2v2: agents 0/1 are Team Blue, agents 2/3 are Team Yellow.
 Each round, one teammate on each team draws ASCII art for a secret word
@@ -23,9 +36,34 @@ rounds the higher score wins. Roles within each team swap every round.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Mapping, Sequence
 
-from kaggle_environments.core_harness import ParseResult, extract_last_json_object
+from kaggle_environments.core_harness import (
+    ParseResult,
+    extract_last_json_object_with_position,
+)
+
+# Matches every <art>...</art> block. Case-insensitive and tolerant of
+# whitespace around the tag names so `<Art>`, `< art >`, `</ART >` all
+# match. DOTALL so the tag contents can span newlines -- essential for
+# multi-line ASCII art. Last-wins: if the model rethinks and emits a
+# second <art> block, the trailing one is the intent.
+_ART_TAG_RE = re.compile(
+    r"<\s*art\s*>(.*?)<\s*/\s*art\s*>",
+    re.DOTALL | re.IGNORECASE,
+)
+
+
+def _slice_thoughts(response: str, answer_start: int) -> str | None:
+    """Return the prose reasoning that precedes the answer marker, or
+    ``None`` if there's nothing meaningful before it (in which case
+    core_harness falls back to storing the full raw response, which is
+    still the useful thing to log)."""
+    if answer_start <= 0:
+        return None
+    prose = response[:answer_start].strip()
+    return prose or None
 
 # --- Helpers ----------------------------------------------------------------
 
@@ -104,8 +142,10 @@ def _scoring_block(max_attempts: int, first_try_bonus: int) -> str:
         f"(1 base + {first_try_bonus} first-try bonus)\n"
         f"  - Correct on attempt 2 through {max_attempts}: 1 point\n"
         f"  - No correct guess within {max_attempts} attempts: 0 points\n"
-        "Both teams play in parallel; your score is independent of the "
-        "other team's outcome for the round."
+        "Both teams play the same secret word each round in parallel; your "
+        "score is independent of the other team's outcome for the round. "
+        "After all rounds are played, the team with the higher total wins; "
+        "equal totals are a tie."
     )
 
 
@@ -121,37 +161,56 @@ def _round_status_block(observation: Mapping[str, Any]) -> str:
 
 
 # Free-form means there's no "illegal action" case (any string is a legal
-# submission), but parse failure comes in two flavours that need different
-# corrections:
-#   NO_JSON    -> the response had no parseable JSON object with the right key
-#                 at all. Show the last 500 chars of the response so the model
-#                 can see how its answer trailed off.
-#   BAD_VALUE  -> a JSON object with the required key was found, but the value
-#                 was missing / non-string / empty / whitespace-only. Quote the
-#                 offending object back so the model sees exactly what got
-#                 rejected instead of guessing what tripped the parser.
-RETHINK_NO_JSON = """
+# submission), but parse failure comes in two flavours per role that need
+# different corrections:
+#   NO_ANSWER  -> the response had no answer marker at all (no <art> tag
+#                 for artists, no JSON with a "guess" key for guessers).
+#                 Show the last 500 chars of the response so the model can
+#                 see how its answer trailed off, and restate the format.
+#   EMPTY      -> a marker was present but its value was missing / empty /
+#                 whitespace-only. Show the offending marker back so the
+#                 model sees exactly what got rejected instead of guessing.
+RETHINK_ARTIST_NO_ANSWER = """
 
-Your previous response did not contain a parseable JSON object with the
-required key ('art' for artists, 'guess' for guessers). Last 500 characters
-of your previous response:
+Your previous response did not contain a parseable <art>...</art> block.
+Last 500 characters of your previous response:
 {previous_response}
 
-Re-read the output format above and respond again. The JSON must include the
-required key and be parseable (no comments, no trailing commas, no surrounding
-prose inside the JSON itself)."""
+Re-read the output format above and respond again. Wrap your drawing in a
+single <art>...</art> block; anything outside the block is treated as
+reasoning and ignored."""
 
 
-RETHINK_BAD_VALUE = """
+RETHINK_ARTIST_EMPTY = """
 
-Your previous response included a JSON object but the required key was
-missing or had an invalid value (must be a non-empty string). Your submitted
-JSON was:
+Your previous response included an <art>...</art> block but its contents
+were empty or whitespace-only. Your submitted block was:
 {previous_action}
 
-Re-read the output format above and respond again. The JSON must include the
-required key ('art' for artists, 'guess' for guessers) with a non-empty
-string value."""
+Re-read the output format above and respond again. The <art>...</art>
+block must contain the actual ASCII drawing."""
+
+
+RETHINK_GUESSER_NO_ANSWER = """
+
+Your previous response did not contain a parseable JSON object with a
+"guess" key. Last 500 characters of your previous response:
+{previous_response}
+
+Re-read the output format above and respond again. End your response with
+a JSON object of the form {{"guess": "SINGLEWORD"}} (parseable: no
+comments, no trailing commas)."""
+
+
+RETHINK_GUESSER_BAD_VALUE = """
+
+Your previous response included a JSON object but the "guess" key was
+missing or had an invalid value (must be a non-empty string). Your
+submitted JSON was:
+{previous_action}
+
+Re-read the output format above and respond again. The JSON must include a
+"guess" key with a non-empty single-word string value."""
 
 
 # --- Public functions (GameHarness protocol) --------------------------------
@@ -209,13 +268,19 @@ def generate_prompt(
         prompt = "Word Art has not started this round yet. Wait for your role (artist or guesser) to be assigned."
 
     # core_harness sets previous_action to the parser's raw_action on failure:
-    # None when no JSON was found, populated when JSON was found but the value
-    # was missing/non-string/empty. Branch on that so the model sees a
-    # correction tailored to what actually broke.
-    if previous_action is not None:
-        prompt += RETHINK_BAD_VALUE.format(previous_action=previous_action)
-    elif previous_response is not None:
-        prompt += RETHINK_NO_JSON.format(previous_response=previous_response[-500:])
+    # None when no answer marker was found, populated when a marker was found
+    # but its value was missing/empty. Branch on role AND on that flag so the
+    # model sees a correction tailored to what actually broke.
+    if role == "artist":
+        if previous_action is not None:
+            prompt += RETHINK_ARTIST_EMPTY.format(previous_action=previous_action)
+        elif previous_response is not None:
+            prompt += RETHINK_ARTIST_NO_ANSWER.format(previous_response=previous_response[-500:])
+    elif role == "guesser":
+        if previous_action is not None:
+            prompt += RETHINK_GUESSER_BAD_VALUE.format(previous_action=previous_action)
+        elif previous_response is not None:
+            prompt += RETHINK_GUESSER_NO_ANSWER.format(previous_response=previous_response[-500:])
 
     return prompt
 
@@ -239,8 +304,9 @@ Rules:
   drawing, never the word. The opposing team sees neither. Roles swap
   each round.
 - The guesser has up to {max_attempts} attempts. Matching is
-  case-insensitive and whitespace-trimmed; only the exact word counts
-  (no spelling variants).
+  case-insensitive with leading/trailing whitespace trimmed; only the
+  exact word counts (no plurals, synonyms, partial matches, or other
+  spelling variants).
 
 {scoring}
 
@@ -281,14 +347,22 @@ The secret word you must depict is: '{target_word}'.
 Past rounds in this game so far:
 {history_text}
 
-Think step by step about how to depict the word visually, then return
-your reasoning in 'thinking' and the art string in 'art' (escape
-newlines as '\\n'). No text or markdown outside the JSON block. Example:
+Think step by step about how to depict the word visually, writing
+your reasoning as ordinary prose. Then end your response with your
+final drawing wrapped in a single <art>...</art> block. Everything
+inside the block is taken verbatim -- literal newlines are fine, no
+escaping, no markdown -- and everything outside is treated as
+reasoning and ignored. Example:
 
-```json
-{{"thinking": "I'll draw a cat face using basic ASCII characters...",
-  "art": " /\\\\_/\\\\\\n( o.o )\\n > ^ <"}}
-```"""
+I'll draw a cat face using basic ASCII characters -- pointy ears with
+slashes, round eyes, a nose. Keeping runs of letters to 2 or fewer to
+stay clear of the any-word check.
+
+<art>
+ /\\_/\\
+( o.o )
+ > ^ <
+</art>"""
 
 
 def _build_guesser_prompt(
@@ -326,15 +400,15 @@ Rules:
 - Your teammate (the artist) saw a secret word and drew the ASCII art
   below; you don't see the word. Roles swap each round.
 - You have up to {max_attempts} guesses. Matching is case-insensitive
-  and whitespace-trimmed; only the exact word counts (no plurals,
-  synonyms, or partial matches).
-- The opposing team plays in parallel and cannot see your art or guesses.
+  with leading/trailing whitespace trimmed; only the exact word counts
+  (no plurals, synonyms, partial matches, or other spelling variants).
+- The opposing team plays the same secret word each round in parallel
+  and cannot see your art or guesses.
 - The engine mechanically disqualifies art that contains either the
   target word or any run of 3+ letters with 2+ distinct characters
   (labels, captions, headings). When that happens you'll see a
-  placeholder marker instead of a picture -- the marker text tells you
-  which check fired. Past rounds in the history below are likewise
-  labelled "DISQUALIFIED" when this happened.
+  placeholder marker instead of a picture. Past rounds in the history
+  below are likewise labelled "DISQUALIFIED" when this happened.
 
 {scoring}
 
@@ -348,14 +422,14 @@ Your teammate's drawing (be aware that monospace alignment matters):
 {teammate_art if teammate_art else "(your teammate submitted nothing)"}
 
 Think step by step about what the art depicts (letter shapes, spatial
-layout, any annotations), then return your reasoning in 'thinking' and
-a SINGLE WORD (no spaces, no punctuation, no articles) in 'guess'. No
-text or markdown outside the JSON block. Example:
+layout, any annotations), writing your reasoning as ordinary prose.
+Then end your response with a JSON object containing your final answer
+as a SINGLE WORD (no spaces, no punctuation, no articles). Example:
 
-```json
-{{"thinking": "Four-legged animal with a tail and pointy ears; the 'meow'-like whiskers suggest CAT.",
-  "guess": "CAT"}}
-```"""
+Four-legged animal with a tail and pointy ears; the 'meow'-like
+whiskers suggest CAT.
+
+{{"guess": "CAT"}}"""
 
 
 def parse_response(
@@ -367,39 +441,61 @@ def parse_response(
     """Extract the artist's art or the guesser's word from the LLM response.
 
     Both phases are free-form, so ``legal_action_strings`` is always
-    ``None``. We look for the LAST JSON object in the response that
-    contains either ``"art"`` or ``"guess"`` (the helper does the
-    multi-block / fenced / bare-JSON disambiguation for us).
+    ``None``. Dispatch is role-strict:
 
-    Dispatch is role-strict: routes on ``observation.role`` and requires
-    the matching key with a non-empty string value. Anything else --
-    wrong key, non-string value, empty or whitespace-only string, or a
-    missing role -- returns ``ParseResult(raw_action=...)`` without a
-    submission so the rethink loop can correct the model rather than
-    silently burning an attempt on garbage the model didn't meaningfully
-    submit. In production ``core_harness`` always forwards
-    ``observation``, so the missing-role branch only fires from ad-hoc
-    test callers.
+    - **Artist**: extracts the contents of the LAST ``<art>...</art>``
+      block (case-insensitive, tolerant of whitespace inside the tag
+      names). If no block matches, returns ``ParseResult(raw_action=None)``
+      -- categorized as UNPARSABLE in telemetry. If a block matches but
+      its contents are empty/whitespace-only, returns
+      ``ParseResult(raw_action=<the empty tag>)`` so the rethink prompt
+      can quote it back.
+
+    - **Guesser**: extracts the LAST parseable JSON object containing a
+      ``"guess"`` key. Same two failure modes (no JSON vs. present but
+      bad value) map to the same two ``raw_action`` outcomes.
+
+    Missing / unrecognized role: returns ``ParseResult(raw_action=None)``
+    without submitting. In production ``core_harness`` always forwards
+    ``observation``, so this branch only fires from ad-hoc test callers.
+
+    ``thoughts`` carries the prose reasoning that precedes the answer
+    marker in the response -- everything before the last ``<art>`` /
+    JSON block, whitespace-stripped. When the model wrote no prose (or
+    the parser found no answer marker at all) ``thoughts`` is left
+    ``None`` and ``core_harness`` falls back to logging the full raw
+    response, which is still the useful thing to keep in the replay.
     """
-    parsed = extract_last_json_object(response, required_keys=("art", "guess"))
-    if parsed is None:
-        # No JSON object found at all -- raw_action=None so core_harness
-        # categorizes this as UNPARSABLE (not ILLEGAL) in telemetry. The
-        # rethink loop still has the full response via `previous_response`.
-        return ParseResult(raw_action=None)
-
-    thinking = parsed.get("thinking")
     role = (observation or {}).get("role", "")
-    key = "art" if role == "artist" else "guess" if role == "guesser" else None
-    if key is None:
-        return ParseResult(raw_action=json.dumps(parsed)[:500], thoughts=thinking)
 
-    value = parsed.get(key)
-    if not isinstance(value, str) or value.strip() == "":
-        return ParseResult(raw_action=json.dumps(parsed)[:500], thoughts=thinking)
+    if role == "artist":
+        matches = list(_ART_TAG_RE.finditer(response))
+        if not matches:
+            return ParseResult(raw_action=None)
+        last = matches[-1]
+        raw = last.group(1)
+        thoughts = _slice_thoughts(response, last.start())
+        if raw.strip() == "":
+            # Empty <art> block -- record the (empty) tag for the rethink
+            # prompt to quote back so the model sees what got rejected.
+            return ParseResult(raw_action="<art></art>", thoughts=thoughts)
+        return ParseResult(submission=raw, raw_action=raw, thoughts=thoughts)
 
-    return ParseResult(
-        submission=value,
-        raw_action=value[:200],
-        thoughts=thinking,
-    )
+    if role == "guesser":
+        parsed, start = extract_last_json_object_with_position(
+            response, required_keys=("guess",),
+        )
+        if parsed is None:
+            return ParseResult(raw_action=None)
+        thoughts = _slice_thoughts(response, start)
+        value = parsed.get("guess")
+        if not isinstance(value, str) or value.strip() == "":
+            # Cap the dumped-JSON preview so a runaway payload can't bloat
+            # telemetry or the rethink prompt; the answer we tried to
+            # extract is what matters here.
+            return ParseResult(raw_action=json.dumps(parsed)[:500], thoughts=thoughts)
+        return ParseResult(submission=value, raw_action=value, thoughts=thoughts)
+
+    # Unknown / missing role -- refuse to submit; test-only path in
+    # practice since core_harness forwards `observation`.
+    return ParseResult(raw_action=None)

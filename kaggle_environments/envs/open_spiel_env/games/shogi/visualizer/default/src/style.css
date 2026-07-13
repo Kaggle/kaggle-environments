@@ -94,6 +94,81 @@ body,
   font-size: 1.2rem;
 }
 
+.winner-banner {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 10px 24px;
+  margin: 4px 0 2px;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  border: 2px solid #050001;
+  flex-shrink: 0;
+  animation: winner-pop 400ms ease-out;
+}
+
+.winner-banner.active {
+  display: flex;
+}
+
+.winner-banner .crown {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.winner-banner .winner-name {
+  font-weight: 800;
+}
+
+.winner-banner .winner-side {
+  font-family: 'Mynerve', cursive;
+  font-weight: 400;
+  font-size: 0.95rem;
+  opacity: 0.85;
+}
+
+.winner-banner .wins-label {
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  padding: 2px 10px;
+  border: 1.5px solid currentColor;
+}
+
+.winner-banner.sente-win {
+  background-color: #fbe7a4;
+  color: #a63a1c;
+  border-color: #a63a1c;
+}
+
+.winner-banner.gote-win {
+  background-color: #dce8f5;
+  color: #1f4f8b;
+  border-color: #1f4f8b;
+}
+
+.winner-banner.draw {
+  background-color: #eeeae0;
+  color: #3c3b37;
+}
+
+@keyframes winner-pop {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.04);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 .body-wrap {
   display: flex;
   flex: 1 1 0;
@@ -138,15 +213,16 @@ body,
   justify-content: space-between;
   gap: 6px;
   padding: 2px 6px;
-  background-color: #fbf7e8;
+  background-color: #fbe7a4;
   border: 1px dashed #3c3b37;
   font-weight: 700;
   min-width: 36px;
+  color: #050001;
 }
 
 .hand.p1 .hand-piece {
-  background-color: #2a2a2a;
-  color: #f8f4e3;
+  background-color: #2f2e2b;
+  color: #f5ecc7;
 }
 
 .hand .hand-piece .hand-count {

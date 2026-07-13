@@ -181,8 +181,8 @@ def run_llm_game(
         caller_file: Pass ``__file__`` from the caller. The helper resolves
             the agent path and the replay directory relative to this.
         agent_module: Path to the harness module relative to the caller's
-            directory. Defaults to ``"harness.py"``; use ``"harness/main.py"``
-            for packaged harnesses like word_association.
+            directory. Defaults to ``"harness.py"``; override for legacy
+            packaged harnesses (e.g. ``"harness/main.py"`` for werewolf).
         num_agents: How many copies of the agent to pass to ``env.run``.
             Defaults to 2; word_association uses 4.
         configuration: Optional dict forwarded to ``make(configuration=...)``.

@@ -18,7 +18,16 @@ const TEAM_LABEL = ['Blue', 'Blue', 'Yellow', 'Yellow'] as const;
  * We surface: role-aware action text (drew art / guessed a word), and
  * the raw ``thoughts`` field written by ``core_harness`` for LLM agents.
  * The side panel's default label/description getters read these off
- * ``player.actionDisplayText`` and ``player.thoughts``
+ * ``player.actionDisplayText`` and ``player.thoughts``.
+ *
+ * Splitting simultaneous moves. The sidebar only surfaces the first
+ * player with ``isTurn=true`` per step, so when both teams move at the
+ * same tick (both artists submitting, or both guessers guessing on the
+ * same attempt) one team's action and thoughts would be dropped from
+ * the log. We split those ticks into one sub-step per moving agent,
+ * ordered by agent index (blue before yellow). All sub-steps share the
+ * same ``rawAgents`` reference so the renderer draws identical game
+ * state across them — only which player's card is highlighted changes.
  */
 export const wordArtTransformer = (environment: ReplayData, _gameName: string): ReplayData => {
   const rawSteps = environment.steps as unknown as any[][];
@@ -27,7 +36,7 @@ export const wordArtTransformer = (environment: ReplayData, _gameName: string): 
   rawSteps.forEach((stepAgents, index) => {
     const prevStep = index > 0 ? rawSteps[index - 1] : null;
 
-    const players = stepAgents.map((agent: any, idx: number) => {
+    const allPlayers = stepAgents.map((agent: any, idx: number) => {
       const prevAgent = prevStep?.[idx];
       const prevObs = prevAgent?.observation ?? {};
       const isTurn = prevAgent?.status === 'ACTIVE';
@@ -77,7 +86,19 @@ export const wordArtTransformer = (environment: ReplayData, _gameName: string): 
       };
     });
 
-    transformedSteps.push({ step: index, players, rawAgents: stepAgents });
+    const activeIndices = allPlayers.filter((p) => p.isTurn).map((p) => p.id);
+    if (activeIndices.length <= 1) {
+      transformedSteps.push({ step: transformedSteps.length, players: allPlayers, rawAgents: stepAgents });
+      return;
+    }
+
+    // Multiple simultaneous moves: emit one sub-step per moving agent
+    // (blue-first by agent index). Each sub-step highlights exactly one
+    // player so the sidebar's `find(p => p.isTurn)` picks the right one.
+    for (const activeId of activeIndices) {
+      const players = allPlayers.map((p) => ({ ...p, isTurn: p.id === activeId }));
+      transformedSteps.push({ step: transformedSteps.length, players, rawAgents: stepAgents });
+    }
   });
 
   return { ...environment, steps: transformedSteps };

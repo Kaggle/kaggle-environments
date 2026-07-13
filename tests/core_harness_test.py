@@ -10,6 +10,7 @@ from kaggle_environments.core_harness import (
     ParseResult,
     create_agent_fn,
     extract_last_json_object,
+    extract_last_json_object_with_position,
     render_rethink_suffix,
     set_telemetry_exporter,
 )
@@ -995,6 +996,63 @@ class ExtractLastJsonObjectTest(absltest.TestCase):
             extract_last_json_object(response),
             {"move": "e5"},
         )
+
+
+class ExtractLastJsonObjectWithPositionTest(absltest.TestCase):
+    """Position-tracking sibling of ``extract_last_json_object``. Used by
+    harnesses that want to slice out the prose reasoning preceding the
+    JSON answer for a ``ParseResult.thoughts`` field."""
+
+    def test_returns_none_and_negative_when_no_match(self):
+        parsed, start = extract_last_json_object_with_position("no json here")
+        self.assertIsNone(parsed)
+        self.assertEqual(start, -1)
+
+    def test_bare_json_start_is_opening_brace(self):
+        response = "reasoning prose here " + '{"move": "e5"}'
+        parsed, start = extract_last_json_object_with_position(response)
+        self.assertEqual(parsed, {"move": "e5"})
+        self.assertEqual(response[start], "{")
+        self.assertEqual(response[:start], "reasoning prose here ")
+
+    def test_fenced_json_start_is_opening_fence(self):
+        response = "prose\n```json\n{\"move\": \"e5\"}\n```"
+        parsed, start = extract_last_json_object_with_position(response)
+        self.assertEqual(parsed, {"move": "e5"})
+        # start indexes the opening ``` fence, not the {
+        self.assertTrue(response[start:].startswith("```"))
+        self.assertEqual(response[:start].strip(), "prose")
+
+    def test_picks_last_of_multiple_matches(self):
+        response = 'first {"move":"a1"} then {"move":"e5"}'
+        parsed, start = extract_last_json_object_with_position(response)
+        self.assertEqual(parsed, {"move": "e5"})
+        # Position points at the SECOND {, not the first.
+        self.assertGreater(start, response.find('{"move":"a1"}'))
+
+    def test_required_keys_filter_is_respected(self):
+        response = '{"other": 1} then {"move": "e5"}'
+        parsed, start = extract_last_json_object_with_position(
+            response, required_keys=("move",),
+        )
+        self.assertEqual(parsed, {"move": "e5"})
+        # Should skip the earlier {"other": 1} despite it being first.
+        self.assertGreater(start, response.find('{"other"'))
+
+    def test_agrees_with_extract_last_json_object(self):
+        """The dict returned by the position variant must match the plain
+        variant on every input -- they share the same scan."""
+        cases = [
+            '```json\n{"move": "e5"}\n```',
+            'prose {"move":"a1"} more {"move":"e5"}',
+            '{"other": 1}',
+            "no json",
+            '```\n{"move": "e5"}\n```',
+        ]
+        for r in cases:
+            plain = extract_last_json_object(r)
+            with_pos, _ = extract_last_json_object_with_position(r)
+            self.assertEqual(plain, with_pos, msg=repr(r))
 
 
 if __name__ == "__main__":

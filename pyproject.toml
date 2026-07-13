@@ -1,6 +1,6 @@
 [project]
 name = "kaggle-environments"
-version = "1.30.2"
+version = "1.32.0"
 description = "Kaggle Environments"
 authors = [
     {name = "Kaggle", email = "support@kaggle.com"},
@@ -62,19 +62,19 @@ name = "kaggle_environments"
 # If using another build backend (setuptools, poetry), you can remove this
 # section.
 #
-# NOTE: these patterns only apply to the sdist. flit_core's wheel builder
-# ignores them and ships everything under the module directory. The CI
-# `publish-to-pypi` step (docker/cicd-publish-to-pypi.sh) prunes each
-# `visualizer/<variant>/` to just `dist/index.html` before `flit publish`
-# so that the wheel ships the self-contained bundle without node_modules
-# or build sources. The shipped `dist/index.html` is what `html_renderer()`
-# returns in notebook / iframe srcdoc contexts.
+# NOTE: `flit publish` applies these excludes when building the sdist, and
+# then builds the wheel from the sdist — so anything listed here is stripped
+# from both. The CI publish step (docker/cicd-publish-to-pypi.sh) prunes
+# each `visualizer/<variant>/` down to just `dist/index.html` before
+# publishing (with `--no-use-vcs` so the untracked pruned files are
+# included), and `**/visualizer/` is deliberately NOT in this list so those
+# files survive to the wheel. That HTML is what `html_renderer()` returns
+# in notebook / iframe srcdoc contexts.
 [tool.flit.sdist]
 exclude = [
   # Do not release tests files on PyPI
   "**/*_test.py",
   "**/node_modules/",
-  "**/visualizer/",
   ".pnpm-store/",
   "web/core/.npmrc",
 ]

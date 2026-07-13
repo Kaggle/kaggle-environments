@@ -43,11 +43,10 @@ if [ "$VERSION_EXISTS" = "true" ]; then
 else
   echo "🚀 Version $VERSION_FROM_PYPROJECT not found on PyPI. Publishing..."
 
-  # Prune visualizer trees to keep only `dist/index.html` (the self-contained
-  # bundle produced by vite-plugin-singlefile). flit_core's wheel builder does
-  # not apply [tool.flit.sdist] excludes, so we have to physically remove
-  # node_modules / src / e2e / etc. before `flit publish` or they end up in
-  # the wheel. The `build-all-visualizers` step must run before this.
+  # Prune each visualizer variant to just `dist/index.html` (the self-contained
+  # bundle produced by vite-plugin-singlefile) so node_modules / src / e2e /
+  # etc. don't end up in the shipped wheel. The `build-all-visualizers` step
+  # must run before this.
   echo "Pruning visualizer trees to dist/index.html only..."
   find kaggle_environments -type d -name visualizer | while read -r viz_dir; do
     find "$viz_dir" -mindepth 1 -maxdepth 1 -type d | while read -r variant; do
@@ -69,7 +68,12 @@ else
   export FLIT_USERNAME=__token__
   export FLIT_PASSWORD=$PYPI_TOKEN
 
-  flit publish
+  # `--no-use-vcs` tells flit's sdist builder to walk the filesystem
+  # instead of `git ls-files`, so it (a) picks up the pruned, untracked
+  # `dist/index.html` files, and (b) skips the git-cleanliness check that
+  # would otherwise reject the pruned tree. Slated to become flit's
+  # default in a future release.
+  flit publish --no-use-vcs
   
   # It takes a bit for the package to show up on PyPI. Make sure it's visible through Pip before proceeding.
   # --- RETRY LOGIC START ---

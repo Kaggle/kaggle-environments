@@ -27,63 +27,23 @@ from kaggle_environments.core_harness import (
     render_rethink_suffix,
 )
 
-MARKOV_SOCCER_PROMPT_TEMPLATE = """Let's play Markov Soccer (Littman 1994).
+MARKOV_SOCCER_PROMPT_TEMPLATE = """Markov Soccer (Littman 1994): 2-player simultaneous-move grid game on a {num_rows} x {num_cols} field.
+Rows 0 (top) to {max_row} (bottom); columns 0 (left) to {max_col} (right).
+Each round both players SIMULTANEOUSLY pick one of five actions:
+  up = row-1, down = row+1, left = col-1, right = col+1, stand = no move.
+After both moves are revealed, a hidden coin flip picks whose move resolves first; you cannot know the order in advance.
 
-Rules: Two players (A and B) move on a {num_rows} row x {num_cols} col grid.
-Rows are numbered 0 (top) to {max_row} (bottom); columns are numbered 0
-(left) to {max_col} (right). Each round both players SIMULTANEOUSLY choose
-one of five actions:
+Board pieces: 'a'/'A' = Player A (uppercase = holds ball), 'b'/'B' = Player B, 'O' = loose ball, '.' = empty.
 
-  - ``up``    -> row index decreases by 1 (toward the top)
-  - ``down``  -> row index increases by 1 (toward the bottom)
-  - ``left``  -> column index decreases by 1
-  - ``right`` -> column index increases by 1
-  - ``stand`` -> no movement
+Mechanics (per player in initiative order):
+  - Moving into '.' moves you there. Moving into 'O' picks up the ball (piece becomes uppercase).
+  - Ball-holder walking into the OPPONENT: possession transfers, neither piece moves.
+  - A player WITHOUT the ball walking into another player is a no-op. You cannot steal by walking into the ball-holder; you must wait for the ball-holder to walk into you.
+  - Moving off the edge is a no-op EXCEPT: a ball-holder in row 1 or row 2 stepping off the opponent's goal edge SCORES and wins immediately.
 
-After both choices are revealed, a hidden coin flip picks which player's move
-is resolved first; the other player's move resolves immediately after. You
-cannot know the resolution order in advance.
+Scoring edges: A scores by stepping RIGHT off column {max_col}; B by stepping LEFT off column 0 (from row 1 or 2, while holding the ball). Winner +1, loser -1. Draw at {max_rounds} rounds with no goal.
 
-Piece encoding on the board:
-  - ``a`` or ``A`` = Player A   (uppercase means A is holding the ball)
-  - ``b`` or ``B`` = Player B   (uppercase means B is holding the ball)
-  - ``O``         = loose ball on the field (no one is holding it)
-  - ``.``         = empty cell
-
-Movement and ball mechanics (applied per player in initiative order):
-
-  1. ``stand`` keeps the player in place.
-  2. Moving into an empty cell ('.') moves the player there.
-  3. Moving into a cell with the loose ball ('O') picks it up; the player becomes
-     uppercase ('a' -> 'A' or 'b' -> 'B') and now holds the ball.
-  4. THE BALL-HOLDER moving into the OPPONENT's cell loses the ball: the
-     ball-holder stays in place but becomes lowercase, and the opponent
-     becomes uppercase (now holds the ball) without moving. Neither piece
-     changes square; only possession transfers.
-  5. ANY OTHER attempt to move into an occupied cell silently fails. The
-     mover stays where they are and nothing else changes. In particular,
-     a player WITHOUT the ball who tries to walk into the ball-holder
-     does NOT steal the ball; the move just fails. The only way to take
-     the ball from the opponent is to wait for the ball-holder to walk
-     into you.
-  6. Trying to move off the edge of the field normally does nothing (the
-     mover stays in place) EXCEPT for scoring: a ball-holder in row 1 or
-     row 2 who tries to step off the opponent's goal edge SCORES and wins
-     immediately. Stepping off any other edge (or any edge while not
-     holding the ball) is a no-op. Only rows 1 and 2 are valid goal rows.
-
-Scoring edges:
-  - Player A scores by stepping RIGHT off column {max_col} (i.e. moving
-    ``right`` from column {max_col}) while holding the ball, from row 1 or
-    row 2.
-  - Player B scores by stepping LEFT off column 0 (i.e. moving ``left``
-    from column 0) while holding the ball, from row 1 or row 2.
-
-The game ends as soon as either player scores (winner gets +1, loser -1).
-If {max_rounds} rounds pass with no goal, the game is a draw (0 / 0).
-There are no other terminal conditions.
-
-Current board (row 0 on top; columns labelled 0..{max_col} on top):
+Current board (row 0 on top; columns labelled 0..{max_col}):
 {board_ascii}
 
 Player positions: A at {a_pos}, B at {b_pos}.
@@ -96,20 +56,13 @@ You are Player {player_label} ('{my_piece_lower}' without ball, '{my_piece_upper
 Round: {move_number}
 {move_history_block}
 
-It is your turn. Choose one of: up, down, left, right, stand.
+Your turn. Choose one of: up, down, left, right, stand.
 
-Respond with your reasoning followed by your final move in a JSON block:
+Respond with your reasoning, then end your response with JSON:
 
 ```json
-{{
-  "move": "<up|down|left|right|stand>"
-}}
+{{"move": "<up|down|left|right|stand>"}}
 ```
-
-For example: `{{"move": "right"}}`
-
-Failure to output your final answer in the specified format, or selecting
-an illegal move, will result in a loss.
 """
 
 

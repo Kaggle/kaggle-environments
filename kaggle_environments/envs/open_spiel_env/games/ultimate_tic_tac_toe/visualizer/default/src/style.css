@@ -105,10 +105,11 @@ html, body, #app {
 }
 
 .board-wrap canvas {
-  position: relative;
+  position: absolute;
+  inset: 0;
   display: block;
-  max-width: 100%;
-  max-height: 100%;
+  width: 100%;
+  height: 100%;
   background: transparent;
   filter: drop-shadow(0 10px 25px rgba(15, 23, 42, 0.08));
   object-fit: contain;
@@ -123,6 +124,7 @@ html, body, #app {
   margin: 0 auto;
   z-index: 1;
 }
+
 
 .status-container {
   display: flex;
