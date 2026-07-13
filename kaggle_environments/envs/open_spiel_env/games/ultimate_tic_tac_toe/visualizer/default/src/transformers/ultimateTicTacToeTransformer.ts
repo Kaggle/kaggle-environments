@@ -81,26 +81,31 @@ export const ultimateTicTacToeTransformer = (environment: any): UltimateTicTacTo
 
       if (isTurn) {
         const rawAction = p.action?.actionString || '';
-        let subgridIdx = -1;
-        let cellIdx: number | null = null;
-        if (rawAction.startsWith('Choose local board')) {
-          const parts = rawAction.split(' ');
-          subgridIdx = parseInt(parts[parts.length - 1]);
-        } else {
-          const match = rawAction.match(/Local board (\d+): [xo]\(([0-2]),([0-2])\)/);
-          if (match) {
-            subgridIdx = parseInt(match[1]);
-            const cellRow = parseInt(match[2]);
-            const cellCol = parseInt(match[3]);
-            cellIdx = cellRow * 3 + cellCol;
+        const prevRawAction = index > 0 ? rawSteps[index - 1][i]?.action?.actionString || '' : '';
+        const isNewAction = rawAction !== '' && rawAction !== prevRawAction;
+
+        if (isNewAction) {
+          let subgridIdx = -1;
+          let cellIdx: number | null = null;
+          if (rawAction.startsWith('Choose local board')) {
+            const parts = rawAction.split(' ');
+            subgridIdx = parseInt(parts[parts.length - 1]);
+          } else {
+            const match = rawAction.match(/Local board (\d+): [xo]\(([0-2]),([0-2])\)/);
+            if (match) {
+              subgridIdx = parseInt(match[1]);
+              const cellRow = parseInt(match[2]);
+              const cellCol = parseInt(match[3]);
+              cellIdx = cellRow * 3 + cellCol;
+            }
           }
-        }
-        if (subgridIdx !== -1) {
-          activeMove = {
-            player: i === 0 ? 'x' : 'o',
-            subgridIdx,
-            cellIdx,
-          };
+          if (subgridIdx !== -1) {
+            activeMove = {
+              player: i === 0 ? 'x' : 'o',
+              subgridIdx,
+              cellIdx,
+            };
+          }
         }
       }
 
