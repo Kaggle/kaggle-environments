@@ -1,4 +1,5 @@
 import type { RendererOptions } from '@kaggle-environments/core';
+import type { NineMensMorrisStep } from './transformers/nineMensMorrisTransformer';
 
 // Player colors match the light/dark contrast of white/black pieces while
 // staying legible against the warm parchment background.
@@ -104,14 +105,8 @@ interface Obs {
   last_action: string | null;
 }
 
-function getObservation(step: any, idx: number = 0): Obs | null {
-  const raw = step?.[idx]?.observation?.observationString;
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as Obs;
-  } catch {
-    return null;
-  }
+function getObservation(step: NineMensMorrisStep | undefined | null): Obs | null {
+  return (step?.boardState as Obs | null) ?? null;
 }
 
 function getPlayerName(replay: any, idx: number): string {
@@ -279,14 +274,23 @@ function playerColorFor(label: string): { fill: string; stroke: string } {
     : { fill: PLAYER_B_COLOR, stroke: PLAYER_B_STROKE };
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function playerChip(label: string): string {
   const c = playerColorFor(label);
   return `<span style="display:inline-block;width:0.9em;height:0.9em;border-radius:50%;background:${c.fill};border:1px solid ${c.stroke};vertical-align:middle;margin-right:6px;"></span>`;
 }
 
-export function renderer(options: RendererOptions) {
+export function renderer(options: RendererOptions<NineMensMorrisStep[]>) {
   const { parent, replay, step } = options;
-  const steps = (replay?.steps ?? []) as any[];
+  const steps = (replay?.steps ?? []) as NineMensMorrisStep[];
   if (!steps.length) return;
 
   parent.innerHTML = `
@@ -302,17 +306,22 @@ export function renderer(options: RendererOptions) {
   const statusContainer = parent.querySelector('.status-container') as HTMLDivElement;
 
   const currentStep = steps[step];
-  const observation = getObservation(currentStep, 0);
+  const observation = getObservation(currentStep);
   if (!observation) {
     statusContainer.textContent = 'Waiting for first observation...';
     return;
   }
 
-  const prev = step > 0 ? getObservation(steps[step - 1], 0) : null;
+  const prev = step > 0 ? getObservation(steps[step - 1]) : null;
   const diff = diffBoards(prev, observation);
 
   const playerNames = [getPlayerName(replay, 0), getPlayerName(replay, 1)];
-  const activeIdx = observation.is_terminal
+  // A forfeit ends the game even though the OpenSpiel observation still
+  // reports non-terminal; treat currentStep.isTerminal as authoritative.
+  const isTerminal = !!currentStep?.isTerminal || observation.is_terminal;
+  const forfeitReason = currentStep?.forfeitReason ?? null;
+  const forfeiterIdx = currentStep?.players?.findIndex((p) => p.forfeited) ?? -1;
+  const activeIdx = isTerminal
     ? -1
     : observation.current_player === 'W'
       ? 0
@@ -365,13 +374,25 @@ export function renderer(options: RendererOptions) {
 
   // Status line: phase / turn indicator, plus move annotation.
   let statusHTML = '';
-  if (observation.is_terminal) {
+  if (isTerminal) {
+    // Winner: prefer the observation (natural game end), fall back to reward
+    // sign when a forfeit ended the game before OpenSpiel reached terminal.
+    let winnerLabel: string;
     if (observation.winner === 'W') {
-      statusHTML = `<span style="color:${wColor.stroke};">${playerNames[0]} (W) wins!</span>`;
+      winnerLabel = `<span style="color:${wColor.stroke};">${playerNames[0]} (W) wins!</span>`;
     } else if (observation.winner === 'B') {
-      statusHTML = `<span style="color:${bColor.stroke};">${playerNames[1]} (B) wins!</span>`;
+      winnerLabel = `<span style="color:${bColor.stroke};">${playerNames[1]} (B) wins!</span>`;
+    } else if (forfeitReason && forfeiterIdx >= 0) {
+      const winnerIdx = 1 - forfeiterIdx;
+      const wcol = winnerIdx === 0 ? wColor.stroke : bColor.stroke;
+      const wlabel = winnerIdx === 0 ? 'W' : 'B';
+      winnerLabel = `<span style="color:${wcol};">${playerNames[winnerIdx]} (${wlabel}) wins!</span>`;
     } else {
-      statusHTML = `<span>Draw</span>`;
+      winnerLabel = `<span>Draw</span>`;
+    }
+    statusHTML = winnerLabel;
+    if (forfeitReason) {
+      statusHTML += `<span class="annotation forfeit-reason">${escapeHtml(forfeitReason)}</span>`;
     }
   } else {
     const activeColor = activeIdx === 0 ? wColor.stroke : bColor.stroke;

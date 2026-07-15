@@ -128,6 +128,7 @@ See [visualizer-style-guide.md](visualizer-style-guide.md) for the standard CSS 
 ```typescript
 import { createReplayVisualizer, ReplayAdapter } from "@kaggle-environments/core";
 import { renderer } from "./renderer";
+import { myGameTransformer } from "./transformers/myGameTransformer";
 import "./style.css";
 
 const app = document.getElementById("app");
@@ -145,6 +146,14 @@ createReplayVisualizer(
     gameName: "<name>",           // must match the registered env name
     renderer: renderer as any,
     ui: "side-panel",             // "side-panel" (with reasoning logs) or "inline"
+    // The side-panel's ReasoningLogs reads step.players[i].thoughts /
+    // actionDisplayText. Without a transformer that shape is missing, so
+    // the entire sidebar sits empty. See Step 5.
+    transformer: (replay) => ({
+      ...replay,
+      steps: myGameTransformer(replay),
+      isTransformed: true,
+    }),
   })
 );
 ```
@@ -194,6 +203,35 @@ print(f'Statuses: {replay[\"statuses\"]}')
 ```
 
 Verify the replay has a reasonable number of steps (not 2-3, which indicates the agent failed).
+
+**Also generate a forfeit replay.** Forfeit-ended games are visually different from natural terminals (no `observation.isTerminal`, no on-board winner) and are a common failure mode when running against LLM agents. If you don't dev against a forfeit replay, you won't notice the renderer freezing on "Turn: X" (see Step 5). Craft one by mutating the natural replay: pick a step, rewrite the acting player's action into a forfeit shape, and set terminal rewards.
+
+```bash
+uv run python -c "
+import json
+with open('replays/test-replay.json') as f: r = json.load(f)
+# Truncate to a mid-game step and inject a forfeit for the acting player.
+r['steps'] = r['steps'][:8]
+step = r['steps'][-1]
+acting = next(i for i, s in enumerate(step)
+              if isinstance(s.get('action'), dict)
+              and s['action'].get('submission') not in (None, -1))
+step[acting]['action'] = {
+    'submission': -1,
+    'actionString': '<last illegal attempt>',
+    'thoughts': 'I could not find a legal move.',
+    'status': 'Failed to parse a legal move after 5 attempts; forfeiting.',
+}
+r['rewards'] = [1.0, -1.0] if acting == 1 else [-1.0, 1.0]
+r['statuses'] = ['DONE', 'DONE']
+step[0]['reward'], step[1]['reward'] = r['rewards']
+step[0]['status'] = step[1]['status'] = 'DONE'
+with open('replays/test-forfeit-replay.json', 'w') as f: json.dump(r, f)
+print('wrote test-forfeit-replay.json with', len(r['steps']), 'steps')
+"
+```
+
+Then run `VITE_REPLAY_FILE=./replays/test-forfeit-replay.json pnpm dev` and verify the final step shows a clear forfeit line (e.g. "Player 2 submitted an illegal move. Player 1 wins by default.") -- not a stale "Turn:" line.
 
 ## Step 3: Understand the replay data shape
 
@@ -318,7 +356,7 @@ Every visualizer MUST clearly communicate these four things:
 
 3. **Move implications (what the move caused):** Show deltas/diffs when state values change (`+N` / `-N` badges). Mark captured/removed pieces distinctly. Highlight score changes.
 
-4. **Current score / game progress:** Show scores, piece counts, progress indicators. At game over, display the final result prominently.
+4. **Current score / game progress:** Show scores, piece counts, progress indicators. At game over, display the final result prominently, and clearly distinguish natural terminal / draw / **forfeit (with reason)**. See Step 5 for how forfeits are detected -- a game that ended because a player exhausted their illegal-move retries, timed out, or crashed will *not* have `observation.isTerminal === true`, and a renderer that only checks that flag will freeze on the last mid-game frame with a stale "Turn: X" line.
 
 ### Renderer template
 
@@ -387,38 +425,229 @@ export function renderer(options: RendererOptions) {
 
 See [visualizer-style-guide.md](visualizer-style-guide.md) for the complete visual design system -- colors, fonts, layout patterns, and CSS.
 
-## Step 5 (optional): Add a transformer
+## Step 5: Add a replay transformer
 
-If your game needs data preprocessing (e.g., parsing observation strings into structured step objects), add a transformer in `web/core/src/transformers/`.
+**Required for any visualizer using `ui: 'side-panel'` (the default) on an OpenSpiel game.** The side-panel's ReasoningLogs component reads `step.players[i].thoughts` and `step.players[i].actionDisplayText` on the `BaseGameStep` shape. Raw OpenSpiel steps are `[{ action, observation, reward, status }, ...]` -- there is no `players` array, so without a transformer the sidebar is silently empty (model thoughts never appear) and terminal-state logic breaks on forfeits (see below).
 
-1. Create `web/core/src/transformers/<name>/`:
-   - `<name>ReplayTypes.ts` -- TypeScript types for raw and transformed steps
-   - `<name>Transformer.ts` -- transform function and step label/description helpers
+The transformer file lives **inside the visualizer**, not in `@kaggle-environments/core`. It's passed to `ReplayAdapter` via the `transformer:` option shown in the `main.ts` template. There is no central registry.
 
-2. Register it in `web/core/src/transformers.ts`:
-   ```typescript
-   import { myGameTransformer, getMyGameStepLabel, getMyGameStepDescription } from './transformers/<name>/<name>Transformer';
-   import { MyGameStep } from './transformers/<name>/<name>ReplayTypes';
+### File layout
 
-   // In processEpisodeData switch:
-   case 'open_spiel_<name>':
-     transformedSteps = myGameTransformer(environment);
-     break;
+```
+visualizer/default/src/
+├── main.ts
+├── renderer.ts
+└── transformers/
+    └── <name>Transformer.ts
+```
 
-   // In getGameStepLabel switch:
-   case 'open_spiel_<name>':
-     return getMyGameStepLabel(gameStep as MyGameStep);
+### Transformer template
 
-   // In getGameStepDescription switch:
-   case 'open_spiel_<name>':
-     return getMyGameStepDescription(gameStep as MyGameStep);
-   ```
+```typescript
+// src/transformers/<name>Transformer.ts
 
-3. Then use the transformed data in your renderer instead of parsing raw observations.
+// Forfeit signals used by open_spiel_env. See "Handle forfeits" below.
+const FORFEIT_STATUSES = new Set(['TIMEOUT', 'ERROR', 'INVALID']);
+const FORFEIT_REASONS: Record<string, string> = {
+  TIMEOUT: 'ran out of time',
+  INVALID: 'submitted an illegal move',
+  ERROR: 'failed to produce valid input',
+};
 
-**Reference transformers:** `web/core/src/transformers/chess/`, `web/core/src/transformers/connect_four/`, `web/core/src/transformers/go/`.
+interface RawAction {
+  submission?: number;
+  actionString?: string | null;
+  thoughts?: string | null;
+  status?: string | null;
+  generate_returns?: string[] | null;
+}
 
-A transformer is not required -- games with a proxy already get structured JSON observations, and simpler games can parse observation strings directly in the renderer.
+interface RawPlayer {
+  action?: RawAction;
+  observation: { observationString?: string; isTerminal?: boolean };
+  reward: number;
+  status?: string;
+}
+
+export interface MyGamePlayer {
+  id: number;
+  name: string;
+  thumbnail: string;
+  isTurn: boolean;
+  actionDisplayText: string;
+  thoughts: string;
+  reward: number;
+  generateReturns: string[] | null;
+  forfeited: boolean;
+  forfeitLastAttempt: string | null;
+}
+
+export interface MyGameBoardState {
+  // Fields your proxy emits from state_dict(). Fill in per game.
+  is_terminal: boolean;
+  winner: string | null;
+  // ...
+}
+
+export interface MyGameStep {
+  step: number;
+  players: MyGamePlayer[];
+  boardState: MyGameBoardState | null;
+  isTerminal: boolean;
+  winner: string | null;
+  forfeitReason: string | null;
+}
+
+// LLM harnesses store the full text response in action.generate_returns[0]
+// (JSON-encoded) with a fallback to action.thoughts. Prefer the former so
+// the side panel shows the model's reasoning, not just a summary field.
+function parseThoughts(action?: RawAction): string {
+  if (action?.generate_returns?.[0]) {
+    try {
+      const parsed = JSON.parse(action.generate_returns[0]);
+      if (parsed.main_response_and_thoughts) return parsed.main_response_and_thoughts;
+    } catch {}
+  }
+  return action?.thoughts ?? '';
+}
+
+function parseBoardState(step: RawPlayer[]): MyGameBoardState | null {
+  const raw = step?.[0]?.observation?.observationString ?? step?.[1]?.observation?.observationString;
+  if (!raw) return null;
+  try { return JSON.parse(raw) as MyGameBoardState; } catch { return null; }
+}
+
+// Detect a single-player forfeit and its reason category. Two signals:
+//   1. top-level player.status in FORFEIT_STATUSES (strict mode / TIMEOUT / ERROR)
+//   2. action.submission === -1 with a non-null action.status
+//      (the illegalMoveForfeit path -- open_spiel_env normalizes both
+//      top-level statuses to DONE, so signal #1 doesn't fire there)
+function detectForfeit(step: RawPlayer[]): { index: number; reasonKey: string } | null {
+  if (step.length < 2) return null;
+
+  const byStatus = step.map((p, i) => ({ p, i })).filter(({ p }) => p.status && FORFEIT_STATUSES.has(p.status));
+  if (byStatus.length === 1) return { index: byStatus[0].i, reasonKey: byStatus[0].p.status! };
+  if (byStatus.length > 1) return null;
+
+  const byAction = step.map((p, i) => ({ p, i })).filter(({ p }) => p.action?.submission === -1 && !!p.action?.status);
+  if (byAction.length === 1) return { index: byAction[0].i, reasonKey: 'INVALID' };
+  return null;
+}
+
+function deriveWinner(step: RawPlayer[], teamNames: string[]): string | null {
+  if (step.length < 2) return null;
+  const r0 = step[0].reward ?? 0;
+  const r1 = step[1].reward ?? 0;
+  if (r0 === r1) return 'Draw';
+  return r0 > r1 ? `${teamNames[0]} wins!` : `${teamNames[1]} wins!`;
+}
+
+export const myGameTransformer = (environment: any): MyGameStep[] => {
+  const teamNames: string[] = environment?.info?.TeamNames ?? ['Player 1', 'Player 2'];
+  const rawSteps: RawPlayer[][] = environment?.steps ?? [];
+  const out: MyGameStep[] = [];
+
+  rawSteps.forEach((step, index) => {
+    const forfeit = detectForfeit(step);
+
+    const players: MyGamePlayer[] = step.map((p, i): MyGamePlayer => {
+      const submission = p.action?.submission;
+      const isForfeiter = forfeit?.index === i;
+      // Forfeiters submit -1 but should still be treated as "acting" so
+      // the step is retained and their thoughts / last attempt render.
+      const isTurn = (submission !== undefined && submission !== -1) || isForfeiter;
+      return {
+        id: i,
+        name: teamNames[i] ?? `Player ${i + 1}`,
+        thumbnail: '',
+        isTurn,
+        actionDisplayText: p.action?.actionString ?? '',
+        thoughts: parseThoughts(p.action),
+        reward: p.reward ?? 0,
+        generateReturns: p.action?.generate_returns ?? null,
+        forfeited: isForfeiter,
+        forfeitLastAttempt: isForfeiter ? (p.action?.actionString ?? null) : null,
+      };
+    });
+
+    // Drop setup / no-op steps where neither player acted.
+    if (!players.some((pl) => pl.isTurn)) return;
+
+    const observationTerminal = !!step[0]?.observation?.isTerminal;
+    // A forfeit ends the episode even though OpenSpiel's own state isn't
+    // terminal -- treat it as terminal so the renderer stops showing "Turn: X".
+    const isTerminal = observationTerminal || forfeit !== null;
+
+    let forfeitReason: string | null = null;
+    if (forfeit) {
+      const loser = teamNames[forfeit.index] ?? `Player ${forfeit.index + 1}`;
+      const winner = teamNames[1 - forfeit.index] ?? `Player ${2 - forfeit.index}`;
+      forfeitReason = `${loser} ${FORFEIT_REASONS[forfeit.reasonKey] ?? 'forfeited'}. ${winner} wins by default.`;
+    }
+
+    out.push({
+      step: index,
+      players,
+      boardState: parseBoardState(step),
+      isTerminal,
+      winner: isTerminal ? deriveWinner(step, teamNames) : null,
+      forfeitReason,
+    });
+  });
+
+  return out;
+};
+```
+
+### Handle forfeits in the renderer
+
+`open_spiel_env` ends an episode without setting `observation.isTerminal` in three cases:
+- `player.status ∈ {'TIMEOUT', 'ERROR'}` -- overtime or crash
+- `player.status === 'INVALID'` -- strict mode
+- `action.submission === -1` with a non-null `action.status` -- the `illegalMoveForfeit` path, where both top-level statuses are normalized to `DONE`
+
+The transformer template above detects all three and populates `currentStep.forfeitReason`. The renderer should:
+
+1. Prefer `currentStep.isTerminal` over `observation.isTerminal` (they diverge on forfeit).
+2. When `observation.winner` is null but `isTerminal`, derive the winner from reward sign.
+3. Render `forfeitReason` as a visually distinct annotation (red italic works well) so it's not confused with the natural terminal line.
+
+Example renderer snippet:
+
+```typescript
+const isTerminal = !!currentStep?.isTerminal || observation.is_terminal;
+const forfeitReason = currentStep?.forfeitReason ?? null;
+const forfeiterIdx = currentStep?.players?.findIndex((p) => p.forfeited) ?? -1;
+
+if (isTerminal) {
+  let winnerLabel: string;
+  if (observation.winner === 'X') winnerLabel = `${playerNames[0]} wins!`;
+  else if (observation.winner === 'O') winnerLabel = `${playerNames[1]} wins!`;
+  else if (forfeitReason && forfeiterIdx >= 0) {
+    const winnerIdx = 1 - forfeiterIdx;
+    winnerLabel = `${playerNames[winnerIdx]} wins!`;
+  } else winnerLabel = 'Draw';
+  statusHTML = winnerLabel;
+  if (forfeitReason) {
+    statusHTML += `<span class="annotation forfeit-reason">${escapeHtml(forfeitReason)}</span>`;
+  }
+}
+```
+
+Add matching CSS:
+
+```css
+.status-container .annotation.forfeit-reason {
+  color: #a03030;
+  font-style: italic;
+}
+```
+
+### Reference implementations
+
+- `open_spiel_env/games/checkers/visualizer/default/src/transformers/checkersTransformer.ts` -- canonical in-visualizer transformer, structured board state + players array.
+- `open_spiel_env/games/chess/visualizer/default/src/transformers/forfeit.ts` and `chessTransformer.ts` -- full forfeit taxonomy including per-attempt retries (`call_details`).
+- `open_spiel_env/games/connect_four/visualizer/default/src/transformers/connectFourTransformer.ts` -- forfeit-by-reward-signal fallback for older replays without `action.status`.
 
 ## Step 6: Integrate with the environment
 
@@ -441,9 +670,9 @@ Every visualizer **must** ship with a Playwright E2E test file at `visualizer/<v
 
 **Keep tests minimal and shape-based, not exhaustive.** Do not enumerate every cell, piece, score value, or transition. The point is a smoke test that the visualizer mounts, renders, advances through steps, and reaches a terminal state -- not to lock in pixel-perfect behavior. Excessive assertions create churn every time the renderer changes.
 
-### Three test shapes to copy
+### Four test shapes to copy
 
-Reproduce the shapes below from existing tests; pick the 1-3 that fit your game. Reference: `kaggle_environments/envs/connectx/visualizer/default/e2e/connectx.test.ts`, `kaggle_environments/envs/open_spiel_env/games/chess/visualizer/default/e2e/chess.test.ts`, `kaggle_environments/envs/open_spiel_env/games/repeated_poker/visualizer/default/e2e/repeated_poker.test.ts`, `kaggle_environments/envs/open_spiel_env/games/go/visualizer/fallback/e2e/go.test.ts`.
+Reproduce the shapes below from existing tests; pick the ones that fit your game. Shape 4 (forfeit) is required for any OpenSpiel side-panel visualizer. Reference: `kaggle_environments/envs/connectx/visualizer/default/e2e/connectx.test.ts`, `kaggle_environments/envs/open_spiel_env/games/chess/visualizer/default/e2e/chess.test.ts`, `kaggle_environments/envs/open_spiel_env/games/repeated_poker/visualizer/default/e2e/repeated_poker.test.ts`, `kaggle_environments/envs/open_spiel_env/games/go/visualizer/fallback/e2e/go.test.ts`.
 
 **Shape 1 -- "renders the game":** assert that the top-level container, the board, and one or two distinguishing elements (player names, title, key UI region) are visible. A handful of `toBeVisible` calls -- not an inventory.
 
@@ -479,6 +708,21 @@ test('displays winner status at final step', async ({ page }) => {
   await slider.fill(maxValue || '0');
   await page.waitForTimeout(200);
   await expect(page.locator('p').filter({ hasText: /Wins|Winner|Draw/ })).toBeVisible();
+});
+```
+
+**Shape 4 -- "forfeit terminal state":** point the dev server at your `test-forfeit-replay.json`, drive slider to `max`, and assert a forfeit line appears. This is the test that catches the "renderer freezes on last mid-game frame" bug. Add a second Playwright project in `playwright.config.ts` for this game that boots the dev server with `VITE_REPLAY_FILE=./replays/test-forfeit-replay.json`, or wrap it in a describe block that skips when the file is absent.
+
+```typescript
+test('shows forfeit reason at final step', async ({ page }) => {
+  const slider = page.locator('input[type="range"]');
+  await slider.waitFor({ state: 'visible' });
+  const maxValue = await slider.getAttribute('max');
+  await slider.fill(maxValue || '0');
+  await page.waitForTimeout(200);
+  await expect(
+    page.locator('.status-container').filter({ hasText: /wins by default|forfeited|illegal move|ran out of time/i })
+  ).toBeVisible();
 });
 ```
 
@@ -527,19 +771,25 @@ pnpm format
 - [ ] Current actor, move taken, move implications, and score are all visible
 - [ ] `html_renderer()` in the Python env reads `dist/index.html` (regular envs only)
 - [ ] `test-replay.json` has a full game (not 2-3 steps from agent failure)
-- [ ] `e2e/<name>.test.ts` exists with 3 minimal shape-based tests (renders, mid-game, terminal state) -- not exhaustive
+- [ ] `test-forfeit-replay.json` present, and the sidebar / status line render the forfeit reason distinctly (OpenSpiel side-panel visualizers)
+- [ ] Transformer wired via `ReplayAdapter({ transformer })` -- lives in `src/transformers/`, NOT `web/core/src/transformers.ts` (there is no central registry)
+- [ ] `players[].thoughts` populated from `action.generate_returns[0].main_response_and_thoughts` with fallback to `action.thoughts` -- verified by expanding a step in the sidebar
+- [ ] Transformer's `detectForfeit()` covers all three forfeit signals (top-level status, action.submission === -1 + action.status)
+- [ ] Renderer prefers `currentStep.isTerminal` over `observation.isTerminal`, and derives winner from reward sign when `observation.winner` is null
+- [ ] `e2e/<name>.test.ts` covers renders / mid-game / terminal / **forfeit terminal** (shapes 1-4) -- not exhaustive
 - [ ] `pnpm test:e2e --project <name>` passes
 - [ ] `pnpm build` produces output in `dist/`
 - [ ] `pnpm format` passes
 - [ ] `pnpm validate-conventions` passes (catches missing allowlist entry)
 - [ ] If standalone (non-OpenSpiel): game dir added to `KNOWN_STANDALONE_GAME_DIRS` in `web/scripts/validate-visualizer-conventions.js`
-- [ ] If transformer: registered in `web/core/src/transformers.ts` switch statements
 
 ## Reference implementations
 
 - `kaggle_environments/envs/rps/visualizer/default/` -- simple canvas-based renderer
 - `kaggle_environments/envs/werewolf/visualizer/default/` -- more complex with custom transformer
-- `kaggle_environments/envs/open_spiel_env/games/connect_four/visualizer/default/` -- OpenSpiel visualizer
+- `kaggle_environments/envs/open_spiel_env/games/checkers/visualizer/default/` -- canonical OpenSpiel visualizer with in-visualizer transformer + `parseThoughts` helper
+- `kaggle_environments/envs/open_spiel_env/games/chess/visualizer/default/` -- full forfeit taxonomy including per-attempt retry rendering (`src/transformers/forfeit.ts` + `chessTransformer.ts`)
+- `kaggle_environments/envs/open_spiel_env/games/connect_four/visualizer/default/` -- forfeit-by-reward-signal fallback for older replays
 - `web/core/src/index.ts` -- all exports from `@kaggle-environments/core`
 
 ## Troubleshooting
