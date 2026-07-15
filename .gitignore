@@ -187,3 +187,8 @@ __MACOSX/
 
 # Kagent context
 .kagent-context
+
+# word_art blocklist -- contains sensitive terms we filter out of the
+# generated wordlist. Kept locally, not committed. See
+# scripts/build_word_art_wordlist.py::_load_blocklist for the format.
+scripts/word_art_wordlist/blocklist.txt

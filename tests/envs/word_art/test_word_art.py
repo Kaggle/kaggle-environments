@@ -1,4 +1,7 @@
+import pytest
+
 from kaggle_environments import make
+from kaggle_environments.envs.word_art.word_art import _matches_target, _sample_words
 from kaggle_environments.errors import DeadlineExceeded
 
 
@@ -551,3 +554,193 @@ def test_guesser_timeout_preserved_across_round_boundary():
     # be flipped to ACTIVE/INACTIVE for the round-1 art phase, and must
     # remain TIMEOUT after the game DONE sweep.
     assert env.state[3].status == "TIMEOUT"
+
+
+# --- Singular/plural guess leniency ---------------------------------------
+#
+# The matcher accepts a guess whose plural/singular form matches the target,
+# so a model that says CATS when the target is CAT (or vice versa) is not
+# punished for English morphology. Direct tests on _matches_target cover the
+# tricky irregular forms; the integration test below confirms the runtime
+# actually plumbs it through _process_team_guess.
+
+
+@pytest.mark.parametrize(
+    "guess,target",
+    [
+        ("CAT", "CAT"),           # exact match baseline
+        ("cats", "CAT"),          # regular plural, lowercase input
+        ("CAT", "CATS"),          # inverse: target is plural, guess is singular
+        ("BOXES", "BOX"),         # -ES suffix
+        ("BUSES", "BUS"),         # BUS singularizes ambiguously; matcher must still find BUS
+        ("LEAVES", "LEAF"),       # -F -> -VES
+        ("KNIVES", "KNIFE"),      # -FE -> -VES
+        ("BABIES", "BABY"),       # -Y -> -IES
+        ("MICE", "MOUSE"),        # irregular
+        ("TEETH", "TOOTH"),       # irregular
+        ("CHILDREN", "CHILD"),    # irregular
+        ("SNOWMEN", "SNOWMAN"),   # compound-suffix inheritance
+        ("SHEEP", "SHEEP"),       # same-form noun
+        ("CACTI", "CACTUS"),      # Latin plural
+        ("CACTUSES", "CACTUS"),   # anglicised alt plural for the same word
+        ("ANTENNAE", "ANTENNA"),  # Latin plural with -AE
+    ],
+)
+def test_matches_target_accepts_plural_variants(guess, target):
+    assert _matches_target(guess.upper(), target.upper())
+
+
+@pytest.mark.parametrize(
+    "guess,target",
+    [
+        ("DOG", "CAT"),           # unrelated words
+        ("CAT", "CATFISH"),       # target substring is not a plural relation
+        ("", "CAT"),              # empty guess never matches
+        ("CAT", ""),              # empty target never matches
+        ("WROTE", "WRITE"),       # verb tense variants are explicitly out of scope
+        ("COUCH", "SOFA"),        # synonyms are out of scope
+    ],
+)
+def test_matches_target_rejects_non_plural_variants(guess, target):
+    assert not _matches_target(guess.upper(), target.upper())
+
+
+def test_plural_guess_scores_via_full_env():
+    """End-to-end: a guesser that always answers `<target>S` scores points,
+    proving the matcher is wired into _process_team_guess (not just callable).
+    """
+
+    def plural_cheater(observation, configuration):
+        if observation.role == "artist":
+            return _encode_word(observation.target_word)
+        return _decode_art(observation.teammate_art) + "S"
+
+    env = _make(num_rounds=3, seed=42)
+    env.run([plural_cheater] * 4)
+    j = env.toJSON()
+    # Some rounds may pick a word whose "+S" isn't a valid plural form of
+    # the target (irregulars like MAN/CHILD are blocklisted, but SHEEP-style
+    # same-form nouns exist and would reject "SHEEPS"). We only assert
+    # SOMETHING scored -- otherwise the matcher plainly isn't wired up.
+    assert j["rewards"][0] > 0
+    assert j["rewards"][2] > 0
+
+
+# --- Stratified sampling via word_mix -------------------------------------
+
+
+def _all_words():
+    from kaggle_environments.envs.word_art.word_art import _load_words
+    return _load_words()
+
+
+def test_word_mix_honors_per_tier_counts():
+    """A word_mix with 3 easy + 2 medium + 1 hard must produce exactly that
+    tier distribution, regardless of shuffle order."""
+    env = _make(num_rounds=6, seed=42, word_mix={"easy": 3, "medium": 2, "hard": 1})
+    env.run([silent] * 4)
+    j = env.toJSON()
+    history = j["steps"][-1][0]["observation"]["history"]
+    words_used = [h["word"] for h in history]
+    tier_by_word = {w["word"]: w["tier"] for w in _all_words()}
+    tiers = [tier_by_word[w] for w in words_used]
+    assert tiers.count("easy") == 3
+    assert tiers.count("medium") == 2
+    assert tiers.count("hard") == 1
+
+
+def test_word_mix_sum_mismatch_raises():
+    """word_mix counts must sum to num_rounds; the check runs at env
+    construction (make() calls initialize_game), so the raise happens
+    before any agent runs."""
+    with pytest.raises(ValueError, match="sum to num_rounds"):
+        _make(num_rounds=8, seed=1, word_mix={"easy": 2, "medium": 2})
+
+
+def test_word_mix_tier_pool_too_small_raises():
+    """Requesting more words than a tier's pool holds must raise."""
+    rng = __import__("random").Random(0)
+    all_words = _all_words()
+    hard_pool = sum(1 for w in all_words if w["tier"] == "hard")
+    with pytest.raises(ValueError, match="pool has only"):
+        _sample_words(all_words, hard_pool + 1, {"hard": hard_pool + 1}, rng)
+
+
+def test_irregular_tables_stay_trimmed_to_csv():
+    """Guard the CSV -> matcher-tables dependency (see word_art.py comment).
+
+    Two failure modes, both surfaced with the specific offending entry:
+      (a) A kept entry no longer has any form in the CSV -- drop it.
+      (b) The CSV grew to need a dropped entry -- re-add it, or the
+          matcher silently rejects the valid plural. (b) is checked
+          against a fixed list of high-risk historical entries; expand
+          it when dropping new entries from _IRREGULAR_PLURALS.
+    """
+    from kaggle_environments.envs.word_art.word_art import (
+        _COMPOUND_IRREGULAR_SUFFIXES, _IRREGULAR_PLURALS, _SAME_FORM_NOUNS,
+    )
+    words = {w["word"] for w in _all_words()}
+
+    # (a) every kept entry earns its keep.
+    unused_irregulars = [
+        sg for sg, pls in _IRREGULAR_PLURALS.items()
+        if sg not in words and not any(pl in words for pl in pls)
+    ]
+    assert not unused_irregulars, (
+        f"_IRREGULAR_PLURALS entries unused by words.csv (drop): {unused_irregulars}"
+    )
+    unused_same_form = [w for w in _SAME_FORM_NOUNS if w not in words]
+    assert not unused_same_form, (
+        f"_SAME_FORM_NOUNS entries absent from words.csv (drop): {unused_same_form}"
+    )
+    unused_compounds = [
+        (sfx, pl_sfx)
+        for sfx, pl_sfx in _COMPOUND_IRREGULAR_SUFFIXES.items()
+        if not any(
+            (len(w) > len(sfx) and w.endswith(sfx))
+            or (len(w) > len(pl_sfx) and w.endswith(pl_sfx))
+            for w in words
+        )
+    ]
+    assert not unused_compounds, (
+        f"_COMPOUND_IRREGULAR_SUFFIXES unused by any CSV word (drop): {unused_compounds}"
+    )
+
+    # (b) high-risk historical entries -- if the CSV grows to include any
+    # of these, re-add the mapping to _IRREGULAR_PLURALS or the matcher
+    # silently rejects the true plural. Expand when dropping new entries.
+    dropped_that_would_break = {
+        "MAN": ("MEN",), "WOMAN": ("WOMEN",),  # blocklisted; if unblocked, re-add
+        "LIFE": ("LIVES",), "WIFE": ("WIVES",),
+        "HALF": ("HALVES",), "SELF": ("SELVES",), "ELF": ("ELVES",),
+        "SCARF": ("SCARVES",),
+        "MATRIX": ("MATRICES",), "INDEX": ("INDICES",),
+        "APPENDIX": ("APPENDICES",), "VERTEX": ("VERTICES",),
+        "NUCLEUS": ("NUCLEI",), "RADIUS": ("RADII",),
+        "CRITERION": ("CRITERIA",), "PHENOMENON": ("PHENOMENA",),
+        "AXIS": ("AXES",), "BASIS": ("BASES",), "CRISIS": ("CRISES",),
+        "ANALYSIS": ("ANALYSES",), "HYPOTHESIS": ("HYPOTHESES",),
+        "DIAGNOSIS": ("DIAGNOSES",), "SYNOPSIS": ("SYNOPSES",),
+        "THESIS": ("THESES",),
+        "DATUM": ("DATA",), "MEDIUM": ("MEDIA",),
+        "AMOEBA": ("AMOEBAE", "AMOEBAS"), "FORMULA": ("FORMULAE", "FORMULAS"),
+    }
+    regressions = {
+        sg: pls for sg, pls in dropped_that_would_break.items()
+        if sg in words or any(pl in words for pl in pls)
+    }
+    assert not regressions, (
+        f"words.csv now contains {list(regressions)}; re-add to "
+        f"_IRREGULAR_PLURALS in word_art.py: {regressions}"
+    )
+
+
+def test_default_uniform_sampling_backwards_compatible():
+    """Empty word_mix (default) samples uniformly from the full pool -- the
+    pre-CSV behaviour is preserved. Just check nothing raises and the round
+    count is honoured."""
+    env = _make(num_rounds=4, seed=7)
+    env.run([silent] * 4)
+    j = env.toJSON()
+    history = j["steps"][-1][0]["observation"]["history"]
+    assert len(history) == 4

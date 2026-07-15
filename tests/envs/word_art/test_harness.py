@@ -726,9 +726,12 @@ class GeneratePromptTest(absltest.TestCase):
     def test_match_rule_wording_is_consistent_across_roles(self):
         artist = " ".join(generate_prompt(_artist_obs(), []).split())
         guesser = " ".join(generate_prompt(_guesser_obs(), []).split())
-        phrase = "no plurals, synonyms, partial matches, or other spelling variants"
-        self.assertIn(phrase, artist)
-        self.assertIn(phrase, guesser)
+        # Both prompts must state the plural leniency AND the non-goals
+        # (synonyms/tenses/spelling variants) so the model has consistent
+        # expectations regardless of role.
+        for prompt in (artist, guesser):
+            self.assertIn("accepts singular/plural equivalents", prompt)
+            self.assertIn("Synonyms, tenses, and other spelling variants don't count", prompt)
 
     def test_guesser_prompt_explains_disqualification_marker(self):
         prompt = generate_prompt(_guesser_obs(), [])
