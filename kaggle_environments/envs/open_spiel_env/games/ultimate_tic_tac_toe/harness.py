@@ -17,22 +17,20 @@ from kaggle_environments.core_harness import ParseResult, parse_json_action, ren
 
 # --- Prompt Templates --------------------------------------------------------
 
-ULTIMATE_TIC_TAC_TOE_PROMPT_TEMPLATE = """Let's play Ultimate Tic-Tac-Toe.
+ULTIMATE_TIC_TAC_TOE_PROMPT_TEMPLATE = """Ultimate Tic-Tac-Toe.
 
-Ultimate Tic-Tac-Toe is played on a board of nine 3x3 local boards arranged in a larger 3x3 grid.
-The nine local boards are indexed 0 to 8, numbered left-to-right, top-to-bottom.
-Within each local board, the nine cells are also indexed 0 to 8 using the exact same left-to-right, top-to-bottom convention.
-The coordinates (row, col) also map to indexes as index = row * 3 + col (where row and col are 0 to 2).
+Nine 3x3 local boards arranged in a larger 3x3 grid. Local boards indexed 0-8 (left-to-right, top-to-bottom). Cells within each local board are also indexed 0-8 (same convention); coordinates (row, col) map to index = row*3 + col (row, col in 0-2).
 
-A local board is considered *active* (or legal to play in) if it has not yet been won, drawn, or fully filled. Once a local board is won or drawn, it is no longer active, and no further moves can be played in it.
-In the overall game state display, finished local boards are listed under "Local Board Winners" with their status: '[x]', '[o]', or '[draw]'. Active boards are shown as '[ ]'.
+A local board is *active* if it has not yet been won, drawn, or fully filled. Under "Local Board Winners", finished boards show '[x]', '[o]', or '[draw]'; active boards show '[ ]'.
 
-CRITICAL RULE: The cell you choose within a local board determines which local board your opponent must play in next. Specifically, the index of the chosen cell (0 to 8) maps directly to the index of the target local board. For example, playing cell index 4 (center cell, coordinates 1,1) sends your opponent to Local Board 4. If the target local board is not active (i.e. already won, drawn, or full), your opponent gets a "free move" and can choose any active local board.
+CRITICAL RULE: The cell you choose within a local board (index 0-8) determines which local board your opponent must play in next. Cell index 4 (center, coordinates 1,1) sends the opponent to Local Board 4. If that target board is not active, the opponent gets a "free move" in any active board.
 
-To win a local board, you must place three of your marks in a row on that 3x3 local board.
-A local board can also end in a draw (all 9 cells filled with no 3-in-a-row); drawn local boards count for neither player in the overall game.
-To win the overall game, you must win three local boards in a row (horizontally, vertically, or diagonally) in the overall 3x3 game.
-The game ends in a draw if all 9 local boards finish without either player completing 3-in-a-row in the overall 3x3 game.
+Win a local board with three-in-a-row on that 3x3. Drawn local boards count for neither player.
+Win the game with three-in-a-row on the overall 3x3 of local board winners. If all 9 local boards finish without either player scoring, the game is a draw.
+
+Objective:
+Your goal is to WIN -- be the first to make three-in-a-row of won local boards on the overall grid. Draws count for neither, so aim for a win rather than settling when a winning line is available.
+Long-term planning matters: the cell you play now sends your opponent to a specific local board, which shapes their reply and constrains where you'll play after. Reason about downstream consequences, not just the immediate value of a move.
 
 On your turn:
 {phase_instructions}
@@ -40,16 +38,13 @@ On your turn:
 Overall Game State:
 {board_ascii}
 
-You are Player {player_id} ('{my_piece}').
-Opponent is Player {opp_player_id} ('{opp_piece}').
+You are Player {player_id} ('{my_piece}'). Opponent is Player {opp_player_id} ('{opp_piece}').
 
 Moves played so far this game (both players, oldest first):
 {move_history}
 
-Choose your move now. Respond with your reasoning followed by your final move in a JSON block:
+Respond with your reasoning, then end your response with your final move as JSON:
 {json_format_example}
-
-Failure to output your final answer in the specified format, or selecting an illegal move, will result in a loss.
 """
 
 RETHINK_ILLEGAL = """
@@ -110,10 +105,13 @@ def _format_board_ascii(board: list[list[str]], subgrid_winners: list[str], acti
         header_parts = []
         for mc in range(3):
             subgrid_idx = major_row * 3 + mc
+            # Center the title within the same 17-char slot the frame
+            # below occupies ("  +---+---+---+  ") so it sits visually
+            # above the sub-grid.
             if active_subgrid == subgrid_idx:
-                header_parts.append(f"> Local Board {subgrid_idx} <")
+                header_parts.append(f"> Board {subgrid_idx} <".center(17))
             else:
-                header_parts.append(f"  Local Board {subgrid_idx}  ")
+                header_parts.append(f"Board {subgrid_idx}".center(17))
         lines.append(sep.join(header_parts))
 
         divider = sep.join("  +---+---+---+  " for _ in range(3))
@@ -290,29 +288,22 @@ def generate_prompt(
     subgrid_winners = state.get("subgrid_winners") or [""] * 9
     active_subgrid = state.get("active_subgrid")
     phase = state.get("phase", "choose_subgrid")
+    # Default to "opening" on synthetic / setup-step observations that
+    # haven't been through the proxy yet (matches phase's default and
+    # keeps the ablation-check parity harness happy on pre-move obs).
+    board_context = state.get("board_context") or "opening"
 
     my_piece = "x" if player_id == 0 else "o"
     opp_piece = "o" if player_id == 0 else "x"
     opp_player_id = 1 - player_id
 
-    # Format phase-specific instructions and JSON templates
+    # JSON format templates depend only on phase (subgrid pick vs cell pick).
     if phase == "choose_subgrid":
-        phase_instructions = (
-            "You are currently allowed to choose ANY active local board to play in (either because it is the first turn of the game, or because your opponent's previous move sent you to a local board that is no longer active).\n"
-            "A local board is active if it has not yet been won, drawn, or fully filled.\n"
-            "Select one of the active local boards (index 0 to 8) to target.\n"
-            "(The CRITICAL RULE about cell->board routing applies to your *next* turn, when you select a cell within this board.)"
-        )
         json_format_example = (
             '```json\n{\n  "move": "<subgrid_index>"\n}\n```\nFor example: `{"move": "0"}` to choose Local Board 0.'
         )
         format_reminder = '```json\n{{\n  "move": "<subgrid_index>"\n}}\n```\nFor example: `{{"move": "0"}}`'
     elif phase == "choose_cell":
-        phase_instructions = (
-            f"You must play in Local Board {active_subgrid}. Choose an empty cell in Local Board {active_subgrid} to place your '{my_piece}'.\n"
-            "You can specify your move either by row and column coordinates (e.g. '1,1') or by cell index (0 to 8, numbered left-to-right, top-to-bottom).\n"
-            "Remember: the cell you choose (0 to 8) determines which local board your opponent must play in next."
-        )
         json_format_example = (
             "```json\n"
             "{\n"
@@ -326,6 +317,37 @@ def generate_prompt(
         )
     else:
         raise ValueError(f"Invalid or terminal phase: {phase}")
+
+    # phase_instructions differentiate by *why* the player is in this
+    # situation. The four cases (opening / redirected / self_selected /
+    # opponent_directed) share the same JSON format inside a given phase
+    # but merit different strategic framing — see the ultimate_tic_tac_toe
+    # proxy's board_context docstring for the enumeration.
+    if board_context == "opening":
+        phase_instructions = (
+            "FIRST MOVE of the game: choose any local board (0-8). "
+            "Plan the board AND the cell you'll play in it next turn together -- "
+            "the cell's index (0-8) sends the opponent to the same-numbered board."
+        )
+    elif board_context == "redirected":
+        phase_instructions = (
+            "Opponent's cell mapped to an inactive board, so you have a FREE MOVE -- "
+            "choose any currently-active local board (0-8). "
+            "Plan the board AND the cell together (the cell you play next turn sends the opponent to that-numbered board)."
+        )
+    elif board_context == "self_selected":
+        phase_instructions = (
+            f"You picked Local Board {active_subgrid} last turn; now choose an empty cell (0-8) in it to place '{my_piece}'. "
+            "If you had a specific cell in mind when you picked this board, play it. "
+            "(Move by (row,col) e.g. '1,1' or by cell index 0-8.)"
+        )
+    elif board_context == "opponent_directed":
+        phase_instructions = (
+            f"Opponent's cell sent you to Local Board {active_subgrid}. Choose an empty cell (0-8) in it to place '{my_piece}'. "
+            "(Move by (row,col) e.g. '1,1' or by cell index 0-8.)"
+        )
+    else:
+        raise ValueError(f"Unexpected board_context: {board_context!r}")
 
     # Reconstruct history of moves from both players
     full_history = _reconstruct_move_history(observation)
