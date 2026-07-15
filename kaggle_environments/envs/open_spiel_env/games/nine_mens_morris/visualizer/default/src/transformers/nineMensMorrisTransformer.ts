@@ -82,7 +82,11 @@ export interface NineMensMorrisStep {
   forfeitReason: string | null;
 }
 
+// action.thoughts is the harness-curated summary and the preferred source.
+// generate_returns[0].main_response_and_thoughts is the raw LLM output;
+// use it only when the harness didn't populate thoughts.
 function parseThoughts(action?: NineMensMorrisAction): string {
+  if (action?.thoughts) return action.thoughts;
   if (action?.generate_returns?.[0]) {
     try {
       const parsed = JSON.parse(action.generate_returns[0]);
@@ -90,10 +94,10 @@ function parseThoughts(action?: NineMensMorrisAction): string {
         return parsed.main_response_and_thoughts;
       }
     } catch {
-      // fall through to action.thoughts
+      // fall through
     }
   }
-  return action?.thoughts ?? '';
+  return '';
 }
 
 function parseBoardState(step: NineMensMorrisReplayPlayer[]): NineMensMorrisBoardState | null {

@@ -498,17 +498,18 @@ export interface MyGameStep {
   forfeitReason: string | null;
 }
 
-// LLM harnesses store the full text response in action.generate_returns[0]
-// (JSON-encoded) with a fallback to action.thoughts. Prefer the former so
-// the side panel shows the model's reasoning, not just a summary field.
+// action.thoughts is the harness-curated summary and the preferred source.
+// generate_returns[0].main_response_and_thoughts is the raw LLM output;
+// use it only when the harness didn't populate thoughts.
 function parseThoughts(action?: RawAction): string {
+  if (action?.thoughts) return action.thoughts;
   if (action?.generate_returns?.[0]) {
     try {
       const parsed = JSON.parse(action.generate_returns[0]);
       if (parsed.main_response_and_thoughts) return parsed.main_response_and_thoughts;
     } catch {}
   }
-  return action?.thoughts ?? '';
+  return '';
 }
 
 function parseBoardState(step: RawPlayer[]): MyGameBoardState | null {
@@ -773,7 +774,7 @@ pnpm format
 - [ ] `test-replay.json` has a full game (not 2-3 steps from agent failure)
 - [ ] `test-forfeit-replay.json` present, and the sidebar / status line render the forfeit reason distinctly (OpenSpiel side-panel visualizers)
 - [ ] Transformer wired via `ReplayAdapter({ transformer })` -- lives in `src/transformers/`, NOT `web/core/src/transformers.ts` (there is no central registry)
-- [ ] `players[].thoughts` populated from `action.generate_returns[0].main_response_and_thoughts` with fallback to `action.thoughts` -- verified by expanding a step in the sidebar
+- [ ] `players[].thoughts` populated from `action.thoughts` with fallback to `action.generate_returns[0].main_response_and_thoughts` -- verified by expanding a step in the sidebar
 - [ ] Transformer's `detectForfeit()` covers all three forfeit signals (top-level status, action.submission === -1 + action.status)
 - [ ] Renderer prefers `currentStep.isTerminal` over `observation.isTerminal`, and derives winner from reward sign when `observation.winner` is null
 - [ ] `e2e/<name>.test.ts` covers renders / mid-game / terminal / **forfeit terminal** (shapes 1-4) -- not exhaustive
