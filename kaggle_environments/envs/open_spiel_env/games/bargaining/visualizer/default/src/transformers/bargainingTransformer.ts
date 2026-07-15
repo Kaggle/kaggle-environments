@@ -9,6 +9,22 @@ function parseObs(raw?: string): BargainingObs | null {
   }
 }
 
+// action.thoughts is the harness-curated summary and the preferred source.
+// generate_returns[0].main_response_and_thoughts is the raw LLM output;
+// use it only when the harness didn't populate thoughts.
+function parseThoughts(action?: { thoughts?: string | null; generate_returns?: string[] | null }): string {
+  if (action?.thoughts) return action.thoughts;
+  if (action?.generate_returns?.[0]) {
+    try {
+      const parsed = JSON.parse(action.generate_returns[0]);
+      if (parsed.main_response_and_thoughts) return parsed.main_response_and_thoughts;
+    } catch {
+      // fall through
+    }
+  }
+  return '';
+}
+
 // Submission is -1 (or null) on setup/inactive turns; treat anything else as a real move.
 const isRealMove = (submission: unknown): boolean =>
   submission !== undefined && submission !== null && submission !== -1;
@@ -30,7 +46,7 @@ export const bargainingTransformer = (environment: any): BargainingStep[] => {
         thumbnail: '',
         isTurn: isRealMove(sub),
         actionDisplayText: p.action?.actionString ?? '',
-        thoughts: p.action?.thoughts ?? '',
+        thoughts: parseThoughts(p.action),
         reward: p.reward,
       };
     });

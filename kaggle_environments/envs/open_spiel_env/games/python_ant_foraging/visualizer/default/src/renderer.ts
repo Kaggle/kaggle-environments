@@ -1,25 +1,7 @@
 import type { RendererOptions } from '@kaggle-environments/core';
+import type { AntStep, AntBoardState } from './transformers/pythonAntForagingTransformer';
 
-type AntForagingObservation = {
-  grid: string[][];
-  grid_size: number;
-  num_ants: number;
-  num_food: number;
-  nest_position: [number, number];
-  food_positions: [number, number][];
-  ant_positions: [number, number][];
-  carrying_food: boolean[];
-  pheromone_to_food: number[][];
-  pheromone_to_nest: number[][];
-  food_collected: number;
-  score: number;
-  turn: number;
-  max_turns: number;
-  current_player: number;
-  legal_actions: number[];
-  action_names: Record<string, string>;
-  is_terminal: boolean;
-};
+type AntForagingObservation = AntBoardState;
 
 const ANT_COLORS = ['#9a3324', '#1f4f8b', '#2e7d32', '#7b1fa2'];
 const INK = '#050001';
@@ -38,31 +20,23 @@ function getPlayerName(replay: any, idx: number): string {
   return `Ant ${idx}`;
 }
 
-function parseObservation(step: any): AntForagingObservation | null {
-  const raw = step?.[0]?.observation?.observationString;
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as AntForagingObservation;
-  } catch {
-    return null;
-  }
+function parseObservation(step: AntStep | undefined | null): AntForagingObservation | null {
+  return step?.boardState ?? null;
 }
 
 function getLastAction(
-  replay: any,
+  steps: AntStep[],
   step: number,
   obs: AntForagingObservation
 ): { antIdx: number; name: string } | null {
   if (step <= 0) return null;
-  const steps = replay?.steps ?? [];
   const prev = steps[step - 1];
   if (!prev) return null;
-  // Find the player whose action.submission is a valid play action (not -1).
-  for (let i = 0; i < prev.length; i++) {
-    const submission = prev[i]?.action?.submission;
+  for (const player of prev.players) {
+    const submission = player.submission;
     if (typeof submission === 'number' && submission >= 0 && submission <= 4) {
       const name = obs.action_names?.[String(submission)] ?? `action ${submission}`;
-      return { antIdx: i, name };
+      return { antIdx: player.id, name };
     }
   }
   return null;
@@ -239,9 +213,9 @@ function drawBoard(
   }
 }
 
-export function renderer(options: RendererOptions) {
+export function renderer(options: RendererOptions<AntStep[]>) {
   const { parent, replay, step } = options;
-  const steps = (replay?.steps ?? []) as any[];
+  const steps = (replay?.steps ?? []) as AntStep[];
   if (!steps.length) {
     parent.innerHTML = '<div>No replay data.</div>';
     return;
@@ -253,7 +227,7 @@ export function renderer(options: RendererOptions) {
   }
   const prev = step > 0 ? parseObservation(steps[step - 1]) : null;
   const prevAntPositions = prev?.ant_positions ?? null;
-  const lastAction = getLastAction(replay, step, obs);
+  const lastAction = getLastAction(steps, step, obs);
 
   parent.innerHTML = `
     <div class="renderer-container">

@@ -1,4 +1,5 @@
 import type { RendererOptions } from '@kaggle-environments/core';
+import type { SoccerStep } from './transformers/markovSoccerTransformer';
 
 const COLOR_A = '#1f77b4';
 const COLOR_B = '#d62728';
@@ -26,19 +27,12 @@ interface SoccerState {
   ball_owner: 'A' | 'B' | null;
 }
 
-function parseObservation(step: any): SoccerState | null {
-  const raw = step?.[0]?.observation?.observationString;
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as SoccerState;
-  } catch {
-    return null;
-  }
+function parseObservation(step: SoccerStep | undefined | null): SoccerState | null {
+  return (step?.boardState as SoccerState | null) ?? null;
 }
 
-function getLastAction(step: any, playerIdx: number): string | null {
-  const info = step?.[playerIdx]?.info;
-  const str = info?.actionSubmittedToString;
+function getLastAction(step: SoccerStep | undefined | null, playerIdx: number): string | null {
+  const str = step?.players?.[playerIdx]?.actionDisplayText;
   if (typeof str === 'string' && str !== '') return str;
   return null;
 }
@@ -306,9 +300,9 @@ function drawBoard(
   }
 }
 
-export function renderer(options: RendererOptions) {
+export function renderer(options: RendererOptions<SoccerStep[]>) {
   const { parent, replay, step } = options;
-  const steps = (replay?.steps ?? []) as any[];
+  const steps = (replay?.steps ?? []) as SoccerStep[];
   if (!steps.length) return;
 
   parent.innerHTML = `

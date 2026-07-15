@@ -1,4 +1,5 @@
 import type { RendererOptions } from '@kaggle-environments/core';
+import type { SnakeStep, SnakeBoardState } from './transformers/snakeTransformer';
 
 const PLAYER_COLORS = ['#1f4f8b', '#9a3324', '#2e7d32', '#7b1fa2'];
 const HEAD_COLORS = ['#4a90e2', '#e74c3c', '#4caf50', '#ab47bc'];
@@ -7,28 +8,7 @@ const GRID_LINE = '#d6cfb0';
 const CELL_FILL = '#fbf7e8';
 const INK = '#050001';
 
-type SnakeObservation = {
-  board: string[][];
-  num_rows: number;
-  num_columns: number;
-  num_players: number;
-  foods?: [number, number][];
-  food?: [number, number] | null;
-  snakes: {
-    player: number;
-    body: [number, number][];
-    alive: boolean;
-    score: number;
-  }[];
-  scores: number[];
-  is_alive: boolean[];
-  current_player: number;
-  pending_this_turn: number[];
-  turn: number;
-  is_terminal: boolean;
-  winner: number | string | null;
-  game_over_reason: string | null;
-};
+type SnakeObservation = SnakeBoardState;
 
 function getPlayerName(replay: any, idx: number): string {
   const team = replay?.info?.TeamNames?.[idx];
@@ -38,14 +18,8 @@ function getPlayerName(replay: any, idx: number): string {
   return `Player ${idx}`;
 }
 
-function parseObservation(step: any): SnakeObservation | null {
-  const raw = step?.[0]?.observation?.observationString;
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as SnakeObservation;
-  } catch {
-    return null;
-  }
+function parseObservation(step: SnakeStep | undefined | null): SnakeObservation | null {
+  return step?.boardState ?? null;
 }
 
 function drawBoard(ctx: CanvasRenderingContext2D, width: number, height: number, obs: SnakeObservation) {
@@ -117,9 +91,9 @@ function drawBoard(ctx: CanvasRenderingContext2D, width: number, height: number,
   }
 }
 
-export function renderer(options: RendererOptions) {
+export function renderer(options: RendererOptions<SnakeStep[]>) {
   const { parent, replay, step } = options;
-  const steps = replay?.steps ?? [];
+  const steps = (replay?.steps ?? []) as SnakeStep[];
   if (!steps.length) {
     parent.innerHTML = '<div>No replay data.</div>';
     return;

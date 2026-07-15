@@ -1,4 +1,5 @@
 import type { RendererOptions } from '@kaggle-environments/core';
+import type { NegotiationStep } from './transformers/negotiationTransformer';
 
 const ITEM_COLORS = ['#1f4f8b', '#9a3324', '#3c6e3c', '#7a5a1f', '#5c3a73', '#b6862c'];
 const ITEM_NAMES = ['apples', 'pears', 'grapes', 'plums', 'figs', 'limes'];
@@ -26,14 +27,8 @@ interface NegotiationObs {
   };
 }
 
-function parseObservation(step: any, playerIdx: number): NegotiationObs | null {
-  const raw = step?.[playerIdx]?.observation?.observationString;
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as NegotiationObs;
-  } catch {
-    return null;
-  }
+function parseObservation(step: NegotiationStep | undefined | null, playerIdx: number): NegotiationObs | null {
+  return (step?.boardState?.perPlayer?.[playerIdx as 0 | 1] as NegotiationObs | null) ?? null;
 }
 
 function itemSwatch(itemIdx: number, size: number): string {
@@ -168,9 +163,9 @@ function statusText(obs: NegotiationObs): string {
     <div class="neg-status-sub">final utility: Player 1 = ${r[0]} · Player 2 = ${r[1]}</div>`;
 }
 
-export function renderer(options: RendererOptions) {
+export function renderer(options: RendererOptions<NegotiationStep[]>) {
   const { step, replay, parent } = options;
-  const steps = (replay.steps as unknown as any[]) ?? [];
+  const steps = (replay.steps as unknown as NegotiationStep[]) ?? [];
   const safeStep = Math.max(0, Math.min(step, steps.length - 1));
   const current = steps[safeStep];
 

@@ -1,5 +1,6 @@
 import { createReplayVisualizer, ReplayAdapter } from '@kaggle-environments/core';
 import { renderer } from './renderer';
+import { snakeTransformer } from './transformers/snakeTransformer';
 import './style.css';
 
 const app = document.getElementById('app');
@@ -17,5 +18,10 @@ createReplayVisualizer(
     gameName: 'open_spiel_snake',
     renderer: renderer as any,
     ui: 'side-panel',
+    transformer: (replay) => ({
+      ...replay,
+      steps: snakeTransformer(replay),
+      isTransformed: true,
+    }),
   })
 );

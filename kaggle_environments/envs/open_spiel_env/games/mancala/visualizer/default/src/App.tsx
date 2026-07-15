@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { createReplayVisualizer, ReplayAdapter } from '@kaggle-environments/core';
 import GameRenderer from './components/GameRenderer';
+import { mancalaTransformer } from './transformers/mancalaTransformer';
 
 export default function App() {
   const init = useCallback((element: HTMLDivElement | null) => {
@@ -9,6 +10,11 @@ export default function App() {
       gameName: 'open_spiel_mancala',
       GameRenderer: GameRenderer as any,
       ui: 'side-panel',
+      transformer: (replay) => ({
+        ...replay,
+        steps: mancalaTransformer(replay),
+        isTransformed: true,
+      }),
     });
     createReplayVisualizer(element, adapter);
   }, []);

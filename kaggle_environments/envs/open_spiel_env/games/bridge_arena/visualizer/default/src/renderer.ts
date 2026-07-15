@@ -1,4 +1,5 @@
 import type { RendererOptions } from '@kaggle-environments/core';
+import type { BridgeStep } from './transformers/bridgeArenaTransformer';
 
 // External AABB ids: 0,1 = team A (N,S); 2,3 = team B (E,W).
 const TEAM_A_PIDS = [0, 1] as const;
@@ -37,23 +38,8 @@ type Observation = {
   winning_team?: number | string;
 };
 
-function getObservation(step: any, playerIdx: number): Observation | null {
-  const raw = step?.[playerIdx]?.observation?.observationString;
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
-function getSharedObservation(step: any): Observation | null {
-  if (!Array.isArray(step)) return null;
-  for (let i = 0; i < step.length; i++) {
-    const obs = getObservation(step, i);
-    if (obs) return obs;
-  }
-  return null;
+function getSharedObservation(step: BridgeStep | undefined | null): Observation | null {
+  return (step?.boardState as Observation | null) ?? null;
 }
 
 function getPlayerName(replay: any, idx: number): string {
@@ -280,9 +266,9 @@ function renderStatus(obs: Observation, activePid: number | null, playerNames: s
   return `<span>Setting up...</span><span class="annotation">phase: ${obs.phase ?? '?'}</span>`;
 }
 
-export function renderer(options: RendererOptions) {
+export function renderer(options: RendererOptions<BridgeStep[]>) {
   const { parent, replay, step } = options;
-  const steps = (replay?.steps ?? []) as any[];
+  const steps = (replay?.steps ?? []) as BridgeStep[];
   if (!steps.length) {
     parent.innerHTML = '';
     return;

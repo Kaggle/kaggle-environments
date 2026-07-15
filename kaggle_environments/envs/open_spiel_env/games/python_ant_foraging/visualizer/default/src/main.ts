@@ -1,5 +1,6 @@
 import { createReplayVisualizer, ReplayAdapter } from '@kaggle-environments/core';
 import { renderer } from './renderer';
+import { pythonAntForagingTransformer } from './transformers/pythonAntForagingTransformer';
 import './style.css';
 
 const app = document.getElementById('app');
@@ -17,5 +18,10 @@ createReplayVisualizer(
     gameName: 'open_spiel_python_ant_foraging',
     renderer: renderer as any,
     ui: 'side-panel',
+    transformer: (replay) => ({
+      ...replay,
+      steps: pythonAntForagingTransformer(replay),
+      isTransformed: true,
+    }),
   })
 );

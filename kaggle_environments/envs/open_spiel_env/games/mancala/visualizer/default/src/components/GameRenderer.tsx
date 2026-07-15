@@ -4,6 +4,7 @@ import type { GameRendererProps } from '@kaggle-environments/core';
 import Pit from './Pit';
 import MancalaStore from './MancalaStore';
 import { BOTTOM_ROW, MancalaObservation, STORE_LEFT, STORE_RIGHT, TOP_ROW } from '../types';
+import type { MancalaStep } from '../transformers/mancalaTransformer';
 
 import goose1Idle from '../assets/goose_1_idle.png';
 import goose1Pensive from '../assets/goose_1_pensive.png';
@@ -22,17 +23,11 @@ const GOOSE_SPRITES: Record<0 | 1, Record<'idle' | 'pensive' | 'elated' | 'sad',
   1: { idle: goose2Idle, pensive: goose2Pensive, elated: goose2Elated, sad: goose2Sad },
 };
 
-function parseObservation(step: any): MancalaObservation | null {
-  const raw = step?.[0]?.observation?.observationString;
-  if (typeof raw !== 'string') return null;
-  try {
-    return JSON.parse(raw) as MancalaObservation;
-  } catch {
-    return null;
-  }
+function parseObservation(step: MancalaStep | undefined | null): MancalaObservation | null {
+  return step?.boardState ?? null;
 }
 
-function findObservation(steps: any[], idx: number): MancalaObservation | null {
+function findObservation(steps: MancalaStep[], idx: number): MancalaObservation | null {
   for (let i = idx; i < steps.length; i++) {
     const obs = parseObservation(steps[i]);
     if (obs) return obs;
@@ -65,7 +60,7 @@ function gooseSprite(player: 0 | 1, state: MancalaObservation) {
 }
 
 function GameRenderer({ replay, step }: GameRendererProps) {
-  const steps = (replay.steps as any[]) ?? [];
+  const steps = (replay.steps as unknown as MancalaStep[]) ?? [];
   const state = useMemo(() => findObservation(steps, step), [steps, step]);
   const prevState = useMemo(() => findObservation(steps, Math.max(0, step - 1)), [steps, step]);
 
