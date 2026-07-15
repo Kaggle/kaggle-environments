@@ -23,6 +23,10 @@ _PLAYER_0_PITS = [1, 2, 3, 4, 5, 6]
 _PLAYER_0_STORE = 7
 _PLAYER_1_PITS = [8, 9, 10, 11, 12, 13]
 _PLAYER_1_STORE = 0
+# 14-pit board: 6 pits per side plus 2 stores. OpenSpiel 2.0's
+# observation_tensor appends a current-player one-hot after the pits;
+# earlier versions did not. Slice to the pit range to stay version-safe.
+_NUM_PITS = 14
 
 
 class MancalaState(proxy.State):
@@ -35,7 +39,7 @@ class MancalaState(proxy.State):
 
     def _board(self) -> list[int]:
         tensor = self.__wrapped__.observation_tensor(0)
-        return [int(v) for v in tensor]
+        return [int(v) for v in tensor[:_NUM_PITS]]
 
     def state_dict(self, player: int | None = None) -> dict[str, Any]:
         del player

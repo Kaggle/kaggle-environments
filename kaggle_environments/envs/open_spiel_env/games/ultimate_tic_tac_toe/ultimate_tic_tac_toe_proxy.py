@@ -24,11 +24,18 @@ Transformations:
 """
 
 import json
+import re
 from typing import Any
 
 import pyspiel
 
 from ... import proxy
+
+# A board row from OpenSpiel's ultimate_tic_tac_toe to_string() is exactly
+# three space-separated 3-character subgrid groups of ".xo". OpenSpiel 2.0
+# appends trailing "Current player: N" / "Forced board: M" lines that must
+# NOT be interpreted as board rows -- this pattern filters them out.
+_BOARD_ROW_RE = re.compile(r"^[.xo]{3} [.xo]{3} [.xo]{3}$")
 
 
 def check_subgrid_winner(subgrid: list[str]) -> str:
@@ -68,7 +75,10 @@ class UltimateTicTacToeState(proxy.State):
         del player
         state_str = self.to_string()
         board = [["" for _ in range(9)] for _ in range(9)]
-        lines = [line for line in state_str.strip().splitlines() if line.strip()]
+        # Only accept lines shaped like a board row -- OpenSpiel 2.0 appends
+        # metadata lines ("Current player: N", "Forced board: M") that older
+        # versions did not.
+        lines = [line for line in state_str.strip().splitlines() if _BOARD_ROW_RE.match(line.strip())]
 
         for i, line in enumerate(lines):
             parts = line.split(" ")

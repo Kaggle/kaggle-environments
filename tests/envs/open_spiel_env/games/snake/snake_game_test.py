@@ -1,10 +1,7 @@
 """Tests for Snake game."""
 
-from absl.testing import absltest
-
-from kaggle_environments.envs.open_spiel_env.games.snake import snake_game as snake
-
 import pyspiel
+from absl.testing import absltest
 
 
 class SnakeGameTest(absltest.TestCase):
@@ -180,11 +177,16 @@ class SnakeGameTest(absltest.TestCase):
     self.assertIn((9, 5), state.foods)
 
     # 5th turn since the immediate respawn: timer fires, uneaten food is
-    # cleared, fresh pair placed.
+    # cleared, fresh pair placed. Assert the timer bumped
+    # (_last_food_spawn_step) rather than checking specific coordinates:
+    # `_place_foods` samples uniformly from all symmetric candidate pairs,
+    # so it can legitimately re-pick the pinned (0, 4)/(9, 5) pair -- a
+    # coordinate-based assertion is flaky under different RNG states.
+    prev_spawn_step = state._last_food_spawn_step
     state.apply_action(1)
     state.apply_action(0)
-    self.assertNotIn((0, 4), state.foods)
-    self.assertNotIn((9, 5), state.foods)
+    self.assertEqual(state._last_food_spawn_step, state._steps)
+    self.assertNotEqual(state._last_food_spawn_step, prev_spawn_step)
     self.assertLen(state.foods, 2)
     del respawned
 
