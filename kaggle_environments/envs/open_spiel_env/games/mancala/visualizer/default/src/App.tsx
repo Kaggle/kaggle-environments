@@ -13,7 +13,6 @@ export default function App() {
       transformer: (replay) => ({
         ...replay,
         steps: mancalaTransformer(replay),
-        isTransformed: true,
       }),
     });
     createReplayVisualizer(element, adapter);
