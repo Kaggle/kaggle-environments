@@ -173,7 +173,7 @@ _IRREGULAR_SINGULARS = {pl: sg for sg, plurals in _IRREGULAR_PLURALS.items() for
 # +S guess still matches via the -S fallback in _singularize.
 _COMPOUND_IRREGULAR_SUFFIXES = {
     "MAN": "MEN", "CHILD": "CHILDREN", "TOOTH": "TEETH",
-    "FOOT": "FEET", "GOOSE": "GEESE", "PERSON": "PEOPLE",
+    "GOOSE": "GEESE", "PERSON": "PEOPLE",
 }
 
 # Nouns whose plural form is identical to the singular.
