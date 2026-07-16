@@ -160,7 +160,6 @@ _IRREGULAR_PLURALS = {
     "THIEF": ("THIEVES",),
     "ALGA": ("ALGAE", "ALGAS"),
     "LARVA": ("LARVAE", "LARVAS"),
-    "VERTEBRA": ("VERTEBRAE", "VERTEBRAS"),
     "ANTENNA": ("ANTENNAE", "ANTENNAS"),
     "LOUSE": ("LICE",),
     "QUIZ": ("QUIZZES",),  # CVC-doubling special case not handled by rules
@@ -172,7 +171,7 @@ _IRREGULAR_SINGULARS = {pl: sg for sg, plurals in _IRREGULAR_PLURALS.items() for
 # MAN -> MEN wrongly triggers on HUMAN/OTTOMAN/SPECIMEN, but the realistic
 # +S guess still matches via the -S fallback in _singularize.
 _COMPOUND_IRREGULAR_SUFFIXES = {
-    "MAN": "MEN", "CHILD": "CHILDREN", "TOOTH": "TEETH",
+    "MAN": "MEN", "CHILD": "CHILDREN",
     "GOOSE": "GEESE", "PERSON": "PEOPLE",
 }
 
@@ -196,7 +195,7 @@ def _pluralize(w):
         return {w}
     if w in _IRREGULAR_PLURALS:
         return set(_IRREGULAR_PLURALS[w])
-    # Compound-suffix irregular: SNOWMAN -> SNOWMEN, BUCKTOOTH -> BUCKTEETH
+    # Compound-suffix irregular: SNOWMAN -> SNOWMEN, STEPCHILD -> STEPCHILDREN
     for sfx, plural_sfx in _COMPOUND_IRREGULAR_SUFFIXES.items():
         if len(w) > len(sfx) and w.endswith(sfx):
             return {w[:-len(sfx)] + plural_sfx}

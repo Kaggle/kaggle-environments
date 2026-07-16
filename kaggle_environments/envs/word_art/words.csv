@@ -49,7 +49,6 @@ ANTHILL,noun,easy,brysbaert
 ANTIPERSPIRANT,noun,hard,brysbaert
 ANTLER,noun,easy,brysbaert+original
 ANVIL,noun,easy,brysbaert+quickdraw+original
-AORTA,noun,medium,brysbaert
 APARTMENT,noun,easy,brysbaert
 APPAREL,noun,medium,brysbaert
 APPETIZER,noun,easy,brysbaert
@@ -65,7 +64,6 @@ ARCADE,noun,easy,brysbaert
 ARCH,noun,medium,brysbaert
 ARCHAEOLOGIST,noun,medium,brysbaert
 ARENA,noun,easy,brysbaert
-ARK,noun,medium,brysbaert
 ARM,noun,easy,brysbaert+quickdraw
 ARMADILLO,noun,easy,brysbaert
 ARMBAND,noun,medium,brysbaert
@@ -73,10 +71,8 @@ ARMCHAIR,noun,easy,brysbaert
 ARMOR,noun,easy,brysbaert+original
 ARMREST,noun,easy,brysbaert
 ARMS,noun,easy,brysbaert
-ARMY,noun,easy,brysbaert
 ARROW,noun,easy,brysbaert+original
 ARROWHEAD,noun,easy,brysbaert
-ARTERY,noun,medium,brysbaert
 ARTIFACT,noun,medium,brysbaert
 ARTWORK,noun,medium,brysbaert
 ASPARAGUS,noun,easy,brysbaert+quickdraw
@@ -115,7 +111,6 @@ BAGEL,noun,easy,brysbaert
 BAGPIPE,noun,easy,brysbaert
 BAGUETTE,noun,medium,brysbaert
 BAIL,verb,hard,brysbaert
-BAILIFF,noun,medium,brysbaert
 BAIT,verb,hard,brysbaert
 BAKE,verb,hard,brysbaert
 BAKER,noun,easy,brysbaert
@@ -171,7 +166,6 @@ BATHING,verb,hard,brysbaert
 BATHROBE,noun,easy,brysbaert
 BATHTUB,noun,easy,brysbaert+quickdraw
 BATTERY,noun,medium,brysbaert
-BATTLESHIP,noun,easy,brysbaert
 BAY,noun,easy,brysbaert
 BAYOU,noun,medium,brysbaert
 BEACH,noun,easy,brysbaert+quickdraw
@@ -208,7 +202,6 @@ BEETLE,noun,easy,original
 BELL,noun,easy,brysbaert
 BELLHOP,noun,medium,brysbaert
 BELLOWS,noun,easy,original
-BELLY,noun,easy,brysbaert
 BELT,noun,easy,brysbaert+quickdraw
 BENCH,noun,easy,brysbaert+quickdraw+original
 BENT,verb,hard,brysbaert
@@ -319,7 +312,6 @@ BRICK,noun,easy,brysbaert+original
 BRIDGE,noun,easy,brysbaert+quickdraw
 BRIDGEWORK,noun,medium,brysbaert
 BRIEFCASE,noun,easy,brysbaert
-BRIGADE,noun,medium,brysbaert
 BROCCOLI,noun,easy,brysbaert+quickdraw
 BRONTOSAURUS,noun,medium,brysbaert
 BROOM,noun,easy,brysbaert+quickdraw+original
@@ -329,7 +321,6 @@ BROWNIE,noun,easy,brysbaert
 BRUSH,noun,medium,brysbaert
 BUBBLE,verb,hard,brysbaert
 BUCK,noun,medium,brysbaert
-BUCKTOOTH,noun,easy,brysbaert
 BUCKWHEAT,noun,medium,brysbaert
 BUD,noun,medium,brysbaert
 BUFFALO,noun,easy,brysbaert
@@ -351,8 +342,6 @@ BUNGEE,noun,medium,brysbaert
 BUNKER,noun,easy,brysbaert
 BUNNY,noun,easy,brysbaert
 BUOY,noun,easy,original
-BURGER,noun,easy,brysbaert
-BURGLAR,noun,medium,brysbaert
 BURLAP,noun,easy,brysbaert
 BURN,verb,hard,brysbaert
 BURNER,noun,easy,brysbaert
@@ -420,8 +409,6 @@ CARAVAN,noun,medium,brysbaert+original
 CARD,noun,easy,brysbaert
 CARDBOARD,noun,easy,brysbaert
 CARDIGAN,noun,easy,brysbaert
-CARDINAL,noun,easy,brysbaert
-CARDIOLOGIST,noun,medium,brysbaert
 CARGO,noun,medium,brysbaert
 CARIBOU,noun,easy,brysbaert
 CARNIVAL,noun,medium,brysbaert
@@ -473,7 +460,6 @@ CENTERPIECE,noun,medium,brysbaert
 CENTIPEDE,noun,easy,brysbaert
 CERAMICS,noun,medium,brysbaert
 CEREAL,noun,easy,brysbaert
-CEREBELLUM,noun,medium,brysbaert
 CERTIFICATE,noun,medium,brysbaert
 CHAIN,noun,medium,brysbaert+original
 CHAINSAW,noun,easy,brysbaert
@@ -523,7 +509,6 @@ CHOPSTICK,noun,easy,brysbaert
 CHORD,noun,hard,brysbaert
 CHOWDER,noun,easy,brysbaert
 CHURCH,noun,easy,brysbaert+quickdraw
-CHURCHYARD,noun,easy,brysbaert
 CINDER,noun,medium,brysbaert+original
 CINEMA,noun,medium,brysbaert
 CINNAMON,noun,easy,brysbaert
@@ -605,7 +590,6 @@ CONDO,noun,easy,brysbaert
 CONDUCTOR,noun,hard,brysbaert
 CONE,noun,easy,brysbaert
 CONFETTI,noun,easy,brysbaert
-CONSTABLE,noun,medium,brysbaert
 CONSTELLATION,noun,medium,brysbaert
 CONTAINER,noun,easy,brysbaert
 CONTESTANT,noun,hard,brysbaert
@@ -620,7 +604,6 @@ COOKWARE,noun,easy,brysbaert
 COOL,verb,hard,brysbaert
 COOLANT,noun,hard,brysbaert
 COOLER,noun,easy,quickdraw
-COP,verb,hard,brysbaert
 COPIER,noun,easy,brysbaert
 COPILOT,noun,medium,brysbaert
 COPPER,noun,medium,brysbaert
@@ -737,7 +720,6 @@ DECAL,noun,easy,brysbaert
 DECAY,abstract,hard,seed
 DECK,noun,easy,brysbaert
 DEER,noun,easy,brysbaert
-DEMOCRACY,abstract,hard,seed
 DEN,noun,medium,brysbaert
 DENIM,noun,easy,brysbaert+original
 DENT,noun,medium,brysbaert
@@ -803,7 +785,6 @@ DOORSTEP,noun,easy,brysbaert
 DOORSTOP,noun,easy,brysbaert
 DOORWAY,noun,easy,brysbaert
 DORMITORY,noun,medium,brysbaert
-DOSAGE,noun,hard,brysbaert
 DOUGH,noun,easy,brysbaert
 DOUGHNUT,noun,easy,brysbaert
 DOVE,noun,easy,brysbaert
@@ -850,7 +831,6 @@ DUSTER,noun,medium,brysbaert
 DUSTPAN,noun,easy,brysbaert+original
 DUVET,noun,easy,brysbaert
 DYE,noun,medium,brysbaert+original
-DYNAMITE,noun,medium,brysbaert
 EAGLE,noun,easy,brysbaert
 EAR,noun,easy,brysbaert+quickdraw
 EARLOBE,noun,easy,brysbaert
@@ -872,7 +852,6 @@ EGG,noun,easy,brysbaert
 EGGBEATER,noun,easy,brysbaert
 EGGSHELL,noun,easy,brysbaert
 ELBOW,noun,easy,brysbaert+quickdraw+original
-ELECTION,abstract,hard,seed
 ELECTRONICS,noun,medium,brysbaert
 ELEPHANT,noun,easy,brysbaert+quickdraw
 ELEVATOR,noun,easy,brysbaert
@@ -895,7 +874,6 @@ ERASE,verb,hard,brysbaert
 ERASER,noun,easy,brysbaert+quickdraw+original
 EROSION,abstract,hard,seed
 ESCALATOR,noun,easy,brysbaert
-ESOPHAGUS,noun,medium,brysbaert
 EUCALYPTUS,noun,easy,brysbaert
 EVOLUTION,abstract,hard,seed
 EXAM,noun,medium,brysbaert
@@ -1045,7 +1023,6 @@ FUNDS,verb,hard,brysbaert
 FUNGI,noun,medium,brysbaert
 FUNGUS,noun,medium,brysbaert
 FUNNEL,noun,easy,original
-FUR,noun,medium,brysbaert
 FURNACE,noun,medium,brysbaert+original
 FURNITURE,noun,easy,brysbaert
 FUSE,noun,easy,original
@@ -1132,7 +1109,6 @@ GRASSLAND,noun,medium,brysbaert
 GRATER,noun,medium,brysbaert
 GRAVE,noun,medium,brysbaert
 GRAVEL,noun,easy,original
-GRAVES,noun,easy,brysbaert
 GRAVITY,abstract,hard,seed
 GRAVY,noun,easy,brysbaert
 GREASE,noun,medium,brysbaert
@@ -1180,7 +1156,6 @@ HAMMOCK,noun,easy,brysbaert
 HAMSTER,noun,easy,brysbaert
 HAND,noun,easy,quickdraw
 HANDBOOK,noun,medium,brysbaert
-HANDCUFF,noun,easy,brysbaert
 HANDLE,verb,hard,brysbaert+original
 HANDLEBAR,noun,easy,brysbaert
 HANDSAW,noun,easy,brysbaert
@@ -1255,7 +1230,6 @@ HOLLER,verb,hard,brysbaert
 HOLLY,noun,medium,brysbaert+original
 HOLOGRAM,noun,medium,brysbaert
 HOLOGRAPH,noun,hard,brysbaert
-HOLSTER,noun,medium,brysbaert
 HOMEWORK,noun,medium,brysbaert
 HONEY,noun,easy,brysbaert
 HONEYBEE,noun,easy,brysbaert
@@ -1307,7 +1281,6 @@ INCHWORM,noun,easy,brysbaert
 INDIGO,noun,medium,brysbaert
 INFINITY,abstract,hard,seed
 INFLATION,abstract,hard,seed
-INHALER,noun,easy,brysbaert
 INK,verb,hard,brysbaert+original
 INKWELL,noun,medium,brysbaert
 INN,noun,medium,brysbaert
@@ -1505,7 +1478,6 @@ LOTUS,noun,medium,brysbaert
 LOUDSPEAKER,noun,easy,brysbaert
 LOVE,abstract,hard,seed
 LOVEBIRD,noun,medium,brysbaert
-LOZENGE,noun,medium,brysbaert
 LUCK,abstract,hard,seed
 LUGGAGE,noun,easy,brysbaert+original
 LUNCH,verb,hard,brysbaert
@@ -1597,12 +1569,10 @@ MILLIMETER,noun,medium,brysbaert
 MIME,noun,medium,brysbaert
 MINER,noun,medium,brysbaert
 MINERAL,noun,medium,brysbaert
-MINIBAR,noun,easy,brysbaert
 MINIVAN,noun,easy,brysbaert
 MINNOW,noun,easy,brysbaert
 MINT,noun,medium,brysbaert
 MIRROR,noun,easy,brysbaert+original
-MISSILE,noun,easy,brysbaert
 MIST,noun,easy,original
 MISTLETOE,noun,easy,brysbaert
 MITTEN,noun,easy,brysbaert
@@ -1682,7 +1652,6 @@ NEEDLEPOINT,noun,medium,brysbaert
 NEIGHBOR,noun,medium,brysbaert
 NEIGHBORHOOD,noun,easy,brysbaert
 NEST,noun,easy,brysbaert+original
-NEUROSURGEON,noun,medium,brysbaert
 NEWSCASTER,noun,medium,brysbaert
 NEWSLETTER,noun,medium,brysbaert
 NEWSPAPER,noun,easy,brysbaert
@@ -1718,7 +1687,6 @@ OCTAGON,noun,easy,quickdraw
 OCTOPUS,noun,easy,brysbaert+quickdraw
 ODOMETER,noun,easy,brysbaert
 OFFICE,noun,easy,brysbaert
-OFFICER,noun,easy,brysbaert
 OIL,noun,easy,brysbaert
 OKRA,noun,easy,brysbaert
 OLIVE,noun,easy,brysbaert
@@ -1768,7 +1736,6 @@ PALETTE,noun,easy,original
 PALM,noun,easy,brysbaert
 PAN,noun,easy,brysbaert
 PANCAKE,noun,easy,brysbaert
-PANCREAS,noun,easy,brysbaert
 PANDA,noun,easy,brysbaert+quickdraw
 PANEL,noun,easy,original
 PANT,noun,medium,brysbaert
@@ -1869,7 +1836,6 @@ PIGTAIL,noun,medium,brysbaert
 PILAF,noun,hard,brysbaert
 PILE,noun,medium,brysbaert
 PILEUP,noun,medium,brysbaert
-PILL,noun,easy,brysbaert
 PILLAR,noun,easy,brysbaert+original
 PILLBOX,noun,easy,brysbaert
 PILLOW,noun,easy,brysbaert+quickdraw+original
@@ -1924,7 +1890,6 @@ PODIUM,noun,easy,brysbaert
 POETRY,abstract,hard,seed
 POINTED,verb,hard,brysbaert
 POISON,verb,hard,brysbaert
-POLICE,noun,easy,brysbaert
 POLLEN,noun,easy,brysbaert
 POLO,noun,medium,brysbaert
 POMEGRANATE,noun,easy,brysbaert
@@ -1957,7 +1922,6 @@ POUR,verb,hard,brysbaert
 POWDER,noun,easy,brysbaert
 POWER,abstract,hard,seed
 PRAIRIE,noun,easy,brysbaert
-PRESIDENT,noun,medium,brysbaert
 PRESS,verb,hard,brysbaert
 PRETZEL,noun,easy,brysbaert
 PRIDE,abstract,hard,seed
@@ -1973,7 +1937,6 @@ PROJECT,verb,hard,brysbaert
 PROJECTOR,noun,medium,brysbaert
 PRONG,noun,easy,brysbaert
 PROPELLER,noun,easy,brysbaert+original
-PROSECUTOR,noun,hard,brysbaert
 PUBLISHER,noun,hard,brysbaert
 PUDDING,noun,easy,brysbaert
 PULLEY,noun,easy,brysbaert+original
@@ -2017,7 +1980,6 @@ RACQUETBALL,noun,medium,brysbaert
 RADAR,noun,medium,brysbaert
 RADIATOR,noun,easy,brysbaert
 RADIO,noun,easy,brysbaert+quickdraw
-RADIOLOGIST,noun,medium,brysbaert
 RADISH,noun,easy,brysbaert
 RAILROAD,verb,hard,brysbaert
 RAILWAY,noun,medium,brysbaert
@@ -2083,7 +2045,6 @@ RIVER,noun,easy,brysbaert+quickdraw
 RIVERBANK,noun,medium,brysbaert
 RIVERBED,noun,medium,brysbaert
 RIVET,noun,easy,original
-ROACH,noun,easy,brysbaert
 ROAD,noun,easy,brysbaert+original
 ROADBLOCK,noun,easy,brysbaert
 ROADHOUSE,noun,medium,brysbaert
@@ -2135,7 +2096,6 @@ SAILOR,noun,easy,brysbaert
 SALAD,noun,easy,brysbaert+original
 SALAMANDER,noun,easy,brysbaert
 SALINE,noun,medium,brysbaert
-SALIVA,noun,easy,brysbaert
 SALMON,noun,easy,brysbaert
 SALON,noun,easy,brysbaert
 SALSA,noun,easy,brysbaert
@@ -2216,11 +2176,9 @@ SEAWEED,noun,easy,brysbaert
 SEDAN,noun,easy,brysbaert
 SEED,verb,hard,brysbaert+original
 SEEDLING,noun,medium,brysbaert
-SENATOR,noun,medium,brysbaert
 SERVE,verb,hard,brysbaert
 SERVER,noun,medium,brysbaert
 SESAME,noun,medium,brysbaert
-SEWAGE,noun,medium,brysbaert
 SEWER,noun,medium,brysbaert
 SEWING,noun,medium,brysbaert
 SHACK,noun,easy,original
@@ -2236,7 +2194,6 @@ SHED,verb,hard,brysbaert
 SHEEP,noun,easy,brysbaert+quickdraw
 SHEEPHERDER,noun,easy,brysbaert
 SHEET,noun,easy,brysbaert
-SHEETROCK,noun,easy,brysbaert
 SHELF,noun,easy,brysbaert+original
 SHELL,noun,easy,brysbaert+original
 SHELLFISH,noun,medium,brysbaert
@@ -2364,7 +2321,6 @@ SNOWBALL,noun,easy,brysbaert
 SNOWBOARD,noun,easy,brysbaert
 SNOWBOARDER,noun,medium,brysbaert
 SNOWDRIFT,noun,easy,brysbaert
-SNOWFLAKE,noun,easy,brysbaert+quickdraw
 SNOWMAN,noun,easy,brysbaert+quickdraw
 SNOWMOBILE,noun,easy,brysbaert
 SNOWPLOW,noun,easy,brysbaert
@@ -2377,7 +2333,6 @@ SODA,noun,easy,brysbaert
 SOFA,noun,easy,brysbaert
 SOFTBALL,noun,easy,brysbaert
 SOIL,noun,easy,brysbaert
-SOLDIER,noun,easy,brysbaert
 SOLID,noun,medium,brysbaert
 SOMERSAULT,noun,easy,brysbaert
 SONG,noun,medium,brysbaert
@@ -2418,7 +2373,6 @@ SPINACH,noun,easy,brysbaert
 SPINDLE,noun,easy,brysbaert
 SPINE,noun,easy,brysbaert
 SPIRAL,noun,hard,brysbaert
-SPLEEN,noun,easy,brysbaert
 SPLINT,noun,medium,brysbaert
 SPONGE,verb,hard,brysbaert
 SPOOL,noun,easy,original
@@ -2481,7 +2435,6 @@ STETHOSCOPE,noun,easy,brysbaert+quickdraw
 STEW,verb,hard,brysbaert
 STICK,verb,hard,brysbaert
 STICKER,noun,medium,brysbaert
-STILETTO,noun,easy,brysbaert
 STING,verb,hard,brysbaert
 STINGRAY,noun,easy,brysbaert
 STINK,verb,hard,brysbaert
@@ -2630,7 +2583,6 @@ TEXTBOOK,noun,easy,brysbaert
 THEATER,noun,easy,brysbaert
 THERAPIST,noun,medium,brysbaert
 THERMOMETER,noun,easy,brysbaert
-THERMOS,noun,medium,brysbaert
 THERMOSTAT,noun,easy,brysbaert
 THESAURUS,noun,easy,brysbaert
 THICK,noun,hard,brysbaert
@@ -2649,7 +2601,6 @@ THUNDER,verb,hard,brysbaert
 THUNDERCLOUD,noun,medium,brysbaert
 THUNDERSTORM,noun,easy,brysbaert
 THYME,noun,easy,brysbaert
-THYROID,noun,medium,brysbaert
 TIARA,noun,easy,brysbaert
 TICK,noun,medium,brysbaert
 TICKET,noun,easy,brysbaert
@@ -2694,7 +2645,6 @@ TOPSAIL,noun,medium,brysbaert
 TOPSOIL,noun,easy,brysbaert
 TORCH,noun,easy,brysbaert
 TORNADO,noun,easy,brysbaert+quickdraw+original
-TORPEDO,noun,easy,brysbaert
 TORSO,noun,easy,brysbaert
 TORTELLINI,noun,easy,brysbaert
 TORTILLA,noun,easy,brysbaert
@@ -2718,7 +2668,6 @@ TRAMPOLINE,noun,easy,brysbaert
 TRAP,noun,medium,brysbaert+original
 TRAPEZE,noun,medium,brysbaert
 TRASH,noun,easy,brysbaert
-TRAVELLER,noun,medium,brysbaert
 TRAY,noun,easy,brysbaert+original
 TREADMILL,noun,easy,brysbaert
 TREASURE,noun,easy,original
@@ -2777,7 +2726,6 @@ UNIFORM,noun,medium,brysbaert
 UNIVERSITY,noun,medium,brysbaert
 UP,verb,hard,brysbaert
 UPHOLSTERY,noun,medium,brysbaert
-URCHIN,noun,hard,brysbaert
 UTENSIL,noun,medium,brysbaert
 VACATION,abstract,hard,seed
 VALLEY,noun,easy,brysbaert
@@ -2796,7 +2744,6 @@ VENDOR,noun,medium,brysbaert
 VENOM,noun,medium,brysbaert
 VENT,noun,medium,brysbaert
 VENUS,noun,medium,brysbaert
-VERTEBRAE,noun,medium,brysbaert
 VESSEL,noun,medium,brysbaert
 VEST,noun,easy,original
 VET,verb,hard,brysbaert
@@ -2855,7 +2802,6 @@ WATERSLIDE,noun,easy,quickdraw
 WATERSPOUT,noun,easy,brysbaert
 WATERWAY,noun,medium,brysbaert
 WAX,verb,hard,brysbaert
-WEAPON,noun,easy,brysbaert
 WEAR,verb,hard,brysbaert
 WEASEL,noun,easy,brysbaert
 WEATHER,verb,hard,brysbaert
@@ -2863,7 +2809,6 @@ WEAVE,noun,easy,original
 WEB,noun,medium,brysbaert
 WEBCAM,noun,easy,brysbaert
 WEBSITE,noun,medium,brysbaert
-WEDDING,abstract,hard,seed
 WEDGE,noun,medium,brysbaert+original
 WEEDS,noun,easy,brysbaert
 WEEPING,noun,hard,brysbaert
