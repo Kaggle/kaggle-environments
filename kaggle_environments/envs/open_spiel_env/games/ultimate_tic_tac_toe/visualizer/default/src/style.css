@@ -178,6 +178,7 @@ html, body, #app {
 .utt-winner-title {
   font-size: 2.25rem;
   font-weight: 900;
+  line-height: 1.2;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   background: linear-gradient(to right, #38bdf8, #818cf8);

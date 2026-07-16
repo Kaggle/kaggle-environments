@@ -131,22 +131,103 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("Ultimate Tic-Tac-Toe", prompt)
         self.assertIn("Player 0", prompt)
         self.assertIn("'x'", prompt)
-        self.assertIn("Local Board 0", prompt)
+        # Sub-grid headers use the compact "Board N" form.
+        self.assertIn("Board 0", prompt)
+        # Section header below the ASCII grid is unchanged.
         self.assertIn("Local Board Winners", prompt)
 
-    def test_phase_instructions_choose_subgrid(self):
+    def test_objective_block_present_and_positioned(self):
+        # Objective block must sit between the rules section and the
+        # per-turn instructions so the model reads it every turn.
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [])
-        self.assertIn("choose ANY active local board", prompt)
-        self.assertIn("<subgrid_index>", prompt)
+        self.assertIn("Objective:", prompt)
+        # Goal statement: explicit "WIN" framing and rejection of drawing
+        # when a win is available.
+        self.assertIn("Your goal is to WIN", prompt)
+        self.assertIn("aim for a win rather than settling", prompt)
+        # Long-term planning nudge (meta-cognitive, not strategy advice).
+        # Case-insensitive so the check survives prose-style tweaks.
+        self.assertIn("long-term planning", prompt.lower())
+        self.assertIn("downstream consequences", prompt)
+        # Positioning: after the rules section, before per-turn instructions.
+        # Pin on "CRITICAL RULE" which appears in the rules preamble of every
+        # template variant (stable across compact/verbose rewrites).
+        self.assertLess(prompt.index("CRITICAL RULE"), prompt.index("Objective:"))
+        self.assertLess(prompt.index("Objective:"), prompt.index("On your turn:"))
 
-    def test_phase_instructions_choose_cell(self):
-        # Player chooses subgrid 0
-        self.state.apply_action(0)
+    def test_objective_appears_in_every_context(self):
+        # The Objective block is version-independent framing; it must
+        # appear in every prompt the model sees, regardless of which
+        # board_context branch is active.
+        # opening
+        opening_obs = _make_observation(self.state, self.game, player_id=0)
+        self.assertIn("Your goal is to WIN", generate_prompt(opening_obs, []))
+        # self_selected
+        self.state.apply_action(4)
+        self_sel_obs = _make_observation(self.state, self.game, player_id=0)
+        self.assertIn("Your goal is to WIN", generate_prompt(self_sel_obs, []))
+        # opponent_directed
+        self.state.apply_action(self.state.legal_actions()[0])
+        opp_obs = _make_observation(self.state, self.game, player_id=1)
+        self.assertIn("Your goal is to WIN", generate_prompt(opp_obs, []))
+
+    def test_phase_instructions_opening(self):
+        # Initial state: no history, choose_subgrid, board_context=="opening".
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [])
-        self.assertIn("must play in Local Board 0", prompt)
+        self.assertIn("FIRST MOVE of the game", prompt)
+        # Case-insensitive "any local board" match survives prose tweaks.
+        self.assertIn("any local board", prompt.lower())
+        self.assertIn("<subgrid_index>", prompt)
+        # Opening prompt should NOT claim opponent redirected the player.
+        self.assertNotIn("mapped to an inactive board", prompt)
+
+    def test_phase_instructions_self_selected(self):
+        # Same player is about to play a cell in a board they just picked.
+        self.state.apply_action(4)  # X: Choose local board 4
+        obs = _make_observation(self.state, self.game, player_id=0)
+        prompt = generate_prompt(obs, [])
+        self.assertIn("You picked Local Board 4 last turn", prompt)
         self.assertIn("<row>,<col>", prompt)
+        # Should NOT frame this as opponent-directed.
+        self.assertNotIn("Opponent's cell sent you to", prompt)
+
+    def test_phase_instructions_opponent_directed(self):
+        # After X does subgrid+cell, O plays a cell dictated by X's cell.
+        self.state.apply_action(4)  # X: Choose local board 4
+        self.state.apply_action(self.state.legal_actions()[0])  # X: cell (0,0) -> sends O to board 0
+        obs = _make_observation(self.state, self.game, player_id=1)
+        prompt = generate_prompt(obs, [])
+        self.assertIn("Opponent's cell sent you to Local Board 0", prompt)
+        self.assertIn("<row>,<col>", prompt)
+        # Should NOT frame this as own selection.
+        self.assertNotIn("You picked Local Board", prompt)
+
+    def test_phase_instructions_redirected(self):
+        # Drive the game with a fixed random seed until we hit a "redirected"
+        # state (opponent's cell mapped to a completed local board).
+        import random
+
+        random.seed(1)
+        for _ in range(200):
+            if self.state.is_terminal():
+                break
+            obs = _make_observation(self.state, self.game, player_id=self.state.current_player())
+            import json as _json
+
+            board_ctx = _json.loads(obs["observationString"])["board_context"]
+            if board_ctx == "redirected":
+                break
+            self.state.apply_action(random.choice(self.state.legal_actions()))
+        else:
+            self.fail("Did not reach a 'redirected' state within 200 steps")
+        prompt = generate_prompt(obs, [])
+        self.assertIn("FREE MOVE", prompt)
+        self.assertIn("mapped to an inactive board", prompt)
+        self.assertIn("<subgrid_index>", prompt)
+        # Should NOT frame this as the opening move.
+        self.assertNotIn("FIRST MOVE of the game", prompt)
 
     def test_move_history_rendered(self):
         self.state.apply_action(0)

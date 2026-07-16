@@ -16,9 +16,14 @@ Transformations:
   `board[subgrid_idx][cell_idx]` stores `"x"`, `"o"`, or `""` (empty).
 - Evaluates and tracks `subgrid_winners` representing the state of each
   sub-grid (`"x"`, `"o"`, `"draw"`, or `""`).
-- Reconstructs `active_subgrid` (index of the sub-grid where the player must
-  play, or `None` if any incomplete subgrid is allowed) and `phase` (either
-  `"choose_subgrid"` or `"choose_cell"`) by traversing the game history.
+- Reads `active_subgrid` (index of the sub-grid where the player must play,
+  or `None` if any incomplete subgrid is allowed) and `phase` (either
+  `"choose_subgrid"` or `"choose_cell"`) directly from the engine's
+  "Forced board:" line in the observation string.
+- Derives `board_context` (`"opening"`, `"redirected"`, `"self_selected"`,
+  `"opponent_directed"`, or `None` when terminal) explaining *why* the mover
+  is in this phase/board -- the harness uses this to differentiate the
+  strategic framing of otherwise identical-shape decisions.
 - Identifies overall game `winner` (`"x"`, `"o"`, `"draw"`, or `None` if
   ongoing).
 """
@@ -33,9 +38,12 @@ from ... import proxy
 
 # A board row from OpenSpiel's ultimate_tic_tac_toe to_string() is exactly
 # three space-separated 3-character subgrid groups of ".xo". OpenSpiel 2.0
-# appends trailing "Current player: N" / "Forced board: M" lines that must
-# NOT be interpreted as board rows -- this pattern filters them out.
+# also appends trailing "Current player: N" / "Forced board: M" lines --
+# the board-row pattern isolates the grid, and _FORCED_BOARD_RE extracts
+# the engine's explicit statement of which local board the mover is
+# constrained to (or "any" for a free move).
 _BOARD_ROW_RE = re.compile(r"^[.xo]{3} [.xo]{3} [.xo]{3}$")
+_FORCED_BOARD_RE = re.compile(r"^Forced board:\s*(\d+|any)\s*$")
 
 
 def check_subgrid_winner(subgrid: list[str]) -> str:
@@ -75,12 +83,20 @@ class UltimateTicTacToeState(proxy.State):
         del player
         state_str = self.to_string()
         board = [["" for _ in range(9)] for _ in range(9)]
-        # Only accept lines shaped like a board row -- OpenSpiel 2.0 appends
-        # metadata lines ("Current player: N", "Forced board: M") that older
-        # versions did not.
-        lines = [line for line in state_str.strip().splitlines() if _BOARD_ROW_RE.match(line.strip())]
+        # Walk the string once: collect board rows in order and grab the
+        # engine-provided "Forced board" line.
+        board_rows: list[str] = []
+        forced_board_raw: str | None = None
+        for raw_line in state_str.strip().splitlines():
+            line = raw_line.strip()
+            if _BOARD_ROW_RE.match(line):
+                board_rows.append(line)
+                continue
+            m = _FORCED_BOARD_RE.match(line)
+            if m:
+                forced_board_raw = m.group(1)
 
-        for i, line in enumerate(lines):
+        for i, line in enumerate(board_rows):
             parts = line.split(" ")
             major_row = i // 3
             minor_row = i % 3
@@ -115,19 +131,60 @@ class UltimateTicTacToeState(proxy.State):
 
         if self.is_terminal():
             active_subgrid, phase = None, None
+        elif forced_board_raw == "any":
+            active_subgrid, phase = None, "choose_subgrid"
+        elif forced_board_raw is not None and forced_board_raw.isdigit():
+            active_subgrid, phase = int(forced_board_raw), "choose_cell"
         else:
-            label = self.action_to_string(self.current_player(), self.legal_actions()[0])
-            if label.startswith("Choose local board"):
-                active_subgrid, phase = None, "choose_subgrid"
+            raise ValueError(
+                "Unexpected ultimate_tic_tac_toe to_string(): missing or "
+                f"malformed 'Forced board' line (parsed value: {forced_board_raw!r}). "
+                "This proxy depends on OpenSpiel 2.0's to_string() format."
+            )
+
+        # board_context explains *why* the mover is in this phase/board.
+        # This lets the harness pick a prompt that reflects the strategic
+        # framing: is this a free opening choice, a free move because the
+        # opponent redirected them to a completed board, a cell choice on
+        # a board the mover themselves just selected, or a cell choice on
+        # a board the opponent's previous cell dictated?
+        #   - "opening"           : start of game, no history, choose_subgrid.
+        #   - "redirected"        : choose_subgrid mid-game (opponent's last
+        #                           cell mapped to an inactive local board).
+        #   - "self_selected"    : choose_cell after the same player's own
+        #                           immediately-preceding choose_subgrid.
+        #   - "opponent_directed" : choose_cell on a board dictated by the
+        #                           opponent's previous cell placement.
+        board_context: str | None
+        if phase is None:
+            board_context = None
+        else:
+            full_history = self.full_history()
+            if not full_history:
+                # No prior actions: must be the opening choose_subgrid.
+                board_context = "opening"
             else:
-                active_subgrid = int(label.split()[2].rstrip(":"))
-                phase = "choose_cell"
+                last_player = int(full_history[-1].player)
+                current_player = int(self.current_player())
+                if phase == "choose_subgrid":
+                    # Not the opening (history is non-empty); the last action
+                    # was the opponent's cell that mapped to an inactive board.
+                    board_context = "redirected"
+                elif last_player == current_player:
+                    # The previous action was this same player's own
+                    # choose_subgrid; now they play the cell within it.
+                    board_context = "self_selected"
+                else:
+                    # The previous action was the opponent's cell placement,
+                    # which dictated this board.
+                    board_context = "opponent_directed"
 
         return {
             "board": board,
             "subgrid_winners": subgrid_winners,
             "active_subgrid": active_subgrid,
             "phase": phase,
+            "board_context": board_context,
             "current_player": self._player_string(self.current_player()),
             "is_terminal": self.is_terminal(),
             "winner": winner,

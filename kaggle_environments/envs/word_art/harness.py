@@ -304,9 +304,9 @@ Rules:
   drawing, never the word. The opposing team sees neither. Roles swap
   each round.
 - The guesser has up to {max_attempts} attempts. Matching is
-  case-insensitive with leading/trailing whitespace trimmed; only the
-  exact word counts (no plurals, synonyms, partial matches, or other
-  spelling variants).
+  case-insensitive with leading/trailing whitespace trimmed and accepts
+  singular/plural equivalents (CAT/CATS both count, CHILD/CHILDREN both
+  count). Synonyms, tenses, and other spelling variants don't count.
 
 {scoring}
 
@@ -400,8 +400,9 @@ Rules:
 - Your teammate (the artist) saw a secret word and drew the ASCII art
   below; you don't see the word. Roles swap each round.
 - You have up to {max_attempts} guesses. Matching is case-insensitive
-  with leading/trailing whitespace trimmed; only the exact word counts
-  (no plurals, synonyms, partial matches, or other spelling variants).
+  with leading/trailing whitespace trimmed and accepts singular/plural
+  equivalents (CAT/CATS both count, CHILD/CHILDREN both count). Synonyms,
+  tenses, and other spelling variants don't count.
 - The opposing team plays the same secret word each round in parallel
   and cannot see your art or guesses.
 - The engine mechanically disqualifies art that contains either the

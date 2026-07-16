@@ -1,3 +1,4 @@
+import csv
 import json
 import random
 import re
@@ -8,9 +9,50 @@ dir_path = path.dirname(__file__)
 
 
 def _load_words():
-    words_path = path.abspath(path.join(dir_path, "words.txt"))
-    with open(words_path, "r") as f:
-        return [line.strip().upper() for line in f if line.strip()]
+    """Load words.csv. Each entry is {word, category, tier, source}.
+
+    Category ('noun'/'verb'/'abstract') and tier ('easy'/'medium'/'hard')
+    are metadata used only by _sample_words for stratified episode
+    composition; the runtime word channel exposes just the string.
+    """
+    words_path = path.abspath(path.join(dir_path, "words.csv"))
+    with open(words_path, newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def _sample_words(all_words, num_rounds, word_mix, rng):
+    """Return `num_rounds` uppercased target words for an episode.
+
+    - If `word_mix` is empty/falsy: uniform sample from the full pool
+      (backwards-compatible with the pre-CSV behaviour).
+    - Otherwise `word_mix` must be a mapping {tier_name: int_count} whose
+      counts sum to `num_rounds`. Each tier's slice is sampled from the
+      corresponding sub-pool without replacement; the result is then
+      shuffled so tier order within the episode is randomised (otherwise
+      a strong model could infer difficulty from round index).
+    """
+    if not word_mix:
+        if num_rounds > len(all_words):
+            raise ValueError(
+                f"num_rounds={num_rounds} exceeds the size of the word list ({len(all_words)})."
+            )
+        return [w["word"] for w in rng.sample(all_words, num_rounds)]
+
+    total = sum(word_mix.values())
+    if total != num_rounds:
+        raise ValueError(
+            f"word_mix counts must sum to num_rounds={num_rounds}, got {total} (word_mix={word_mix})."
+        )
+    picked = []
+    for tier, count in word_mix.items():
+        pool = [w for w in all_words if w["tier"] == tier]
+        if count > len(pool):
+            raise ValueError(
+                f"word_mix requests {count} words from tier '{tier}' but the pool has only {len(pool)}."
+            )
+        picked.extend(rng.sample(pool, count))
+    rng.shuffle(picked)
+    return [w["word"] for w in picked]
 
 
 def get_team(agent_idx):
@@ -92,10 +134,136 @@ def _normalize_guess(value):
     return value.strip().upper()
 
 
-# Placeholders shown to the guesser when their teammate's art was
-# disqualified. One variant per reason so the guesser can distinguish "the
-# artist named the word" from "the artist added a caption/label", and each
-# is unambiguously distinct from a normal empty submission.
+# --- Singular/plural leniency for guess matching ----------------------------
+#
+# Accepts CAT<->CATS in either direction so we test the game, not English
+# morphology. Out of scope: synonyms, tenses, spelling variants.
+#
+# CSV DEPENDENCY: the three tables below are scoped to entries that apply
+# to the current words.csv, not a general English reference. If the CSV
+# changes, entries may need to be added (matcher will silently reject
+# valid plurals) or removed (dead code). The guard test
+# `test_irregular_tables_stay_trimmed_to_csv` names the exact diffs.
+
+# Singular -> tuple of accepted plurals (tuple because ANTENNA accepts both
+# ANTENNAE and ANTENNAS). _IRREGULAR_SINGULARS is the reverse map.
+_IRREGULAR_PLURALS = {
+    "CHILD": ("CHILDREN",), "FOOT": ("FEET",), "TOOTH": ("TEETH",),
+    "MOUSE": ("MICE",), "GOOSE": ("GEESE",), "PERSON": ("PEOPLE",),
+    "OX": ("OXEN",),
+    "CACTUS": ("CACTI", "CACTUSES"),
+    "FUNGUS": ("FUNGI", "FUNGUSES"),
+    "OCTOPUS": ("OCTOPI", "OCTOPUSES"),
+    "OASIS": ("OASES",),
+    "KNIFE": ("KNIVES",), "LEAF": ("LEAVES",), "LOAF": ("LOAVES",),
+    "WOLF": ("WOLVES",), "CALF": ("CALVES",), "SHELF": ("SHELVES",),
+    "THIEF": ("THIEVES",),
+    "ALGA": ("ALGAE", "ALGAS"),
+    "LARVA": ("LARVAE", "LARVAS"),
+    "ANTENNA": ("ANTENNAE", "ANTENNAS"),
+    "LOUSE": ("LICE",),
+    "QUIZ": ("QUIZZES",),  # CVC-doubling special case not handled by rules
+}
+_IRREGULAR_SINGULARS = {pl: sg for sg, plurals in _IRREGULAR_PLURALS.items() for pl in plurals}
+
+# Compound suffixes that inherit the irregular pattern: SNOWMAN <-> SNOWMEN,
+# STEPCHILD <-> STEPCHILDREN, CHAIRPERSON <-> CHAIRPEOPLE. Known misfire:
+# MAN -> MEN wrongly triggers on HUMAN/OTTOMAN/SPECIMEN, but the realistic
+# +S guess still matches via the -S fallback in _singularize.
+_COMPOUND_IRREGULAR_SUFFIXES = {
+    "MAN": "MEN", "CHILD": "CHILDREN",
+    "GOOSE": "GEESE", "PERSON": "PEOPLE",
+}
+
+# Nouns whose plural form is identical to the singular.
+_SAME_FORM_NOUNS = {
+    "SHEEP", "DEER", "FISH", "SALMON", "TROUT", "BISON", "ELK",
+}
+
+# S-suffixes that are NOT plural markers -- keeps _singularize from stripping
+# GAS/BUS/BASIS/CACTUS/ATLAS/ACTRESS/GLASS/MOSS. Property of English, not
+# the CSV.
+_S_KEEP_SUFFIXES = ("SS", "US", "IS", "OS", "AS")
+
+
+def _pluralize(w):
+    """Return plausible plural forms. Set-valued because -F is genuinely
+    ambiguous (ROOFS but WOLVES); caller checks membership."""
+    if not w:
+        return set()
+    if w in _SAME_FORM_NOUNS:
+        return {w}
+    if w in _IRREGULAR_PLURALS:
+        return set(_IRREGULAR_PLURALS[w])
+    # Compound-suffix irregular: SNOWMAN -> SNOWMEN, STEPCHILD -> STEPCHILDREN
+    for sfx, plural_sfx in _COMPOUND_IRREGULAR_SUFFIXES.items():
+        if len(w) > len(sfx) and w.endswith(sfx):
+            return {w[:-len(sfx)] + plural_sfx}
+    if len(w) < 2:
+        return {w + "S"}
+    if w.endswith(("S", "X", "Z", "CH", "SH")):
+        return {w + "ES"}
+    if w.endswith("Y") and w[-2] not in "AEIOU":
+        return {w[:-1] + "IES"}
+    if w.endswith("FE"):
+        return {w[:-2] + "VES"}
+    if w.endswith("F"):
+        return {w[:-1] + "VES", w + "S"}
+    return {w + "S"}
+
+
+def _singularize(w):
+    """Return plausible singular forms. Set-valued because e.g. BUSES could
+    strip to BUS or BUSE; caller checks membership. Returns {w} if `w`
+    doesn't look plural."""
+    if not w or len(w) < 2:
+        return {w} if w else set()
+    if w in _SAME_FORM_NOUNS:
+        return {w}
+    if w in _IRREGULAR_SINGULARS:
+        return {_IRREGULAR_SINGULARS[w]}
+    # Compound-suffix irregular: SNOWMEN -> SNOWMAN, BUCKTEETH -> BUCKTOOTH
+    for sing_sfx, plural_sfx in _COMPOUND_IRREGULAR_SUFFIXES.items():
+        if len(w) > len(plural_sfx) and w.endswith(plural_sfx):
+            return {w[:-len(plural_sfx)] + sing_sfx}
+    candidates = set()
+    if w.endswith("VES") and len(w) > 3:
+        candidates.add(w[:-3] + "F")
+        candidates.add(w[:-3] + "FE")
+    if w.endswith("IES") and len(w) > 3:
+        candidates.add(w[:-3] + "Y")
+    if w.endswith("ES") and len(w) > 2:
+        # Both BOXES->BOX (drop ES) and HOUSES->HOUSE (drop just S).
+        candidates.add(w[:-2])
+        candidates.add(w[:-1])
+    if (
+        w.endswith("S")
+        and len(w) > 1
+        and not any(w.endswith(sfx) for sfx in _S_KEEP_SUFFIXES)
+    ):
+        candidates.add(w[:-1])
+    return candidates or {w}
+
+
+def _matches_target(guess, target):
+    """Accept guess if it equals target or is a plausible plural/singular
+    of it in either direction. Inputs must be pre-normalised (strip+upper).
+    Synonyms/tenses/spelling variants are out of scope -- the build-time
+    filters keep those out of the word pool."""
+    if not guess or not target:
+        return False
+    if guess == target:
+        return True
+    if guess in _pluralize(target) or target in _pluralize(guess):
+        return True
+    if guess in _singularize(target) or target in _singularize(guess):
+        return True
+    return False
+
+
+# Guesser-visible placeholders when their teammate's art was disqualified.
+# One variant per reason so the guesser can distinguish "artist named the
+# word" from "artist added a label"; both are unambiguously non-empty.
 DISQUALIFIED_ART_PLACEHOLDERS = {
     "target_word": (
         "<your teammate's drawing was disqualified for containing the target word>"
@@ -184,10 +352,9 @@ def initialize_game(state, config):
     max_attempts = config.max_attempts
     first_try_bonus = config.get("first_try_bonus", 1)
     max_art_chars = config.get("max_art_chars", 4000)
+    word_mix = config.get("word_mix") or {}
     all_words = _load_words()
-    if num_rounds > len(all_words):
-        raise ValueError(f"num_rounds={num_rounds} exceeds the size of the word list ({len(all_words)}).")
-    sampled = rng.sample(all_words, num_rounds)
+    sampled = _sample_words(all_words, num_rounds, word_mix, rng)
 
     for i, s in enumerate(state):
         s.observation.num_rounds = num_rounds
@@ -304,7 +471,7 @@ def _process_team_guess(state, obs0, team, env_config, target_norm):
         used = len(obs0._round_yellow_guesses)
 
     guess_norm = _normalize_guess(raw)
-    if guess_norm == target_norm and guess_norm != "":
+    if _matches_target(guess_norm, target_norm):
         pts = _score_for_attempt(used, first_try_bonus)
         if team == "blue":
             obs0._round_blue_points = pts

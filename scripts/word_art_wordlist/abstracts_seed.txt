@@ -1,0 +1,73 @@
+# Hand-curated abstract nouns for the word_art wordlist.
+# Included in the CSV as category=abstract, tier=hard.
+# Guideline: each entry should have at least one iconic visual metaphor
+# a competent LLM could reasonably draw (LOVE -> heart, JUSTICE -> scales,
+# TIME -> clock, INFINITY -> figure-eight, etc.). Skip words with no
+# established visual convention.
+# Lines starting with # are comments; blank lines are ignored.
+
+# emotions / feelings
+JEALOUSY
+ANGER
+JOY
+LOVE
+HOPE
+FEAR
+SORROW
+PRIDE
+ENVY
+LONELINESS
+CURIOSITY
+BOREDOM
+
+# concepts
+GRAVITY
+FREEDOM
+JUSTICE
+TRUTH
+DEATH
+PEACE
+WAR
+WISDOM
+LUCK
+DEMOCRACY
+POWER
+KNOWLEDGE
+
+# states
+SLEEP
+DREAM
+SILENCE
+CHAOS
+BALANCE
+HARMONY
+
+# events
+BIRTHDAY
+WEDDING
+ELECTION
+GRADUATION
+FUNERAL
+VACATION
+
+# processes
+EROSION
+GROWTH
+DECAY
+EVOLUTION
+INFLATION
+
+# abstract objects
+IDEA
+LANGUAGE
+MEMORY
+MUSIC
+POETRY
+HISTORY
+SCIENCE
+
+# misc
+DEADLINE
+MYSTERY
+INFINITY
+DANGER
