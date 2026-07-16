@@ -128,7 +128,7 @@ See [visualizer-style-guide.md](visualizer-style-guide.md) for the standard CSS 
 ```typescript
 import { createReplayVisualizer, ReplayAdapter } from "@kaggle-environments/core";
 import { renderer } from "./renderer";
-import { myGameTransformer } from "./transformers/myGameTransformer";
+import { gameTransformer } from "./transformers/gameTransformer";
 import "./style.css";
 
 const app = document.getElementById("app");
@@ -151,8 +151,7 @@ createReplayVisualizer(
     // the entire sidebar sits empty. See Step 5.
     transformer: (replay) => ({
       ...replay,
-      steps: myGameTransformer(replay),
-      isTransformed: true,
+      steps: gameTransformer(replay),
     }),
   })
 );
@@ -204,7 +203,7 @@ print(f'Statuses: {replay[\"statuses\"]}')
 
 Verify the replay has a reasonable number of steps (not 2-3, which indicates the agent failed).
 
-**Also generate a forfeit replay.** Forfeit-ended games are visually different from natural terminals (no `observation.isTerminal`, no on-board winner) and are a common failure mode when running against LLM agents. If you don't dev against a forfeit replay, you won't notice the renderer freezing on "Turn: X" (see Step 5). Craft one by mutating the natural replay: pick a step, rewrite the acting player's action into a forfeit shape, and set terminal rewards.
+**If your game can end via forfeit (illegal-move retries exhausted, timeout, or agent crash), also generate a forfeit replay.** Forfeit-ended games are visually different from natural terminals (no `observation.isTerminal`, no on-board winner) and are a common failure mode when running against LLM agents. If you don't dev against a forfeit replay, you won't notice the renderer freezing on "Turn: X" (see Step 5). Craft one by mutating the natural replay: pick a step, rewrite the acting player's action into a forfeit shape, and set terminal rewards.
 
 ```bash
 uv run python -c "
@@ -427,7 +426,7 @@ See [visualizer-style-guide.md](visualizer-style-guide.md) for the complete visu
 
 ## Step 5: Add a replay transformer
 
-**Required for any visualizer using `ui: 'side-panel'` (the default) on an OpenSpiel game.** The side-panel's ReasoningLogs component reads `step.players[i].thoughts` and `step.players[i].actionDisplayText` on the `BaseGameStep` shape. Raw OpenSpiel steps are `[{ action, observation, reward, status }, ...]` -- there is no `players` array, so without a transformer the sidebar is silently empty (model thoughts never appear) and terminal-state logic breaks on forfeits (see below).
+**Required for any visualizer using `ui: 'side-panel'` (the default) whose raw step data doesn't already conform to the `BaseGameStep` shape.** The side-panel's ReasoningLogs component reads `step.players[i].thoughts` and `step.players[i].actionDisplayText`. If your steps come in a different shape -- for example, OpenSpiel games emit `[{ action, observation, reward, status }, ...]` per step with no `players` array -- then without a transformer the sidebar is silently empty (model thoughts never appear) and terminal-state logic breaks on forfeits (see below).
 
 The transformer file lives **inside the visualizer**, not in `@kaggle-environments/core`. It's passed to `ReplayAdapter` via the `transformer:` option shown in the `main.ts` template. There is no central registry.
 
@@ -446,7 +445,9 @@ visualizer/default/src/
 ```typescript
 // src/transformers/<name>Transformer.ts
 
-// Forfeit signals used by open_spiel_env. See "Handle forfeits" below.
+// Forfeit signals your env emits when a player exhausts illegal-move retries,
+// times out, or crashes. Values below are what open_spiel_env uses; adapt to
+// whatever your environment sets. See "Handle forfeits" below.
 const FORFEIT_STATUSES = new Set(['TIMEOUT', 'ERROR', 'INVALID']);
 const FORFEIT_REASONS: Record<string, string> = {
   TIMEOUT: 'ran out of time',
@@ -469,7 +470,7 @@ interface RawPlayer {
   status?: string;
 }
 
-export interface MyGamePlayer {
+export interface GamePlayer {
   id: number;
   name: string;
   thumbnail: string;
@@ -482,17 +483,17 @@ export interface MyGamePlayer {
   forfeitLastAttempt: string | null;
 }
 
-export interface MyGameBoardState {
+export interface GameBoardState {
   // Fields your proxy emits from state_dict(). Fill in per game.
   is_terminal: boolean;
   winner: string | null;
   // ...
 }
 
-export interface MyGameStep {
+export interface GameStep {
   step: number;
-  players: MyGamePlayer[];
-  boardState: MyGameBoardState | null;
+  players: GamePlayer[];
+  boardState: GameBoardState | null;
   isTerminal: boolean;
   winner: string | null;
   forfeitReason: string | null;
@@ -512,10 +513,10 @@ function parseThoughts(action?: RawAction): string {
   return '';
 }
 
-function parseBoardState(step: RawPlayer[]): MyGameBoardState | null {
+function parseBoardState(step: RawPlayer[]): GameBoardState | null {
   const raw = step?.[0]?.observation?.observationString ?? step?.[1]?.observation?.observationString;
   if (!raw) return null;
-  try { return JSON.parse(raw) as MyGameBoardState; } catch { return null; }
+  try { return JSON.parse(raw) as GameBoardState; } catch { return null; }
 }
 
 // Detect a single-player forfeit and its reason category. Two signals:
@@ -543,15 +544,15 @@ function deriveWinner(step: RawPlayer[], teamNames: string[]): string | null {
   return r0 > r1 ? `${teamNames[0]} wins!` : `${teamNames[1]} wins!`;
 }
 
-export const myGameTransformer = (environment: any): MyGameStep[] => {
+export const gameTransformer = (environment: any): GameStep[] => {
   const teamNames: string[] = environment?.info?.TeamNames ?? ['Player 1', 'Player 2'];
   const rawSteps: RawPlayer[][] = environment?.steps ?? [];
-  const out: MyGameStep[] = [];
+  const out: GameStep[] = [];
 
   rawSteps.forEach((step, index) => {
     const forfeit = detectForfeit(step);
 
-    const players: MyGamePlayer[] = step.map((p, i): MyGamePlayer => {
+    const players: GamePlayer[] = step.map((p, i): GamePlayer => {
       const submission = p.action?.submission;
       const isForfeiter = forfeit?.index === i;
       // Forfeiters submit -1 but should still be treated as "acting" so
