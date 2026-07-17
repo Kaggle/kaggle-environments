@@ -12,6 +12,11 @@ export * from './replay-visualizer-factory/replay-visualizer-factory';
 export * from './timing/timing';
 export * from './transformers/transformers';
 
+// OpenSpiel-specific transformer helpers
+export * from './openSpiel/types';
+export * from './openSpiel/forfeit';
+export * from './openSpiel/transformer';
+
 // Components
 export * from './components';
 
