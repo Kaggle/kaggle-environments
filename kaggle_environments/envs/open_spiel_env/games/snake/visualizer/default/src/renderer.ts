@@ -1,4 +1,4 @@
-import { escapeHtml, FORFEIT_REASONS, type RendererOptions } from '@kaggle-environments/core';
+import { escapeHtml, type RendererOptions } from '@kaggle-environments/core';
 import type { SnakeStep, SnakeBoardState } from './transformers/snakeTransformer';
 
 const PLAYER_COLORS = ['#1f4f8b', '#9a3324', '#2e7d32', '#7b1fa2'];
@@ -116,11 +116,11 @@ export function renderer(options: RendererOptions<SnakeStep[]>) {
   const canvas = wrap.querySelector('canvas') as HTMLCanvasElement;
   const statusEl = parent.querySelector('.snake-status') as HTMLDivElement;
 
-  // Snake is a multi-player scoring game — the transformer only emits
-  // per-seat `forfeited` flags (no step-level winner / forfeitReason). Locate
-  // the offender so we can append a red-italic annotation to the status line.
+  // Snake is a multi-player scoring game — the transformer emits a
+  // step-level `forfeitReason` (already reflects the actual detected
+  // reason: TIMEOUT / INVALID / ERROR) that we append to the status line.
   const currentStep = steps[step];
-  const forfeitedPlayer = currentStep?.players?.find((p) => p.forfeited) ?? null;
+  const forfeitReason = currentStep?.forfeitReason ?? null;
 
   // Header: one card per player.
   const headerHtml = obs.snakes
@@ -158,10 +158,8 @@ export function renderer(options: RendererOptions<SnakeStep[]>) {
       status += ` (pending: ${obs.pending_this_turn.join(', ')})`;
     }
   }
-  if (forfeitedPlayer) {
-    const loser = getPlayerName(replay, forfeitedPlayer.id);
-    const reasonText = FORFEIT_REASONS.ERROR;
-    status += ` <span class="forfeit-reason">${escapeHtml(`${loser} ${reasonText}.`)}</span>`;
+  if (forfeitReason) {
+    status += ` <span class="forfeit-reason">${escapeHtml(forfeitReason)}</span>`;
   }
   statusEl.innerHTML = status;
 

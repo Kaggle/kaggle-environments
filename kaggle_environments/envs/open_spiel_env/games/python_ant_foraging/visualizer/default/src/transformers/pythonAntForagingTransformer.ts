@@ -5,11 +5,11 @@
 //
 // Ant foraging is a cooperative multi-agent game — all ants share the same
 // score, so a reward-derived "winner" isn't meaningful. Terminal state comes
-// from `boardState.is_terminal`. We still detect forfeits so the per-seat
-// `forfeited` flag is populated for the sidebar, but skip winner/forfeitReason
-// at the step level.
+// from `boardState.is_terminal`. We do emit a step-level `forfeitReason` so
+// renderers can label the offender with the actual detected reason
+// (TIMEOUT / INVALID / ERROR) rather than guessing.
 
-import { detectForfeit, parseThoughts, OpenSpielRawPlayer } from '@kaggle-environments/core';
+import { detectForfeit, FORFEIT_REASONS, parseThoughts, OpenSpielRawPlayer } from '@kaggle-environments/core';
 
 interface AntPlayer {
   id: number;
@@ -51,6 +51,9 @@ export interface AntStep {
   step: number;
   players: AntPlayer[];
   boardState: AntBoardState | null;
+  // Non-null when a player forfeited on this step. Cooperative game: no
+  // "wins by default" clause -- just names the offender and the reason.
+  forfeitReason: string | null;
 }
 
 function parseBoardState(step: OpenSpielRawPlayer[]): AntBoardState | null {
@@ -93,10 +96,18 @@ export const pythonAntForagingTransformer = (environment: any): AntStep[] => {
       };
     });
 
+    let forfeitReason: string | null = null;
+    if (forfeit) {
+      const loser = teamNames[forfeit.index] || `Ant ${forfeit.index}`;
+      const reason = FORFEIT_REASONS[forfeit.reasonKey] ?? 'forfeited';
+      forfeitReason = `${loser} ${reason}.`;
+    }
+
     return {
       step: index,
       players,
       boardState: parseBoardState(step),
+      forfeitReason,
     };
   });
 };

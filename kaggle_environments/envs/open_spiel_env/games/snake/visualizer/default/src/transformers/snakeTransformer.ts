@@ -6,11 +6,11 @@
 //
 // Snake supports 1-4 players and terminal-state / winner information comes
 // from the observation JSON (`boardState.is_terminal` / `boardState.winner`),
-// so we don't emit reward-derived winner/forfeitReason at the step level here.
-// We still detect forfeits so the per-seat `forfeited` flag is populated for
-// the sidebar.
+// so we don't emit a reward-derived winner at the step level. We do emit a
+// step-level `forfeitReason` so renderers can label the offender with the
+// actual detected reason (TIMEOUT / INVALID / ERROR) rather than guessing.
 
-import { detectForfeit, parseThoughts, OpenSpielRawPlayer } from '@kaggle-environments/core';
+import { detectForfeit, FORFEIT_REASONS, parseThoughts, OpenSpielRawPlayer } from '@kaggle-environments/core';
 
 interface SnakePlayer {
   id: number;
@@ -51,6 +51,9 @@ export interface SnakeStep {
   step: number;
   players: SnakePlayer[];
   boardState: SnakeBoardState | null;
+  // Non-null when a player forfeited on this step. Cooperative game: no
+  // "wins by default" clause -- just names the offender and the reason.
+  forfeitReason: string | null;
 }
 
 function parseBoardState(step: OpenSpielRawPlayer[]): SnakeBoardState | null {
@@ -91,10 +94,18 @@ export const snakeTransformer = (environment: any): SnakeStep[] => {
       };
     });
 
+    let forfeitReason: string | null = null;
+    if (forfeit) {
+      const loser = teamNames[forfeit.index] || `Player ${forfeit.index}`;
+      const reason = FORFEIT_REASONS[forfeit.reasonKey] ?? 'forfeited';
+      forfeitReason = `${loser} ${reason}.`;
+    }
+
     return {
       step: index,
       players,
       boardState: parseBoardState(step),
+      forfeitReason,
     };
   });
 };

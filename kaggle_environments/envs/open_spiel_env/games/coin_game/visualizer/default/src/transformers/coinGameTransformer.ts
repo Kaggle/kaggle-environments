@@ -8,13 +8,7 @@
 // shared helpers in @kaggle-environments/core so that every OpenSpiel game
 // labels early terminations the same way.
 
-import {
-  detectForfeit,
-  buildForfeitReason,
-  deriveWinnerFromRewards,
-  parseThoughts,
-  OpenSpielRawPlayer,
-} from '@kaggle-environments/core';
+import { detectForfeit, buildForfeitReason, parseThoughts, OpenSpielRawPlayer } from '@kaggle-environments/core';
 
 interface CoinPlayer {
   id: number;
@@ -125,13 +119,12 @@ export const coinGameTransformer = (environment: any): CoinStep[] => {
     // terminal; treat it as terminal so downstream UI shows the end state.
     const isTerminal = observationTerminal || forfeit !== null;
 
-    let winner: number | string | null = null;
-    if (isTerminal) {
-      // On a natural terminal, use the game's own winner field so we keep
-      // the numeric-id semantics existing renderers rely on. On a forfeit,
-      // fall back to the shared reward-sign derivation.
-      winner = forfeit ? deriveWinnerFromRewards(step, teamNames) : (boardState?.winner ?? null);
-    }
+    // On a natural terminal, expose the game's own winner (a numeric id
+    // that the renderer indexes into `playerNames`). On a forfeit, leave
+    // it null: the renderer has a dedicated forfeit-fallback branch that
+    // derives the winner from `forfeiterIdx`, and emitting a string here
+    // would break the sibling `Number(stepWinner)` code path.
+    const winner: number | string | null = isTerminal && !forfeit ? (boardState?.winner ?? null) : null;
 
     out.push({
       step: index,
