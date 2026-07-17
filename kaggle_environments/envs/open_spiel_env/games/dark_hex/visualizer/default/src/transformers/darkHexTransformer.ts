@@ -4,26 +4,18 @@
 // right-hand Game Log can render each agent's reasoning. Dark Hex is
 // imperfect-information, so each player sees their own board view --
 // we surface both views as `boardX` / `boardO` for the renderer.
+//
+// Forfeit handling (illegal-move / TIMEOUT / ERROR) is delegated to the
+// shared helpers in @kaggle-environments/core so that every OpenSpiel game
+// labels early terminations the same way.
 
-interface DarkHexAction {
-  submission?: number;
-  actionString?: string | null;
-  thoughts?: string | null;
-  status?: string | null;
-  generate_returns?: string[] | null;
-}
-
-interface DarkHexObservationEnvelope {
-  observationString?: string;
-  isTerminal?: boolean;
-}
-
-interface DarkHexReplayPlayer {
-  action?: DarkHexAction;
-  reward: number;
-  observation: DarkHexObservationEnvelope;
-  status?: string;
-}
+import {
+  detectForfeit,
+  buildForfeitReason,
+  deriveWinnerFromRewards,
+  parseThoughts,
+  OpenSpielRawPlayer,
+} from '@kaggle-environments/core';
 
 interface DarkHexPlayer {
   id: number;
@@ -34,6 +26,8 @@ interface DarkHexPlayer {
   thoughts: string;
   reward: number;
   generateReturns: string[] | null;
+  forfeited: boolean;
+  forfeitLastAttempt: string | null;
 }
 
 export interface DarkHexBoardState {
@@ -54,26 +48,14 @@ export interface DarkHexStep {
   lastActor: number | null;
   isTerminal: boolean;
   winner: string | null;
+  // Non-null on the terminal step when the game ended because a player
+  // forfeited (illegal-move retries exhausted, timeout, or crash). The
+  // renderer surfaces this instead of the normal "X wins!" line so the
+  // reason for the early end is clear.
+  forfeitReason: string | null;
 }
 
-function parseThoughts(action?: DarkHexAction): string {
-  // Prefer the Go-harness ``main_response_and_thoughts`` payload when
-  // generate_returns is populated; fall through to ``action.thoughts`` if
-  // generate_returns is missing, fails to parse, or doesn't carry the field.
-  if (action?.generate_returns?.[0]) {
-    try {
-      const parsed = JSON.parse(action.generate_returns[0]);
-      if (parsed.main_response_and_thoughts) {
-        return parsed.main_response_and_thoughts;
-      }
-    } catch {
-      // fall through to action.thoughts
-    }
-  }
-  return action?.thoughts ?? '';
-}
-
-function parseBoardState(player: DarkHexReplayPlayer | undefined): DarkHexBoardState | null {
+function parseBoardState(player: OpenSpielRawPlayer | undefined): DarkHexBoardState | null {
   const raw = player?.observation?.observationString;
   if (!raw) return null;
   try {
@@ -83,25 +65,21 @@ function parseBoardState(player: DarkHexReplayPlayer | undefined): DarkHexBoardS
   }
 }
 
-function deriveWinner(step: DarkHexReplayPlayer[], teamNames: string[]): string | null {
-  if (step.length < 2) return null;
-  const r0 = step[0].reward;
-  const r1 = step[1].reward;
-  if (r0 === r1) return 'Draw';
-  const winnerIdx = r0 > r1 ? 0 : 1;
-  const code = winnerIdx === 0 ? 'X' : 'O';
-  return `${teamNames[winnerIdx]} (${code}) wins!`;
-}
-
 export const darkHexTransformer = (environment: any): DarkHexStep[] => {
   const teamNames: string[] = environment?.info?.TeamNames ?? ['Player X', 'Player O'];
-  const rawSteps: DarkHexReplayPlayer[][] = environment?.steps ?? [];
+  const rawSteps: OpenSpielRawPlayer[][] = environment?.steps ?? [];
   const out: DarkHexStep[] = [];
 
   rawSteps.forEach((step, index) => {
+    const forfeit = detectForfeit(step);
+
     const players: DarkHexPlayer[] = step.map((p, i): DarkHexPlayer => {
       const submission = p.action?.submission;
-      const isTurn = submission !== undefined && submission !== -1;
+      const isForfeiter = forfeit?.index === i;
+      // A forfeit step's offender has submission === -1 but should still be
+      // treated as "acting" so the step is retained and their thoughts /
+      // last-attempt render in the side panel.
+      const isTurn = (submission !== undefined && submission !== null && submission !== -1) || isForfeiter;
       return {
         id: i,
         name: teamNames[i] ?? (i === 0 ? 'Player X' : 'Player O'),
@@ -111,6 +89,8 @@ export const darkHexTransformer = (environment: any): DarkHexStep[] => {
         thoughts: parseThoughts(p.action),
         reward: p.reward ?? 0,
         generateReturns: p.action?.generate_returns ?? null,
+        forfeited: isForfeiter,
+        forfeitLastAttempt: isForfeiter ? (p.action?.actionString ?? null) : null,
       };
     });
 
@@ -128,16 +108,25 @@ export const darkHexTransformer = (environment: any): DarkHexStep[] => {
       }
     }
 
-    const isTerminal = !!step[0]?.observation?.isTerminal;
+    const boardX = parseBoardState(step[0]);
+    const boardO = parseBoardState(step[1]);
+    // Dark Hex is private-info; the proxy emits `is_terminal` inside each
+    // per-seat observation JSON in addition to the envelope-level flag.
+    const observationTerminal = !!step[0]?.observation?.isTerminal || !!boardX?.is_terminal || !!boardO?.is_terminal;
+    // A forfeit ends the episode even though OpenSpiel's own state isn't
+    // terminal; treat it as terminal so downstream UI shows the end state.
+    const isTerminal = observationTerminal || forfeit !== null;
+
     out.push({
       step: index,
       players,
-      boardX: parseBoardState(step[0]),
-      boardO: parseBoardState(step[1]),
+      boardX,
+      boardO,
       lastAction,
       lastActor,
       isTerminal,
-      winner: isTerminal ? deriveWinner(step, teamNames) : null,
+      winner: isTerminal ? deriveWinnerFromRewards(step, teamNames) : null,
+      forfeitReason: forfeit ? buildForfeitReason(forfeit, teamNames) : null,
     });
   });
 

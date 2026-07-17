@@ -2,20 +2,14 @@
 //
 // Populates `players[]` so the sidebar shows each mover's thoughts, and
 // pre-parses the observation JSON into `boardState`.
+//
+// Ant foraging is a cooperative multi-agent game — all ants share the same
+// score, so a reward-derived "winner" isn't meaningful. Terminal state comes
+// from `boardState.is_terminal`. We still detect forfeits so the per-seat
+// `forfeited` flag is populated for the sidebar, but skip winner/forfeitReason
+// at the step level.
 
-interface AntAction {
-  submission?: number;
-  actionString?: string | null;
-  thoughts?: string | null;
-  generate_returns?: string[] | null;
-}
-
-interface AntReplayPlayer {
-  action?: AntAction;
-  reward: number;
-  observation: { observationString?: string };
-  status?: string;
-}
+import { detectForfeit, parseThoughts, OpenSpielRawPlayer } from '@kaggle-environments/core';
 
 interface AntPlayer {
   id: number;
@@ -28,6 +22,8 @@ interface AntPlayer {
   // Preserved so the renderer's `getLastAction` can look up the semantic
   // name via boardState.action_names[submission] like before.
   submission: number | null;
+  forfeited: boolean;
+  forfeitLastAttempt: string | null;
 }
 
 export interface AntBoardState {
@@ -57,23 +53,7 @@ export interface AntStep {
   boardState: AntBoardState | null;
 }
 
-// action.thoughts is the harness-curated summary and the preferred source.
-// generate_returns[0].main_response_and_thoughts is the raw LLM output;
-// use it only when the harness didn't populate thoughts.
-function parseThoughts(action?: AntAction): string {
-  if (action?.thoughts) return action.thoughts;
-  if (action?.generate_returns?.[0]) {
-    try {
-      const parsed = JSON.parse(action.generate_returns[0]);
-      if (parsed.main_response_and_thoughts) return parsed.main_response_and_thoughts;
-    } catch {
-      // fall through
-    }
-  }
-  return '';
-}
-
-function parseBoardState(step: AntReplayPlayer[]): AntBoardState | null {
+function parseBoardState(step: OpenSpielRawPlayer[]): AntBoardState | null {
   const raw = step?.[0]?.observation?.observationString;
   if (!raw) return null;
   try {
@@ -88,20 +68,28 @@ const isRealMove = (submission: unknown): boolean =>
 
 export const pythonAntForagingTransformer = (environment: any): AntStep[] => {
   const teamNames: string[] = environment?.info?.TeamNames ?? [];
-  const rawSteps: AntReplayPlayer[][] = environment?.steps ?? [];
+  const rawSteps: OpenSpielRawPlayer[][] = environment?.steps ?? [];
 
   return rawSteps.map((step, index): AntStep => {
+    const forfeit = detectForfeit(step);
+
     const players: AntPlayer[] = step.map((p, i): AntPlayer => {
       const sub = p.action?.submission;
+      const isForfeiter = forfeit?.index === i;
+      // A forfeit step's offender submits -1 but should still be treated as
+      // "acting" so their thoughts / last attempt render in the sidebar.
+      const isTurn = isRealMove(sub) || isForfeiter;
       return {
         id: i,
         name: teamNames[i] || `Ant ${i}`,
         thumbnail: '',
-        isTurn: isRealMove(sub),
+        isTurn,
         actionDisplayText: p.action?.actionString ?? '',
         thoughts: parseThoughts(p.action),
         reward: p.reward ?? 0,
         submission: typeof sub === 'number' ? sub : null,
+        forfeited: isForfeiter,
+        forfeitLastAttempt: isForfeiter ? (p.action?.actionString ?? null) : null,
       };
     });
 

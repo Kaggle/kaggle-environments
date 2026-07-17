@@ -30,6 +30,8 @@ export interface BargainingObs {
 
 export interface BargainingPlayer extends BaseGamePlayer {
   reward: number | null;
+  forfeited: boolean;
+  forfeitLastAttempt: string | null;
 }
 
 export interface BargainingStep extends Omit<BaseGameStep, 'players'> {
@@ -40,6 +42,12 @@ export interface BargainingStep extends Omit<BaseGameStep, 'players'> {
   /** Either parsed observation -- public fields are identical across players. */
   obs: BargainingObs | null;
   isTerminal: boolean;
+  winner: string | null;
+  /**
+   * Non-null on the terminal step when the game ended because a player
+   * forfeited (illegal-move retries exhausted, timeout, or crash).
+   */
+  forfeitReason: string | null;
 }
 
 /**
