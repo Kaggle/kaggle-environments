@@ -1359,7 +1359,7 @@ requires-dist = [
     { name = "jsonschema", specifier = ">=3.0.1" },
     { name = "litellm", specifier = ">=1.86.1" },
     { name = "numpy", specifier = ">=2.0" },
-    { name = "open-spiel", specifier = "==2.0" },
+    { name = "open-spiel", specifier = "==2.0.1" },
     { name = "pettingzoo", specifier = "==1.24.0" },
     { name = "pokerkit", specifier = "==0.6.3" },
     { name = "pydantic", specifier = ">=2.11.4" },
@@ -2127,7 +2127,7 @@ wheels = [
 
 [[package]]
 name = "open-spiel"
-version = "2.0"
+version = "2.0.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "absl-py" },
@@ -2136,24 +2136,24 @@ dependencies = [
     { name = "numpy" },
     { name = "scipy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d8/76/60a4c4d423dca4a33a0faf48c5d15178b8f0d4ad79d4186ce47343b73cb7/open_spiel-2.0.tar.gz", hash = "sha256:dc178e189774799b0abb1b678f5de887a8de7e602fdc8ec8a80679e8bd701e45", size = 5630859, upload-time = "2026-07-14T02:27:02.184Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e1/40/5c0e66c3dbfc729047eaede515a578903c20528d7e8048e04bdd04b3e0fd/open_spiel-2.0.1.tar.gz", hash = "sha256:904fd9cd7244432c31f7b6345be29a065526e0f23778fc4712682bebe6ce43f3", size = 5631053, upload-time = "2026-07-17T00:47:36.696Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7c/f2/ab9d417d887798b6f33b5cb3896398b863886e680f52b400fd1e1fb300f8/open_spiel-2.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:55b528778729585bed9516142e5b3ff04c679de024e74133e233190429b4019d", size = 12874626, upload-time = "2026-07-14T02:26:28.286Z" },
-    { url = "https://files.pythonhosted.org/packages/f7/58/c98667ae93f43e6897e322c895bef15e62827a9d8127fb51d7c3f9dd57c6/open_spiel-2.0-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:f8afb3da6eed344629c633886a0150e0c81ac40151ef0a0424fcf5f54a1a6fc0", size = 15223232, upload-time = "2026-07-14T02:26:30.463Z" },
-    { url = "https://files.pythonhosted.org/packages/f4/5a/b205c3e76797efedd0ab8226baca425000605fd731073ed6a08730003e9e/open_spiel-2.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:0fd7e64dc0cb883451c8f4238375840a9b7355cd3c68bf283a3038a66c3106fd", size = 16010035, upload-time = "2026-07-14T02:26:32.517Z" },
-    { url = "https://files.pythonhosted.org/packages/44/2e/9ae4de34c641762a1ff4aff608cbdce12112e0dab79d4135e8985f79c8fa/open_spiel-2.0-cp311-cp311-win_amd64.whl", hash = "sha256:a25c92feb0ddcb333ee6b3a3e0d73247ac7b70934cab70c64f03fbb602666db9", size = 10426937, upload-time = "2026-07-14T02:26:54.031Z" },
-    { url = "https://files.pythonhosted.org/packages/41/7e/0016ec2ea0c2a98c3bf034fe39576da50be7035f10fe83645f68ea51cc83/open_spiel-2.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:37787a232c0a50c4823e8ad8e1df0fde7cafd7fba70545a304ee8c5f208e39d5", size = 12913992, upload-time = "2026-07-14T02:26:34.651Z" },
-    { url = "https://files.pythonhosted.org/packages/b7/16/27e1916c912f009f31d24cfdb92187fe879dd9f507ffb90fa258992c1e15/open_spiel-2.0-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:ac0885b2ce1cac21ea29abe596f3ac808952c8d52fedcbd8cfcaa34a0e99f9da", size = 15253996, upload-time = "2026-07-14T02:26:36.695Z" },
-    { url = "https://files.pythonhosted.org/packages/97/b0/2ae66df0194916eafa1884cb2f1b51e508f6604aa758e01213f17b5e086f/open_spiel-2.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:5acd1bee6e7544b4d6d90ac13c46cd21e87c59f56372d2b63b4b6f1a6d880a28", size = 16047857, upload-time = "2026-07-14T02:26:38.782Z" },
-    { url = "https://files.pythonhosted.org/packages/61/f4/f994dcfc629f6868243984b11dd13bfc12dc4163ac233101d622efef8bfb/open_spiel-2.0-cp312-cp312-win_amd64.whl", hash = "sha256:e353a81c619fdf6c51e63888b33d36354de7cce231d04005ede67f46888dc8a9", size = 10434305, upload-time = "2026-07-14T02:26:55.991Z" },
-    { url = "https://files.pythonhosted.org/packages/f1/bf/5d9dac71e627a732b48dd323f51ec195f44961d8f0de3af54eb278787f3e/open_spiel-2.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:6c5e52372da67940c0ec39ed4f469338bcdd384d9db16d4f63f44955c86671ec", size = 12914000, upload-time = "2026-07-14T02:26:40.885Z" },
-    { url = "https://files.pythonhosted.org/packages/c5/4b/16c36126ae22fbd59ba4b46ace838106fb9a33057e668e87cc60e60ae564/open_spiel-2.0-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:e86cf99432b6d3459a4e8cb53bcce85a57ce2fad8c1e86ee9075851f88890c37", size = 15253832, upload-time = "2026-07-14T02:26:42.815Z" },
-    { url = "https://files.pythonhosted.org/packages/01/89/ef3df3dbc48354a88d53657b2813aad949a785c9b0337e42e3540c18bfa3/open_spiel-2.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:e4cfa46a6c733bca9f8e13b5723171a05249f2fafdaca4156bb0084718e944a1", size = 16047934, upload-time = "2026-07-14T02:26:45.265Z" },
-    { url = "https://files.pythonhosted.org/packages/27/ac/167471dcdc8703b4accb88ebfa8927310a8a0a0d8450342e61082384434f/open_spiel-2.0-cp313-cp313-win_amd64.whl", hash = "sha256:adcd3fcfb2bcf6dcde8930a7cd5ae40b1d28c9c0a7320aef82ac278fd2df9cab", size = 10434191, upload-time = "2026-07-14T02:26:58.331Z" },
-    { url = "https://files.pythonhosted.org/packages/0c/1a/9efa273495dfa8021055ad87c950f466a981aae29f1e63106dbc31c9fd14/open_spiel-2.0-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:ac33ea71ab4ff13ea9e7601fb85d37c8e86fc40494b43413995743ec03e55e0c", size = 12431210, upload-time = "2026-07-14T02:26:47.155Z" },
-    { url = "https://files.pythonhosted.org/packages/8d/30/f74e776a8444ee151efd1b5f1550db7dbc1a4a1e42aaf879a203560376ee/open_spiel-2.0-cp314-cp314-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:6413a90ef081636a938eb72549519615d2a1c856fdea2b61b182d8668a96df22", size = 15260980, upload-time = "2026-07-14T02:26:49.163Z" },
-    { url = "https://files.pythonhosted.org/packages/b0/ed/48bd3dc62be3528cb97e348d11d6d3fb94e2fdf732a5b8684e0783005926/open_spiel-2.0-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:b5b576a4e74e31d4783bbe585dba994ce4e6c1e5a38302a9800d98825fc85eda", size = 16049999, upload-time = "2026-07-14T02:26:51.599Z" },
-    { url = "https://files.pythonhosted.org/packages/b1/34/68a291f6b247b32d59f442dac1a4d2743ec398ee9f6a636f6b4bf4859ead/open_spiel-2.0-cp314-cp314-win_amd64.whl", hash = "sha256:2b334743133b34748c5b83980aa8f3c3cc963a65986d67a3d1d75659e7bcff5d", size = 10511926, upload-time = "2026-07-14T02:27:00.3Z" },
+    { url = "https://files.pythonhosted.org/packages/9c/81/09db288a18b1c3629c6f63499ddbc8c4b309479351bf5e4f96486b1557a7/open_spiel-2.0.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:bdc8619004a2ffea60a7cb7175ad9af6b16e7d83da0559231f3e89d601e720f4", size = 12875103, upload-time = "2026-07-17T00:46:54.102Z" },
+    { url = "https://files.pythonhosted.org/packages/9c/53/65be2e3047c28de5e814fa44ddba93aa0d99d3c4d7f0cc39a2e2ae971c42/open_spiel-2.0.1-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:076f76ffea106aa0286b3d7fe42afdd05a2192d719699c807ed7d24a1dd9d229", size = 15223755, upload-time = "2026-07-17T00:46:56.407Z" },
+    { url = "https://files.pythonhosted.org/packages/c9/da/10346d5a39e0ad1a22c07d91b6c831c5d33afa05e65289ed90738666916a/open_spiel-2.0.1-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:27c3c2b878d2d7ab0347ce75c8c2f5d2d7d831c37553b921432ca0d84189992b", size = 16010673, upload-time = "2026-07-17T00:46:58.618Z" },
+    { url = "https://files.pythonhosted.org/packages/e9/8b/3ce4e5a5e467c92081f4ee5ec8b35b96b8da17e8470dfd3173e146505f5b/open_spiel-2.0.1-cp311-cp311-win_amd64.whl", hash = "sha256:0cc5295ad390eacb36e1393baaf99b09d7c7fb63dede4df50c688cb2f8389a7d", size = 10427408, upload-time = "2026-07-17T00:47:20.761Z" },
+    { url = "https://files.pythonhosted.org/packages/40/9f/941cf1bd5aa5b21f1b7c55f96c74650d7b1154c40178efbec9bb0d73a702/open_spiel-2.0.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:5619de3ae412c8ceff9375db8dcce2b362859f007715acbac55dc42c077fdf84", size = 12914632, upload-time = "2026-07-17T00:47:01.049Z" },
+    { url = "https://files.pythonhosted.org/packages/f5/44/0920bb0426cda774936cd6424c571cb8121bc966698662d37526a15bfcba/open_spiel-2.0.1-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:51eb9b2fdff999fdeb19ce98997a9374530c77a770cb81e25aa78c183a84d132", size = 15254659, upload-time = "2026-07-17T00:47:03.427Z" },
+    { url = "https://files.pythonhosted.org/packages/e3/f1/1e44eee3e59926ddbe897f904c6e5bf694c4c472e34b7c7115a400be7213/open_spiel-2.0.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:4cda19d39990065ed20588477b5cec0309089612eea0d62dea724674b0e7ed00", size = 16048437, upload-time = "2026-07-17T00:47:05.468Z" },
+    { url = "https://files.pythonhosted.org/packages/8d/aa/ef42cd3870b338033fa570aa99a1d3942171ff58dcaf4956523fa82593f9/open_spiel-2.0.1-cp312-cp312-win_amd64.whl", hash = "sha256:4a5061abceea20efdb230139130035f7df3109e1da26d0ac5af217e34ad7435c", size = 10434822, upload-time = "2026-07-17T00:47:22.826Z" },
+    { url = "https://files.pythonhosted.org/packages/82/98/7f30c5e129a1e23bb5b72bf4ad73042920fe304e78e8e2baf7c8e7b0ef00/open_spiel-2.0.1-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:6c7836cff80ab6a700e2dcc5b0cc61ec37c69a740e000d0640d2837784e13aaa", size = 12914746, upload-time = "2026-07-17T00:47:07.755Z" },
+    { url = "https://files.pythonhosted.org/packages/48/c2/f861e395899f8ccb4b594deed6a5a7d9a13fcd20bba57d7564f21b08b608/open_spiel-2.0.1-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:400cfd70950a172e17328012d387251660d184c0dff46c246cafd64aa69bd724", size = 15254510, upload-time = "2026-07-17T00:47:09.759Z" },
+    { url = "https://files.pythonhosted.org/packages/70/25/10a444a90471dd44061951b2deef5e955ba0989c8b285fc2d88f2fc37a1f/open_spiel-2.0.1-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:51c211d85a2d40d520c7580d0fef670b964a7374ef865496680da8895d7611c8", size = 16048552, upload-time = "2026-07-17T00:47:12.026Z" },
+    { url = "https://files.pythonhosted.org/packages/43/9a/aacdb9f77fcd1b990079de575be1d63b8d47e3b957d46597fd187a383f2b/open_spiel-2.0.1-cp313-cp313-win_amd64.whl", hash = "sha256:94b3cb38a005146faff87baaa0f2520685c8ff80c237b1cc4687c9d5c003e350", size = 10434699, upload-time = "2026-07-17T00:47:31.812Z" },
+    { url = "https://files.pythonhosted.org/packages/c3/0c/9459b20de6a8e191d4fd51f1695b8dee6865820c2857e1b86c5a2bf6bb1c/open_spiel-2.0.1-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:51bcc802fb5b19029bb429e7dc3feebb37555a63e8353191bae0d1d5cf2a8cbf", size = 12431802, upload-time = "2026-07-17T00:47:14.247Z" },
+    { url = "https://files.pythonhosted.org/packages/84/42/8856de726d42249c9066679bf314425826b88308b0ed0bb10ca43e0a5d3d/open_spiel-2.0.1-cp314-cp314-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:8f8d8ead391551e9c5557ed75a9779d1a780cf866cca7577990914245a3782b5", size = 15261622, upload-time = "2026-07-17T00:47:16.457Z" },
+    { url = "https://files.pythonhosted.org/packages/0e/ab/22d1926afa727a474e9c440192d2fa51e1d474b3c46ba0b4ba98b0bc87aa/open_spiel-2.0.1-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:3f695b6b4d437ef969c19b17b35e865397f7cb76c4614bce0c5868872c3534be", size = 16050646, upload-time = "2026-07-17T00:47:18.531Z" },
+    { url = "https://files.pythonhosted.org/packages/51/d2/37cafa0ab9b7e3024c97b44c0ea59eb686277ad3694097c09f6f4ff30dd8/open_spiel-2.0.1-cp314-cp314-win_amd64.whl", hash = "sha256:3d2d845e852641c67bcc5eef62fac21f7ee75bac892aa49d9b6db2f7a947a469", size = 10512514, upload-time = "2026-07-17T00:47:34.292Z" },
 ]
 
 [[package]]
