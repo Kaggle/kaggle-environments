@@ -1,4 +1,4 @@
-import type { RendererOptions } from '@kaggle-environments/core';
+import { escapeHtml, type RendererOptions } from '@kaggle-environments/core';
 import type { ClobberBoardState, ClobberStep } from './transformers/clobberTransformer';
 
 const INK = '#050001';
@@ -180,7 +180,11 @@ export function renderer(options: RendererOptions<ClobberStep[]>) {
   }
 
   const playerNames = [getPlayerName(replay, 0), getPlayerName(replay, 1)];
-  const isTerminal = obs.is_terminal;
+  // Prefer currentStep.isTerminal -- it also fires on forfeits, which the raw
+  // OpenSpiel observation.is_terminal does not.
+  const isTerminal = !!currentStep?.isTerminal || obs.is_terminal;
+  const forfeitReason = currentStep?.forfeitReason ?? null;
+  const forfeiterIdx = currentStep?.players?.findIndex((p) => p.forfeited) ?? -1;
   const activeIdx = isTerminal ? -1 : obs.current_player === 'o' ? 0 : obs.current_player === 'x' ? 1 : -1;
 
   header.innerHTML = `
@@ -221,8 +225,16 @@ export function renderer(options: RendererOptions<ClobberStep[]>) {
       statusHTML = `<span style="color: ${P0_COLOR};">${playerNames[0]} (o) wins!</span>`;
     } else if (obs.winner === 'x') {
       statusHTML = `<span style="color: ${P1_COLOR};">${playerNames[1]} (x) wins!</span>`;
+    } else if (forfeitReason && forfeiterIdx >= 0) {
+      const winnerIdx = 1 - forfeiterIdx;
+      const winnerColor = winnerIdx === 0 ? P0_COLOR : P1_COLOR;
+      const glyph = winnerIdx === 0 ? 'o' : 'x';
+      statusHTML = `<span style="color: ${winnerColor};">${playerNames[winnerIdx]} (${glyph}) wins!</span>`;
     } else {
       statusHTML = `<span>Game over: ${obs.winner ?? 'finished'}</span>`;
+    }
+    if (forfeitReason) {
+      statusHTML += `<span class="annotation forfeit-reason">${escapeHtml(forfeitReason)}</span>`;
     }
   } else {
     const turnColor = activeIdx === 0 ? P0_COLOR : P1_COLOR;

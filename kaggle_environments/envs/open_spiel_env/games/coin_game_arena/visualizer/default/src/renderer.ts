@@ -1,4 +1,4 @@
-import type { RendererOptions } from '@kaggle-environments/core';
+import { escapeHtml, type RendererOptions } from '@kaggle-environments/core';
 import type { ArenaBoardView, ArenaStep } from './transformers/coinGameArenaTransformer';
 
 const PLAYER_COLORS = ['#1f77b4', '#3a9af0', '#d62728', '#ff7f6e'];
@@ -386,6 +386,8 @@ export function renderer(options: RendererOptions<ArenaStep[]>) {
   });
 
   // Status bar.
+  const forfeitReason = currentStep.forfeitReason ?? null;
+  const forfeiterSeat = currentStep.players?.findIndex((p) => p.forfeited) ?? -1;
   let statusHTML = '';
   if (currentStep.isTerminal) {
     const totals = currentStep.teamTotals;
@@ -394,9 +396,22 @@ export function renderer(options: RendererOptions<ArenaStep[]>) {
     } else if (currentStep.winningTeam !== null && currentStep.winningTeam !== undefined) {
       const wt = Number(currentStep.winningTeam);
       const label = wt === 0 ? 'Team A' : 'Team B';
-      statusHTML = `<span style="color: ${teamColorFor(wt)};">${label} wins &mdash; ${totals?.[wt]?.toFixed(0) ?? '?'} pts (vs ${totals?.[1 - wt]?.toFixed(0) ?? '?'})</span>`;
+      const totalsSuffix =
+        totals && totals[wt] !== undefined && totals[1 - wt] !== undefined
+          ? ` &mdash; ${totals[wt].toFixed(0)} pts (vs ${totals[1 - wt].toFixed(0)})`
+          : '';
+      statusHTML = `<span style="color: ${teamColorFor(wt)};">${label} wins${totalsSuffix}</span>`;
+    } else if (forfeitReason && forfeiterSeat >= 0) {
+      // Fall back to seat-derived winning team when the transformer didn't
+      // set winningTeam (shouldn't happen, but keeps the UI consistent).
+      const wt = 1 - Math.floor(forfeiterSeat / PLAYERS_PER_TEAM);
+      const label = wt === 0 ? 'Team A' : 'Team B';
+      statusHTML = `<span style="color: ${teamColorFor(wt)};">${label} wins</span>`;
     } else {
       statusHTML = '<span>Game over</span>';
+    }
+    if (forfeitReason) {
+      statusHTML += `<span class="annotation forfeit-reason">${escapeHtml(forfeitReason)}</span>`;
     }
   } else if (currentStep.activeSeat !== null && currentStep.activeSeat !== undefined) {
     const seat = currentStep.activeSeat;

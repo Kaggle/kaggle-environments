@@ -1,4 +1,4 @@
-import type { RendererOptions } from '@kaggle-environments/core';
+import { escapeHtml, type RendererOptions } from '@kaggle-environments/core';
 import type { HiveBoardState, HivePieces, HiveStep } from './transformers/hiveTransformer';
 
 const WHITE_FILL = '#fbf3d8';
@@ -285,7 +285,9 @@ export function renderer(options: RendererOptions<HiveStep[]>) {
   }
 
   const playerNames = [getPlayerName(replay, 0), getPlayerName(replay, 1)];
-  const isTerminal = board.is_terminal;
+  const isTerminal = !!currentStep?.isTerminal || board.is_terminal;
+  const forfeitReason = currentStep?.forfeitReason ?? null;
+  const forfeiterIdx = currentStep?.players?.findIndex((p) => p.forfeited) ?? -1;
   const activeIdx = isTerminal ? -1 : board.current_player === 'white' ? 0 : board.current_player === 'black' ? 1 : -1;
 
   header.innerHTML = `
@@ -322,8 +324,16 @@ export function renderer(options: RendererOptions<HiveStep[]>) {
       statusHTML = `<span style="color: ${WHITE_STROKE};">${playerNames[0]} (W) wins!</span>`;
     } else if (board.winner === 'black') {
       statusHTML = `<span style="color: ${BLACK_STROKE};">${playerNames[1]} (B) wins!</span>`;
+    } else if (forfeitReason && forfeiterIdx >= 0) {
+      const winnerIdx = 1 - forfeiterIdx;
+      const winnerColor = winnerIdx === 0 ? WHITE_STROKE : BLACK_STROKE;
+      const glyph = winnerIdx === 0 ? 'W' : 'B';
+      statusHTML = `<span style="color: ${winnerColor};">${playerNames[winnerIdx]} (${glyph}) wins!</span>`;
     } else {
       statusHTML = `<span>Draw</span>`;
+    }
+    if (forfeitReason) {
+      statusHTML += `<span class="annotation forfeit-reason">${escapeHtml(forfeitReason)}</span>`;
     }
   } else {
     const turnColor = activeIdx === 0 ? WHITE_STROKE : BLACK_STROKE;

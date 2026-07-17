@@ -166,15 +166,25 @@ function describeStatus(
   obs: AmazonsBoardState,
   diff: BoardDiff,
   xName: string,
-  oName: string
+  oName: string,
+  isTerminal: boolean,
+  forfeitReason: string | null,
+  forfeiterIdx: number
 ): { primary: string; annotation: string } {
-  if (obs.is_terminal) {
+  if (isTerminal) {
     if (obs.winner === 'draw') {
       return { primary: 'Draw', annotation: 'no legal moves remain' };
     }
     if (obs.winner === 'x' || obs.winner === 'o') {
       const name = obs.winner === 'x' ? xName : oName;
       return { primary: `${name} wins`, annotation: 'opponent has no legal move' };
+    }
+    // Winner may be null when the game ended by forfeit before OpenSpiel
+    // marked the observation terminal; derive the winner from the forfeiter.
+    if (forfeitReason && forfeiterIdx >= 0) {
+      const winnerIdx = 1 - forfeiterIdx;
+      const name = winnerIdx === 0 ? xName : oName;
+      return { primary: `${name} wins`, annotation: '' };
     }
     return { primary: 'Game over', annotation: '' };
   }
@@ -209,13 +219,15 @@ export function renderer(options: RendererOptions<AmazonsStep[]>) {
       <div class="amazons-status sketched-border">
         <div class="amazons-status-primary"></div>
         <div class="amazons-annotation"></div>
+        <div class="amazons-annotation forfeit-reason"></div>
       </div>
     </div>
   `;
   const header = parent.querySelector('.amazons-header') as HTMLDivElement;
   const canvas = parent.querySelector('canvas') as HTMLCanvasElement;
   const primary = parent.querySelector('.amazons-status-primary') as HTMLDivElement;
-  const annotation = parent.querySelector('.amazons-annotation') as HTMLDivElement;
+  const annotation = parent.querySelector('.amazons-annotation:not(.forfeit-reason)') as HTMLDivElement;
+  const forfeitEl = parent.querySelector('.amazons-annotation.forfeit-reason') as HTMLDivElement;
   if (!canvas) return;
 
   const obs = asObservation(steps[step]);
@@ -231,11 +243,17 @@ export function renderer(options: RendererOptions<AmazonsStep[]>) {
     header.innerHTML = `${makePlayerCard(xName, 'x', false)}<span style="color:${SOFT_INK}">vs</span>${makePlayerCard(oName, 'o', false)}`;
     primary.textContent = 'Waiting for game data…';
     annotation.textContent = '';
+    forfeitEl.textContent = '';
     return;
   }
 
-  const xActive = !obs.is_terminal && obs.current_player === 'x';
-  const oActive = !obs.is_terminal && obs.current_player === 'o';
+  // Prefer currentStep.isTerminal — it also fires on forfeits, which the raw
+  // OpenSpiel observation.is_terminal does not.
+  const isTerminal = !!currentStep?.isTerminal || obs.is_terminal;
+  const forfeitReason = currentStep?.forfeitReason ?? null;
+  const forfeiterIdx = currentStep?.players?.findIndex((p) => p.forfeited) ?? -1;
+  const xActive = !isTerminal && obs.current_player === 'x';
+  const oActive = !isTerminal && obs.current_player === 'o';
   header.innerHTML = `
     ${makePlayerCard(xName, 'x', xActive)}
     <span style="color:${SOFT_INK}">vs</span>
@@ -273,7 +291,22 @@ export function renderer(options: RendererOptions<AmazonsStep[]>) {
 
   drawBoard(ctx, cssSize, cssSize, obs, diff);
 
-  const { primary: primaryText, annotation: annotationText } = describeStatus(obs, diff, xName, oName);
+  const { primary: primaryText, annotation: annotationText } = describeStatus(
+    obs,
+    diff,
+    xName,
+    oName,
+    isTerminal,
+    forfeitReason,
+    forfeiterIdx
+  );
   primary.textContent = primaryText;
   annotation.textContent = annotationText;
+  if (forfeitReason) {
+    forfeitEl.textContent = forfeitReason;
+    forfeitEl.style.display = '';
+  } else {
+    forfeitEl.textContent = '';
+    forfeitEl.style.display = 'none';
+  }
 }

@@ -1,4 +1,4 @@
-import type { RendererOptions } from '@kaggle-environments/core';
+import { escapeHtml, FORFEIT_REASONS, type RendererOptions } from '@kaggle-environments/core';
 import type { AntStep, AntBoardState } from './transformers/pythonAntForagingTransformer';
 
 type AntForagingObservation = AntBoardState;
@@ -228,6 +228,11 @@ export function renderer(options: RendererOptions<AntStep[]>) {
   const prev = step > 0 ? parseObservation(steps[step - 1]) : null;
   const prevAntPositions = prev?.ant_positions ?? null;
   const lastAction = getLastAction(steps, step, obs);
+  // Cooperative game — the transformer only emits per-seat `forfeited` flags
+  // (no step-level winner / forfeitReason). Locate any offender so we can
+  // append a red-italic annotation to the status line.
+  const currentStep = steps[step];
+  const forfeitedPlayer = currentStep?.players?.find((p) => p.forfeited) ?? null;
 
   parent.innerHTML = `
     <div class="renderer-container">
@@ -278,6 +283,11 @@ export function renderer(options: RendererOptions<AntStep[]>) {
       actionPart = ` — last: <span style="color: ${prevColor}; font-weight: 700;">${prevName}</span> ${lastAction.name}`;
     }
     status = `Turn ${obs.turn}/${obs.max_turns} — acting: <span style="color: ${actingColor}; font-weight: 700;">${actingName}</span>${actionPart}`;
+  }
+  if (forfeitedPlayer) {
+    const loser = getPlayerName(replay, forfeitedPlayer.id);
+    const reasonText = FORFEIT_REASONS.ERROR;
+    status += ` <span class="forfeit-reason">${escapeHtml(`${loser} ${reasonText}.`)}</span>`;
   }
   statusEl.innerHTML = status;
 

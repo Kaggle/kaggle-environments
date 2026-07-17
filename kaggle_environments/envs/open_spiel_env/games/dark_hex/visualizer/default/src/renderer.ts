@@ -1,4 +1,4 @@
-import type { RendererOptions } from '@kaggle-environments/core';
+import { escapeHtml, type RendererOptions } from '@kaggle-environments/core';
 import type { DarkHexBoardState, DarkHexStep } from './transformers/darkHexTransformer';
 
 type DarkHexObservation = DarkHexBoardState;
@@ -214,7 +214,12 @@ export function renderer(options: RendererOptions<DarkHexStep[]>) {
   }
 
   const numCols = observation.num_cols;
-  const isTerminal = observation.is_terminal;
+  // Prefer currentStep.isTerminal -- it also fires on forfeits, which the raw
+  // OpenSpiel observation.is_terminal does not. Fall back to either per-seat
+  // obs since dark hex is private-info and each seat has its own terminal flag.
+  const isTerminal = !!currentStep?.isTerminal || !!obsX?.is_terminal || !!obsO?.is_terminal;
+  const forfeitReason = currentStep?.forfeitReason ?? null;
+  const forfeiterIdx = currentStep?.players?.findIndex((p) => p.forfeited) ?? -1;
   const currentPlayer = observation.current_player;
 
   const playerNames = [getPlayerName(replay, 0), getPlayerName(replay, 1)];
@@ -296,8 +301,16 @@ export function renderer(options: RendererOptions<DarkHexStep[]>) {
       statusHTML = `<span style="color: ${PLAYER_X_COLOR};">${playerNames[0]} (X) wins!</span>`;
     } else if (observation.winner === 'o') {
       statusHTML = `<span style="color: ${PLAYER_O_COLOR};">${playerNames[1]} (O) wins!</span>`;
+    } else if (forfeitReason && forfeiterIdx >= 0) {
+      const winnerIdx = 1 - forfeiterIdx;
+      const winnerColor = winnerIdx === 0 ? PLAYER_X_COLOR : PLAYER_O_COLOR;
+      const glyph = winnerIdx === 0 ? 'X' : 'O';
+      statusHTML = `<span style="color: ${winnerColor};">${playerNames[winnerIdx]} (${glyph}) wins!</span>`;
     } else {
       statusHTML = `<span>Game over: ${observation.winner ?? 'finished'}</span>`;
+    }
+    if (forfeitReason) {
+      statusHTML += `<span class="annotation forfeit-reason">${escapeHtml(forfeitReason)}</span>`;
     }
   } else {
     const turnColor = activeIdx === 0 ? PLAYER_X_COLOR : PLAYER_O_COLOR;

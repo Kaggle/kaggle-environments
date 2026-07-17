@@ -65,3 +65,9 @@ body,
   text-align: center;
   flex-wrap: wrap;
 }
+
+.status-container .annotation.forfeit-reason {
+  color: #a03030;
+  font-style: italic;
+  font-weight: 400;
+}

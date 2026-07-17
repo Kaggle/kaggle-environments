@@ -1,4 +1,4 @@
-import type { RendererOptions } from '@kaggle-environments/core';
+import { escapeHtml, type RendererOptions } from '@kaggle-environments/core';
 import type { BridgeStep } from './transformers/bridgeArenaTransformer';
 
 // External AABB ids: 0,1 = team A (N,S); 2,3 = team B (E,W).
@@ -239,21 +239,39 @@ function renderPlays(plays: PlayEntry[]): string {
   `;
 }
 
-function renderStatus(obs: Observation, activePid: number | null, playerNames: string[]): string {
-  if (obs.is_terminal) {
+function renderStatus(
+  obs: Observation,
+  activePid: number | null,
+  playerNames: string[],
+  isTerminal: boolean,
+  forfeitReason: string | null,
+  forfeiterIdx: number
+): string {
+  if (isTerminal) {
     const totals = obs.team_totals ?? [];
     const wt = obs.winning_team;
+    const forfeitTag = forfeitReason
+      ? `<span class="annotation forfeit-reason">${escapeHtml(forfeitReason)}</span>`
+      : '';
     if (wt === 'draw') {
-      return `<span>Draw</span><span class="annotation">A ${totals[0] ?? '?'} &middot; B ${totals[1] ?? '?'}</span>`;
+      return `<span>Draw</span><span class="annotation">A ${totals[0] ?? '?'} &middot; B ${totals[1] ?? '?'}</span>${forfeitTag}`;
     }
     if (wt === 0 || wt === 1) {
       const team = Number(wt);
       return (
         `<span style="color:${teamColor(team)};">Team ${teamLabel(team)} wins</span>` +
-        `<span class="annotation">${totals[team] ?? '?'} vs ${totals[1 - team] ?? '?'}</span>`
+        `<span class="annotation">${totals[team] ?? '?'} vs ${totals[1 - team] ?? '?'}</span>` +
+        forfeitTag
       );
     }
-    return `<span>Game over</span>`;
+    if (forfeitReason && forfeiterIdx >= 0) {
+      // Game ended by forfeit before OpenSpiel picked a winning team.
+      // Seats 0,1 → Team A; seats 2,3 → Team B. Winner is the OTHER team.
+      const forfeiterTeam = forfeiterIdx <= 1 ? 0 : 1;
+      const winnerTeam = 1 - forfeiterTeam;
+      return `<span style="color:${teamColor(winnerTeam)};">Team ${teamLabel(winnerTeam)} wins</span>` + forfeitTag;
+    }
+    return `<span>Game over</span>${forfeitTag}`;
   }
   if (activePid !== null && activePid !== undefined) {
     const pos = obs.current_table_position ?? '?';
@@ -296,18 +314,30 @@ export function renderer(options: RendererOptions<BridgeStep[]>) {
   const tableSeating = obs.table_seating ?? { '0': 'N', '1': 'S', '2': 'E', '3': 'W' };
   const auction = obs.auction ?? [];
   const plays = obs.plays ?? [];
+  // Prefer currentStep.isTerminal — it also fires on forfeits, which the raw
+  // OpenSpiel observation.is_terminal does not.
+  const isTerminal = !!currentStep?.isTerminal || !!obs.is_terminal;
+  const forfeitReason = currentStep?.forfeitReason ?? null;
+  const forfeiterIdx = currentStep?.players?.findIndex((p) => p.forfeited) ?? -1;
   const activePid =
-    obs.is_terminal || obs.current_player_id === null || obs.current_player_id === undefined
+    isTerminal || obs.current_player_id === null || obs.current_player_id === undefined
       ? null
       : Number(obs.current_player_id);
 
-  const statusCls = obs.is_terminal
-    ? obs.winning_team === 0
-      ? 'team-a-wins'
-      : obs.winning_team === 1
-        ? 'team-b-wins'
-        : 'draw'
-    : '';
+  // Derive winning team for the status pane border class. If OpenSpiel didn't
+  // set winning_team (e.g. forfeit before auction), fall back to the opposite
+  // of the forfeiter's team (seats 0,1 → Team A; seats 2,3 → Team B).
+  let winningTeam: 0 | 1 | 'draw' | null = null;
+  if (isTerminal) {
+    if (obs.winning_team === 0 || obs.winning_team === 1) {
+      winningTeam = obs.winning_team;
+    } else if (obs.winning_team === 'draw') {
+      winningTeam = 'draw';
+    } else if (forfeitReason && forfeiterIdx >= 0) {
+      winningTeam = (forfeiterIdx <= 1 ? 1 : 0) as 0 | 1;
+    }
+  }
+  const statusCls = !isTerminal ? '' : winningTeam === 0 ? 'team-a-wins' : winningTeam === 1 ? 'team-b-wins' : 'draw';
 
   parent.innerHTML = `
     <div class="renderer-container">
@@ -328,7 +358,7 @@ export function renderer(options: RendererOptions<BridgeStep[]>) {
         </div>
       </div>
       ${renderPlays(plays)}
-      <div class="status-container sketched-border ${statusCls}">${renderStatus(obs, activePid, playerNames)}</div>
+      <div class="status-container sketched-border ${statusCls}">${renderStatus(obs, activePid, playerNames, isTerminal, forfeitReason, forfeiterIdx)}</div>
     </div>
   `;
 }

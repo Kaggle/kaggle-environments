@@ -102,6 +102,11 @@ html, body, #app {
   font-size: 0.95rem;
 }
 
+.amazons-status .amazons-annotation.forfeit-reason {
+  color: #a03030;
+  font-style: italic;
+}
+
 @container (max-width: 680px) {
   .amazons-header { font-size: 1rem; }
   .amazons-status { font-size: 0.8rem; min-width: 160px; }

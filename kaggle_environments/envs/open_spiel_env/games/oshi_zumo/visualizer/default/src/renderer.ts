@@ -1,4 +1,4 @@
-import type { RendererOptions } from '@kaggle-environments/core';
+import { escapeHtml, type RendererOptions } from '@kaggle-environments/core';
 import type { OshiZumoBoardState, OshiZumoStep } from './transformers/oshiZumoTransformer';
 
 const INK = '#050001';
@@ -202,7 +202,8 @@ export function renderer(options: RendererOptions) {
     bids[1] !== null ? -bids[1]! : null,
   ];
   // Active = has coins left and game not terminal.
-  const isTerm = !!obs?.is_terminal;
+  const isTerm = !!current?.isTerminal || !!obs?.is_terminal;
+  const forfeitReason = current?.forfeitReason ?? null;
   const activeP0 = !isTerm && coins[0] > 0;
   const activeP1 = !isTerm && coins[1] > 0;
 
@@ -229,8 +230,11 @@ export function renderer(options: RendererOptions) {
     statusEl.textContent = 'Waiting for replay…';
   } else if (isTerm) {
     const winnerLine = current?.winner ?? 'Game over';
+    const forfeitLine = forfeitReason
+      ? `<span class="oshi-annotation forfeit-reason">${escapeHtml(forfeitReason)}</span>`
+      : '';
     const movesLine = `<span class="oshi-annotation">${obs.move_number} bids · field of ${obs.field_size}</span>`;
-    statusEl.innerHTML = `<div>${winnerLine}</div>${movesLine}`;
+    statusEl.innerHTML = `<div>${winnerLine}</div>${forfeitLine}${movesLine}`;
   } else {
     const bidLine =
       bids[0] !== null && bids[1] !== null

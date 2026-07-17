@@ -1,4 +1,4 @@
-import type { RendererOptions } from '@kaggle-environments/core';
+import { escapeHtml, type RendererOptions } from '@kaggle-environments/core';
 import type { CheckersBoardState, CheckersStep } from './transformers/checkersTransformer';
 
 const INK = '#050001';
@@ -223,7 +223,11 @@ export function renderer(options: RendererOptions<CheckersStep[]>) {
   }
 
   const playerNames = [getPlayerName(replay, 0), getPlayerName(replay, 1)];
-  const isTerminal = obs.is_terminal;
+  // Prefer currentStep.isTerminal — it also fires on forfeits, which the raw
+  // OpenSpiel observation.is_terminal does not.
+  const isTerminal = !!currentStep?.isTerminal || obs.is_terminal;
+  const forfeitReason = currentStep?.forfeitReason ?? null;
+  const forfeiterIdx = currentStep?.players?.findIndex((p) => p.forfeited) ?? -1;
   const activeIdx = isTerminal ? -1 : obs.current_player === 'o' ? 0 : obs.current_player === '+' ? 1 : -1;
 
   // Piece counts.
@@ -266,12 +270,22 @@ export function renderer(options: RendererOptions<CheckersStep[]>) {
   // Status bar.
   let statusHTML = '';
   if (isTerminal) {
+    // Derive winner from reward sign when the game ended by forfeit (which
+    // leaves obs.winner null). forfeiterIdx maps directly to the loser.
     if (obs.winner === 'o') {
       statusHTML = `<p style="margin: 0;"><span style="color: ${P0_COLOR};">${playerNames[0]} (o) Wins!</span></p>`;
     } else if (obs.winner === '+') {
       statusHTML = `<p style="margin: 0;"><span style="color: ${P1_COLOR};">${playerNames[1]} (+) Wins!</span></p>`;
+    } else if (forfeitReason && forfeiterIdx >= 0) {
+      const winnerIdx = 1 - forfeiterIdx;
+      const winnerColor = winnerIdx === 0 ? P0_COLOR : P1_COLOR;
+      const glyph = winnerIdx === 0 ? 'o' : '+';
+      statusHTML = `<p style="margin: 0;"><span style="color: ${winnerColor};">${playerNames[winnerIdx]} (${glyph}) Wins!</span></p>`;
     } else {
       statusHTML = `<p style="margin: 0;">Draw</p>`;
+    }
+    if (forfeitReason) {
+      statusHTML += `<span class="annotation forfeit-reason">${escapeHtml(forfeitReason)}</span>`;
     }
   } else {
     const turnColor = activeIdx === 0 ? P0_COLOR : P1_COLOR;

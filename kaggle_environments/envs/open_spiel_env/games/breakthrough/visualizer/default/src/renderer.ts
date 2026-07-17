@@ -1,4 +1,4 @@
-import type { RendererOptions } from '@kaggle-environments/core';
+import { escapeHtml, type RendererOptions } from '@kaggle-environments/core';
 import type { BreakthroughBoardState, BreakthroughStep } from './transformers/breakthroughTransformer';
 
 const INK = '#050001';
@@ -217,7 +217,11 @@ export function renderer(options: RendererOptions<BreakthroughStep[]>) {
   }
 
   const playerNames = [getPlayerName(replay, 0), getPlayerName(replay, 1)];
-  const isTerminal = obs.is_terminal;
+  // Prefer currentStep.isTerminal — it also fires on forfeits, which the raw
+  // OpenSpiel observation.is_terminal does not.
+  const isTerminal = !!currentStep?.isTerminal || obs.is_terminal;
+  const forfeitReason = currentStep?.forfeitReason ?? null;
+  const forfeiterIdx = currentStep?.players?.findIndex((p) => p.forfeited) ?? -1;
   const activeIdx = isTerminal ? -1 : obs.current_player === 'b' ? 0 : obs.current_player === 'w' ? 1 : -1;
   const pieceCounts = obs.pieces ?? { b: 0, w: 0 };
 
@@ -259,8 +263,18 @@ export function renderer(options: RendererOptions<BreakthroughStep[]>) {
       statusHTML = `<span style="color: ${P0_COLOR};">${playerNames[0]} (b) wins!</span>`;
     } else if (obs.winner === 'w') {
       statusHTML = `<span style="color: ${P1_COLOR};">${playerNames[1]} (w) wins!</span>`;
+    } else if (forfeitReason && forfeiterIdx >= 0) {
+      // Game ended by forfeit before OpenSpiel marked the observation
+      // terminal; derive the winner from the forfeiter.
+      const winnerIdx = 1 - forfeiterIdx;
+      const winnerColor = winnerIdx === 0 ? P0_COLOR : P1_COLOR;
+      const glyph = winnerIdx === 0 ? 'b' : 'w';
+      statusHTML = `<span style="color: ${winnerColor};">${playerNames[winnerIdx]} (${glyph}) wins!</span>`;
     } else {
       statusHTML = `<span>Game over: ${obs.winner ?? 'finished'}</span>`;
+    }
+    if (forfeitReason) {
+      statusHTML += `<span class="annotation forfeit-reason">${escapeHtml(forfeitReason)}</span>`;
     }
   } else {
     const turnColor = activeIdx === 0 ? P0_COLOR : P1_COLOR;

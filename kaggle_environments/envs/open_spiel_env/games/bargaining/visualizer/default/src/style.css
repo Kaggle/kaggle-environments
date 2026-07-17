@@ -335,6 +335,11 @@ body,
   font-size: 0.9rem;
 }
 
+.brg-status .brg-status-sub.forfeit-reason {
+  color: #a03030;
+  font-style: italic;
+}
+
 @container (max-width: 680px) {
   .brg-player-card {
     padding: 6px 8px;

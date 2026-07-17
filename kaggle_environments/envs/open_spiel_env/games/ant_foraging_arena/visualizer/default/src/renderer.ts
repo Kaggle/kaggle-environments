@@ -1,4 +1,4 @@
-import type { RendererOptions } from '@kaggle-environments/core';
+import { escapeHtml, type RendererOptions } from '@kaggle-environments/core';
 import type { AntBoardView, ArenaStep } from './transformers/antForagingArenaTransformer';
 
 const ANT_COLORS = ['#9a3324', '#1f4f8b', '#2e7d32', '#7b1fa2'];
@@ -340,6 +340,8 @@ export function renderer(options: RendererOptions<ArenaStep[]>) {
   });
 
   // Status bar.
+  const forfeitReason = currentStep.forfeitReason ?? null;
+  const forfeiterIdx = currentStep.players?.findIndex((p) => p.forfeited) ?? -1;
   let statusHTML = '';
   if (currentStep.isTerminal) {
     const totals = currentStep.teamTotals;
@@ -349,8 +351,20 @@ export function renderer(options: RendererOptions<ArenaStep[]>) {
       const wt = Number(currentStep.winningTeam);
       const label = wt === 0 ? 'Team A' : 'Team B';
       statusHTML = `<span style="color: ${teamColorFor(wt)};">${label} wins &mdash; ${totals?.[wt]?.toFixed(0) ?? '?'} food (vs ${totals?.[1 - wt]?.toFixed(0) ?? '?'})</span>`;
+    } else if (forfeitReason && forfeiterIdx >= 0) {
+      // Game ended by forfeit before OpenSpiel picked a winning team.
+      // renderTeamHeader partitions seats as pids [0,1] → Team A, pids [2,3]
+      // → Team B (baseId = team * PLAYERS_PER_TEAM = team * 2). Winner is
+      // the OTHER team.
+      const forfeiterTeam = Math.floor(forfeiterIdx / PLAYERS_PER_TEAM);
+      const winnerTeam = 1 - forfeiterTeam;
+      const label = winnerTeam === 0 ? 'Team A' : 'Team B';
+      statusHTML = `<span style="color: ${teamColorFor(winnerTeam)};">${label} wins</span>`;
     } else {
       statusHTML = '<span>Game over</span>';
+    }
+    if (forfeitReason) {
+      statusHTML += `<span class="annotation forfeit-reason">${escapeHtml(forfeitReason)}</span>`;
     }
   } else if (currentStep.activeSeat !== null && currentStep.activeSeat !== undefined) {
     const seat = currentStep.activeSeat;

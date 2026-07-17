@@ -1,4 +1,4 @@
-import type { RendererOptions } from '@kaggle-environments/core';
+import { escapeHtml, type RendererOptions } from '@kaggle-environments/core';
 import type { ReversiBoardState, ReversiCell, ReversiStep } from './transformers/reversiTransformer';
 
 const INK = '#050001';
@@ -181,7 +181,11 @@ export function renderer(options: RendererOptions<ReversiStep[]>) {
   const highlight = diffBoards(prevBoard, obs.board, obs.last_move);
 
   const playerNames = [getPlayerName(replay, 0), getPlayerName(replay, 1)];
-  const isTerminal = obs.is_terminal;
+  // Prefer currentStep.isTerminal — it also fires on forfeits, which the raw
+  // OpenSpiel observation.is_terminal does not.
+  const isTerminal = !!currentStep?.isTerminal || obs.is_terminal;
+  const forfeitReason = currentStep?.forfeitReason ?? null;
+  const forfeiterIdx = currentStep?.players?.findIndex((p) => p.forfeited) ?? -1;
   const activeIdx = isTerminal ? -1 : obs.current_player === 'x' ? 0 : obs.current_player === 'o' ? 1 : -1;
   const disks = obs.disks ?? { x: 0, o: 0 };
 
@@ -224,8 +228,15 @@ export function renderer(options: RendererOptions<ReversiStep[]>) {
       statusHTML = `<span style="color: ${P0_COLOR};">${playerNames[0]} wins ${disks.x}–${disks.o}</span>`;
     } else if (obs.winner === 'o') {
       statusHTML = `<span style="color: ${P1_COLOR};">${playerNames[1]} wins ${disks.o}–${disks.x}</span>`;
+    } else if (forfeitReason && forfeiterIdx >= 0) {
+      const winnerIdx = 1 - forfeiterIdx;
+      const winnerColor = winnerIdx === 0 ? P0_COLOR : P1_COLOR;
+      statusHTML = `<span style="color: ${winnerColor};">${playerNames[winnerIdx]} wins by default</span>`;
     } else {
       statusHTML = `<span>Draw ${disks.x}–${disks.o}</span>`;
+    }
+    if (forfeitReason) {
+      statusHTML += `<span class="annotation forfeit-reason">${escapeHtml(forfeitReason)}</span>`;
     }
   } else {
     const turnColor = activeIdx === 0 ? P0_COLOR : P1_COLOR;

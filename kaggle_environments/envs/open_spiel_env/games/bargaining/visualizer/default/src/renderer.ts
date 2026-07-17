@@ -1,5 +1,7 @@
 import type { RendererOptions } from '@kaggle-environments/core';
 import type { BargainingObs, BargainingStep, ItemBundle } from './transformers/bargainingReplayTypes';
+// Local escapeHtml is defined below; keep it to avoid disturbing existing call
+// sites. Forfeit info comes off the step object, not the raw observation.
 
 const ITEM_KEYS = ['book', 'hat', 'basketball'] as const;
 const ITEM_LABELS: Record<string, string> = {
@@ -148,8 +150,14 @@ function renderConversation(
   return messages.join('');
 }
 
-function turnBadge(obs: BargainingObs, step: number, totalSteps: number, names: [string, string]): string {
-  if (obs.is_terminal) {
+function turnBadge(
+  obs: BargainingObs,
+  step: number,
+  totalSteps: number,
+  names: [string, string],
+  isTerminal: boolean
+): string {
+  if (isTerminal) {
     return `<div class="brg-turn-badge">step ${step} of ${totalSteps - 1}<br/>game over</div>`;
   }
   const who = obs.current_player >= 0 ? escapeHtml(names[obs.current_player]) : '—';
@@ -157,14 +165,25 @@ function turnBadge(obs: BargainingObs, step: number, totalSteps: number, names: 
   return `<div class="brg-turn-badge">${who}'s turn<br/>step ${step} of ${totalSteps - 1} · ${turnsLeft} turn${turnsLeft === 1 ? '' : 's'} left</div>`;
 }
 
-function statusText(obs: BargainingObs, names: [string, string]): string {
-  if (!obs.is_terminal) {
+function statusText(
+  obs: BargainingObs,
+  names: [string, string],
+  isTerminal: boolean,
+  forfeitReason: string | null,
+  forfeiterIdx: number
+): string {
+  if (!isTerminal) {
     return `<div>Offer ${obs.num_offers + 1} of up to ${obs.max_turns}</div>
       <div class="brg-status-sub">each offer proposes what the offering player keeps — opponent receives the rest</div>`;
   }
   const r = obs.returns ?? [0, 0];
   let header: string;
-  if (!obs.agreement_reached) {
+  if (forfeitReason && forfeiterIdx >= 0) {
+    // Game ended by forfeit before OpenSpiel reached agreement or timeout.
+    // The other player wins by default.
+    const winnerIdx = 1 - forfeiterIdx;
+    header = `<b>Game ended early</b> — ${escapeHtml(names[winnerIdx])} wins by default`;
+  } else if (!obs.agreement_reached) {
     header = '<b>No agreement</b> — both players score 0';
   } else if (r[0] > r[1]) {
     header = `<b>Deal accepted</b> — ${escapeHtml(names[0])} wins on utility`;
@@ -173,8 +192,11 @@ function statusText(obs: BargainingObs, names: [string, string]): string {
   } else {
     header = `<b>Deal accepted</b> — tied utility`;
   }
+  const forfeitLine = forfeitReason
+    ? `<div class="brg-status-sub forfeit-reason">${escapeHtml(forfeitReason)}</div>`
+    : '';
   return `<div>${header}</div>
-    <div class="brg-status-sub">final utility: ${escapeHtml(names[0])} = ${r[0]} · ${escapeHtml(names[1])} = ${r[1]}</div>`;
+    <div class="brg-status-sub">final utility: ${escapeHtml(names[0])} = ${r[0]} · ${escapeHtml(names[1])} = ${r[1]}</div>${forfeitLine}`;
 }
 
 function escapeHtml(s: string): string {
@@ -219,7 +241,11 @@ export function renderer(options: RendererOptions) {
     return;
   }
 
-  const isTerm = obs.is_terminal;
+  // Prefer currentStep.isTerminal — it also fires on forfeits, which the raw
+  // OpenSpiel observation.is_terminal does not.
+  const isTerm = !!current?.isTerminal || obs.is_terminal;
+  const forfeitReason = current?.forfeitReason ?? null;
+  const forfeiterIdx = current?.players?.findIndex((p) => p.forfeited) ?? -1;
   const activeP0 = !isTerm && obs.current_player === 0;
   const activeP1 = !isTerm && obs.current_player === 1;
 
@@ -232,15 +258,18 @@ export function renderer(options: RendererOptions) {
   ];
 
   // Winner = strictly-higher reward at terminal when an agreement was reached.
-  // Ties and no-agreement endings highlight neither player.
-  const winnerId =
-    isTerm && obs.agreement_reached && r[0] !== null && r[1] !== null
-      ? r[0] > r[1]
-        ? 0
-        : r[1] > r[0]
-          ? 1
-          : null
-      : null;
+  // Ties and no-agreement endings highlight neither player. If the game ended
+  // by forfeit, the non-forfeiter wins by default (obs.returns will be null-y
+  // in that case, so this branch supersedes the utility comparison).
+  let winnerId: 0 | 1 | null = null;
+  if (isTerm) {
+    if (forfeitReason && forfeiterIdx >= 0) {
+      winnerId = (1 - forfeiterIdx) as 0 | 1;
+    } else if (obs.agreement_reached && r[0] !== null && r[1] !== null) {
+      if (r[0] > r[1]) winnerId = 0;
+      else if (r[1] > r[0]) winnerId = 1;
+    }
+  }
 
   const playerCard = (pid: 0 | 1, vals: ItemBundle | null, active: boolean, reward: number | null): string => {
     const isWinner = winnerId === pid;
@@ -259,7 +288,7 @@ export function renderer(options: RendererOptions) {
 
   header.innerHTML = `
     ${playerCard(0, p0Vals, activeP0, r[0])}
-    ${turnBadge(obs, safeStep, steps.length, names)}
+    ${turnBadge(obs, safeStep, steps.length, names, isTerm)}
     ${playerCard(1, p1Vals, activeP1, r[1])}
   `;
 
@@ -271,5 +300,5 @@ export function renderer(options: RendererOptions) {
   log.innerHTML = renderConversation(obs, [p0Vals, p1Vals], names);
   log.scrollTop = log.scrollHeight;
 
-  status.innerHTML = statusText(obs, names);
+  status.innerHTML = statusText(obs, names, isTerm, forfeitReason, forfeiterIdx);
 }

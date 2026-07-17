@@ -147,6 +147,11 @@ html, body, #app {
   color: #334155;
 }
 
+.status-container .annotation.forfeit-reason {
+  color: #a03030;
+  font-style: italic;
+}
+
 /* Grand Winner Overlay */
 .utt-winner-overlay {
   position: absolute;

@@ -119,6 +119,11 @@ body,
   color: #444343;
 }
 
+.status-container .annotation.forfeit-reason {
+  color: #a03030;
+  font-style: italic;
+}
+
 .status-container .die {
   display: inline-flex;
   align-items: center;

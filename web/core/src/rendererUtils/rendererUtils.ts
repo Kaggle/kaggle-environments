@@ -88,3 +88,17 @@ export function getCanvas(
 
   return [canvas, canvas.getContext('2d')];
 }
+
+/**
+ * Escape a string for safe interpolation into an HTML template literal.
+ * Small helper shared by renderers that inject user-supplied text (e.g.
+ * team names, forfeit reasons) into `innerHTML`.
+ */
+export function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}

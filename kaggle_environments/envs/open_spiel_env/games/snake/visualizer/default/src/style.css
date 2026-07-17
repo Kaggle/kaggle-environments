@@ -78,3 +78,9 @@ html, body, #app {
   background-color: white;
   flex-shrink: 0;
 }
+
+.snake-status .forfeit-reason {
+  color: #a03030;
+  font-style: italic;
+  margin-left: 8px;
+}

@@ -1,4 +1,4 @@
-import type { RendererOptions } from '@kaggle-environments/core';
+import { escapeHtml, type RendererOptions } from '@kaggle-environments/core';
 import type { DotsAndBoxesBoardState, DotsAndBoxesStep } from './transformers/dotsAndBoxesTransformer';
 
 const P1_COLOR = '#1f4f8b';
@@ -206,7 +206,11 @@ export function renderer(options: RendererOptions<DotsAndBoxesStep[]>) {
   }
 
   const playerNames = [getPlayerName(replay, 0), getPlayerName(replay, 1)];
-  const isTerminal = obs.is_terminal;
+  // Prefer currentStep.isTerminal -- it also fires on forfeits, which the raw
+  // OpenSpiel observation.is_terminal does not.
+  const isTerminal = !!currentStep?.isTerminal || obs.is_terminal;
+  const forfeitReason = currentStep?.forfeitReason ?? null;
+  const forfeiterIdx = currentStep?.players?.findIndex((p) => p.forfeited) ?? -1;
   const activeIdx = isTerminal ? -1 : obs.current_player === '1' ? 0 : obs.current_player === '2' ? 1 : -1;
 
   const renderPlayerCard = (i: 0 | 1) => {
@@ -250,8 +254,15 @@ export function renderer(options: RendererOptions<DotsAndBoxesStep[]>) {
       statusHTML = `<p style="margin: 0;"><span style="color: ${P1_COLOR};">${playerNames[0]} Wins ${obs.scores[0]}&ndash;${obs.scores[1]}</span></p>`;
     } else if (obs.winner === '2') {
       statusHTML = `<p style="margin: 0;"><span style="color: ${P2_COLOR};">${playerNames[1]} Wins ${obs.scores[1]}&ndash;${obs.scores[0]}</span></p>`;
+    } else if (forfeitReason && forfeiterIdx >= 0) {
+      const winnerIdx = 1 - forfeiterIdx;
+      const winnerColor = winnerIdx === 0 ? P1_COLOR : P2_COLOR;
+      statusHTML = `<p style="margin: 0;"><span style="color: ${winnerColor};">${playerNames[winnerIdx]} Wins</span></p>`;
     } else {
       statusHTML = `<p style="margin: 0;">Game Over</p>`;
+    }
+    if (forfeitReason) {
+      statusHTML += `<span class="annotation forfeit-reason">${escapeHtml(forfeitReason)}</span>`;
     }
   } else {
     const turnColor = activeIdx === 0 ? P1_COLOR : P2_COLOR;
