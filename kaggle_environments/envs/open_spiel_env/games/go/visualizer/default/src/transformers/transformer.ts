@@ -6,6 +6,5 @@ export function transformer(replay: ReplayData): ReplayData<GoStep[]> {
   return {
     ...replay,
     steps: goTransformer(replay),
-    isTransformed: true,
   };
 }

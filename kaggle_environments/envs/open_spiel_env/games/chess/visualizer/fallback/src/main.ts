@@ -18,7 +18,6 @@ if (app) {
       transformer: (replay) => ({
         ...replay,
         steps: chessTransformer(replay),
-        isTransformed: true,
       }),
       getStepLabel: (step) => getChessStepLabel(step as ChessStep),
       getStepDescription: (step) => getChessStepDescription(step as ChessStep),

@@ -21,7 +21,6 @@ createReplayVisualizer(
     transformer: (replay) => ({
       ...replay,
       steps: breakthroughTransformer(replay),
-      isTransformed: true,
     }),
   })
 );
