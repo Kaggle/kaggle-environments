@@ -23,6 +23,7 @@ import dataclasses
 import json
 import logging
 import os
+import random
 import re
 import sys
 import time
@@ -30,9 +31,29 @@ import urllib.parse
 import urllib.request
 from typing import Any, Callable, Mapping, Protocol, Sequence
 
+import httpx
 import litellm
+from litellm.exceptions import (
+    APIConnectionError,
+    InternalServerError,
+    RateLimitError,
+    ServiceUnavailableError,
+    Timeout,
+)
 
 litellm.drop_params = True
+
+_RETRYABLE_TRANSPORT_EXCEPTIONS: tuple[type[BaseException], ...] = (
+    httpx.TimeoutException,
+    httpx.ConnectError,
+    httpx.RemoteProtocolError,
+    httpx.ReadError,
+    Timeout,
+    APIConnectionError,
+    ServiceUnavailableError,
+    RateLimitError,
+    InternalServerError,
+)
 
 _log = logging.getLogger(__name__)
 _log.setLevel(logging.INFO)
@@ -460,108 +481,162 @@ def _call_llm(
 ) -> tuple[str, dict[str, Any]]:
     """Call the LLM (streaming) and return ``(response_text, call_details)``.
 
-    The response is streamed via ``stream=True`` and assembled before return,
-    so callers see the same blocking-style ``(text, details)`` interface.
+    Two budgets guard against Kaggle Model Proxy queuing backpressure, which
+    silently drops the client socket while a request is queued (MP does not
+    heartbeat while queued, so a dead connection is indistinguishable from
+    a live-but-waiting one):
 
-    ``call_details`` contains per-call usage and metadata::
+    - ``LLM_READ_TIMEOUT`` (180s): per-read idle-gap. Bounded above by MP's
+      1-min keepalive cadence during active streaming, below by "how long
+      before we call a silent socket dead."
+    - ``LLM_CALL_TIMEOUT`` (3600s): total wall-clock across ALL retries.
+      Pre-refactor this was per-read; now it's total lifetime -- external
+      callers (ablation runner's ``--llm-call-timeout``) must be re-read
+      with this in mind.
 
-        {
-            "prompt_tokens": int | None,
-            "generation_tokens": int | None,
-            "reasoning_tokens": int | None,
-            "total_tokens": int | None,
-            "finish_reason": str | None,
-            "duration_secs": float,
-            "first_token_secs": float,  # only when any content streamed
-        }
+    Retryable transport errors trigger up to ``LLM_CALL_MAX_TRANSPORT_RETRIES``
+    (4) retries with exp-backoff + jitter. Partial stream content is discarded
+    on retry (OpenAI streaming isn't resumable). Non-retryable exceptions
+    propagate immediately.
     """
     _TELEMETRY(calling_llm=True)
-    start = time.perf_counter()
-    first_token_secs: float | None = None
-    try:
-        # Per-LLM-call timeout. Honors LLM_CALL_TIMEOUT env var so the
-        # ablation runner (or any orchestrator) can dial it without
-        # changing the harness contract. Default 3600s preserves the
-        # historical behavior.
-        call_timeout = int(os.environ.get("LLM_CALL_TIMEOUT", "3600"))
-        stream = litellm.completion(
-            model=model_name,
-            messages=[{"role": "user", "content": prompt}],
-            timeout=call_timeout,
-            stream=True,
-            stream_options={"include_usage": True},
-            **litellm_kwargs,
-        )
+    total_start = time.perf_counter()
+    total_deadline = int(os.environ.get("LLM_CALL_TIMEOUT", "3600"))
+    read_timeout = int(os.environ.get("LLM_READ_TIMEOUT", "180"))
+    max_transport_retries = int(
+        os.environ.get("LLM_CALL_MAX_TRANSPORT_RETRIES", "4")
+    )
 
+    attempt = 0
+    while True:
+        attempt += 1
+        elapsed = time.perf_counter() - total_start
+        remaining = total_deadline - elapsed
+        if remaining <= 0:
+            _TELEMETRY(
+                llm_call_exception="total deadline exceeded before attempt",
+                duration_secs=round(elapsed, 3),
+                transport_attempts=attempt - 1,
+            )
+            raise TimeoutError(
+                f"LLM call exceeded total deadline of {total_deadline}s "
+                f"after {attempt - 1} transport attempt(s)"
+            )
+        # Clamp so the final attempt can't overrun the total deadline.
+        per_attempt_timeout = max(1, int(min(read_timeout, remaining)))
+
+        attempt_start = time.perf_counter()
+        first_token_secs: float | None = None
         content_parts: list[str] = []
         finish_reason: str | None = None
         usage_obj: Any = None
-        for chunk in stream:
-            choices = getattr(chunk, "choices", None) or []
-            if choices:
-                delta = getattr(choices[0], "delta", None)
-                piece = getattr(delta, "content", None) if delta else None
-                if piece:
-                    if first_token_secs is None:
-                        first_token_secs = time.perf_counter() - start
-                    content_parts.append(piece)
-                fr = getattr(choices[0], "finish_reason", None)
-                if fr:
-                    finish_reason = fr
-            chunk_usage = getattr(chunk, "usage", None)
-            if chunk_usage is not None:
-                usage_obj = chunk_usage
-
-        content = "".join(content_parts).strip()
-        duration = time.perf_counter() - start
-
-        if not content:
-            raise RuntimeError(
-                "LLM stream produced no content "
-                f"(finish_reason={finish_reason!r}, duration_secs={duration:.3f})"
+        try:
+            stream = litellm.completion(
+                model=model_name,
+                messages=[{"role": "user", "content": prompt}],
+                timeout=per_attempt_timeout,
+                stream=True,
+                stream_options={"include_usage": True},
+                **litellm_kwargs,
             )
-        if finish_reason is None:
-            raise RuntimeError(
-                "LLM stream ended without a finish_reason "
-                f"(content_length={len(content)}, duration_secs={duration:.3f})"
+            for chunk in stream:
+                choices = getattr(chunk, "choices", None) or []
+                if choices:
+                    delta = getattr(choices[0], "delta", None)
+                    piece = getattr(delta, "content", None) if delta else None
+                    if piece:
+                        if first_token_secs is None:
+                            first_token_secs = time.perf_counter() - attempt_start
+                        content_parts.append(piece)
+                    fr = getattr(choices[0], "finish_reason", None)
+                    if fr:
+                        finish_reason = fr
+                chunk_usage = getattr(chunk, "usage", None)
+                if chunk_usage is not None:
+                    usage_obj = chunk_usage
+
+            content = "".join(content_parts).strip()
+            duration = time.perf_counter() - attempt_start
+
+            if not content:
+                raise RuntimeError(
+                    "LLM stream produced no content "
+                    f"(finish_reason={finish_reason!r}, duration_secs={duration:.3f})"
+                )
+            if finish_reason is None:
+                raise RuntimeError(
+                    "LLM stream ended without a finish_reason "
+                    f"(content_length={len(content)}, duration_secs={duration:.3f})"
+                )
+
+            ctd = (
+                getattr(usage_obj, "completion_tokens_details", None)
+                if usage_obj
+                else None
+            )
+            reasoning_tokens = (
+                getattr(ctd, "reasoning_tokens", None) if ctd else None
             )
 
-        ctd = (
-            getattr(usage_obj, "completion_tokens_details", None)
-            if usage_obj
-            else None
-        )
-        reasoning_tokens = (
-            getattr(ctd, "reasoning_tokens", None) if ctd else None
-        )
-
-        details: dict[str, Any] = {
-            "prompt_tokens": getattr(usage_obj, "prompt_tokens", None),
-            "generation_tokens": getattr(
-                usage_obj, "completion_tokens", None,
-            ),
-            "total_tokens": getattr(usage_obj, "total_tokens", None),
-            "finish_reason": finish_reason,
-            "duration_secs": round(duration, 3),
-        }
-        if reasoning_tokens is not None:
-            details["reasoning_tokens"] = reasoning_tokens
-        if first_token_secs is not None:
-            details["first_token_secs"] = round(first_token_secs, 3)
-        _TELEMETRY(
-            llm_call_success=True,
-            duration_secs=details["duration_secs"],
-            prompt_tokens=details["prompt_tokens"],
-            completion_tokens=details["generation_tokens"],
-        )
-        return content, details
-    except Exception as exc:
-        duration = time.perf_counter() - start
-        _TELEMETRY(
-            llm_call_exception=str(exc),
-            duration_secs=round(duration, 3),
-        )
-        raise
+            details: dict[str, Any] = {
+                "prompt_tokens": getattr(usage_obj, "prompt_tokens", None),
+                "generation_tokens": getattr(
+                    usage_obj, "completion_tokens", None,
+                ),
+                "total_tokens": getattr(usage_obj, "total_tokens", None),
+                "finish_reason": finish_reason,
+                "duration_secs": round(duration, 3),
+                "transport_attempts": attempt,
+            }
+            if reasoning_tokens is not None:
+                details["reasoning_tokens"] = reasoning_tokens
+            if first_token_secs is not None:
+                details["first_token_secs"] = round(first_token_secs, 3)
+            _TELEMETRY(
+                llm_call_success=True,
+                duration_secs=details["duration_secs"],
+                prompt_tokens=details["prompt_tokens"],
+                completion_tokens=details["generation_tokens"],
+                transport_attempts=attempt,
+            )
+            return content, details
+        except Exception as exc:
+            now = time.perf_counter()
+            attempt_duration = now - attempt_start
+            total_elapsed = now - total_start
+            is_retryable = isinstance(exc, _RETRYABLE_TRANSPORT_EXCEPTIONS)
+            budget_remaining = total_deadline - total_elapsed
+            if not is_retryable or attempt >= max_transport_retries or budget_remaining <= 0:
+                _TELEMETRY(
+                    llm_call_exception=str(exc),
+                    duration_secs=round(total_elapsed, 3),
+                    transport_attempts=attempt,
+                    retryable=is_retryable,
+                    exceeded_deadline=budget_remaining <= 0,
+                )
+                raise
+            base = 2 ** attempt  # 2, 4, 8, 16
+            backoff = base * random.uniform(0.75, 1.25)
+            # Clamp with 1s slack so next call has budget to run.
+            backoff = max(0.0, min(backoff, budget_remaining - 1))
+            _TELEMETRY(
+                llm_transport_retry={
+                    "attempt": attempt,
+                    "error_class": type(exc).__name__,
+                    "error": str(exc)[:200],
+                    "attempt_duration_secs": round(attempt_duration, 3),
+                    "backoff_secs": round(backoff, 3),
+                    "budget_remaining_secs": round(budget_remaining, 3),
+                },
+            )
+            _log.warning(
+                "Transport error on attempt %d (%s: %s); retrying in %.1fs "
+                "(budget remaining %.0fs)",
+                attempt, type(exc).__name__, str(exc)[:200], backoff,
+                budget_remaining,
+            )
+            if backoff > 0:
+                time.sleep(backoff)
 
 
 def _build_call_detail(
@@ -577,6 +652,7 @@ def _build_call_detail(
         "total_tokens": record["total_tokens"],
         "finish_reason": record["finish_reason"],
         "duration_secs": record["duration_secs"],
+        "transport_attempts": record.get("transport_attempts", 1),
     }
     if save_response:
         detail["response"] = record["content"]

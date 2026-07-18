@@ -3,6 +3,7 @@
 import dataclasses
 from unittest.mock import patch
 
+import httpx
 from absl.testing import absltest
 
 from kaggle_environments import core_harness
@@ -619,6 +620,129 @@ class CoreHarnessTest(absltest.TestCase):
         # The second prompt should include the first move in its history.
         self.assertIn("move_0", harness.prompts[1])
 
+
+class TransportRetryTest(absltest.TestCase):
+    """Behaviour spec for _call_llm's transport-retry + deadline layer."""
+
+    def setUp(self):
+        super().setUp()
+        self.events: list[dict] = []
+        set_telemetry_exporter(
+            lambda module, **kw: self.events.append({"module": module, **kw})
+        )
+        self._sleep_patcher = patch.object(core_harness.time, "sleep")
+        self.mock_sleep = self._sleep_patcher.start()
+        # Deterministic jitter so backoff assertions are exact.
+        self._jitter_patcher = patch.object(
+            core_harness.random, "uniform", return_value=1.0,
+        )
+        self.mock_jitter = self._jitter_patcher.start()
+
+    def tearDown(self):
+        self._sleep_patcher.stop()
+        self._jitter_patcher.stop()
+        set_telemetry_exporter(lambda module, **kwargs: None)
+        super().tearDown()
+
+    def _env(self, **overrides) -> dict[str, str]:
+        env = dict(_ENV)
+        env.setdefault("LLM_CALL_TIMEOUT", "600")
+        env.setdefault("LLM_READ_TIMEOUT", "60")
+        env.setdefault("LLM_CALL_MAX_TRANSPORT_RETRIES", "3")
+        env.update({k: str(v) for k, v in overrides.items()})
+        return env
+
+    def _retry_events(self) -> list[dict]:
+        return [e["llm_transport_retry"] for e in self.events
+                if "llm_transport_retry" in e]
+
+    def test_retryable_transport_error_then_succeeds(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        side_effects = [
+            httpx.ReadTimeout("socket died"),
+            _fake_completion("move_1"),
+        ]
+        with patch.dict("os.environ", self._env(), clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=side_effects,
+        ) as mock_call:
+            result = agent({}, {})
+        self.assertEqual(result["submission"], 1)
+        self.assertEqual(mock_call.call_count, 2)
+        self.assertEqual(result["call_details"][0]["transport_attempts"], 2)
+        retries = self._retry_events()
+        self.assertLen(retries, 1)
+        self.assertEqual(retries[0]["attempt"], 1)
+        self.assertEqual(retries[0]["error_class"], "ReadTimeout")
+        # Base backoff 2s, jitter pinned to 1.0 in setUp → exactly 2.0s.
+        self.assertEqual(self.mock_sleep.call_count, 1)
+        self.assertAlmostEqual(
+            self.mock_sleep.call_args_list[0].args[0], 2.0, delta=1e-6,
+        )
+
+    def test_non_retryable_exception_propagates_without_retry(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=1)
+        with patch.dict("os.environ", self._env(), clear=False), patch.object(
+            core_harness.litellm, "completion",
+            side_effect=RuntimeError("parser blew up"),
+        ) as mock_call:
+            with self.assertRaisesRegex(RuntimeError, "parser blew up"):
+                agent({}, {})
+        self.assertEqual(mock_call.call_count, 1)
+        self.assertEqual(self._retry_events(), [])
+        failures = [e for e in self.events if "llm_call_exception" in e]
+        self.assertTrue(any(e.get("retryable") is False for e in failures))
+
+    def test_exhausted_transport_retries_raise(self):
+        harness = _SimpleHarness()
+        # Outer max_retries=1 so only the internal retry budget governs count.
+        agent = create_agent_fn(harness, max_retries=1)
+        with patch.dict("os.environ", self._env(), clear=False), patch.object(
+            core_harness.litellm, "completion",
+            side_effect=httpx.ReadTimeout("socket died"),
+        ) as mock_call:
+            with self.assertRaises(httpx.ReadTimeout):
+                agent({}, {})
+        self.assertEqual(mock_call.call_count, 3)
+        retries = self._retry_events()
+        self.assertLen(retries, 2)
+        self.assertEqual([r["attempt"] for r in retries], [1, 2])
+
+    def test_total_deadline_bounds_retry_loop(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=1)
+        with patch.dict(
+            "os.environ",
+            self._env(LLM_CALL_TIMEOUT=1, LLM_CALL_MAX_TRANSPORT_RETRIES=5),
+            clear=False,
+        ), patch.object(
+            core_harness.litellm, "completion",
+            side_effect=httpx.ReadTimeout("socket died"),
+        ):
+            # Advance perf_counter past the 1s deadline between attempts.
+            times = iter([0.0, 0.1, 5.0, 5.1])
+            with patch.object(
+                core_harness.time, "perf_counter",
+                side_effect=lambda: next(times, 999.0),
+            ):
+                with self.assertRaises(Exception):
+                    agent({}, {})
+        failures = [e for e in self.events if "llm_call_exception" in e]
+        self.assertTrue(any(e.get("exceeded_deadline") for e in failures))
+
+    def test_first_try_success_reports_transport_attempts_1(self):
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", self._env(), clear=False), patch.object(
+            core_harness.litellm, "completion",
+            return_value=_fake_completion("move_0"),
+        ):
+            result = agent({}, {})
+        self.assertEqual(result["call_details"][0]["transport_attempts"], 1)
+        # llm_call_success telemetry event carries the same value.
+        successes = [e for e in self.events if "llm_call_success" in e]
+        self.assertEqual(successes[-1]["transport_attempts"], 1)
 
 class RenderRethinkSuffixTest(absltest.TestCase):
     """Behaviour spec for the shared rethink-suffix helper."""

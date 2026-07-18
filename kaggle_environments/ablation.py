@@ -1264,11 +1264,13 @@ def _build_parser() -> argparse.ArgumentParser:
     pr.add_argument("--concurrency", type=int, default=8,
                     help="Max concurrent games (worker process count).")
     pr.add_argument("--llm-call-timeout", type=int, default=900,
-                    help="Per-LLM-call timeout in seconds. Passed to "
-                         "litellm via the LLM_CALL_TIMEOUT env var, which "
-                         "core_harness._call_llm reads. Single hung calls "
-                         "fail at this limit so the agent's retry loop "
-                         "can recover. Default 900s = 15 min.")
+                    help="Total-lifetime deadline in seconds for one LLM "
+                         "prompt, across all transport retries. Exported as "
+                         "LLM_CALL_TIMEOUT, which core_harness._call_llm "
+                         "reads. Per-read idle-gap timeout (LLM_READ_TIMEOUT, "
+                         "default 180s) and transport-retry count "
+                         "(LLM_CALL_MAX_TRANSPORT_RETRIES, default 4) are "
+                         "separate. Default 900s = 15 min.")
     pr.add_argument("--game-timeout", type=int, default=0,
                     help="Per-game SIGALRM watchdog (seconds). Default 0 "
                          "(disabled) -- the per-call timeout above is the "
