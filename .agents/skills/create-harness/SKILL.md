@@ -192,18 +192,14 @@ move_history_str = ", ".join(move_history) if move_history else "None"
 
 ### Second pass: compact the prose
 
-First-draft prompts are almost always too wordy. Across games we've seen model performance stay the same or improve when the prompt is shortened, and degrade when it's padded — verbose prose buries the signal, and rules restated three ways confuse the model more than they help. After you have a working first version, **always take a dedicated second pass to cut length while preserving meaning** before shipping.
+Shorter prompts have matched or beaten longer ones across games; padding buries the signal. After the first working draft, do a dedicated compaction pass at a real rendered observation:
 
-What to do on the compaction pass:
+- Collapse restatements (same rule in the rules section and output-format section — keep one).
+- Cut filler ("Note that…", "Please…") and hedging ("Try your best to…").
+- Replace paragraphs with a single declarative sentence where possible.
+- Keep every concrete rule, phase distinction, coordinate-system explanation, and format example.
 
-- Read the rendered prompt end-to-end at a real observation (not just the template). Anything that isn't a rule, a state fact, or a format instruction is a candidate for cutting.
-- Collapse restatements. If a rule is explained in the rules section and re-explained in the output-format section, keep the clearer version and delete the other.
-- Prefer a short declarative sentence over a paragraph. "Rows are numbered 1–8 from bottom to top for White." beats "The board uses standard chess notation. Rows, sometimes called ranks, are numbered from 1 at the bottom to 8 at the top, from White's perspective."
-- Delete filler: "Note that…", "It's important to remember that…", "As you can see…", "Please…". They add tokens and no information.
-- Remove hedging and encouragement. "Try your best to…", "Do your best to make a good move" — cut it.
-- Keep every concrete rule, phase distinction, coordinate-system explanation, and format example. Compaction is not simplification; the model still needs the same information, just delivered tighter.
-
-Only after this pass do you decide the prompt is done. If a later evaluation shows the model struggling — misunderstanding a rule, missing a phase, picking notation wrong — that's the signal to *add* clarifying prose, worked examples, or helper text back in. Start compact, expand only in response to observed failures.
+Start compact; only add clarifying prose or worked examples back in when a later evaluation shows the model actually struggling.
 
 ## Step 4: Implement `parse_response`
 
@@ -506,7 +502,7 @@ uv sync && uv run pytest tests/envs/open_spiel_env/games/<name>/harness_test.py 
 - [ ] Prompt rendered for `player_id=0` and `player_id=1` — directional/orientation language mirrors correctly
 - [ ] Multi-phase games dispatch on the engine's explicit phase identifier, not legals-shape; unknown phase raises instead of silently falling through
 - [ ] Prompt has a rethink suffix for retries (uses `previous_response` and `previous_action`)
-- [ ] Compaction pass done: read the rendered prompt end-to-end, cut restatements, filler ("Note that…", "Please…"), hedging, and paragraphs that could be a sentence — while keeping every concrete rule, phase distinction, and format example. Start compact; expand only in response to observed model failures.
+- [ ] Compaction pass done on the rendered prompt: restatements, filler, and hedging cut; concrete rules and format examples preserved. Start compact; expand only in response to observed model failures.
 - [ ] `parse_response` delegates to `parse_json_action` (uses last-mention-wins JSON extraction; no prose-scan fallback — that's the ghost-fallback anti-pattern)
 - [ ] `parse_response` does case-insensitive matching (default matcher) or passes a custom `matcher=` for notation tolerance (check `state.action_to_string` outputs for `*`, `x`, trailing `Pass`, `-`, etc. that models drop or add)
 - [ ] `ParseResult` fields are set correctly (enumerable: `legal_action`; free-form: `submission`)
