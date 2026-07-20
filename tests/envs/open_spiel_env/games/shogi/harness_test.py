@@ -734,6 +734,26 @@ class DiagnoseIllegalMoveTest(absltest.TestCase):
         msg = _diagnose_illegal_move("P*5a", board, captured, 0)
         self.assertIn("back rank", msg)
 
+    def test_diagnosis_survives_braces_in_previous_action(self):
+        # The diagnosis for "not a valid square" echoes the raw model
+        # input (parts[1]) before it has been validated -- a hallucinated
+        # move like "P*5{" or "P*{a}" would splice a stray '{' into the
+        # illegal-rethink template, and render_rethink_suffix runs
+        # .format() on the template afterwards, so any unescaped brace
+        # crashes generate_prompt mid-turn. This must NOT raise.
+        obs = _make_observation(self.state, self.game, player_id=0)
+        for bad in ("P*5{", "P*{a}", "7g7{"):
+            prompt = generate_prompt(
+                obs,
+                [],
+                previous_response=f"I'll play {bad}",
+                previous_action=bad,
+            )
+            # The literal (unformatted) model input must appear once via
+            # the {previous_action} substitution; the diagnosis echo of
+            # the same braces must not have been re-interpreted.
+            self.assertIn(bad, prompt)
+
     def test_no_diagnosis_on_first_attempt(self):
         # Fresh prompt (no previous_action) should not include a diagnosis
         # sentence.

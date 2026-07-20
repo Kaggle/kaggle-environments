@@ -505,14 +505,19 @@ def generate_prompt(
 
     # Pre-fill {diagnosis} on the ILLEGAL template so render_rethink_suffix
     # (which only knows how to substitute {previous_action}) doesn't need
-    # to grow shogi-specific parameters.
+    # to grow shogi-specific parameters. Escape any braces in the
+    # diagnosis before splicing -- the diagnosis text can contain
+    # unvalidated model input (e.g. an unparseable drop square echoed
+    # back), and render_rethink_suffix runs .format() on the whole
+    # template afterwards, which would otherwise raise on a stray '{'.
     diagnosis = ""
     if previous_action:
         diagnosis = _diagnose_illegal_move(
             previous_action, board, captured, player_id
         )
+    escaped_diagnosis = diagnosis.replace("{", "{{").replace("}", "}}")
     illegal_template = RETHINK_ILLEGAL.replace(
-        "{diagnosis}", diagnosis + ("\n" if diagnosis else "")
+        "{diagnosis}", escaped_diagnosis + ("\n" if diagnosis else "")
     )
 
     prompt += render_rethink_suffix(
