@@ -157,6 +157,7 @@ Print one full prompt. Ask:
 - Does the prompt include data the model can't act on (e.g., raw JSON pasted instead of a readable rendering)?
 - Does the rethink suffix actually help the model? (Showing back the previous response and the illegal move; not just "try again".)
 - Is the output format described precisely enough that a strict parser will succeed?
+- Is the prompt padded? Shorter prompts have matched or beaten longer ones across games. Flag restatements, filler ("Note that…", "Please…"), hedging, and paragraphs that could be a declarative sentence — while keeping concrete rules and format examples intact. See the create-harness "Second pass: compact the prose" section.
 
 ### 2e. Trace one full turn end-to-end on paper
 
