@@ -972,10 +972,10 @@ def _register_game_envs(games_list: list[str]) -> dict[str, Any]:
 
     _log.info(f"Successfully loaded OpenSpiel environments: {len(registered_envs)}.")
     for env_name in registered_envs:
-        _log.info(f"   {env_name}")
+        _log.debug(f"   {env_name}")
     _log.info(f"OpenSpiel games skipped: {len(skipped_games)}.")
     for game_string in skipped_games:
-        _log.info(f"   {game_string}")
+        _log.debug(f"   {game_string}")
 
     return registered_envs
 
