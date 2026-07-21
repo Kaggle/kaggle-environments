@@ -6,15 +6,12 @@ import re
 import traceback
 from abc import ABC, abstractmethod
 from collections import namedtuple
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
-import litellm
 import pyjson5
 import tenacity
 import yaml
 from dotenv import load_dotenv
-from litellm import completion, cost_per_token
-from litellm.types.utils import Usage
 from pydantic import BaseModel, Field
 
 from kaggle_environments.envs.werewolf.game.actions import (
@@ -32,15 +29,40 @@ from kaggle_environments.envs.werewolf.game.records import get_raw_observation
 from kaggle_environments.envs.werewolf.game.states import get_last_action_request
 
 _LITELLM_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "litellm_models.yaml")
-litellm.config_path = _LITELLM_CONFIG_PATH
-with open(_LITELLM_CONFIG_PATH, "r") as _file:
-    _MODEL_COST_DICT = yaml.safe_load(_file)
-litellm.register_model(_MODEL_COST_DICT)
+_litellm_initialized = False
+
+# Populated by _init_litellm() so callers (and tests that patch them) can use
+# `base.completion` / `base.cost_per_token` after any LLMWerewolfAgent has been
+# constructed.
+completion = None
+cost_per_token = None
+
+
+def _init_litellm():
+    """Lazily import and configure litellm.
+
+    litellm transitively imports openai, anthropic, GCS, etc. (~4s). Defer
+    until an LLMWerewolfAgent is actually constructed so that `import
+    kaggle_environments` (and CLI commands like --help / list) stay fast.
+    """
+    global _litellm_initialized, completion, cost_per_token
+    if _litellm_initialized:
+        return
+    import litellm
+    from litellm import completion as _completion
+    from litellm import cost_per_token as _cost_per_token
+
+    litellm.config_path = _LITELLM_CONFIG_PATH
+    with open(_LITELLM_CONFIG_PATH, "r") as _file:
+        model_cost_dict = yaml.safe_load(_file)
+    litellm.register_model(model_cost_dict)
+    litellm.drop_params = True
+    completion = _completion
+    cost_per_token = _cost_per_token
+    _litellm_initialized = True
 
 
 logger = logging.getLogger(__name__)
-
-litellm.drop_params = True
 
 # Load environment variables from a .env file in the same directory
 load_dotenv()
@@ -282,11 +304,11 @@ class LLMCostTracker(BaseModel):
     query_token_cost: TokenCost = Field(default_factory=TokenCost)
     prompt_token_cost: TokenCost = Field(default_factory=TokenCost)
     completion_token_cost: TokenCost = Field(default_factory=TokenCost)
-    usage_history: List[Usage] = []
+    usage_history: List[Any] = []
     """example item from gemini flash model dump: response.usage = {'completion_tokens': 579, 'prompt_tokens': 1112,
-     'total_tokens': 1691, 'completion_tokens_details': {'accepted_prediction_tokens': None, 
-     'audio_tokens': None, 'reasoning_tokens': 483, 'rejected_prediction_tokens': None, 
-     'text_tokens': 96}, 'prompt_tokens_details': {'audio_tokens': None, 'cached_tokens': None, 
+     'total_tokens': 1691, 'completion_tokens_details': {'accepted_prediction_tokens': None,
+     'audio_tokens': None, 'reasoning_tokens': 483, 'rejected_prediction_tokens': None,
+     'text_tokens': 96}, 'prompt_tokens_details': {'audio_tokens': None, 'cached_tokens': None,
      'text_tokens': 1112, 'image_tokens': None}}"""
 
     def update(self, response):
@@ -364,6 +386,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         litellm_model_proxy_kwargs: Optional[Dict[str, str]] = None,
     ):
         """This wrapper only support 1 LLM."""
+        _init_litellm()
         agent_config = agent_config or {}
         decoding_kwargs = agent_config.get("llms", [{}])[0].get("parameters")
 
