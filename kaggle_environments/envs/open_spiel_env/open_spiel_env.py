@@ -12,18 +12,50 @@ import warnings
 from typing import Any, Callable
 
 import numpy as np
-import pokerkit  # noqa: F401
 import pyspiel
-from open_spiel.python.games import (
-    ant_foraging,  # noqa: F401
-    pokerkit_wrapper,  # noqa: F401
-)
 
 from kaggle_environments import core, utils
 from kaggle_environments.envs.open_spiel_env.games.ant_foraging_arena import ant_foraging_arena_game  # noqa: F401
 from kaggle_environments.envs.open_spiel_env.games.bridge_arena import bridge_arena_game  # noqa: F401
 from kaggle_environments.envs.open_spiel_env.games.coin_game_arena import coin_game_arena_game  # noqa: F401
 from kaggle_environments.envs.open_spiel_env.games.snake import snake_game  # noqa: F401
+
+# open_spiel.python.games.{ant_foraging, pokerkit_wrapper} register their
+# games with pyspiel at import time and each pulls in ~1s of Python deps
+# (ant_foraging: NumPy grid setup; pokerkit_wrapper: pokerkit). Only three
+# entries in GAMES_LIST actually need them, so defer until a matching game
+# is built. Everything else — CLI --help, non-poker/non-ant-foraging envs —
+# skips the cost.
+#
+# Some proxy modules under games/*/*_proxy.py also depend on these
+# registrations (e.g. python_ant_foraging_proxy calls pyspiel.load_game
+# at module top). They are skipped during the auto-import scan and loaded
+# lazily by _ensure_python_game_registered when their base game is built.
+_PYTHON_GAME_REGISTRARS = {
+    "python_ant_foraging": ("open_spiel.python.games.ant_foraging", "python_ant_foraging"),
+    "python_pokerkit_wrapper": ("open_spiel.python.games.pokerkit_wrapper", None),
+    "python_repeated_pokerkit": ("open_spiel.python.games.pokerkit_wrapper", None),
+}
+
+
+def _ensure_python_game_registered(game_string: str) -> None:
+    """Import the module that registers `game_string` with pyspiel, if any.
+
+    Also imports the matching proxy module (if one exists) so that
+    `pyspiel.load_game(short_name + "_proxy")` succeeds downstream.
+    """
+    short_name = game_string.split("(", 1)[0]
+    entry = _PYTHON_GAME_REGISTRARS.get(short_name)
+    if entry is None:
+        return
+    base_module, proxy_short_name = entry
+    importlib.import_module(base_module)
+    if proxy_short_name is not None:
+        importlib.import_module(
+            f".games.{proxy_short_name}.{proxy_short_name}_proxy",
+            package=__package__,
+        )
+
 
 ERROR = "ERROR"
 DONE = "DONE"
@@ -40,9 +72,17 @@ _handler.setFormatter(_formatter)
 _log.addHandler(_handler)
 
 # --- Import proxy games ---
+# Proxies whose base game lives in one of the deferred python game modules
+# (see _PYTHON_GAME_REGISTRARS) can't be auto-imported here because their
+# base game isn't registered yet. They are loaded on-demand from
+# _ensure_python_game_registered when the corresponding env is built.
+_DEFERRED_PROXY_FILENAMES = {"python_ant_foraging_proxy.py"}
+
 _log.debug("Auto-importing OpenSpiel game proxies...")
 GAMES_DIR = pathlib.Path(__file__).parent / "games"
 for proxy_file in GAMES_DIR.glob("**/*_proxy.py"):
+    if proxy_file.name in _DEFERRED_PROXY_FILENAMES:
+        continue
     try:
         relative_path = proxy_file.relative_to(GAMES_DIR.parent)
         module_path = str(relative_path.with_suffix("")).replace(os.path.sep, ".")
@@ -896,6 +936,7 @@ AGENT_REGISTRY = {
 
 
 def _build_env(game_string: str) -> dict[str, Any]:
+    _ensure_python_game_registered(game_string)
     game = pyspiel.load_game(game_string)
     short_name = game.get_type().short_name
 
