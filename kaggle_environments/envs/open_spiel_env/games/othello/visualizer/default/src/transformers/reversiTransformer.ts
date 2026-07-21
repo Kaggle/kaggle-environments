@@ -99,8 +99,12 @@ export const reversiTransformer = (environment: any): ReversiStep[] => {
       };
     });
 
-    // Skip the env's setup step where both players submit -1.
-    if (!players.some((pl) => pl.isTurn)) return;
+    // Skip env setup steps that have no observation to render. The first
+    // post-reset step has both submissions === -1 but carries the initial
+    // board, and we want to keep it so viewers see the starting position
+    // before Black's first move.
+    const boardState = parseBoardState(step);
+    if (!boardState && !players.some((pl) => pl.isTurn)) return;
 
     const observationTerminal = !!step[0]?.observation?.isTerminal;
     // A forfeit ends the episode even though OpenSpiel's own state isn't
@@ -110,7 +114,7 @@ export const reversiTransformer = (environment: any): ReversiStep[] => {
     out.push({
       step: index,
       players,
-      boardState: parseBoardState(step),
+      boardState,
       isTerminal,
       winner: isTerminal ? deriveWinnerFromRewards(step, teamNames) : null,
       forfeitReason: forfeit ? buildForfeitReason(forfeit, teamNames) : null,
