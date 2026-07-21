@@ -53,7 +53,14 @@ PROJECT_ROOT = os.path.abspath(os.path.join("..", _script_dir))
 
 # Register Environments.
 
+# Dirs that ship only a visualizer subtree with no {name}.py backend.
+# Skipped silently so the CLI stays quiet; any *other* dir missing its
+# backend still surfaces a "Loading environment X failed" message.
+_VISUALIZER_ONLY_ENVS = {"chess", "codenames", "llm_20_questions", "lux_ai_s2"}
+
 for name in listdir(utils.envs_path):
+    if name in _VISUALIZER_ONLY_ENVS:
+        continue
     try:
         env = import_module(f".envs.{name}.{name}", __name__)
         if name == "open_spiel_env":
