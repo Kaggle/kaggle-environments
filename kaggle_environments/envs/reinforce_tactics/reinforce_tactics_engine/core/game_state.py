@@ -13,7 +13,6 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
-import pandas as pd
 
 from ..constants import (
     ALL_UNIT_TYPES,
@@ -268,11 +267,13 @@ class GameState:
         self.map_padding_offset_x: int = 0
         self.map_padding_offset_y: int = 0
 
-        # Store initial map data for replays (as 2D list of tile codes)
-        if isinstance(map_data, pd.DataFrame):
-            self.initial_map_data: List[List[str]] = map_data.values.tolist()
-        elif isinstance(map_data, np.ndarray):
+        # Store initial map data for replays (as 2D list of tile codes).
+        # pandas is imported lazily so `import kaggle_environments` doesn't
+        # pull in ~500ms of pandas init just for this isinstance check.
+        if isinstance(map_data, np.ndarray):
             self.initial_map_data: List[List[str]] = map_data.tolist()
+        elif type(map_data).__name__ == "DataFrame" and type(map_data).__module__.split(".", 1)[0] == "pandas":
+            self.initial_map_data: List[List[str]] = map_data.values.tolist()
         else:
             self.initial_map_data: List[List[str]] = [list(row) for row in map_data]
 
@@ -555,7 +556,9 @@ class GameState:
         if (to_x, to_y) not in reachable:
             return False
 
-        if not self.mechanics.can_move_to_position(to_x, to_y, self.grid, self.units, moving_unit=unit, is_destination=True):
+        if not self.mechanics.can_move_to_position(
+            to_x, to_y, self.grid, self.units, moving_unit=unit, is_destination=True
+        ):
             return False
 
         # Execute move
@@ -1066,7 +1069,10 @@ class GameState:
         # enforcement (no offered-then-rejected create actions).
         if sum(1 for u in self.units if u.player == player) < self.max_units_per_player:
             for tile in self.grid.get_capturable_tiles(player):
-                if tile.type in (TileType.BUILDING.value, TileType.HEADQUARTERS.value) and not self.get_unit_at_position(tile.x, tile.y):
+                if tile.type in (
+                    TileType.BUILDING.value,
+                    TileType.HEADQUARTERS.value,
+                ) and not self.get_unit_at_position(tile.x, tile.y):
                     for unit_type in self.enabled_units:
                         if self.player_gold[player] >= self.unit_data[unit_type]["cost"]:
                             legal_actions["create_unit"].append({"unit_type": unit_type, "x": tile.x, "y": tile.y})
@@ -1083,7 +1089,9 @@ class GameState:
                     reachable = unit.get_reachable_positions(
                         self.grid.width,
                         self.grid.height,
-                        lambda x, y, _u=unit: self.mechanics.can_move_to_position(x, y, self.grid, self.units, moving_unit=_u),
+                        lambda x, y, _u=unit: self.mechanics.can_move_to_position(
+                            x, y, self.grid, self.units, moving_unit=_u
+                        ),
                     )
                     for pos in reachable:
                         # Only include positions valid as final destinations (not occupied).
