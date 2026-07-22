@@ -385,7 +385,10 @@ def test_safe_art_is_not_disqualified():
 # The gap is a non-target label spelled out with same-line separators --
 # 'A R O U N D', 'H-O-U-S-E', 'grid_view' -- which the consecutive check
 # doesn't fire on and the target-word check ignores (wrong word). These
-# tests lock in the same-line separator-aware any-word check.
+# tests lock in the same-line separator-aware any-word check. Any
+# non-letter, non-newline joiner is treated as a separator, so evasions
+# via '|', '/', ':', ',', '*', em-dash, non-breaking space etc. are all
+# rejected.
 
 
 def _art_check(art):
@@ -394,12 +397,22 @@ def _art_check(art):
 
 
 @pytest.mark.parametrize("art", [
-    "A R O U N D",       # spaces
-    "A.R.O.U.N.D",       # dots
-    "H-O-U-S-E",         # dashes
-    "T\tO\tP",           # tabs
-    "grid_view",         # underscore compound
-    "T O P",             # 3-letter spaced
+    "A R O U N D",         # spaces
+    "A.R.O.U.N.D",         # dots
+    "H-O-U-S-E",           # dashes
+    "T\tO\tP",             # tabs
+    "grid_view",           # underscore compound
+    "T O P",               # 3-letter spaced
+    "H|O|U|S|E",           # pipes
+    "H/O/U/S/E",           # slashes
+    "H:O:U:S:E",           # colons
+    "H,O,U,S,E",           # commas
+    "H*O*U*S*E",           # asterisks
+    "H=O=U=S=E",           # equals
+    "H—O—U—S—E",  # em-dashes
+    "H–O–U–S–E",  # en-dashes
+    "H\xa0O\xa0U\xa0S\xa0E",         # non-breaking spaces
+    "A1B2C",               # digits used as separators
 ])
 def test_spaced_non_target_label_is_disqualified(art):
     assert _art_check(art) is True, f"expected {art!r} to be flagged as text"
@@ -456,7 +469,7 @@ def test_disqualification_does_not_block_guessing():
     """Even with a disqualified art panel, the guesser still gets their full
     attempt budget and can still score if they correctly guess the word."""
 
-    def smart_guesser(observation, configuration):
+    def wrong_guesser(observation, configuration):
         if observation.role == "artist":
             return observation.target_word  # will be disqualified
         # Guesser ignores the placeholder and just guesses wrong every attempt
@@ -464,7 +477,7 @@ def test_disqualification_does_not_block_guessing():
         return f"WRONG{len(observation.previous_guesses)}"
 
     env = make("word_art", configuration={"num_rounds": 1, "seed": 7})
-    env.run([smart_guesser] * 4)
+    env.run([wrong_guesser] * 4)
     j = env.toJSON()
     entry = j["steps"][-1][0]["observation"]["history"][0]
     # Both teams cheated → both disqualified, guessers still got their 3
@@ -542,6 +555,22 @@ def test_no_hidden_keys_leak_into_any_observation():
                 f"agent {i}'s observation leaks hidden keys {hidden}; "
                 "round-scoped state must live on env.word_art_state"
             )
+
+
+def test_mid_game_missing_word_art_state_raises_clearly():
+    """env.word_art_state is not preserved across env.clone() or JSON
+    round-trips (Environment.clone constructs a fresh instance from
+    ``steps`` and doesn't carry over user attributes). Simulate the
+    lost-state case by deleting the attribute mid-game and confirm the
+    interpreter raises a clear RuntimeError instead of AttributeError-ing
+    deep inside process_step.
+    """
+    env = _make(num_rounds=2, seed=1)
+    env.step([None] * 4)  # advance out of the phase="" init branch
+    assert env.state[0].observation.phase != ""
+    del env.word_art_state
+    with pytest.raises(RuntimeError, match="word_art_state is missing"):
+        env.step([None] * 4)
 
 
 # --- Failure-status preservation across phase / round transitions ----------

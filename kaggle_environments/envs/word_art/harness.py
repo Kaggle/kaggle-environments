@@ -72,7 +72,7 @@ _DISQ_REASON_TEXT = {
     "target_word": "contained the target word",
     "contains_words": (
         "contained text (a run of 3+ letters with 2+ distinct chars, "
-        "consecutive or spaced out with punctuation)"
+        "consecutive or separated by any non-letter, non-newline chars)"
     ),
 }
 
@@ -334,12 +334,12 @@ either fires, your teammate sees a placeholder instead of your drawing
 
   2. ANY-WORD check. Any run of 3+ letters with 2+ distinct characters
      (case-insensitive) disqualifies the drawing, whether the letters
-     are consecutive ('top', 'HOUSE', 'grid', 'axe') or spaced out with
-     punctuation ('T O P', 'A.R.O.U.N.D', 'H-O-U-S-E', 'grid_view').
-     Same-character clusters ('OOO' for eyes, 'III' for columns, 'TTT'
-     for texture, 'V V V' for a zigzag) always pass, as do 1- and
-     2-letter clusters ('V', 'OO', 'H2') -- so letters remain fine as
-     visual elements.
+     are consecutive ('top', 'HOUSE', 'grid', 'axe') or separated by
+     any non-letter, non-newline characters ('T O P', 'A.R.O.U.N.D',
+     'H-O-U-S-E', 'H|O|U|S|E', 'grid_view'). Same-character clusters
+     ('OOO' for eyes, 'III' for columns, 'TTT' for texture, 'V V V'
+     for a zigzag) always pass, as do 1- and 2-letter clusters ('V',
+     'OO', 'H2') -- so letters remain fine as visual elements.
 
 Your art is silently sanitized before scoring: combining marks, wide
 characters (CJK, most emoji), and other non-single-cell Unicode are

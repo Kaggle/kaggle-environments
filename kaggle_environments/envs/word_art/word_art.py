@@ -271,7 +271,7 @@ DISQUALIFIED_ART_PLACEHOLDERS = {
     "contains_words": (
         "<your teammate's drawing was disqualified for containing text "
         "(a run of 3+ letters with 2+ distinct chars, consecutive or "
-        "spaced out with punctuation)>"
+        "separated by any non-letter, non-newline characters)>"
     ),
 }
 
@@ -304,18 +304,20 @@ def _art_contains_word(art, word):
 
 _WORD_LIKE_RE = re.compile(r"[A-Za-z]{3,}")
 # Spaced-out labels: 3+ letters interleaved with same-line separators
-# (space/tab/dot/dash/underscore/middle-dot). Excludes newlines so letters
-# in different rows of the art don't chain across a 2D layout into fake
-# words. Catches evasions the consecutive-only _WORD_LIKE_RE misses --
-# 'A R O U N D', 'T.O.P.', 'H-O-U-S-E', 'grid_view'.
-_SPACED_WORD_RE = re.compile(r"[A-Za-z](?:[ \t.\-_·]+[A-Za-z]){2,}")
+# (any run of non-letter, non-newline characters). Excludes newlines so
+# letters in different rows of the art don't chain across a 2D layout
+# into fake words. Digits are treated as separators too, so 'A1B2C' is
+# caught. Any non-letter, non-newline joiner works so models can't evade
+# with pipes ('H|O|U|S|E'), slashes, colons, commas, em-dashes, etc.
+_SPACED_WORD_RE = re.compile(r"[A-Za-z](?:[^A-Za-z\n]+[A-Za-z]){2,}")
 
 
 def _art_contains_any_word(art):
     """Return True if `art` contains any run of 3+ letters with 2+
     distinct characters (case-insensitive), whether the letters are
-    consecutive ('TOP', 'HOUSE') or separated by same-line punctuation
-    ('T O P', 'A.R.O.U.N.D', 'H-O-U-S-E').
+    consecutive ('TOP', 'HOUSE') or separated by any non-letter,
+    non-newline characters ('T O P', 'A.R.O.U.N.D', 'H-O-U-S-E',
+    'H|O|U|S|E', 'grid_view').
 
     Same-letter clusters ('OOO' for eyes, 'III' for columns, 'TTT' for
     texture, 'V V V' for a zigzag) pass so models can still use letters
@@ -464,20 +466,20 @@ def _set_guess_statuses(state, round_idx, wa_state):
 
 
 def _process_team_guess(state, obs0, wa_state, team, env_config, target_norm):
-    """Read the active guesser's action, append to the team's guess list, and
-    return (points_awarded, is_done_now) — both 0/False if the team was already
-    done or inactive this step.
+    """Read the active guesser's action for `team` and mutate wa_state
+    (append to the team's guess list, mark done, award points). No-op if
+    the team was already done or its guesser wasn't asked to act this step.
     """
     max_attempts = obs0.max_attempts
     first_try_bonus = env_config.get("first_try_bonus", 1)
 
     if team == "blue":
         if wa_state.blue_done:
-            return 0, False
+            return
         g_idx = _blue_guesser(obs0.current_round)
     else:
         if wa_state.yellow_done:
-            return 0, False
+            return
         g_idx = _yellow_guesser(obs0.current_round)
 
     if state[g_idx].status != "ACTIVE":
@@ -487,7 +489,7 @@ def _process_team_guess(state, obs0, wa_state, team, env_config, target_norm):
             wa_state.blue_done = True
         else:
             wa_state.yellow_done = True
-        return 0, True
+        return
 
     raw = _unwrap(state[g_idx].action)
     guess_str = raw if isinstance(raw, str) else (str(raw) if raw is not None else "")
@@ -511,16 +513,13 @@ def _process_team_guess(state, obs0, wa_state, team, env_config, target_norm):
             wa_state.yellow_done = True
             state[2].reward = (state[2].reward or 0) + pts
             state[3].reward = (state[3].reward or 0) + pts
-        return pts, True
+        return
 
     if used >= max_attempts:
         if team == "blue":
             wa_state.blue_done = True
         else:
             wa_state.yellow_done = True
-        return 0, True
-
-    return 0, False
 
 
 def _enter_guess_phase(state, wa_state, round_idx, blue_art, yellow_art, max_attempts):
@@ -599,6 +598,17 @@ def _advance_after_round(state, obs0, wa_state, round_idx, words, target):
 
 def process_step(state, env):
     obs0 = state[0].observation
+    if not hasattr(env, "word_art_state"):
+        # env.word_art_state lives on the Environment instance and is
+        # not serialized into steps, so it's lost across env.clone() and
+        # JSON round-trips. Mid-game recovery isn't possible: the target
+        # words for future rounds were sampled from an RNG that's now
+        # gone. Fail loudly rather than silently corrupting the episode.
+        raise RuntimeError(
+            "word_art: env.word_art_state is missing. Round-scoped hidden "
+            "state does not survive env.clone() or JSON round-trips -- run "
+            "an episode start-to-finish in a single Environment instance."
+        )
     wa_state: _WordArtState = env.word_art_state
     phase = obs0.phase
     rnd = obs0.current_round
@@ -648,10 +658,6 @@ def process_step(state, env):
     _process_team_guess(state, obs0, wa_state, "blue", env.configuration, target_norm)
     _process_team_guess(state, obs0, wa_state, "yellow", env.configuration, target_norm)
 
-    blue_used = len(wa_state.blue_guesses)
-    yellow_used = len(wa_state.yellow_guesses)
-    max_attempts = obs0.max_attempts
-
     if wa_state.blue_done and wa_state.yellow_done:
         _advance_after_round(state, obs0, wa_state, rnd, words, target)
         return
@@ -659,26 +665,25 @@ def process_step(state, env):
     # Round still in progress: update per-team counters on every agent's view
     # (these are public; both teams can see how many guesses the other has
     # used), and update each guesser's private `attempts_remaining` and
-    # `previous_guesses` lists.
+    # `previous_guesses` lists. A done guesser's `attempts_remaining` goes
+    # to 0; `previous_guesses` is refreshed either way.
+    blue_used = len(wa_state.blue_guesses)
+    yellow_used = len(wa_state.yellow_guesses)
+    max_attempts = obs0.max_attempts
     blue_g_idx = _blue_guesser(rnd)
     yellow_g_idx = _yellow_guesser(rnd)
     for s in state:
         s.observation.blue_attempts_used = blue_used
         s.observation.yellow_attempts_used = yellow_used
 
-    if not wa_state.blue_done:
-        state[blue_g_idx].observation.attempts_remaining = max_attempts - blue_used
-        state[blue_g_idx].observation.previous_guesses = list(wa_state.blue_guesses)
-    else:
-        state[blue_g_idx].observation.attempts_remaining = 0
-        state[blue_g_idx].observation.previous_guesses = list(wa_state.blue_guesses)
-
-    if not wa_state.yellow_done:
-        state[yellow_g_idx].observation.attempts_remaining = max_attempts - yellow_used
-        state[yellow_g_idx].observation.previous_guesses = list(wa_state.yellow_guesses)
-    else:
-        state[yellow_g_idx].observation.attempts_remaining = 0
-        state[yellow_g_idx].observation.previous_guesses = list(wa_state.yellow_guesses)
+    state[blue_g_idx].observation.previous_guesses = list(wa_state.blue_guesses)
+    state[blue_g_idx].observation.attempts_remaining = (
+        0 if wa_state.blue_done else max_attempts - blue_used
+    )
+    state[yellow_g_idx].observation.previous_guesses = list(wa_state.yellow_guesses)
+    state[yellow_g_idx].observation.attempts_remaining = (
+        0 if wa_state.yellow_done else max_attempts - yellow_used
+    )
 
     _set_guess_statuses(state, rnd, wa_state)
 
