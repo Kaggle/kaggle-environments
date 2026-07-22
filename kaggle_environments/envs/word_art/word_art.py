@@ -425,6 +425,12 @@ def initialize_game(state, env):
         s.observation.yellow_score = 0
         s.observation.blue_attempts_used = 0
         s.observation.yellow_attempts_used = 0
+        s.observation.blue_guessed_correctly = False
+        s.observation.yellow_guessed_correctly = False
+        s.observation.blue_art_disqualified = False
+        s.observation.yellow_art_disqualified = False
+        s.observation.blue_art_disqualification_reason = None
+        s.observation.yellow_art_disqualification_reason = None
         s.observation.history = []
 
     env.word_art_state = _WordArtState(sampled)
@@ -525,12 +531,23 @@ def _process_team_guess(state, obs0, wa_state, team, env_config, target_norm):
 def _enter_guess_phase(state, wa_state, round_idx, blue_art, yellow_art, max_attempts):
     """Mutate every agent's observation for the start of the guess phase and
     activate both guessers.
+
+    The artist's `target_word` is intentionally NOT cleared here: the artist
+    is INACTIVE for the rest of the round so the LLM never sees it again,
+    but keeping it on the observation lets the visualizer surface the
+    current-round target while guessing is in progress (guessers already
+    have `target_word == ""` from the art phase, so they don't see it).
     """
     for i, s in enumerate(state):
         s.observation.phase = "guess"
-        s.observation.target_word = ""
         s.observation.blue_attempts_used = 0
         s.observation.yellow_attempts_used = 0
+        s.observation.blue_guessed_correctly = False
+        s.observation.yellow_guessed_correctly = False
+        s.observation.blue_art_disqualified = wa_state.blue_art_disqualified
+        s.observation.yellow_art_disqualified = wa_state.yellow_art_disqualified
+        s.observation.blue_art_disqualification_reason = wa_state.blue_disq_reason
+        s.observation.yellow_art_disqualification_reason = wa_state.yellow_disq_reason
         if get_role(i, round_idx) == "guesser":
             team = get_team(i)
             s.observation.teammate_art = blue_art if team == "blue" else yellow_art
@@ -578,6 +595,12 @@ def _advance_after_round(state, obs0, wa_state, round_idx, words, target):
         s.observation.attempts_remaining = 0
         s.observation.blue_attempts_used = 0
         s.observation.yellow_attempts_used = 0
+        s.observation.blue_guessed_correctly = False
+        s.observation.yellow_guessed_correctly = False
+        s.observation.blue_art_disqualified = False
+        s.observation.yellow_art_disqualified = False
+        s.observation.blue_art_disqualification_reason = None
+        s.observation.yellow_art_disqualification_reason = None
         if not is_done:
             s.observation.current_round = next_round
             s.observation.phase = "art"
@@ -675,6 +698,8 @@ def process_step(state, env):
     for s in state:
         s.observation.blue_attempts_used = blue_used
         s.observation.yellow_attempts_used = yellow_used
+        s.observation.blue_guessed_correctly = wa_state.blue_points > 0
+        s.observation.yellow_guessed_correctly = wa_state.yellow_points > 0
 
     state[blue_g_idx].observation.previous_guesses = list(wa_state.blue_guesses)
     state[blue_g_idx].observation.attempts_remaining = (
