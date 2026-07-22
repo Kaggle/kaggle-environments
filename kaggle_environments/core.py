@@ -35,10 +35,7 @@ environments: dict[str, dict[str, Any]] = {}
 # Registered Interactive Sessions.
 interactives: dict[str, tuple[Any, Any]] = {}
 
-# Envs whose module import is deferred until first make(name)/spec lookup.
-# Values are zero-arg callables that import + register the env dict, so heavy
-# deps (litellm, pydantic schema construction, ...) stay off the cold path of
-# `import kaggle_environments` and CLI commands like `list` / `--help`.
+# Loaders for envs deferred until first make(name). See register_lazy.
 _lazy_environments: dict[str, Callable[[], None]] = {}
 
 
