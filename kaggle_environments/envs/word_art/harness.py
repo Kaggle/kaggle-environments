@@ -343,10 +343,7 @@ either fires, your teammate sees a placeholder instead of your drawing
      Same-character clusters ('OOO' eyes, 'III' columns, 'TTT'
      texture, 'V V V' zigzag) always pass. Two-letter decorative
      patterns like 'o X X X o' (dice pips), 'A B A B' (brickwork)
-     also pass -- letters remain fine as visual elements. A spelled-
-     out 2-distinct word like 'POP' still trips via the consecutive
-     rule, but 'P O P' (spaced) slips through, so this check is a
-     backstop, not a proof; don't rely on it to hide the target word.
+     also pass -- letters remain fine as visual elements.
 
 Your art is silently sanitized before scoring: combining marks, wide
 characters (CJK, most emoji), and other non-single-cell Unicode are
