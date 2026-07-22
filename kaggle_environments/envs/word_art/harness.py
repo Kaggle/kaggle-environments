@@ -395,12 +395,13 @@ def _build_guesser_prompt(
         prev_block = "This is your first guess this round."
 
     if attempt_number == 1:
-        attempt_pitch = f"This is attempt 1 of {max_attempts}. A correct guess NOW earns the first-try bonus."
+        attempt_pitch = f"This is attempt 1 of {max_attempts} in the current round. A correct guess NOW earns the first-try bonus."
     else:
         attempt_pitch = (
-            f"This is attempt {attempt_number} of {max_attempts}. You have "
-            f"{attempts_remaining} attempt(s) left (including this one). No "
-            "bonus is available now, but a correct guess still scores 1 point."
+            f"This is attempt {attempt_number} of {max_attempts} in the "
+            f"current round. You have {attempts_remaining} attempt(s) left "
+            "(including this one). No bonus is available now, but a correct "
+            "guess still scores 1 point."
         )
 
     return f"""You are the GUESSER on Team {team_label} in Word Art (a 2v2 game).
@@ -417,18 +418,18 @@ Rules:
 - The opposing team plays the same secret word each round in parallel
   and cannot see your art or guesses.
 - The engine mechanically disqualifies art that contains either the
-  target word or any run of 3+ letters with 2+ distinct characters
-  (labels, captions, headings). When that happens you'll see a
-  placeholder marker instead of a picture. Past rounds in the history
-  below are likewise labelled "DISQUALIFIED" when this happened.
+  target word or any run of letters that reads like a label (captions,
+  headings, annotations). When that happens you'll see a placeholder
+  marker instead of a picture. Past rounds in the history below are
+  likewise labelled "DISQUALIFIED" when this happened.
 
 {scoring}
 
-{attempt_pitch}
-{prev_block}
-
 Past rounds in this game so far:
 {history_text}
+
+{attempt_pitch}
+{prev_block}
 
 Your teammate's drawing (be aware that monospace alignment matters):
 {teammate_art if teammate_art else "(your teammate submitted nothing)"}
