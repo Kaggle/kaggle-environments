@@ -427,6 +427,14 @@ def test_spaced_non_target_label_is_disqualified(art):
     "O   O\n  V\n \\_/", # smiley (letters spread across lines)
     "o o o\n o\no o o",  # die face
     "\n   *\n \\ | /\n---+---\n / | \\\n   *\n",  # snowflake example
+    # Two-letter decorative patterns with separators. The spaced-out check
+    # requires 3+ distinct letters, so these pass -- they're visual
+    # patterns (dice, brickwork, zigzag), not spelled-out labels.
+    "| o   X     X     X  o  |",  # die/domino row: 5 letters, 2 distinct
+    "A B A B A B",                 # brick row
+    "X . X . X . X",               # single-letter row with dot spacers
+    "V W V W V W",                 # alternating zigzag
+    "o X o",                       # 3-letter, 2-distinct decoration
 ])
 def test_visual_letter_elements_pass(art):
     assert _art_check(art) is False, f"expected {art!r} to pass the any-word check"

@@ -71,8 +71,9 @@ def _slice_thoughts(response: str, answer_start: int) -> str | None:
 _DISQ_REASON_TEXT = {
     "target_word": "contained the target word",
     "contains_words": (
-        "contained text (a run of 3+ letters with 2+ distinct chars, "
-        "consecutive or separated by any non-letter, non-newline chars)"
+        "contained text (3+ consecutive letters with 2+ distinct chars, "
+        "or 3+ letters with 3+ distinct chars separated by non-letter, "
+        "non-newline chars)"
     ),
 }
 
@@ -332,14 +333,20 @@ either fires, your teammate sees a placeholder instead of your drawing
      '(scale: CAT)', arrow labels like '<- CAT', or section headers
      like 'CAT close-up:'.
 
-  2. ANY-WORD check. Any run of 3+ letters with 2+ distinct characters
-     (case-insensitive) disqualifies the drawing, whether the letters
-     are consecutive ('top', 'HOUSE', 'grid', 'axe') or separated by
-     any non-letter, non-newline characters ('T O P', 'A.R.O.U.N.D',
-     'H-O-U-S-E', 'H|O|U|S|E', 'grid_view'). Same-character clusters
-     ('OOO' for eyes, 'III' for columns, 'TTT' for texture, 'V V V'
-     for a zigzag) always pass, as do 1- and 2-letter clusters ('V',
-     'OO', 'H2') -- so letters remain fine as visual elements.
+  2. ANY-WORD check. Two thresholds:
+       * Consecutive letters: a run of 3+ with 2+ distinct chars
+         disqualifies ('top', 'HOUSE', 'grid', 'axe' all trip).
+       * Spaced-out letters (letters separated by any non-letter,
+         non-newline characters): a run of 3+ with 3+ distinct chars
+         disqualifies ('A R O U N D', 'T.O.P.', 'H-O-U-S-E',
+         'H|O|U|S|E', 'grid_view').
+     Same-character clusters ('OOO' eyes, 'III' columns, 'TTT'
+     texture, 'V V V' zigzag) always pass. Two-letter decorative
+     patterns like 'o X X X o' (dice pips), 'A B A B' (brickwork)
+     also pass -- letters remain fine as visual elements. A spelled-
+     out 2-distinct word like 'POP' still trips via the consecutive
+     rule, but 'P O P' (spaced) slips through, so this check is a
+     backstop, not a proof; don't rely on it to hide the target word.
 
 Your art is silently sanitized before scoring: combining marks, wide
 characters (CJK, most emoji), and other non-single-cell Unicode are
