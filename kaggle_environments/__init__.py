@@ -83,6 +83,23 @@ def _make_lazy_loader(env_name):
     return _load
 
 
+def _make_open_spiel_lazy_loader(env_name, build):
+    def _load():
+        env_dict = build()
+        register(
+            env_name,
+            {
+                "agents": env_dict.get("agents"),
+                "html_renderer": env_dict.get("html_renderer"),
+                "interpreter": env_dict.get("interpreter"),
+                "renderer": env_dict.get("renderer"),
+                "specification": env_dict.get("specification"),
+            },
+        )
+
+    return _load
+
+
 for name in listdir(utils.envs_path):
     if name in _VISUALIZER_ONLY_ENVS:
         continue
@@ -103,6 +120,8 @@ for name in listdir(utils.envs_path):
                         "specification": env_dict.get("specification"),
                     },
                 )
+            for env_name, loader in env.LAZY_ENV_LOADERS.items():
+                register_lazy(env_name, _make_open_spiel_lazy_loader(env_name, loader))
         else:
             register(
                 name,

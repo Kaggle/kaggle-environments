@@ -38,21 +38,32 @@ _PYTHON_GAME_REGISTRARS = {
 }
 
 
+# Proxy modules deferred at auto-import time (see _DEFERRED_PROXY_FILENAMES
+# below). Loaded on-demand by _ensure_python_game_registered when their base
+# game is built. Each proxy calls pyspiel.load_game at module top, so it
+# can't be auto-imported before its base game is registered.
+_DEFERRED_PROXY_SHORT_NAMES = {"python_ant_foraging", "quoridor"}
+
+
 def _ensure_python_game_registered(game_string: str) -> None:
     """Import the module that registers `game_string` with pyspiel, if any.
 
-    Also imports the matching proxy module (if one exists) so that
+    Also imports the matching deferred proxy module (if one exists) so that
     `pyspiel.load_game(short_name + "_proxy")` succeeds downstream.
     """
     short_name = game_string.split("(", 1)[0]
     entry = _PYTHON_GAME_REGISTRARS.get(short_name)
-    if entry is None:
-        return
-    base_module, proxy_short_name = entry
-    importlib.import_module(base_module)
-    if proxy_short_name is not None:
+    if entry is not None:
+        base_module, proxy_short_name = entry
+        importlib.import_module(base_module)
+        if proxy_short_name is not None:
+            importlib.import_module(
+                f".games.{proxy_short_name}.{proxy_short_name}_proxy",
+                package=__package__,
+            )
+    elif short_name in _DEFERRED_PROXY_SHORT_NAMES:
         importlib.import_module(
-            f".games.{proxy_short_name}.{proxy_short_name}_proxy",
+            f".games.{short_name}.{short_name}_proxy",
             package=__package__,
         )
 
@@ -72,11 +83,12 @@ _handler.setFormatter(_formatter)
 _log.addHandler(_handler)
 
 # --- Import proxy games ---
-# Proxies whose base game lives in one of the deferred python game modules
-# (see _PYTHON_GAME_REGISTRARS) can't be auto-imported here because their
-# base game isn't registered yet. They are loaded on-demand from
-# _ensure_python_game_registered when the corresponding env is built.
-_DEFERRED_PROXY_FILENAMES = {"python_ant_foraging_proxy.py"}
+# Proxies deferred at scan time — either because their base game is a
+# deferred python module (see _PYTHON_GAME_REGISTRARS) or because loading
+# them at all triggers noisy C++ warnings from OpenSpiel (e.g. quoridor).
+# Loaded on-demand from _ensure_python_game_registered when the
+# corresponding env is built.
+_DEFERRED_PROXY_FILENAMES = {f"{n}_proxy.py" for n in _DEFERRED_PROXY_SHORT_NAMES}
 
 _log.debug("Auto-importing OpenSpiel game proxies...")
 GAMES_DIR = pathlib.Path(__file__).parent / "games"
@@ -995,10 +1007,32 @@ def _build_env(game_string: str) -> dict[str, Any]:
     }
 
 
+# Game short_names whose _build_env call is deferred until first use.
+# quoridor prints a duplicate "known issues" warning from OpenSpiel's C++
+# every time pyspiel.load_game("quoridor") runs; deferring keeps CLI
+# commands like --help / list silent.
+_LAZY_GAMES = {"quoridor"}
+
+
+def _make_lazy_env_loader(game_string: str):
+    """Return a zero-arg loader that materializes an env dict on demand."""
+
+    def _load():
+        return _build_env(game_string)
+
+    return _load
+
+
 def _register_game_envs(games_list: list[str]) -> dict[str, Any]:
     skipped_games = []
     registered_envs = {}
+    lazy_count = 0
     for game_string in games_list:
+        short_name = game_string.split("(", 1)[0]
+        if short_name in _LAZY_GAMES:
+            LAZY_ENV_LOADERS[f"open_spiel_{short_name}"] = _make_lazy_env_loader(game_string)
+            lazy_count += 1
+            continue
         try:
             env_config = _build_env(game_string)
             if env_config is None:
@@ -1011,7 +1045,7 @@ def _register_game_envs(games_list: list[str]) -> dict[str, Any]:
             _log.debug(e)
             skipped_games.append(game_string)
 
-    _log.info(f"Successfully loaded OpenSpiel environments: {len(registered_envs)}.")
+    _log.info(f"Successfully loaded OpenSpiel environments: {len(registered_envs) + lazy_count}.")
     for env_name in registered_envs:
         _log.debug(f"   {env_name}")
     _log.info(f"OpenSpiel games skipped: {len(skipped_games)}.")
@@ -1096,4 +1130,5 @@ GAMES_LIST = [
     DEFAULT_REPEATED_POKERKIT_GAME_STRING,
 ]
 
+LAZY_ENV_LOADERS: dict[str, Callable[[], Any]] = {}
 ENV_REGISTRY = _register_game_envs(GAMES_LIST)
