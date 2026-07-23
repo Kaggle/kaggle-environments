@@ -71,8 +71,9 @@ def _slice_thoughts(response: str, answer_start: int) -> str | None:
 _DISQ_REASON_TEXT = {
     "target_word": "contained the target word",
     "contains_words": (
-        "contained text (a run of 3+ letters with 2+ distinct chars, "
-        "consecutive or separated by any non-letter, non-newline chars)"
+        "contained text (3+ consecutive letters with 2+ distinct chars, "
+        "or 3+ letters with 3+ distinct chars separated by non-letter, "
+        "non-newline chars)"
     ),
 }
 
@@ -332,14 +333,17 @@ either fires, your teammate sees a placeholder instead of your drawing
      '(scale: CAT)', arrow labels like '<- CAT', or section headers
      like 'CAT close-up:'.
 
-  2. ANY-WORD check. Any run of 3+ letters with 2+ distinct characters
-     (case-insensitive) disqualifies the drawing, whether the letters
-     are consecutive ('top', 'HOUSE', 'grid', 'axe') or separated by
-     any non-letter, non-newline characters ('T O P', 'A.R.O.U.N.D',
-     'H-O-U-S-E', 'H|O|U|S|E', 'grid_view'). Same-character clusters
-     ('OOO' for eyes, 'III' for columns, 'TTT' for texture, 'V V V'
-     for a zigzag) always pass, as do 1- and 2-letter clusters ('V',
-     'OO', 'H2') -- so letters remain fine as visual elements.
+  2. ANY-WORD check. Two thresholds:
+       * Consecutive letters: a run of 3+ with 2+ distinct chars
+         disqualifies ('top', 'HOUSE', 'grid', 'axe' all trip).
+       * Spaced-out letters (letters separated by any non-letter,
+         non-newline characters): a run of 3+ with 3+ distinct chars
+         disqualifies ('A R O U N D', 'T.O.P.', 'H-O-U-S-E',
+         'H|O|U|S|E', 'grid_view').
+     Same-character clusters ('OOO' eyes, 'III' columns, 'TTT'
+     texture, 'V V V' zigzag) always pass. Two-letter decorative
+     patterns like 'o X X X o' (dice pips), 'A B A B' (brickwork)
+     also pass -- letters remain fine as visual elements.
 
 Your art is silently sanitized before scoring: combining marks, wide
 characters (CJK, most emoji), and other non-single-cell Unicode are
@@ -391,12 +395,13 @@ def _build_guesser_prompt(
         prev_block = "This is your first guess this round."
 
     if attempt_number == 1:
-        attempt_pitch = f"This is attempt 1 of {max_attempts}. A correct guess NOW earns the first-try bonus."
+        attempt_pitch = f"This is attempt 1 of {max_attempts} in the current round. A correct guess NOW earns the first-try bonus."
     else:
         attempt_pitch = (
-            f"This is attempt {attempt_number} of {max_attempts}. You have "
-            f"{attempts_remaining} attempt(s) left (including this one). No "
-            "bonus is available now, but a correct guess still scores 1 point."
+            f"This is attempt {attempt_number} of {max_attempts} in the "
+            f"current round. You have {attempts_remaining} attempt(s) left "
+            "(including this one). No bonus is available now, but a correct "
+            "guess still scores 1 point."
         )
 
     return f"""You are the GUESSER on Team {team_label} in Word Art (a 2v2 game).
@@ -413,18 +418,18 @@ Rules:
 - The opposing team plays the same secret word each round in parallel
   and cannot see your art or guesses.
 - The engine mechanically disqualifies art that contains either the
-  target word or any run of 3+ letters with 2+ distinct characters
-  (labels, captions, headings). When that happens you'll see a
-  placeholder marker instead of a picture. Past rounds in the history
-  below are likewise labelled "DISQUALIFIED" when this happened.
+  target word or any run of letters that reads like a label (captions,
+  headings, annotations). When that happens you'll see a placeholder
+  marker instead of a picture. Past rounds in the history below are
+  likewise labelled "DISQUALIFIED" when this happened.
 
 {scoring}
 
-{attempt_pitch}
-{prev_block}
-
 Past rounds in this game so far:
 {history_text}
+
+{attempt_pitch}
+{prev_block}
 
 Your teammate's drawing (be aware that monospace alignment matters):
 {teammate_art if teammate_art else "(your teammate submitted nothing)"}

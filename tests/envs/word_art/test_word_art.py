@@ -427,6 +427,14 @@ def test_spaced_non_target_label_is_disqualified(art):
     "O   O\n  V\n \\_/", # smiley (letters spread across lines)
     "o o o\n o\no o o",  # die face
     "\n   *\n \\ | /\n---+---\n / | \\\n   *\n",  # snowflake example
+    # Two-letter decorative patterns with separators. The spaced-out check
+    # requires 3+ distinct letters, so these pass -- they're visual
+    # patterns (dice, brickwork, zigzag), not spelled-out labels.
+    "| o   X     X     X  o  |",  # die/domino row: 5 letters, 2 distinct
+    "A B A B A B",                 # brick row
+    "X . X . X . X",               # single-letter row with dot spacers
+    "V W V W V W",                 # alternating zigzag
+    "o X o",                       # 3-letter, 2-distinct decoration
 ])
 def test_visual_letter_elements_pass(art):
     assert _art_check(art) is False, f"expected {art!r} to pass the any-word check"
@@ -555,6 +563,127 @@ def test_no_hidden_keys_leak_into_any_observation():
                 f"agent {i}'s observation leaks hidden keys {hidden}; "
                 "round-scoped state must live on env.word_art_state"
             )
+
+
+def test_guessed_correctly_visible_mid_round():
+    """When one team scores on their first try but the other keeps guessing,
+    the winning team's `{team}_guessed_correctly` bool must be True on
+    intermediate steps -- the visualizer keys its correct/wrong slot
+    coloring off this field. Before it was exposed publicly, the correct
+    guess showed red until the round rolled into history.
+    """
+    def blue_scores_first(observation, configuration):
+        # Round 0: agent 0 is blue artist. Encode the word; agent 1 is blue
+        # guesser and decodes on attempt 1 for the win.
+        role = observation.role
+        team = observation.team
+        if role == "artist" and team == "blue":
+            return _encode_word(observation.target_word)
+        if role == "guesser" and team == "blue":
+            return _decode_art(observation.teammate_art)
+        # Yellow team: always wrong so the round drags on for max_attempts.
+        if role == "artist":
+            return "* * *"
+        return f"WRONG{len(observation.previous_guesses)}"
+
+    env = _make(num_rounds=1, max_attempts=3, seed=1)
+    env.run([blue_scores_first] * 4)
+
+    # There must be at least one intermediate guess-phase step where blue
+    # is flagged correct but yellow is still guessing.
+    saw_intermediate = False
+    for step in env.steps:
+        obs0 = step[0].observation
+        if obs0.phase != "guess" or obs0.current_round < len(obs0.history):
+            continue
+        if obs0.blue_guessed_correctly and not obs0.yellow_guessed_correctly:
+            saw_intermediate = True
+            # Every agent's obs sees the same snapshot.
+            for i in range(4):
+                assert step[i].observation.blue_guessed_correctly is True
+                assert step[i].observation.yellow_guessed_correctly is False
+    assert saw_intermediate, (
+        "test setup: no intermediate step where blue had scored and yellow "
+        "was still guessing; can't verify the visualizer signal"
+    )
+
+
+def test_disqualification_flags_public_during_guess_phase():
+    """The public per-team art_disqualified bool + reason are set at
+    guess-phase entry and mirrored to every agent's observation, so the
+    visualizer can render the DISQUALIFIED label on the losing team's art
+    without relying on the removed `_round_*` private fields."""
+    def blue_cheats(observation, configuration):
+        role = observation.role
+        team = observation.team
+        if role == "artist" and team == "blue":
+            return observation.target_word  # trip the target-word check
+        if role == "artist":
+            return "* * *"
+        return "WRONG"
+
+    env = _make(num_rounds=1, seed=1)
+    env.run([blue_cheats] * 4)
+    saw_guess = False
+    for step in env.steps:
+        obs0 = step[0].observation
+        if obs0.phase != "guess" or obs0.current_round < len(obs0.history):
+            continue
+        saw_guess = True
+        for i in range(4):
+            assert step[i].observation.blue_art_disqualified is True
+            assert step[i].observation.yellow_art_disqualified is False
+            assert step[i].observation.blue_art_disqualification_reason == "target_word"
+            assert step[i].observation.yellow_art_disqualification_reason is None
+    assert saw_guess
+
+
+def test_current_target_visible_in_replay_during_guess_phase():
+    """The visualizer relies on `target_word` being present on SOME agent's
+    observation during the guess phase so it can show the reader which word
+    is currently being guessed (history only covers COMPLETED rounds). The
+    artist is INACTIVE during the guess phase, so keeping target_word on
+    their observation is safe: the LLM never gets called again this round,
+    but the field remains in the serialized step for the renderer to find.
+    """
+    from kaggle_environments.envs.word_art.word_art import (
+        _blue_artist, _yellow_artist, _blue_guesser, _yellow_guesser,
+    )
+
+    env = _make(num_rounds=2, seed=1)
+    env.run(["random"] * 4)
+    # Walk every step; on any guess-phase step where the round is still
+    # live (not yet rolled into history), at least one agent's
+    # target_word must be set so the renderer has something to show.
+    saw_guess_step = False
+    for step in env.steps:
+        obs0 = step[0].observation
+        if obs0.phase != "guess":
+            continue
+        rnd = obs0.current_round
+        if rnd < len(obs0.history):
+            # Round already closed and rolled into history; the renderer
+            # reads the target from history[rnd], no live field needed.
+            continue
+        saw_guess_step = True
+        targets = {step[i].observation.target_word for i in range(4)}
+        targets.discard("")
+        assert targets, (
+            f"no agent exposes target_word at guess-phase step "
+            f"(round {rnd}); the visualizer would show a blank"
+        )
+        # And the guessers must NOT see it (agents only see their own obs,
+        # but assert anyway since target_word is what the renderer keys on).
+        for g_idx in (_blue_guesser(rnd), _yellow_guesser(rnd)):
+            assert step[g_idx].observation.target_word == "", (
+                f"guesser {g_idx} sees target_word leak in round {rnd}"
+            )
+        # The artist(s) are where the target lives, and both artists on the
+        # two teams share the same target this round.
+        blue_target = step[_blue_artist(rnd)].observation.target_word
+        yellow_target = step[_yellow_artist(rnd)].observation.target_word
+        assert blue_target and blue_target == yellow_target
+    assert saw_guess_step, "test setup: no guess-phase step was observed"
 
 
 def test_mid_game_missing_word_art_state_raises_clearly():

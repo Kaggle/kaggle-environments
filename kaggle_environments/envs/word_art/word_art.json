@@ -141,6 +141,36 @@
       "type": "integer",
       "default": 0
     },
+    "blue_guessed_correctly": {
+      "description": "True if team Blue has already made a correct guess this round. Resets to false at each round boundary. Public across agents so the visualizer can distinguish a correct final guess from a wrong one before the round rolls into history (the visualizer would otherwise have to reimplement _matches_target's singular/plural leniency in TypeScript to reproduce this signal).",
+      "type": "boolean",
+      "default": false
+    },
+    "yellow_guessed_correctly": {
+      "description": "True if team Yellow has already made a correct guess this round. Resets to false at each round boundary. Public across agents so the visualizer can distinguish a correct final guess from a wrong one before the round rolls into history.",
+      "type": "boolean",
+      "default": false
+    },
+    "blue_art_disqualified": {
+      "description": "True if team Blue's art this round was disqualified by the engine (target-word check or any-word check). Public across agents; set at guess-phase entry and cleared at each round boundary.",
+      "type": "boolean",
+      "default": false
+    },
+    "yellow_art_disqualified": {
+      "description": "True if team Yellow's art this round was disqualified by the engine. Public across agents; set at guess-phase entry and cleared at each round boundary.",
+      "type": "boolean",
+      "default": false
+    },
+    "blue_art_disqualification_reason": {
+      "description": "Reason team Blue's art was disqualified ('target_word' or 'contains_words'), or null when the art passed. Public across agents; set at guess-phase entry and cleared at each round boundary.",
+      "type": ["string", "null"],
+      "default": null
+    },
+    "yellow_art_disqualification_reason": {
+      "description": "Reason team Yellow's art was disqualified ('target_word' or 'contains_words'), or null when the art passed. Public across agents; set at guess-phase entry and cleared at each round boundary.",
+      "type": ["string", "null"],
+      "default": null
+    },
     "history": {
       "description": "List of completed rounds, each {word, blue_art, blue_art_disqualified, blue_guesses (list), blue_points, yellow_art, yellow_art_disqualified, yellow_guesses (list), yellow_points}. blue_art / yellow_art are the artist's raw submission (preserved for replay transparency even when the env disqualified it).",
       "type": "array",

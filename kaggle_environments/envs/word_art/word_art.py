@@ -270,8 +270,9 @@ DISQUALIFIED_ART_PLACEHOLDERS = {
     ),
     "contains_words": (
         "<your teammate's drawing was disqualified for containing text "
-        "(a run of 3+ letters with 2+ distinct chars, consecutive or "
-        "separated by any non-letter, non-newline characters)>"
+        "(3+ consecutive letters with 2+ distinct chars, or 3+ letters "
+        "with 3+ distinct chars separated by non-letter, non-newline "
+        "characters)>"
     ),
 }
 
@@ -313,29 +314,39 @@ _SPACED_WORD_RE = re.compile(r"[A-Za-z](?:[^A-Za-z\n]+[A-Za-z]){2,}")
 
 
 def _art_contains_any_word(art):
-    """Return True if `art` contains any run of 3+ letters with 2+
-    distinct characters (case-insensitive), whether the letters are
-    consecutive ('TOP', 'HOUSE') or separated by any non-letter,
-    non-newline characters ('T O P', 'A.R.O.U.N.D', 'H-O-U-S-E',
-    'H|O|U|S|E', 'grid_view').
+    """Return True if `art` contains a text-like run of letters. Two
+    thresholds, chosen so decoration passes but labels don't:
 
-    Same-letter clusters ('OOO' for eyes, 'III' for columns, 'TTT' for
-    texture, 'V V V' for a zigzag) pass so models can still use letters
-    as visual elements. Complementary to _art_contains_word; that catches
-    only the target word, this catches every OTHER word.
+    * Consecutive letters (`_WORD_LIKE_RE`): 3+ letters, 2+ distinct.
+      Catches 'top', 'HOUSE', 'grid', 'axe'. Same-letter clusters like
+      'OOO' (eyes), 'III' (columns), 'TTT' (texture) pass.
+
+    * Spaced-out letters (`_SPACED_WORD_RE`): 3+ letters separated by
+      non-letter, non-newline characters, and 3+ distinct. Catches
+      'A R O U N D', 'H|O|U|S|E', 'T O P', 'A.R.O.U.N.D'. Two-letter
+      decorations like 'o X X X o' (dice pips), 'A B A B' (brickwork),
+      or 'V W V W' pass -- they're almost always visual patterns, not
+      labels. A 2-distinct spelled-out word ('POP', 'EYE') will slip
+      through when spaced ('P O P'), but the consecutive check still
+      catches the tightly-written form.
+
+    Complementary to _art_contains_word; that catches only the target
+    word, this catches every OTHER word.
 
     The distinct-character count considers LETTERS only (not the
-    separators between them), so a decorative row like 'V V V' evaluates
-    as one distinct letter and passes even though the raw match string
-    contains both 'v' and ' '.
+    separators between them), so 'V V V' evaluates as one distinct
+    letter even though the raw match string contains both 'v' and ' '.
     """
     if not art:
         return False
-    for regex in (_WORD_LIKE_RE, _SPACED_WORD_RE):
-        for m in regex.finditer(art):
-            distinct_letters = {c for c in m.group(0).lower() if c.isalpha()}
-            if len(distinct_letters) > 1:
-                return True
+    for m in _WORD_LIKE_RE.finditer(art):
+        distinct_letters = {c for c in m.group(0).lower() if c.isalpha()}
+        if len(distinct_letters) >= 2:
+            return True
+    for m in _SPACED_WORD_RE.finditer(art):
+        distinct_letters = {c for c in m.group(0).lower() if c.isalpha()}
+        if len(distinct_letters) >= 3:
+            return True
     return False
 
 
@@ -425,6 +436,12 @@ def initialize_game(state, env):
         s.observation.yellow_score = 0
         s.observation.blue_attempts_used = 0
         s.observation.yellow_attempts_used = 0
+        s.observation.blue_guessed_correctly = False
+        s.observation.yellow_guessed_correctly = False
+        s.observation.blue_art_disqualified = False
+        s.observation.yellow_art_disqualified = False
+        s.observation.blue_art_disqualification_reason = None
+        s.observation.yellow_art_disqualification_reason = None
         s.observation.history = []
 
     env.word_art_state = _WordArtState(sampled)
@@ -525,12 +542,23 @@ def _process_team_guess(state, obs0, wa_state, team, env_config, target_norm):
 def _enter_guess_phase(state, wa_state, round_idx, blue_art, yellow_art, max_attempts):
     """Mutate every agent's observation for the start of the guess phase and
     activate both guessers.
+
+    The artist's `target_word` is intentionally NOT cleared here: the artist
+    is INACTIVE for the rest of the round so the LLM never sees it again,
+    but keeping it on the observation lets the visualizer surface the
+    current-round target while guessing is in progress (guessers already
+    have `target_word == ""` from the art phase, so they don't see it).
     """
     for i, s in enumerate(state):
         s.observation.phase = "guess"
-        s.observation.target_word = ""
         s.observation.blue_attempts_used = 0
         s.observation.yellow_attempts_used = 0
+        s.observation.blue_guessed_correctly = False
+        s.observation.yellow_guessed_correctly = False
+        s.observation.blue_art_disqualified = wa_state.blue_art_disqualified
+        s.observation.yellow_art_disqualified = wa_state.yellow_art_disqualified
+        s.observation.blue_art_disqualification_reason = wa_state.blue_disq_reason
+        s.observation.yellow_art_disqualification_reason = wa_state.yellow_disq_reason
         if get_role(i, round_idx) == "guesser":
             team = get_team(i)
             s.observation.teammate_art = blue_art if team == "blue" else yellow_art
@@ -578,6 +606,12 @@ def _advance_after_round(state, obs0, wa_state, round_idx, words, target):
         s.observation.attempts_remaining = 0
         s.observation.blue_attempts_used = 0
         s.observation.yellow_attempts_used = 0
+        s.observation.blue_guessed_correctly = False
+        s.observation.yellow_guessed_correctly = False
+        s.observation.blue_art_disqualified = False
+        s.observation.yellow_art_disqualified = False
+        s.observation.blue_art_disqualification_reason = None
+        s.observation.yellow_art_disqualification_reason = None
         if not is_done:
             s.observation.current_round = next_round
             s.observation.phase = "art"
@@ -675,6 +709,8 @@ def process_step(state, env):
     for s in state:
         s.observation.blue_attempts_used = blue_used
         s.observation.yellow_attempts_used = yellow_used
+        s.observation.blue_guessed_correctly = wa_state.blue_points > 0
+        s.observation.yellow_guessed_correctly = wa_state.yellow_points > 0
 
     state[blue_g_idx].observation.previous_guesses = list(wa_state.blue_guesses)
     state[blue_g_idx].observation.attempts_remaining = (
