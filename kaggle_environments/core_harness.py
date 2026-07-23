@@ -474,6 +474,22 @@ class GameHarness(Protocol):
 # ---------------------------------------------------------------------------
 
 
+def _close_stream(stream: Any) -> None:
+    """Best-effort close of a litellm streaming response.
+
+    litellm's ``CustomStreamWrapper`` wraps an httpx streaming response;
+    ``close()`` returns the connection to the pool and sends a
+    client-close signal upstream. Missing close = leaked queue slot on
+    the model proxy.
+    """
+    if stream is None:
+        return
+    try:
+        stream.close()
+    except Exception:
+        pass
+
+
 def _call_llm(
     prompt: str,
     model_name: str,
@@ -530,6 +546,7 @@ def _call_llm(
         content_parts: list[str] = []
         finish_reason: str | None = None
         usage_obj: Any = None
+        stream: Any = None
         try:
             stream = litellm.completion(
                 model=model_name,
@@ -637,6 +654,8 @@ def _call_llm(
             )
             if backoff > 0:
                 time.sleep(backoff)
+        finally:
+            _close_stream(stream)
 
 
 def _build_call_detail(
