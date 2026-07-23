@@ -477,17 +477,31 @@ class GameHarness(Protocol):
 def _close_stream(stream: Any) -> None:
     """Best-effort close of a litellm streaming response.
 
-    litellm's ``CustomStreamWrapper`` wraps an httpx streaming response;
-    ``close()`` returns the connection to the pool and sends a
-    client-close signal upstream. Missing close = leaked queue slot on
-    the model proxy.
+    litellm's ``CustomStreamWrapper`` has no sync ``close()`` and does
+    NOT clean up its wrapped provider stream on ``__next__`` errors
+    (only re-raises via ``_handle_stream_fallback_error``). The wrapped
+    ``openai.Stream`` stored in ``.completion_stream`` does have a
+    ``close()`` that releases the underlying ``httpx.Response`` — this
+    is what actually sends the client-close signal upstream and
+    releases the model-proxy queue slot. On the success path the
+    OpenAI SDK closes automatically when the body is read to
+    completion; only the mid-stream error path needs this explicit
+    reach-through.
     """
     if stream is None:
         return
-    try:
-        stream.close()
-    except Exception:
-        pass
+    # Prefer the wrapper's own close if a future litellm version adds
+    # one; otherwise reach through to the provider stream.
+    for target in (stream, getattr(stream, "completion_stream", None)):
+        if target is None:
+            continue
+        close = getattr(target, "close", None)
+        if callable(close):
+            try:
+                close()
+            except Exception:
+                pass
+            return
 
 
 def _call_llm(
