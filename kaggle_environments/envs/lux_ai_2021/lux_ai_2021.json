@@ -21,8 +21,14 @@
       "default": "random"
     },
     "width": {
-      "description": "Width of map to generate",
-      "type": "integer"
+      "description": "Width of map to generate.",
+      "type": "integer",
+      "default": 12
+    },
+    "height": {
+      "description": "Height of map to generate.",
+      "type": "integer",
+      "default": 12
     },
     "seed": {
       "description": "Seed to use for episodes",
@@ -38,6 +44,11 @@
       "description": "Logging level of the game. 2 for warnings (e.g unit collisions, malformed actions), 1 for errors, 0 for none",
       "type": "integer",
       "default": 0
+    },
+    "freeForm": {
+      "description": "If true, the core harness allows free-form actions. Always true for lux_ai_2021 since per-unit command strings are not enumerable.",
+      "type": "boolean",
+      "default": true
     }
   },
   "reward": {
