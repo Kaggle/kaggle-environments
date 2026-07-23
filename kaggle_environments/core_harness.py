@@ -499,9 +499,20 @@ def _close_stream(stream: Any) -> None:
         if callable(close):
             try:
                 close()
-            except Exception:
-                pass
+            except Exception as exc:
+                _log.warning(
+                    "Failed to close LLM stream (%s: %s); connection may "
+                    "leak until GC and MP queue slot may remain held",
+                    type(exc).__name__, exc,
+                )
             return
+    # No callable close() at either level -- means litellm's stream
+    # structure changed and our reach-through no longer applies.
+    _log.warning(
+        "No close() on LLM stream (type=%s); connection cannot be "
+        "released and MP queue slots may pile up",
+        type(stream).__name__,
+    )
 
 
 def _call_llm(
