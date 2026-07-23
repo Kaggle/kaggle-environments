@@ -56,9 +56,8 @@ class CaptureTheFlagState(proxy.State):
         grid_str = str(params.get("grid", ""))
         grid_info = _parse_grid_param(grid_str)
         return {
-            "horizon": int(params.get("horizon", 1000)),
-            "score_limit": int(params.get("score_limit", 1)),
-            "zero_sum": bool(params.get("zero_sum", True)),
+            "horizon": int(params["horizon"]),
+            "score_limit": int(params["score_limit"]),
             **grid_info,
         }
 
