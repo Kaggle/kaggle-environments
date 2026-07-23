@@ -85,7 +85,7 @@ function disqReasonText(reason: DisqReason): string {
   // Matches the phrasing the harness uses in the artist prompt so the
   // visualizer reader sees the same rule name the model was told about.
   if (reason === 'contains_words') {
-    return 'contained text (a run of 3+ letters with 2+ distinct chars)';
+    return 'contained text (3+ consecutive letters with 2+ distinct chars, or 3+ spaced-out letters with 3+ distinct chars)';
   }
   return 'contained the target word';
 }
@@ -181,24 +181,49 @@ export function renderer(options: RendererOptions) {
   } else {
     blueGuesses = getLiveGuesses(currentStep, 'blue', displayRound);
     yellowGuesses = getLiveGuesses(currentStep, 'yellow', displayRound);
-    // Reading _round_* fields directly: they're technically "private"
-    // (underscore-prefixed) but the replay JSON exposes them and they
-    // are the only in-round signal for correct-guess detection and
-    // disqualification reason before the round rolls into history.
-    bluePoints = typeof obs0._round_blue_points === 'number' ? obs0._round_blue_points : null;
-    yellowPoints = typeof obs0._round_yellow_points === 'number' ? obs0._round_yellow_points : null;
-    const rawBlueReason = obs0._round_blue_disq_reason as DisqReason | undefined;
-    const rawYellowReason = obs0._round_yellow_disq_reason as DisqReason | undefined;
-    // Fallback: if reason isn't present but the bool is (or the
-    // placeholder text made it into teammate_art), still show as
-    // disqualified with the older "target_word" default.
+    // Live per-team points are derived from the public
+    // `{team}_guessed_correctly` bool + the guess count + first_try_bonus.
+    // We can't just look at the last guess and compare it to the target
+    // ourselves because _matches_target does singular/plural leniency
+    // (CAT<->CATS, CHILD<->CHILDREN, CACTUS<->CACTI, ...) that we won't
+    // reproduce here. Old replays predate the bool and expose the
+    // pre-computed points under an underscore-prefixed field instead;
+    // fall back to that so historical replays still color correctly.
+    const firstTryBonus: number = obs0.first_try_bonus ?? 1;
+    const derivePoints = (correct: boolean | undefined, guessCount: number): number | null => {
+      if (correct === undefined) return null;
+      if (!correct) return 0;
+      return guessCount === 1 ? 1 + firstTryBonus : 1;
+    };
+    const blueCorrect = obs0.blue_guessed_correctly as boolean | undefined;
+    const yellowCorrect = obs0.yellow_guessed_correctly as boolean | undefined;
+    bluePoints =
+      blueCorrect !== undefined
+        ? derivePoints(blueCorrect, blueGuesses.length)
+        : typeof obs0._round_blue_points === 'number'
+          ? obs0._round_blue_points
+          : null;
+    yellowPoints =
+      yellowCorrect !== undefined
+        ? derivePoints(yellowCorrect, yellowGuesses.length)
+        : typeof obs0._round_yellow_points === 'number'
+          ? obs0._round_yellow_points
+          : null;
+    const rawBlueReason =
+      (obs0.blue_art_disqualification_reason as DisqReason | undefined) ??
+      (obs0._round_blue_disq_reason as DisqReason | undefined);
+    const rawYellowReason =
+      (obs0.yellow_art_disqualification_reason as DisqReason | undefined) ??
+      (obs0._round_yellow_disq_reason as DisqReason | undefined);
+    const blueDisqFlag = obs0.blue_art_disqualified ?? obs0._round_blue_art_disqualified;
+    const yellowDisqFlag = obs0.yellow_art_disqualified ?? obs0._round_yellow_art_disqualified;
     blueDisqReason =
       rawBlueReason ??
-      (obs0._round_blue_art_disqualified ? 'target_word' : null) ??
+      (blueDisqFlag ? 'target_word' : null) ??
       (typeof blueArt === 'string' && blueArt.includes('disqualified') ? 'target_word' : null);
     yellowDisqReason =
       rawYellowReason ??
-      (obs0._round_yellow_art_disqualified ? 'target_word' : null) ??
+      (yellowDisqFlag ? 'target_word' : null) ??
       (typeof yellowArt === 'string' && yellowArt.includes('disqualified') ? 'target_word' : null);
   }
   const blueDisqualified = blueDisqReason !== null;

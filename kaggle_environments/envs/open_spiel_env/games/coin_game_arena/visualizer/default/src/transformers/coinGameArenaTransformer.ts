@@ -6,27 +6,13 @@
 // to recover both boards (board A from player 0/1, board B from player
 // 2/3). At terminal, every player observation reveals both boards via
 // the ``boards`` array, plus the per-player ``preferences``.
+//
+// Forfeit handling (illegal-move / TIMEOUT / ERROR) uses the shared
+// detectForfeit helper for per-seat labeling. Winner / reason strings
+// remain arena-specific (team-aware) because the two-player helpers in
+// core would report the wrong team on a 4-seat game.
 
-interface ArenaAction {
-  submission?: number;
-  actionString?: string | null;
-  thoughts?: string | null;
-  status?: string | null;
-  generate_returns?: string[] | null;
-}
-
-interface ArenaObservation {
-  observationString?: string;
-  isTerminal?: boolean;
-  currentPlayer?: number;
-}
-
-interface ArenaReplayPlayer {
-  action?: ArenaAction;
-  reward: number;
-  observation: ArenaObservation;
-  status?: string;
-}
+import { detectForfeit, FORFEIT_REASONS, parseThoughts, OpenSpielRawPlayer } from '@kaggle-environments/core';
 
 export interface ArenaBoardView {
   team_id: number;
@@ -72,6 +58,8 @@ export interface ArenaPlayer {
   generateReturns: string[] | null;
   teamId: number;
   seat: number;
+  forfeited: boolean;
+  forfeitLastAttempt: string | null;
 }
 
 export interface ArenaStep {
@@ -90,25 +78,15 @@ export interface ArenaStep {
   winningTeam: number | string | null;
   // Last action played per board, for arrows / highlights.
   lastActionPerBoard: { actor: number; action: string }[];
+  // Non-null on the terminal step when the game ended because a player
+  // forfeited (illegal-move retries exhausted, timeout, or crash). Team-
+  // aware here: names the offending team as the loser, not just the seat.
+  forfeitReason: string | null;
 }
 
 const PLAYERS_PER_TEAM = 2;
 
-function parseThoughts(action?: ArenaAction): string {
-  if (action?.generate_returns?.[0]) {
-    try {
-      const parsed = JSON.parse(action.generate_returns[0]);
-      if (parsed.main_response_and_thoughts) {
-        return parsed.main_response_and_thoughts;
-      }
-    } catch {
-      /* fall through */
-    }
-  }
-  return action?.thoughts ?? '';
-}
-
-function parsePerPlayer(step: ArenaReplayPlayer[]): (ArenaPerPlayerObs | null)[] {
+function parsePerPlayer(step: OpenSpielRawPlayer[]): (ArenaPerPlayerObs | null)[] {
   return step.map((p) => {
     const raw = p?.observation?.observationString;
     if (!raw) return null;
@@ -133,9 +111,22 @@ function pickBoardForTeam(privateObs: (ArenaPerPlayerObs | null)[], teamId: numb
   return null;
 }
 
+function buildArenaForfeitReason(forfeitSeat: number, reasonKey: string, teamNames: string[]): string {
+  const loser = teamNames[forfeitSeat] ?? `Player ${forfeitSeat}`;
+  const loserTeam = Math.floor(forfeitSeat / PLAYERS_PER_TEAM);
+  const winningTeam = 1 - loserTeam;
+  // Name the winning team by its two seats when we have names for both.
+  const winnerSeatA = winningTeam * PLAYERS_PER_TEAM;
+  const winnerSeatB = winnerSeatA + 1;
+  const winnerA = teamNames[winnerSeatA] ?? `Player ${winnerSeatA}`;
+  const winnerB = teamNames[winnerSeatB] ?? `Player ${winnerSeatB}`;
+  const reason = FORFEIT_REASONS[reasonKey] ?? 'forfeited';
+  return `${loser} ${reason}. Team ${winningTeam} (${winnerA} & ${winnerB}) wins by default.`;
+}
+
 export const coinGameArenaTransformer = (environment: any): ArenaStep[] => {
   const teamNames: string[] = environment?.info?.TeamNames ?? ['Player 0', 'Player 1', 'Player 2', 'Player 3'];
-  const rawSteps: ArenaReplayPlayer[][] = environment?.steps ?? [];
+  const rawSteps: OpenSpielRawPlayer[][] = environment?.steps ?? [];
   const out: ArenaStep[] = [];
 
   // Cumulative per-player preferences (each obs only reveals the
@@ -143,6 +134,8 @@ export const coinGameArenaTransformer = (environment: any): ArenaStep[] => {
   const cumulativePrefs: (string | null)[] = [null, null, null, null];
 
   rawSteps.forEach((step, index) => {
+    const forfeit = detectForfeit(step);
+
     const privateObs = parsePerPlayer(step);
     privateObs.forEach((obs, pid) => {
       if (obs?.your_preference) cumulativePrefs[pid] = obs.your_preference;
@@ -155,7 +148,11 @@ export const coinGameArenaTransformer = (environment: any): ArenaStep[] => {
 
     const players: ArenaPlayer[] = step.map((p, i): ArenaPlayer => {
       const submission = p.action?.submission;
-      const isTurn = submission !== undefined && submission !== null && submission !== -1;
+      const isForfeiter = forfeit?.index === i;
+      // A forfeit step's offender has submission === -1 but should still be
+      // treated as "acting" so the step is retained and their thoughts /
+      // last-attempt render in the side panel.
+      const isTurn = (submission !== undefined && submission !== null && submission !== -1) || isForfeiter;
       return {
         id: i,
         name: teamNames[i] ?? `Player ${i}`,
@@ -167,10 +164,13 @@ export const coinGameArenaTransformer = (environment: any): ArenaStep[] => {
         generateReturns: p.action?.generate_returns ?? null,
         teamId: Math.floor(i / PLAYERS_PER_TEAM),
         seat: i % PLAYERS_PER_TEAM,
+        forfeited: isForfeiter,
+        forfeitLastAttempt: isForfeiter ? (p.action?.actionString ?? null) : null,
       };
     });
 
-    // Skip the env's setup step where everyone submits -1.
+    // Skip the env's setup step where everyone submits -1 and no one
+    // forfeited.
     if (!players.some((pl) => pl.isTurn) && index > 0) return;
 
     const boards: (ArenaBoardView | null)[] = [pickBoardForTeam(privateObs, 0), pickBoardForTeam(privateObs, 1)];
@@ -187,7 +187,17 @@ export const coinGameArenaTransformer = (environment: any): ArenaStep[] => {
 
     // Sample one obs to read shared state (move_number, etc.).
     const sample = privateObs.find((o) => o !== null) ?? null;
-    const isTerminal = !!step[0]?.observation?.isTerminal || !!sample?.is_terminal;
+    const observationTerminal = !!step[0]?.observation?.isTerminal || !!sample?.is_terminal;
+    // A forfeit ends the episode even though OpenSpiel's own state isn't
+    // terminal; treat it as terminal so downstream UI shows the end state.
+    const isTerminal = observationTerminal || forfeit !== null;
+
+    // On a natural terminal use the arena's own team winner; on forfeit
+    // fall back to "the other team wins by default".
+    let winningTeam: number | string | null = sample?.winning_team ?? null;
+    if (forfeit && (winningTeam === null || winningTeam === undefined)) {
+      winningTeam = 1 - Math.floor(forfeit.index / PLAYERS_PER_TEAM);
+    }
 
     out.push({
       step: index,
@@ -202,8 +212,9 @@ export const coinGameArenaTransformer = (environment: any): ArenaStep[] => {
       isTerminal,
       teamTotals: sample?.team_totals ?? null,
       returns: sample?.returns ?? null,
-      winningTeam: sample?.winning_team ?? null,
+      winningTeam,
       lastActionPerBoard,
+      forfeitReason: forfeit ? buildArenaForfeitReason(forfeit.index, forfeit.reasonKey, teamNames) : null,
     });
   });
 

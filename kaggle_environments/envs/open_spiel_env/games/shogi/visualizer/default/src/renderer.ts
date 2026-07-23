@@ -1,4 +1,4 @@
-import type { RendererOptions } from '@kaggle-environments/core';
+import { escapeHtml, type RendererOptions } from '@kaggle-environments/core';
 import type { ShogiBoardState, ShogiCell, ShogiHandCounts, ShogiStep } from './transformers/shogiTransformer';
 
 const INK = '#050001';
@@ -321,7 +321,11 @@ export function renderer(options: RendererOptions<ShogiStep[]>) {
   }
 
   const playerNames = [getPlayerName(replay, 0), getPlayerName(replay, 1)];
-  const isTerminal = obs.is_terminal;
+  // Prefer currentStep.isTerminal — it also fires on forfeits, which the raw
+  // OpenSpiel observation.is_terminal does not.
+  const isTerminal = !!currentStep?.isTerminal || obs.is_terminal;
+  const forfeitReason = currentStep?.forfeitReason ?? null;
+  const forfeiterIdx = currentStep?.players?.findIndex((p) => p.forfeited) ?? -1;
   const activeIdx = isTerminal ? -1 : obs.current_player === 'b' ? 0 : obs.current_player === 'w' ? 1 : -1;
 
   const senteHand = obs.captured?.b ?? {};
@@ -373,11 +377,20 @@ export function renderer(options: RendererOptions<ShogiStep[]>) {
 
   let statusHTML = '';
   if (isTerminal) {
-    if (obs.winner === 'b') {
+    // If the observation didn't declare a winner but a forfeit ended the
+    // game, the non-forfeiter wins by default.
+    let winnerSide: 'b' | 'w' | null = null;
+    if (obs.winner === 'b' || obs.winner === 'w') {
+      winnerSide = obs.winner;
+    } else if (forfeitReason && forfeiterIdx >= 0) {
+      const winnerIdx = 1 - forfeiterIdx;
+      winnerSide = winnerIdx === 0 ? 'b' : 'w';
+    }
+    if (winnerSide === 'b') {
       winnerBanner.className = 'winner-banner active sente-win';
       winnerBanner.innerHTML = `<span class="crown">♛</span><span class="winner-name">${playerNames[0]}</span><span class="winner-side">(Sente)</span><span class="wins-label">WINS</span>`;
       statusHTML = `<span>Game over</span>`;
-    } else if (obs.winner === 'w') {
+    } else if (winnerSide === 'w') {
       winnerBanner.className = 'winner-banner active gote-win';
       winnerBanner.innerHTML = `<span class="crown">♛</span><span class="winner-name">${playerNames[1]}</span><span class="winner-side">(Gote)</span><span class="wins-label">WINS</span>`;
       statusHTML = `<span>Game over</span>`;
@@ -385,6 +398,9 @@ export function renderer(options: RendererOptions<ShogiStep[]>) {
       winnerBanner.className = 'winner-banner active draw';
       winnerBanner.innerHTML = `<span class="wins-label">Game over: ${obs.winner ?? 'finished'}</span>`;
       statusHTML = `<span>Game over</span>`;
+    }
+    if (forfeitReason) {
+      statusHTML += `<span class="annotation forfeit-reason">${escapeHtml(forfeitReason)}</span>`;
     }
   } else {
     winnerBanner.className = 'winner-banner';

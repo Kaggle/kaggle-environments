@@ -23,7 +23,6 @@ if (app) {
       transformer: (replay) => ({
         ...replay,
         steps: repeatedPokerTransformerV2(replay),
-        isTransformed: true,
       }),
       getStepLabel: (step) => getPokerStepLabel(step as RepeatedPokerStep),
       getStepDescription: (step) => getPokerStepDescription(step as RepeatedPokerStep),

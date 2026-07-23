@@ -1,4 +1,4 @@
-import type { RendererOptions } from '@kaggle-environments/core';
+import { escapeHtml, type RendererOptions } from '@kaggle-environments/core';
 import type { UltimateTicTacToeStep } from './transformers/ultimateTicTacToeTransformer';
 
 const P1_COLOR = '#2563eb'; // Sapphire / Blue
@@ -147,7 +147,11 @@ export function renderer(options: RendererOptions<UltimateTicTacToeStep[]>) {
 
   const container = parent.querySelector('.renderer-container') as HTMLDivElement;
 
-  const isTerminal = parsedObs.is_terminal;
+  // Prefer currentStep.isTerminal — it also fires on forfeits, which the raw
+  // OpenSpiel observation is_terminal flag does not.
+  const isTerminal = !!currentStep?.isTerminal || parsedObs.is_terminal;
+  const forfeitReason = currentStep?.forfeitReason ?? null;
+  const forfeiterIdx = currentStep?.players?.findIndex((p) => p.forfeited) ?? -1;
   const activeIdx = isTerminal ? -1 : parsedObs.current_player === 'x' ? 0 : parsedObs.current_player === 'o' ? 1 : -1;
 
   // Update Header player cards active states
@@ -171,12 +175,21 @@ export function renderer(options: RendererOptions<UltimateTicTacToeStep[]>) {
 
   let statusHTML = '';
   if (isTerminal) {
-    if (parsedObs.winner === 'draw') {
-      statusHTML = `<span style="font-weight: 700; color: #475569;">Draw</span>`;
+    // Derive winner from forfeiter index when the game ended by forfeit
+    // (parsedObs.winner is null in that case).
+    if (parsedObs.winner === 'x') {
+      statusHTML = `<span style="color: ${P1_COLOR}; font-weight: 700;">${playerNames[0]} Wins!</span>`;
+    } else if (parsedObs.winner === 'o') {
+      statusHTML = `<span style="color: ${P2_COLOR}; font-weight: 700;">${playerNames[1]} Wins!</span>`;
+    } else if (forfeitReason && forfeiterIdx >= 0) {
+      const winnerIdx = 1 - forfeiterIdx;
+      const winnerColor = winnerIdx === 0 ? P1_COLOR : P2_COLOR;
+      statusHTML = `<span style="color: ${winnerColor}; font-weight: 700;">${playerNames[winnerIdx]} Wins!</span>`;
     } else {
-      const winnerName = parsedObs.winner === 'x' ? playerNames[0] : playerNames[1];
-      const winnerColor = parsedObs.winner === 'x' ? P1_COLOR : P2_COLOR;
-      statusHTML = `<span style="color: ${winnerColor}; font-weight: 700;">${winnerName} Wins!</span>`;
+      statusHTML = `<span style="font-weight: 700; color: #475569;">Draw</span>`;
+    }
+    if (forfeitReason) {
+      statusHTML += `<span class="annotation forfeit-reason" style="margin-left: 8px;">${escapeHtml(forfeitReason)}</span>`;
     }
   } else {
     const turnColor = activeIdx === 0 ? P1_COLOR : P2_COLOR;
@@ -216,6 +229,11 @@ export function renderer(options: RendererOptions<UltimateTicTacToeStep[]>) {
       winnerLabel = `${playerNames[1]} Wins!`;
       subtitle = 'Player 2 (O) successfully conquered the macro-grid!';
       overlayClass = 'o';
+    } else if (forfeitReason && forfeiterIdx >= 0) {
+      const winnerIdx = 1 - forfeiterIdx;
+      winnerLabel = `${playerNames[winnerIdx]} Wins!`;
+      subtitle = forfeitReason;
+      overlayClass = winnerIdx === 0 ? 'x' : 'o';
     }
 
     if (!winnerOverlay) {

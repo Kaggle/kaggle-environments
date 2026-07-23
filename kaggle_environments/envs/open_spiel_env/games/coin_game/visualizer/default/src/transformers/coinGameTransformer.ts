@@ -3,27 +3,12 @@
 // Builds the per-step `players` array the side-panel UI expects so the
 // right-hand Game Log can render each agent's reasoning, mirroring the
 // dark_hex / Y / Lines of Action transformers.
+//
+// Forfeit handling (illegal-move / TIMEOUT / ERROR) is delegated to the
+// shared helpers in @kaggle-environments/core so that every OpenSpiel game
+// labels early terminations the same way.
 
-interface CoinAction {
-  submission?: number;
-  actionString?: string | null;
-  thoughts?: string | null;
-  status?: string | null;
-  generate_returns?: string[] | null;
-}
-
-interface CoinObservation {
-  observationString?: string;
-  isTerminal?: boolean;
-  currentPlayer?: number;
-}
-
-interface CoinReplayPlayer {
-  action?: CoinAction;
-  reward: number;
-  observation: CoinObservation;
-  status?: string;
-}
+import { detectForfeit, buildForfeitReason, parseThoughts, OpenSpielRawPlayer } from '@kaggle-environments/core';
 
 interface CoinPlayer {
   id: number;
@@ -34,6 +19,8 @@ interface CoinPlayer {
   thoughts: string;
   reward: number;
   generateReturns: string[] | null;
+  forfeited: boolean;
+  forfeitLastAttempt: string | null;
 }
 
 export type CoinCell = string;
@@ -69,23 +56,14 @@ export interface CoinStep {
   lastAction: string | null;
   isTerminal: boolean;
   winner: number | string | null;
+  // Non-null on the terminal step when the game ended because a player
+  // forfeited (illegal-move retries exhausted, timeout, or crash). The
+  // renderer surfaces this instead of the normal "X wins!" line so the
+  // reason for the early end is clear.
+  forfeitReason: string | null;
 }
 
-function parseThoughts(action?: CoinAction): string {
-  if (action?.generate_returns?.[0]) {
-    try {
-      const parsed = JSON.parse(action.generate_returns[0]);
-      if (parsed.main_response_and_thoughts) {
-        return parsed.main_response_and_thoughts;
-      }
-    } catch {
-      // fall through to action.thoughts
-    }
-  }
-  return action?.thoughts ?? '';
-}
-
-function parsePerPlayer(step: CoinReplayPlayer[]): (CoinBoardState | null)[] {
+function parsePerPlayer(step: OpenSpielRawPlayer[]): (CoinBoardState | null)[] {
   return step.map((p) => {
     const raw = p?.observation?.observationString;
     if (!raw) return null;
@@ -99,13 +77,19 @@ function parsePerPlayer(step: CoinReplayPlayer[]): (CoinBoardState | null)[] {
 
 export const coinGameTransformer = (environment: any): CoinStep[] => {
   const teamNames: string[] = environment?.info?.TeamNames ?? ['Player 0', 'Player 1'];
-  const rawSteps: CoinReplayPlayer[][] = environment?.steps ?? [];
+  const rawSteps: OpenSpielRawPlayer[][] = environment?.steps ?? [];
   const out: CoinStep[] = [];
 
   rawSteps.forEach((step, index) => {
+    const forfeit = detectForfeit(step);
+
     const players: CoinPlayer[] = step.map((p, i): CoinPlayer => {
       const submission = p.action?.submission;
-      const isTurn = submission !== undefined && submission !== -1;
+      const isForfeiter = forfeit?.index === i;
+      // A forfeit step's offender has submission === -1 but should still be
+      // treated as "acting" so the step is retained and their thoughts /
+      // last-attempt render in the side panel.
+      const isTurn = (submission !== undefined && submission !== null && submission !== -1) || isForfeiter;
       return {
         id: i,
         name: teamNames[i] ?? `Player ${i}`,
@@ -115,6 +99,8 @@ export const coinGameTransformer = (environment: any): CoinStep[] => {
         thoughts: parseThoughts(p.action),
         reward: p.reward ?? 0,
         generateReturns: p.action?.generate_returns ?? null,
+        forfeited: isForfeiter,
+        forfeitLastAttempt: isForfeiter ? (p.action?.actionString ?? null) : null,
       };
     });
 
@@ -128,7 +114,18 @@ export const coinGameTransformer = (environment: any): CoinStep[] => {
     const lastActor = players.findIndex((pl) => pl.isTurn);
     const lastAction = lastActor >= 0 ? players[lastActor].actionDisplayText : null;
 
-    const isTerminal = !!step[0]?.observation?.isTerminal || !!boardState?.is_terminal;
+    const observationTerminal = !!step[0]?.observation?.isTerminal || !!boardState?.is_terminal;
+    // A forfeit ends the episode even though OpenSpiel's own state isn't
+    // terminal; treat it as terminal so downstream UI shows the end state.
+    const isTerminal = observationTerminal || forfeit !== null;
+
+    // On a natural terminal, expose the game's own winner (a numeric id
+    // that the renderer indexes into `playerNames`). On a forfeit, leave
+    // it null: the renderer has a dedicated forfeit-fallback branch that
+    // derives the winner from `forfeiterIdx`, and emitting a string here
+    // would break the sibling `Number(stepWinner)` code path.
+    const winner: number | string | null = isTerminal && !forfeit ? (boardState?.winner ?? null) : null;
+
     out.push({
       step: index,
       players,
@@ -137,7 +134,8 @@ export const coinGameTransformer = (environment: any): CoinStep[] => {
       lastActor: lastActor >= 0 ? lastActor : null,
       lastAction,
       isTerminal,
-      winner: isTerminal ? (boardState?.winner ?? null) : null,
+      winner,
+      forfeitReason: forfeit ? buildForfeitReason(forfeit, teamNames) : null,
     });
   });
 

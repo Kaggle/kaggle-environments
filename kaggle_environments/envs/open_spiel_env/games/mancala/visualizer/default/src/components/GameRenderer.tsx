@@ -51,10 +51,15 @@ function sowingPath(source: number, count: number, player: 0 | 1): number[] {
   return path;
 }
 
-function gooseSprite(player: 0 | 1, state: MancalaObservation) {
-  if (state.is_terminal) {
-    if (state.winner === 'draw' || state.winner === null) return GOOSE_SPRITES[player].idle;
-    return state.winner === player ? GOOSE_SPRITES[player].elated : GOOSE_SPRITES[player].sad;
+function gooseSprite(
+  player: 0 | 1,
+  state: MancalaObservation,
+  isTerminal: boolean,
+  effectiveWinner: number | string | null
+) {
+  if (isTerminal) {
+    if (effectiveWinner === 'draw' || effectiveWinner === null) return GOOSE_SPRITES[player].idle;
+    return effectiveWinner === player ? GOOSE_SPRITES[player].elated : GOOSE_SPRITES[player].sad;
   }
   return state.current_player === player ? GOOSE_SPRITES[player].pensive : GOOSE_SPRITES[player].idle;
 }
@@ -63,6 +68,9 @@ function GameRenderer({ replay, step }: GameRendererProps) {
   const steps = (replay.steps as unknown as MancalaStep[]) ?? [];
   const state = useMemo(() => findObservation(steps, step), [steps, step]);
   const prevState = useMemo(() => findObservation(steps, Math.max(0, step - 1)), [steps, step]);
+  const currentStep = steps[step] ?? null;
+  const forfeitReason = currentStep?.forfeitReason ?? null;
+  const forfeiterIdx = currentStep?.players?.findIndex((p) => p.forfeited) ?? -1;
 
   const teamNames = ((replay.info as Record<string, any>)?.TeamNames as string[]) || [];
   const player1Name = teamNames[0] || 'Player 1';
@@ -123,9 +131,17 @@ function GameRenderer({ replay, step }: GameRendererProps) {
   const player0Score = state.scores[0];
   const player1Score = state.scores[1];
 
+  // Prefer currentStep.isTerminal — it also fires on forfeits, which the raw
+  // OpenSpiel observation.is_terminal does not.
+  const isTerminal = !!currentStep?.isTerminal || state.is_terminal;
+  // Derive winner from the forfeiter when the observation's own winner is
+  // null (which happens on forfeit-ended games).
+  const effectiveWinner: number | string | null =
+    state.winner ?? (forfeitReason && forfeiterIdx >= 0 ? 1 - forfeiterIdx : null);
+
   function outcome(player: 0 | 1): 'winner' | 'loser' | undefined {
-    if (!state!.is_terminal || state!.winner === 'draw' || state!.winner === null) return undefined;
-    return state!.winner === player ? 'winner' : 'loser';
+    if (!isTerminal || effectiveWinner === 'draw' || effectiveWinner === null) return undefined;
+    return effectiveWinner === player ? 'winner' : 'loser';
   }
 
   return (
@@ -134,8 +150,8 @@ function GameRenderer({ replay, step }: GameRendererProps) {
         <PlayerCard
           name={player1Name}
           score={player0Score}
-          spriteUrl={gooseSprite(0, state)}
-          active={state.current_player === 0 && !state.is_terminal}
+          spriteUrl={gooseSprite(0, state, isTerminal, effectiveWinner)}
+          active={state.current_player === 0 && !isTerminal}
           mirrored={false}
           outcome={outcome(0)}
         />
@@ -146,28 +162,29 @@ function GameRenderer({ replay, step }: GameRendererProps) {
             <span className="mancala-diamond">◆</span>
           </div>
           <AnimatePresence mode="wait">
-            {state.is_terminal && (
+            {isTerminal && (
               <motion.div
                 className="mancala-status"
-                key={String(state.winner)}
+                key={String(effectiveWinner)}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
               >
-                {state.winner === 'draw'
+                {effectiveWinner === 'draw' || effectiveWinner === null
                   ? "Game Over: It's a draw!"
-                  : state.winner === 0
+                  : effectiveWinner === 0
                     ? `${player1Name} Wins!`
                     : `${player2Name} Wins!`}
               </motion.div>
             )}
           </AnimatePresence>
+          {forfeitReason && <div className="mancala-forfeit-reason">{forfeitReason}</div>}
         </div>
         <PlayerCard
           name={player2Name}
           score={player1Score}
-          spriteUrl={gooseSprite(1, state)}
-          active={state.current_player === 1 && !state.is_terminal}
+          spriteUrl={gooseSprite(1, state, isTerminal, effectiveWinner)}
+          active={state.current_player === 1 && !isTerminal}
           mirrored
           outcome={outcome(1)}
         />

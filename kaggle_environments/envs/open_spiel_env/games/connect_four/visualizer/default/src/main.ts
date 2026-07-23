@@ -26,7 +26,6 @@ createReplayVisualizer(
     transformer: (replay) => ({
       ...replay,
       steps: connectFourTransformer(replay),
-      isTransformed: true,
     }),
     getStepLabel: (step) => getConnectFourStepLabel(step as ConnectFourStep),
     getStepDescription: (step) => getConnectFourStepDescription(step as ConnectFourStep),

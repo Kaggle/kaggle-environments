@@ -6,27 +6,13 @@
 // to recover both boards (board A from player 0/1, board B from player
 // 2/3). At terminal, every player observation reveals both boards via
 // the ``boards`` array.
+//
+// Forfeit handling (illegal-move / TIMEOUT / ERROR): reuse the shared
+// detector, but Ant Foraging is 2v2 (seats 0,1 = team A; seats 2,3 =
+// team B) so we build the forfeit reason in-place instead of using the
+// 2-player `buildForfeitReason` helper.
 
-interface ArenaAction {
-  submission?: number;
-  actionString?: string | null;
-  thoughts?: string | null;
-  status?: string | null;
-  generate_returns?: string[] | null;
-}
-
-interface ArenaObservation {
-  observationString?: string;
-  isTerminal?: boolean;
-  currentPlayer?: number;
-}
-
-interface ArenaReplayPlayer {
-  action?: ArenaAction;
-  reward: number;
-  observation: ArenaObservation;
-  status?: string;
-}
+import { detectForfeit, FORFEIT_REASONS, parseThoughts, OpenSpielRawPlayer } from '@kaggle-environments/core';
 
 export interface AntBoardView {
   team_id: number;
@@ -75,6 +61,8 @@ export interface ArenaPlayer {
   generateReturns: string[] | null;
   teamId: number;
   seat: number;
+  forfeited: boolean;
+  forfeitLastAttempt: string | null;
 }
 
 export interface ArenaStep {
@@ -92,25 +80,14 @@ export interface ArenaStep {
   winningTeam: number | string | null;
   // Last action played per board, for arrows / highlights.
   lastActionPerBoard: { actor: number; action: string }[];
+  // Non-null on the terminal step when the game ended because a player
+  // forfeited (illegal-move retries exhausted, timeout, or crash).
+  forfeitReason: string | null;
 }
 
 const PLAYERS_PER_TEAM = 2;
 
-function parseThoughts(action?: ArenaAction): string {
-  if (action?.generate_returns?.[0]) {
-    try {
-      const parsed = JSON.parse(action.generate_returns[0]);
-      if (parsed.main_response_and_thoughts) {
-        return parsed.main_response_and_thoughts;
-      }
-    } catch {
-      /* fall through */
-    }
-  }
-  return action?.thoughts ?? '';
-}
-
-function parsePerPlayer(step: ArenaReplayPlayer[]): (ArenaPerPlayerObs | null)[] {
+function parsePerPlayer(step: OpenSpielRawPlayer[]): (ArenaPerPlayerObs | null)[] {
   return step.map((p) => {
     const raw = p?.observation?.observationString;
     if (!raw) return null;
@@ -135,17 +112,32 @@ function pickBoardForTeam(privateObs: (ArenaPerPlayerObs | null)[], teamId: numb
   return null;
 }
 
+// Ant Foraging is 2v2 (seats 0,1 = team A; seats 2,3 = team B), so we can't
+// use the shared 2-player `buildForfeitReason`. Build the reason inline.
+function buildArenaForfeitReason(forfeit: { index: number; reasonKey: string }, teamNames: string[]): string {
+  const loser = teamNames[forfeit.index] ?? `Player ${forfeit.index}`;
+  const loserTeamLabel = forfeit.index < PLAYERS_PER_TEAM ? 'Team A' : 'Team B';
+  const winnerTeamLabel = forfeit.index < PLAYERS_PER_TEAM ? 'Team B' : 'Team A';
+  const reason = FORFEIT_REASONS[forfeit.reasonKey] ?? 'forfeited';
+  return `${loser} (${loserTeamLabel}) ${reason}. ${winnerTeamLabel} wins by default.`;
+}
+
 export const antForagingArenaTransformer = (environment: any): ArenaStep[] => {
   const teamNames: string[] = environment?.info?.TeamNames ?? ['Player 0', 'Player 1', 'Player 2', 'Player 3'];
-  const rawSteps: ArenaReplayPlayer[][] = environment?.steps ?? [];
+  const rawSteps: OpenSpielRawPlayer[][] = environment?.steps ?? [];
   const out: ArenaStep[] = [];
 
   rawSteps.forEach((step, index) => {
+    const forfeit = detectForfeit(step);
     const privateObs = parsePerPlayer(step);
 
     const players: ArenaPlayer[] = step.map((p, i): ArenaPlayer => {
       const submission = p.action?.submission;
-      const isTurn = submission !== undefined && submission !== null && submission !== -1;
+      const isForfeiter = forfeit?.index === i;
+      // A forfeit step's offender has submission === -1 but should still be
+      // treated as "acting" so the step is retained and their thoughts /
+      // last-attempt render in the side panel.
+      const isTurn = (submission !== undefined && submission !== null && submission !== -1) || isForfeiter;
       return {
         id: i,
         name: teamNames[i] ?? `Player ${i}`,
@@ -157,6 +149,8 @@ export const antForagingArenaTransformer = (environment: any): ArenaStep[] => {
         generateReturns: p.action?.generate_returns ?? null,
         teamId: Math.floor(i / PLAYERS_PER_TEAM),
         seat: i % PLAYERS_PER_TEAM,
+        forfeited: isForfeiter,
+        forfeitLastAttempt: isForfeiter ? (p.action?.actionString ?? null) : null,
       };
     });
 
@@ -177,7 +171,8 @@ export const antForagingArenaTransformer = (environment: any): ArenaStep[] => {
 
     // Sample one obs to read shared state (move_number, etc.).
     const sample = privateObs.find((o) => o !== null) ?? null;
-    const isTerminal = !!step[0]?.observation?.isTerminal || !!sample?.is_terminal;
+    const observationTerminal = !!step[0]?.observation?.isTerminal || !!sample?.is_terminal;
+    const isTerminal = observationTerminal || forfeit !== null;
 
     out.push({
       step: index,
@@ -193,6 +188,7 @@ export const antForagingArenaTransformer = (environment: any): ArenaStep[] => {
       returns: sample?.returns ?? null,
       winningTeam: sample?.winning_team ?? null,
       lastActionPerBoard,
+      forfeitReason: forfeit ? buildArenaForfeitReason(forfeit, teamNames) : null,
     });
   });
 

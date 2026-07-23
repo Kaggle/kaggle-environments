@@ -4,28 +4,17 @@
 // is a sequential game: only the active player produces a real action in any
 // given step; the inactive player just submits -1.
 //
-// We surface the LLM's `thoughts` (and `generate_returns`, when present, in
-// the Go-harness shape) so the right-hand Game Log can render reasoning.
+// Forfeit handling (illegal-move / TIMEOUT / ERROR) is delegated to the
+// shared helpers in @kaggle-environments/core so that every OpenSpiel game
+// labels early terminations the same way.
 
-interface BreakthroughAction {
-  submission?: number;
-  actionString?: string | null;
-  thoughts?: string | null;
-  status?: string | null;
-  generate_returns?: string[] | null;
-}
-
-interface BreakthroughObservation {
-  observationString?: string;
-  isTerminal?: boolean;
-}
-
-interface BreakthroughReplayPlayer {
-  action?: BreakthroughAction;
-  reward: number;
-  observation: BreakthroughObservation;
-  status?: string;
-}
+import {
+  detectForfeit,
+  buildForfeitReason,
+  deriveWinnerFromRewards,
+  parseThoughts,
+  OpenSpielRawPlayer,
+} from '@kaggle-environments/core';
 
 interface BreakthroughPlayer {
   id: number;
@@ -36,6 +25,8 @@ interface BreakthroughPlayer {
   thoughts: string;
   reward: number;
   generateReturns: string[] | null;
+  forfeited: boolean;
+  forfeitLastAttempt: string | null;
 }
 
 export type BreakthroughCell = 'b' | 'w' | '.';
@@ -58,23 +49,13 @@ export interface BreakthroughStep {
   players: BreakthroughPlayer[];
   boardState: BreakthroughBoardState | null;
   isTerminal: boolean;
+  winner: string | null;
+  // Non-null on the terminal step when the game ended because a player
+  // forfeited (illegal-move retries exhausted, timeout, or crash).
+  forfeitReason: string | null;
 }
 
-function parseThoughts(action?: BreakthroughAction): string {
-  if (action?.generate_returns?.[0]) {
-    try {
-      const parsed = JSON.parse(action.generate_returns[0]);
-      if (parsed.main_response_and_thoughts) {
-        return parsed.main_response_and_thoughts;
-      }
-    } catch {
-      // fall through to action.thoughts
-    }
-  }
-  return action?.thoughts ?? '';
-}
-
-function parseBoardState(step: BreakthroughReplayPlayer[]): BreakthroughBoardState | null {
+function parseBoardState(step: OpenSpielRawPlayer[]): BreakthroughBoardState | null {
   const raw = step?.[0]?.observation?.observationString ?? step?.[1]?.observation?.observationString;
   if (!raw) return null;
   try {
@@ -86,13 +67,19 @@ function parseBoardState(step: BreakthroughReplayPlayer[]): BreakthroughBoardSta
 
 export const breakthroughTransformer = (environment: any): BreakthroughStep[] => {
   const teamNames: string[] = environment?.info?.TeamNames ?? ['Player 1', 'Player 2'];
-  const rawSteps: BreakthroughReplayPlayer[][] = environment?.steps ?? [];
+  const rawSteps: OpenSpielRawPlayer[][] = environment?.steps ?? [];
   const out: BreakthroughStep[] = [];
 
   rawSteps.forEach((step, index) => {
+    const forfeit = detectForfeit(step);
+
     const players: BreakthroughPlayer[] = step.map((p, i): BreakthroughPlayer => {
       const submission = p.action?.submission;
-      const isTurn = submission !== undefined && submission !== -1;
+      const isForfeiter = forfeit?.index === i;
+      // A forfeit step's offender has submission === -1 but should still be
+      // treated as "acting" so the step is retained and their thoughts /
+      // last-attempt render in the side panel.
+      const isTurn = (submission !== undefined && submission !== null && submission !== -1) || isForfeiter;
       return {
         id: i,
         name: teamNames[i] ?? (i === 0 ? 'Player 1' : 'Player 2'),
@@ -102,18 +89,24 @@ export const breakthroughTransformer = (environment: any): BreakthroughStep[] =>
         thoughts: parseThoughts(p.action),
         reward: p.reward ?? 0,
         generateReturns: p.action?.generate_returns ?? null,
+        forfeited: isForfeiter,
+        forfeitLastAttempt: isForfeiter ? (p.action?.actionString ?? null) : null,
       };
     });
 
     // Skip the env's setup step where both players submit -1.
     if (!players.some((pl) => pl.isTurn)) return;
 
-    const isTerminal = !!step[0]?.observation?.isTerminal;
+    const observationTerminal = !!step[0]?.observation?.isTerminal;
+    const isTerminal = observationTerminal || forfeit !== null;
+
     out.push({
       step: index,
       players,
       boardState: parseBoardState(step),
       isTerminal,
+      winner: isTerminal ? deriveWinnerFromRewards(step, teamNames) : null,
+      forfeitReason: forfeit ? buildForfeitReason(forfeit, teamNames) : null,
     });
   });
 

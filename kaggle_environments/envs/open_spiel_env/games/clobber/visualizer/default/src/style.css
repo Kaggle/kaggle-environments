@@ -115,6 +115,11 @@ body,
   color: #444343;
 }
 
+.status-container .annotation.forfeit-reason {
+  color: #a03030;
+  font-style: italic;
+}
+
 @container (max-width: 680px) {
   .header { font-size: 0.95rem; gap: 8px; }
   .header .player { padding: 3px 8px; }

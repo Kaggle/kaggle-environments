@@ -20,7 +20,6 @@ createReplayVisualizer(
     transformer: (replay) => ({
       ...replay,
       steps: goTransformer(replay),
-      isTransformed: true,
     }),
   })
 );

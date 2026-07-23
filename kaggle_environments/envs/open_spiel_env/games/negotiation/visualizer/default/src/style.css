@@ -322,6 +322,11 @@ body,
   font-size: 0.9rem;
 }
 
+.neg-status .neg-status-sub.forfeit-reason {
+  color: #a03030;
+  font-style: italic;
+}
+
 @container (max-width: 680px) {
   .neg-player-card {
     padding: 6px 8px;

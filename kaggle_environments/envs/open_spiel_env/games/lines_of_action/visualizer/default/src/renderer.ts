@@ -1,4 +1,4 @@
-import type { RendererOptions } from '@kaggle-environments/core';
+import { escapeHtml, type RendererOptions } from '@kaggle-environments/core';
 import type { LoaBoardState, LoaCell, LoaMove, LoaStep } from './transformers/loaTransformer';
 
 const PLAYER_X_COLOR = '#1f77b4';
@@ -231,7 +231,9 @@ export function renderer(options: RendererOptions<LoaStep[]>) {
     return;
   }
 
-  const isTerminal = observation.is_terminal;
+  const isTerminal = !!currentStep?.isTerminal || observation.is_terminal;
+  const forfeitReason = currentStep?.forfeitReason ?? null;
+  const forfeiterIdx = currentStep?.players?.findIndex((p) => p.forfeited) ?? -1;
   const currentPlayer = observation.current_player;
   const playerNames = [getPlayerName(replay, 0), getPlayerName(replay, 1)];
   const activeIdx = isTerminal ? -1 : currentPlayer === 'x' ? 0 : currentPlayer === 'o' ? 1 : -1;
@@ -272,8 +274,16 @@ export function renderer(options: RendererOptions<LoaStep[]>) {
       statusHTML = `<span style="color: ${PLAYER_X_COLOR};">${playerNames[0]} (X) wins!</span>`;
     } else if (observation.winner === 'o') {
       statusHTML = `<span style="color: ${PLAYER_O_COLOR};">${playerNames[1]} (O) wins!</span>`;
+    } else if (forfeitReason && forfeiterIdx >= 0) {
+      const winnerIdx = 1 - forfeiterIdx;
+      const winnerColor = winnerIdx === 0 ? PLAYER_X_COLOR : PLAYER_O_COLOR;
+      const glyph = winnerIdx === 0 ? 'X' : 'O';
+      statusHTML = `<span style="color: ${winnerColor};">${playerNames[winnerIdx]} (${glyph}) wins!</span>`;
     } else {
       statusHTML = `<span>Draw</span>`;
+    }
+    if (forfeitReason) {
+      statusHTML += `<span class="annotation forfeit-reason">${escapeHtml(forfeitReason)}</span>`;
     }
   } else {
     const turnColor = activeIdx === 0 ? PLAYER_X_COLOR : PLAYER_O_COLOR;

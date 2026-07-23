@@ -489,7 +489,6 @@ export const werewolfTransformer = (processedReplay: any): WerewolfProcessedRepl
   }
 
   processedReplay.steps = newSteps;
-  processedReplay.isTransformed = true;
 
   processedReplay.visualizerData = {
     allEvents,

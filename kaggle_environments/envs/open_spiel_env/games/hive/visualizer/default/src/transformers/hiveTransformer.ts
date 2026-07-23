@@ -2,26 +2,18 @@
 //
 // Builds the per-step `players` array that the side-panel UI needs and parses
 // the proxy's JSON observation into a typed board state.
+//
+// Forfeit handling (illegal-move / TIMEOUT / ERROR) is delegated to the
+// shared helpers in @kaggle-environments/core so that every OpenSpiel game
+// labels early terminations the same way.
 
-interface HiveAction {
-  submission?: number;
-  actionString?: string | null;
-  thoughts?: string | null;
-  status?: string | null;
-  generate_returns?: string[] | null;
-}
-
-interface HiveObservation {
-  observationString?: string;
-  isTerminal?: boolean;
-}
-
-interface HiveReplayPlayer {
-  action?: HiveAction;
-  reward: number;
-  observation: HiveObservation;
-  status?: string;
-}
+import {
+  detectForfeit,
+  buildForfeitReason,
+  deriveWinnerFromRewards,
+  parseThoughts,
+  OpenSpielRawPlayer,
+} from '@kaggle-environments/core';
 
 interface HivePlayer {
   id: number;
@@ -32,6 +24,8 @@ interface HivePlayer {
   thoughts: string;
   reward: number;
   generateReturns: string[] | null;
+  forfeited: boolean;
+  forfeitLastAttempt: string | null;
 }
 
 export type HivePieces = Record<string, [number, number, number]>;
@@ -58,23 +52,14 @@ export interface HiveStep {
   boardState: HiveBoardState | null;
   isTerminal: boolean;
   winner: string | null;
+  // Non-null on the terminal step when the game ended because a player
+  // forfeited (illegal-move retries exhausted, timeout, or crash). The
+  // renderer surfaces this instead of the normal "X wins!" line so the
+  // reason for the early end is clear.
+  forfeitReason: string | null;
 }
 
-function parseThoughts(action?: HiveAction): string {
-  if (action?.generate_returns?.[0]) {
-    try {
-      const parsed = JSON.parse(action.generate_returns[0]);
-      if (parsed.main_response_and_thoughts) {
-        return parsed.main_response_and_thoughts;
-      }
-    } catch {
-      // fall through
-    }
-  }
-  return action?.thoughts ?? '';
-}
-
-function parseBoardState(step: HiveReplayPlayer[]): HiveBoardState | null {
+function parseBoardState(step: OpenSpielRawPlayer[]): HiveBoardState | null {
   const raw = step?.[0]?.observation?.observationString ?? step?.[1]?.observation?.observationString;
   if (!raw) return null;
   try {
@@ -84,26 +69,21 @@ function parseBoardState(step: HiveReplayPlayer[]): HiveBoardState | null {
   }
 }
 
-function deriveWinner(board: HiveBoardState | null, step: HiveReplayPlayer[]): string | null {
-  if (board?.winner === 'white') return 'White wins!';
-  if (board?.winner === 'black') return 'Black wins!';
-  if (board?.winner === 'draw') return 'Draw';
-  if (step.length < 2) return null;
-  const r0 = step[0].reward;
-  const r1 = step[1].reward;
-  if (r0 === r1) return 'Draw';
-  return r0 > r1 ? 'White wins!' : 'Black wins!';
-}
-
 export const hiveTransformer = (environment: any): HiveStep[] => {
   const teamNames: string[] = environment?.info?.TeamNames ?? ['White', 'Black'];
-  const rawSteps: HiveReplayPlayer[][] = environment?.steps ?? [];
+  const rawSteps: OpenSpielRawPlayer[][] = environment?.steps ?? [];
   const out: HiveStep[] = [];
 
   rawSteps.forEach((step, index) => {
+    const forfeit = detectForfeit(step);
+
     const players: HivePlayer[] = step.map((p, i): HivePlayer => {
       const submission = p.action?.submission;
-      const isTurn = submission !== undefined && submission !== -1;
+      const isForfeiter = forfeit?.index === i;
+      // A forfeit step's offender has submission === -1 but should still be
+      // treated as "acting" so the step is retained and their thoughts /
+      // last-attempt render in the side panel.
+      const isTurn = (submission !== undefined && submission !== null && submission !== -1) || isForfeiter;
       return {
         id: i,
         name: teamNames[i] ?? (i === 0 ? 'White' : 'Black'),
@@ -113,20 +93,28 @@ export const hiveTransformer = (environment: any): HiveStep[] => {
         thoughts: parseThoughts(p.action),
         reward: p.reward ?? 0,
         generateReturns: p.action?.generate_returns ?? null,
+        forfeited: isForfeiter,
+        forfeitLastAttempt: isForfeiter ? (p.action?.actionString ?? null) : null,
       };
     });
 
-    // Skip the env's setup step where both players submit -1.
+    // Skip the env's setup step where both players submit -1 and neither
+    // forfeited.
     if (!players.some((pl) => pl.isTurn)) return;
 
     const boardState = parseBoardState(step);
-    const isTerminal = !!step[0]?.observation?.isTerminal || !!boardState?.is_terminal;
+    const observationTerminal = !!step[0]?.observation?.isTerminal || !!boardState?.is_terminal;
+    // A forfeit ends the episode even though OpenSpiel's own state isn't
+    // terminal; treat it as terminal so downstream UI shows the end state.
+    const isTerminal = observationTerminal || forfeit !== null;
+
     out.push({
       step: index,
       players,
       boardState,
       isTerminal,
-      winner: isTerminal ? deriveWinner(boardState, step) : null,
+      winner: isTerminal ? deriveWinnerFromRewards(step, teamNames) : null,
+      forfeitReason: forfeit ? buildForfeitReason(forfeit, teamNames) : null,
     });
   });
 

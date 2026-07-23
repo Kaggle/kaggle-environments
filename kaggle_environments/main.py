@@ -20,7 +20,7 @@ from typing import Any
 
 from kaggle_environments import errors, utils
 from kaggle_environments.agent import Agent
-from kaggle_environments.core import environments, evaluate, make
+from kaggle_environments.core import _lazy_environments, environments, evaluate, make
 
 parser = argparse.ArgumentParser(description="Kaggle Simulations")
 parser.add_argument(
@@ -96,7 +96,7 @@ def render(args: Any, env: Any) -> Any:
 
 
 def action_list(args: Any) -> str:
-    return json.dumps([*environments])
+    return json.dumps(sorted({*environments, *_lazy_environments}))
 
 
 def action_evaluate(args: Any) -> str:

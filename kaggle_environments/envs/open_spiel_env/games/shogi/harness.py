@@ -150,6 +150,9 @@ still uses SFEN's uppercase-Sente / lowercase-Gote convention):
 
 You are Player {player_label} ({side_label}, {piece_case} pieces).
 
+Your pieces on the board (source-square list for board moves; unpromoted
+letters, ``+`` prefix marks promoted): {own_roster}
+
 Move number: {move_number}
 Last move played: {last_move}
 Moves played so far this game (both players, oldest first): {full_history}
@@ -181,6 +184,7 @@ an illegal move, will result in a loss.
 RETHINK_ILLEGAL = """
 
 You suggested move "{previous_action}" but this is not a legal move.
+{diagnosis}
 Reconsider the rules (piece movement, promotion zone, drop restrictions
 including nifu and uchifuzume) and the current board, then pick a legal
 move.
@@ -214,6 +218,11 @@ The move you choose must also be legal in the current state.
 
 _FILE_LABELS = "987654321"  # column 0 is file 9, column 8 is file 1
 _RANK_LABELS = "abcdefghi"  # row 0 is rank a, row 8 is rank i
+
+# Iteration order for hand / roster displays (major -> minor).
+_PIECE_ORDER = ["K", "R", "B", "G", "S", "N", "L", "P"]
+
+EMPTY_CELL = "."
 
 
 def _parse_observation_payload(observation: Mapping[str, Any]) -> dict[str, Any]:
@@ -253,6 +262,162 @@ def _format_board_ascii(board: Sequence[Sequence[str]]) -> str:
         cells = " ".join(f"{cell:>2}" for cell in row)
         lines.append(f" {_RANK_LABELS[r]} {cells}")
     return "\n".join(lines)
+
+
+def _square_label(row: int, col: int) -> str:
+    """Board index (row 0-8 top-down, col 0-8 left-to-right) -> USI square."""
+    return f"{_FILE_LABELS[col]}{_RANK_LABELS[row]}"
+
+
+def _parse_square(square: str) -> tuple[int, int] | None:
+    """USI square (e.g. ``"7g"``) -> ``(row, col)`` board indices, or ``None``."""
+    if len(square) != 2:
+        return None
+    try:
+        col = _FILE_LABELS.index(square[0])
+        row = _RANK_LABELS.index(square[1])
+    except ValueError:
+        return None
+    return row, col
+
+
+def _format_own_roster(board: Sequence[Sequence[str]], player_id: int) -> str:
+    """List the current player's on-board pieces grouped by type.
+
+    Rendered as e.g. ``"K:5i, G:4i,6i, ..."``. The point is to give the
+    model an explicit source-square list so it stops trying to move
+    opponent squares or empty squares -- the two most common illegal
+    board moves in the replay archive. Piece letters are always shown
+    uppercase (matching USI drop notation and the hand rendering) and
+    promoted pieces are prefixed with ``+``.
+    """
+    if not board:
+        return "(unavailable)"
+    want_uppercase = player_id == 0
+    grouped: dict[str, list[str]] = {}
+    for row_idx, row in enumerate(board):
+        for col_idx, cell in enumerate(row):
+            if cell == EMPTY_CELL:
+                continue
+            letter = cell[-1]  # last char; strips optional '+'
+            is_sente = letter.isupper()
+            if is_sente != want_uppercase:
+                continue
+            key = ("+" if cell.startswith("+") else "") + letter.upper()
+            grouped.setdefault(key, []).append(_square_label(row_idx, col_idx))
+    if not grouped:
+        return "(none)"
+    ordered: list[str] = []
+    for base in _PIECE_ORDER:
+        for prefix in ("", "+"):
+            key = prefix + base
+            if key in grouped:
+                ordered.append(f"{key}:{','.join(grouped[key])}")
+    return "; ".join(ordered) if ordered else "(none)"
+
+
+def _diagnose_illegal_move(
+    move: str,
+    board: Sequence[Sequence[str]],
+    captured: Mapping[str, Mapping[str, int]],
+    player_id: int,
+) -> str:
+    """Explain WHY ``move`` is illegal from the given position.
+
+    Returns a short one-sentence hint. Falls back to a generic string
+    when the move syntax is unrecognized -- the engine already rejected
+    it, so this only needs to help common cases (empty source,
+    opponent-source, out-of-hand drop, occupied-drop, own-square
+    capture, non-promotable geometry).
+    """
+    if not move:
+        return ""
+    side_label = "Sente" if player_id == 0 else "Gote"
+    want_uppercase = player_id == 0
+
+    # Drop: <UPPERCASE_PIECE>*<square>
+    if "*" in move:
+        parts = move.split("*")
+        if len(parts) != 2 or len(parts[0]) != 1 or not parts[0].isalpha():
+            return "Reason: drop notation must be <PIECE>*<square>, e.g. P*5e."
+        piece = parts[0].upper()
+        sq = _parse_square(parts[1])
+        if sq is None:
+            return f"Reason: {parts[1]!r} is not a valid square (files 1-9, ranks a-i)."
+        row, col = sq
+        # Hand check
+        side_key = "b" if player_id == 0 else "w"
+        # SFEN hand keys are uppercase for Sente, lowercase for Gote.
+        hand = captured.get(side_key) or {}
+        hand_letter = piece if want_uppercase else piece.lower()
+        if hand.get(hand_letter, 0) <= 0:
+            return f"Reason: you have no {piece} in hand to drop."
+        # Occupied target
+        if board and board[row][col] != EMPTY_CELL:
+            return f"Reason: {parts[1]} is occupied by {board[row][col]!r}; drops must target empty squares."
+        # Back-rank restrictions
+        rank_letter = _RANK_LABELS[row]
+        if piece == "P" or piece == "L":
+            if (player_id == 0 and rank_letter == "a") or (player_id == 1 and rank_letter == "i"):
+                return f"Reason: dropping a {piece} on the opponent's back rank leaves it with no legal move."
+        if piece == "N":
+            if (player_id == 0 and rank_letter in ("a", "b")) or (player_id == 1 and rank_letter in ("h", "i")):
+                return f"Reason: dropping a knight this deep leaves it with no legal forward move."
+        # Nifu (pawn drop into a file already containing your unpromoted pawn)
+        if piece == "P" and board:
+            own_pawn = "P" if want_uppercase else "p"
+            for r in range(9):
+                if board[r][col] == own_pawn:
+                    return (
+                        f"Reason: nifu -- file {_FILE_LABELS[col]} already contains "
+                        f"one of your unpromoted pawns ({own_pawn} on {_square_label(r, col)})."
+                    )
+        return "Reason: this drop violates a drop rule (nifu, uchifuzume, or a back-rank restriction)."
+
+    # Board move: <from><to> with optional trailing '+'.
+    promotes = move.endswith("+")
+    core = move[:-1] if promotes else move
+    if len(core) != 4:
+        return "Reason: board moves are <from><to>, four characters like 7g7f (add + to promote)."
+    fr_sq = _parse_square(core[:2])
+    to_sq = _parse_square(core[2:4])
+    if fr_sq is None or to_sq is None:
+        return "Reason: coordinates must use files 1-9 (right to left) and ranks a-i (top to bottom)."
+    if fr_sq == to_sq:
+        return "Reason: from-square and to-square are the same."
+    if not board:
+        return ""
+    fr_row, fr_col = fr_sq
+    to_row, to_col = to_sq
+    piece = board[fr_row][fr_col]
+    if piece == EMPTY_CELL:
+        return f"Reason: {core[:2]} is empty; there is no piece to move."
+    piece_letter = piece[-1]
+    is_sente_piece = piece_letter.isupper()
+    if is_sente_piece != want_uppercase:
+        owner = "Sente" if is_sente_piece else "Gote"
+        return f"Reason: the piece on {core[:2]} ({piece!r}) is {owner}'s -- you are {side_label} and may only move your own pieces."
+    dest = board[to_row][to_col]
+    if dest != EMPTY_CELL:
+        dest_is_sente = dest[-1].isupper()
+        if dest_is_sente == want_uppercase:
+            return f"Reason: {core[2:4]} is occupied by your own {dest!r}; you cannot capture your own pieces."
+    if promotes:
+        # Promotion requires the piece to touch the promotion zone and to
+        # be a promotable type (not K/G and not already promoted).
+        base = piece_letter.upper()
+        if piece.startswith("+"):
+            return f"Reason: {piece!r} is already promoted; promotions cannot stack."
+        if base in ("K", "G"):
+            return f"Reason: {base} (king/gold) never promotes."
+        promo_rows = (0, 1, 2) if player_id == 0 else (6, 7, 8)
+        if fr_row not in promo_rows and to_row not in promo_rows:
+            zone = "a, b, c" if player_id == 0 else "g, h, i"
+            return (
+                f"Reason: promotion requires the move to start in, end in, or leave "
+                f"your promotion zone (ranks {zone}); {core[:2]}->{core[2:4]} touches neither."
+            )
+    return ""
 
 
 def _format_hand(hand: Mapping[str, int]) -> str:
@@ -332,13 +497,31 @@ def generate_prompt(
         player_label=player_id,
         side_label=side_label,
         piece_case=piece_case,
+        own_roster=_format_own_roster(board, player_id),
         move_number=move_number,
         last_move=last_move,
         full_history=full_history,
     )
 
+    # Pre-fill {diagnosis} on the ILLEGAL template so render_rethink_suffix
+    # (which only knows how to substitute {previous_action}) doesn't need
+    # to grow shogi-specific parameters. Escape any braces in the
+    # diagnosis before splicing -- the diagnosis text can contain
+    # unvalidated model input (e.g. an unparseable drop square echoed
+    # back), and render_rethink_suffix runs .format() on the whole
+    # template afterwards, which would otherwise raise on a stray '{'.
+    diagnosis = ""
+    if previous_action:
+        diagnosis = _diagnose_illegal_move(
+            previous_action, board, captured, player_id
+        )
+    escaped_diagnosis = diagnosis.replace("{", "{{").replace("}", "}}")
+    illegal_template = RETHINK_ILLEGAL.replace(
+        "{diagnosis}", escaped_diagnosis + ("\n" if diagnosis else "")
+    )
+
     prompt += render_rethink_suffix(
-        RETHINK_ILLEGAL,
+        illegal_template,
         RETHINK_UNPARSABLE,
         previous_response,
         previous_action,

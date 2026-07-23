@@ -1,5 +1,6 @@
 """Tests for the Shogi LLM harness."""
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pyspiel
@@ -589,6 +590,210 @@ class AgentIntegrationTest(absltest.TestCase):
 
         # Shogi rarely terminates in 10 plies; just confirm we round-tripped.
         self.assertGreater(state.move_number(), 0)
+
+
+class OwnRosterTest(absltest.TestCase):
+    """The prompt's per-player piece roster is the model's authoritative
+    source-square list; wrong-piece and empty-square moves accounted for
+    ~740 of ~1270 illegal-move rethinks in the July 2026 replay archive.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.game = shogi_proxy.ShogiGame()
+        self.state = self.game.new_initial_state()
+
+    def test_initial_roster_covers_sente_pieces(self):
+        obs = _make_observation(self.state, self.game, player_id=0)
+        prompt = generate_prompt(obs, [])
+        # Kings, back-rank golds, rook, bishop, and pawn rank should all
+        # appear as source-square lists for Sente.
+        self.assertIn("K:5i", prompt)
+        self.assertIn("R:2h", prompt)
+        self.assertIn("B:8h", prompt)
+        # Sente's pawn rank g contains nine files.
+        self.assertIn("P:9g,8g,7g,6g,5g,4g,3g,2g,1g", prompt)
+        # Gote pieces (lowercase back rank) must NOT appear in Sente's roster.
+        self.assertNotIn("K:5a", prompt)
+
+    def test_roster_swaps_for_gote(self):
+        obs = _make_observation(self.state, self.game, player_id=1)
+        prompt = generate_prompt(obs, [])
+        self.assertIn("K:5a", prompt)
+        self.assertIn("P:9c,8c,7c,6c,5c,4c,3c,2c,1c", prompt)
+        self.assertNotIn("K:5i", prompt)
+
+
+class DiagnoseIllegalMoveTest(absltest.TestCase):
+    """The rethink prompt should explain WHY a move was rejected. Blind
+    "not a legal move" retries make up the largest slice of rethink loops
+    in the archive; targeting the specific failure mode gives models a
+    concrete correction signal.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.game = shogi_proxy.ShogiGame()
+        self.state = self.game.new_initial_state()
+
+    def _prompt_after(self, moves, player_id, previous_action):
+        _apply_sequence(self.state, moves)
+        obs = _make_observation(self.state, self.game, player_id=player_id)
+        return generate_prompt(
+            obs,
+            [],
+            previous_response=f"I'll play {previous_action}",
+            previous_action=previous_action,
+        )
+
+    def test_reason_empty_source(self):
+        # 5e is empty in the initial position; moving from there is nonsense.
+        prompt = self._prompt_after([], 0, "5e5d")
+        self.assertIn("5e is empty", prompt)
+
+    def test_reason_opponent_source(self):
+        # Sente tries to move a Gote pawn (rank c).
+        prompt = self._prompt_after([], 0, "7c7d")
+        self.assertIn("Gote's", prompt)
+        # And still identifies which side the calling model is.
+        self.assertIn("you are Sente", prompt)
+
+    def test_reason_own_capture(self):
+        # 5i is Sente's king; 4i is Sente's gold. King cannot capture own gold.
+        prompt = self._prompt_after([], 0, "5i4i")
+        self.assertIn("your own", prompt)
+
+    def test_reason_bad_promotion_geometry(self):
+        # 7g7f is a pawn push that never touches the promotion zone
+        # (ranks a-c for Sente), so appending + must be diagnosed.
+        prompt = self._prompt_after([], 0, "7g7f+")
+        self.assertIn("promotion", prompt)
+        self.assertIn("a, b, c", prompt)
+
+    def test_reason_promote_already_promoted(self):
+        # After 7g7f 3c3d 8h2b+ 3a2b, Sente has captured Gote's bishop
+        # and Gote's silver moved to 2b. Now Sente tries to move rook
+        # onto 8h and re-promote a promoted piece (contrived) — instead
+        # test via the diagnose helper directly for a promoted source.
+        from kaggle_environments.envs.open_spiel_env.games.shogi.harness import (
+            _diagnose_illegal_move,
+        )
+        board = [
+            ["."] * 9,
+            ["."] * 9,
+            ["."] * 9,
+            ["."] * 9,
+            ["."] * 9,
+            ["."] * 9,
+            ["."] * 9,
+            ["+P", ".", ".", ".", ".", ".", ".", ".", "."],
+            ["."] * 9,
+        ]
+        # +P at row 7 col 0 = square 9h. Try "9h9g+" (already promoted).
+        msg = _diagnose_illegal_move("9h9g+", board, {"b": {}, "w": {}}, 0)
+        self.assertIn("already promoted", msg)
+
+    def test_reason_drop_without_piece_in_hand(self):
+        # Initial position: neither hand holds a pawn, but Sente tries P*5e.
+        prompt = self._prompt_after([], 0, "P*5e")
+        self.assertIn("no P in hand", prompt)
+
+    def test_reason_drop_onto_occupied_square(self):
+        # Give Sente a pawn in hand (7g7f 3c3d 8h2b+ 3a2b: Sente has B).
+        # Then try B*5i (occupied by Sente's own king).
+        from kaggle_environments.envs.open_spiel_env.games.shogi.harness import (
+            _diagnose_illegal_move,
+        )
+        board = [["."] * 9 for _ in range(9)]
+        board[8][4] = "K"  # 5i
+        captured = {"b": {"B": 1}, "w": {}}
+        msg = _diagnose_illegal_move("B*5i", board, captured, 0)
+        self.assertIn("occupied", msg)
+
+    def test_reason_nifu(self):
+        # Sente already has an unpromoted pawn on file 5 (rank g). Given
+        # a P in hand, dropping P*5e is nifu.
+        from kaggle_environments.envs.open_spiel_env.games.shogi.harness import (
+            _diagnose_illegal_move,
+        )
+        board = [["."] * 9 for _ in range(9)]
+        board[6][4] = "P"  # 5g
+        captured = {"b": {"P": 1}, "w": {}}
+        msg = _diagnose_illegal_move("P*5e", board, captured, 0)
+        self.assertIn("nifu", msg)
+
+    def test_reason_drop_pawn_on_back_rank(self):
+        # Sente drops P on rank a (opponent's back rank). Even without a
+        # nifu conflict, this is illegal because the pawn has no forward
+        # square.
+        from kaggle_environments.envs.open_spiel_env.games.shogi.harness import (
+            _diagnose_illegal_move,
+        )
+        board = [["."] * 9 for _ in range(9)]
+        captured = {"b": {"P": 1}, "w": {}}
+        msg = _diagnose_illegal_move("P*5a", board, captured, 0)
+        self.assertIn("back rank", msg)
+
+    def test_diagnosis_survives_braces_in_previous_action(self):
+        # The diagnosis for "not a valid square" echoes the raw model
+        # input (parts[1]) before it has been validated -- a hallucinated
+        # move like "P*5{" or "P*{a}" would splice a stray '{' into the
+        # illegal-rethink template, and render_rethink_suffix runs
+        # .format() on the template afterwards, so any unescaped brace
+        # crashes generate_prompt mid-turn. This must NOT raise.
+        obs = _make_observation(self.state, self.game, player_id=0)
+        for bad in ("P*5{", "P*{a}", "7g7{"):
+            prompt = generate_prompt(
+                obs,
+                [],
+                previous_response=f"I'll play {bad}",
+                previous_action=bad,
+            )
+            # The literal (unformatted) model input must appear once via
+            # the {previous_action} substitution; the diagnosis echo of
+            # the same braces must not have been re-interpreted.
+            self.assertIn(bad, prompt)
+
+    def test_no_diagnosis_on_first_attempt(self):
+        # Fresh prompt (no previous_action) should not include a diagnosis
+        # sentence.
+        obs = _make_observation(self.state, self.game, player_id=0)
+        prompt = generate_prompt(obs, [])
+        self.assertNotIn("Reason:", prompt)
+
+
+class GoteRookPromotionRegressionTest(absltest.TestCase):
+    """Regression test for open_spiel commit 415f1d92: PieceTypeToString
+    used to return "+R" for both Sente and Gote promoted rooks, so a
+    White promoted rook would serialize as uppercase "+R" and confuse
+    the proxy's board parser (which uses letter case to assign
+    ownership). The pinned open_spiel 2.0.1 includes the fix; this test
+    guards against a future version regression.
+    """
+
+    def test_gote_promoted_rook_is_lowercase(self):
+        game = shogi_proxy.ShogiGame()
+        state = game.new_initial_state()
+        # A short forced line that ends with Gote's rook reaching 2g and
+        # promoting there (into Sente's promotion zone).
+        moves = [
+            "7g7f", "8c8d", "7f7e", "8d8e", "7e7d", "7c7d",
+            "2g2f", "8e8f", "8g8f", "8b8f", "2f2e", "8f7f",
+            "2e2d", "7f2f", "5i6h", "2f2g+",
+        ]
+        _apply_sequence(state, moves)
+
+        parsed = json.loads(state.observation_string(0))
+        board = parsed["board"]
+        sfen_board_field = parsed["sfen"].split(" ")[0]
+
+        # SFEN board field must use lowercase +r for Gote's promoted rook.
+        self.assertIn("+r", sfen_board_field)
+        self.assertNotIn("+R", sfen_board_field)
+
+        # And the parsed board grid must place a Gote (lowercase) promoted
+        # rook at 2g -- row 6, col 7 (files are right-to-left).
+        self.assertEqual(board[6][7], "+r")
 
 
 if __name__ == "__main__":

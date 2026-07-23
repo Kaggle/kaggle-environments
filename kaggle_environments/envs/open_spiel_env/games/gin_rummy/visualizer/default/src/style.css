@@ -487,6 +487,11 @@ body,
   color: #444343;
 }
 
+.status-container .annotation.forfeit-reason {
+  color: #a03030;
+  font-style: italic;
+}
+
 .status-container .phase-pill {
   background-color: #bdeeff;
   border: 1px dashed #3c3b37;

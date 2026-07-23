@@ -3,20 +3,14 @@
 // Populates `players[]` so the side-panel sidebar can render each mover's
 // thoughts / action label, and pre-parses the observation JSON into
 // `boardState` for the renderer.
+//
+// Snake supports 1-4 players and terminal-state / winner information comes
+// from the observation JSON (`boardState.is_terminal` / `boardState.winner`),
+// so we don't emit a reward-derived winner at the step level. We do emit a
+// step-level `forfeitReason` so renderers can label the offender with the
+// actual detected reason (TIMEOUT / INVALID / ERROR) rather than guessing.
 
-interface SnakeAction {
-  submission?: number;
-  actionString?: string | null;
-  thoughts?: string | null;
-  generate_returns?: string[] | null;
-}
-
-interface SnakeReplayPlayer {
-  action?: SnakeAction;
-  reward: number;
-  observation: { observationString?: string };
-  status?: string;
-}
+import { detectForfeit, FORFEIT_REASONS, parseThoughts, OpenSpielRawPlayer } from '@kaggle-environments/core';
 
 interface SnakePlayer {
   id: number;
@@ -26,6 +20,8 @@ interface SnakePlayer {
   actionDisplayText: string;
   thoughts: string;
   reward: number;
+  forfeited: boolean;
+  forfeitLastAttempt: string | null;
 }
 
 export interface SnakeBoardState {
@@ -55,25 +51,12 @@ export interface SnakeStep {
   step: number;
   players: SnakePlayer[];
   boardState: SnakeBoardState | null;
+  // Non-null when a player forfeited on this step. Cooperative game: no
+  // "wins by default" clause -- just names the offender and the reason.
+  forfeitReason: string | null;
 }
 
-// action.thoughts is the harness-curated summary and the preferred source.
-// generate_returns[0].main_response_and_thoughts is the raw LLM output;
-// use it only when the harness didn't populate thoughts.
-function parseThoughts(action?: SnakeAction): string {
-  if (action?.thoughts) return action.thoughts;
-  if (action?.generate_returns?.[0]) {
-    try {
-      const parsed = JSON.parse(action.generate_returns[0]);
-      if (parsed.main_response_and_thoughts) return parsed.main_response_and_thoughts;
-    } catch {
-      // fall through
-    }
-  }
-  return '';
-}
-
-function parseBoardState(step: SnakeReplayPlayer[]): SnakeBoardState | null {
+function parseBoardState(step: OpenSpielRawPlayer[]): SnakeBoardState | null {
   const raw = step?.[0]?.observation?.observationString;
   if (!raw) return null;
   try {
@@ -88,25 +71,41 @@ const isRealMove = (submission: unknown): boolean =>
 
 export const snakeTransformer = (environment: any): SnakeStep[] => {
   const teamNames: string[] = environment?.info?.TeamNames ?? [];
-  const rawSteps: SnakeReplayPlayer[][] = environment?.steps ?? [];
+  const rawSteps: OpenSpielRawPlayer[][] = environment?.steps ?? [];
 
   return rawSteps.map((step, index): SnakeStep => {
-    const players: SnakePlayer[] = step.map(
-      (p, i): SnakePlayer => ({
+    const forfeit = detectForfeit(step);
+
+    const players: SnakePlayer[] = step.map((p, i): SnakePlayer => {
+      const isForfeiter = forfeit?.index === i;
+      // A forfeit step's offender submits -1 but should still be treated as
+      // "acting" so their thoughts / last attempt render in the sidebar.
+      const isTurn = isRealMove(p.action?.submission) || isForfeiter;
+      return {
         id: i,
         name: teamNames[i] || `Player ${i}`,
         thumbnail: '',
-        isTurn: isRealMove(p.action?.submission),
+        isTurn,
         actionDisplayText: p.action?.actionString ?? '',
         thoughts: parseThoughts(p.action),
         reward: p.reward ?? 0,
-      })
-    );
+        forfeited: isForfeiter,
+        forfeitLastAttempt: isForfeiter ? (p.action?.actionString ?? null) : null,
+      };
+    });
+
+    let forfeitReason: string | null = null;
+    if (forfeit) {
+      const loser = teamNames[forfeit.index] || `Player ${forfeit.index}`;
+      const reason = FORFEIT_REASONS[forfeit.reasonKey] ?? 'forfeited';
+      forfeitReason = `${loser} ${reason}.`;
+    }
 
     return {
       step: index,
       players,
       boardState: parseBoardState(step),
+      forfeitReason,
     };
   });
 };

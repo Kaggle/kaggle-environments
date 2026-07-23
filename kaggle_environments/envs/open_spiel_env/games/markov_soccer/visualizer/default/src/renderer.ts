@@ -1,4 +1,4 @@
-import type { RendererOptions } from '@kaggle-environments/core';
+import { escapeHtml, type RendererOptions } from '@kaggle-environments/core';
 import type { SoccerStep } from './transformers/markovSoccerTransformer';
 
 const COLOR_A = '#1f77b4';
@@ -354,16 +354,27 @@ export function renderer(options: RendererOptions<SoccerStep[]>) {
 
   // --- Status: round, ball ownership, last moves, terminal outcome. ---
   const round = idx; // step 0 is the setup pre-game; round N corresponds to step N.
+  const isTerminal = !!currentStep?.isTerminal || state.is_terminal;
+  const forfeitReason = currentStep?.forfeitReason ?? null;
+  const forfeiterIdx = currentStep?.players?.findIndex((p) => p.forfeited) ?? -1;
   let statusHTML = '';
-  if (state.is_terminal) {
+  if (isTerminal) {
     if (state.winner === 'draw') {
       statusHTML = `<span>Draw &mdash; horizon reached</span>`;
     } else if (state.winner === 'A') {
       statusHTML = `<span style="color: ${COLOR_A};">${nameA} wins!</span>`;
     } else if (state.winner === 'B') {
       statusHTML = `<span style="color: ${COLOR_B};">${nameB} wins!</span>`;
+    } else if (forfeitReason && forfeiterIdx >= 0) {
+      const winnerIdx = 1 - forfeiterIdx;
+      const winnerColor = winnerIdx === 0 ? COLOR_A : COLOR_B;
+      const winnerName = winnerIdx === 0 ? nameA : nameB;
+      statusHTML = `<span style="color: ${winnerColor};">${winnerName} wins!</span>`;
     } else {
       statusHTML = '<span>Game over</span>';
+    }
+    if (forfeitReason) {
+      statusHTML += `<span class="annotation forfeit-reason">${escapeHtml(forfeitReason)}</span>`;
     }
   } else {
     let ballText: string;

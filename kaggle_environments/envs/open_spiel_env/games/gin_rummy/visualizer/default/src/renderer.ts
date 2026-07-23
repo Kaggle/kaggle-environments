@@ -1,4 +1,4 @@
-import type { RendererOptions } from '@kaggle-environments/core';
+import { escapeHtml, type RendererOptions } from '@kaggle-environments/core';
 import type { GinRummyStep } from './transformers/ginRummyTransformer';
 
 interface GinRummyObservation {
@@ -298,7 +298,8 @@ function buildStatus(
   playerNames: string[],
   activeIdx: number,
   winnerIdx: number,
-  isTerminal: boolean
+  isTerminal: boolean,
+  forfeitReason: string | null
 ): string {
   const parts: string[] = [];
   if (observation.phase) {
@@ -334,6 +335,9 @@ function buildStatus(
       html += ` <span class="annotation">(score ${ret[0]} : ${ret[1]})</span>`;
     }
     parts.push(html);
+    if (forfeitReason) {
+      parts.push(`<span class="annotation forfeit-reason">${escapeHtml(forfeitReason)}</span>`);
+    }
   }
   return parts.join(' ');
 }
@@ -360,7 +364,8 @@ export function renderer(options: RendererOptions<GinRummyStep[]>) {
   const bottomRow = parent.querySelector('.bottom-row') as HTMLDivElement;
   const statusContainer = parent.querySelector('.status-container') as HTMLDivElement;
 
-  const currentStep = steps[step]?.rawStep;
+  const stepData = steps[step];
+  const currentStep = stepData?.rawStep;
   const observation = mergedObservation(currentStep);
   if (!observation) {
     statusContainer.textContent = 'Waiting for first observation...';
@@ -368,9 +373,18 @@ export function renderer(options: RendererOptions<GinRummyStep[]>) {
   }
 
   const playerNames = [getPlayerName(replay, 0), getPlayerName(replay, 1)];
-  const isTerminal = observation.is_terminal;
+  // Prefer the transformer-supplied isTerminal -- it also fires on forfeits,
+  // which the raw OpenSpiel observation.is_terminal does not.
+  const isTerminal = !!stepData?.isTerminal || observation.is_terminal;
+  const forfeitReason = stepData?.forfeitReason ?? null;
+  const forfeiterIdx = stepData?.players?.findIndex((p) => p.forfeited) ?? -1;
   const activeIdx = isTerminal ? -1 : observation.current_player;
-  const winnerIdx = typeof observation.winner === 'number' ? observation.winner : -1;
+  // Derive winnerIdx: prefer the observation's native winner field, fall back
+  // to the forfeit loser (opponent wins by default).
+  let winnerIdx = typeof observation.winner === 'number' ? observation.winner : -1;
+  if (winnerIdx < 0 && forfeitReason && forfeiterIdx >= 0) {
+    winnerIdx = 1 - forfeiterIdx;
+  }
 
   header.innerHTML = `
     <span class="player sketched-border ${activeIdx === 0 ? 'active' : ''}" style="color: ${PLAYER_0_COLOR};">
@@ -427,5 +441,13 @@ export function renderer(options: RendererOptions<GinRummyStep[]>) {
     highlightCardP0
   );
 
-  statusContainer.innerHTML = buildStatus(observation, lastAction, playerNames, activeIdx, winnerIdx, isTerminal);
+  statusContainer.innerHTML = buildStatus(
+    observation,
+    lastAction,
+    playerNames,
+    activeIdx,
+    winnerIdx,
+    isTerminal,
+    forfeitReason
+  );
 }

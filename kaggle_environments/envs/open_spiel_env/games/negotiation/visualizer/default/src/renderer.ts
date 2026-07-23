@@ -1,4 +1,4 @@
-import type { RendererOptions } from '@kaggle-environments/core';
+import { escapeHtml, type RendererOptions } from '@kaggle-environments/core';
 import type { NegotiationStep } from './transformers/negotiationTransformer';
 
 const ITEM_COLORS = ['#1f4f8b', '#9a3324', '#3c6e3c', '#7a5a1f', '#5c3a73', '#b6862c'];
@@ -134,8 +134,14 @@ function renderConversation(obs: NegotiationObs): string {
   return messages.join('');
 }
 
-function turnBadge(obs: NegotiationObs, step: number, totalSteps: number): string {
-  if (obs.is_terminal) {
+function turnBadge(
+  obs: NegotiationObs,
+  step: number,
+  totalSteps: number,
+  currentStep: NegotiationStep | undefined
+): string {
+  const isTerminal = !!currentStep?.isTerminal || obs.is_terminal;
+  if (isTerminal) {
     return `<div class="neg-turn-badge">step ${step} of ${totalSteps - 1}</div>`;
   }
   const who = obs.current_player >= 0 ? `Player ${obs.current_player + 1}` : '—';
@@ -143,24 +149,43 @@ function turnBadge(obs: NegotiationObs, step: number, totalSteps: number): strin
   return `<div class="neg-turn-badge">${who}'s ${turn}<br/>step ${step} of ${totalSteps - 1}</div>`;
 }
 
-function statusText(obs: NegotiationObs): string {
-  if (!obs.is_terminal) {
+function statusText(obs: NegotiationObs, currentStep: NegotiationStep | undefined): string {
+  const isTerminal = !!currentStep?.isTerminal || obs.is_terminal;
+  const forfeitReason = currentStep?.forfeitReason ?? null;
+  const forfeiterIdx = currentStep?.players?.findIndex((p) => p.forfeited) ?? -1;
+
+  if (!isTerminal) {
     const proposalsSoFar = obs.proposals.filter((p) => !p.accept).length;
     return `<div>Round ${proposalsSoFar + 1} of up to ${obs.max_steps} · max quantity per item is ${5}</div>
       <div class="neg-status-sub">utterances are private symbols — they carry no game effect</div>`;
   }
+
+  // Prefer the on-observation winner; if the game ended by forfeit before
+  // agreement, obs.winner is null and we derive the winning side from the
+  // forfeiter's index.
+  let result: string;
+  if (obs.winner === 'draw') {
+    result = 'Tied utility';
+  } else if (obs.winner === 0) {
+    result = 'Player 1 wins on utility';
+  } else if (obs.winner === 1) {
+    result = 'Player 2 wins on utility';
+  } else if (forfeitReason && forfeiterIdx >= 0) {
+    const winnerIdx = 1 - forfeiterIdx;
+    result = `Player ${winnerIdx + 1} wins by default`;
+  } else {
+    result = 'Game over';
+  }
+
   const r = obs.rewards ?? [0, 0];
-  const result =
-    obs.winner === 'draw'
-      ? 'Tied utility'
-      : obs.winner === 0
-        ? 'Player 1 wins on utility'
-        : obs.winner === 1
-          ? 'Player 2 wins on utility'
-          : 'Game over';
-  const reason = obs.agreement_reached ? 'Deal accepted' : 'No agreement reached';
-  return `<div><b>${reason}</b> — ${result}</div>
-    <div class="neg-status-sub">final utility: Player 1 = ${r[0]} · Player 2 = ${r[1]}</div>`;
+  const headline = forfeitReason
+    ? '<b>Game ended early</b>'
+    : `<b>${obs.agreement_reached ? 'Deal accepted' : 'No agreement reached'}</b>`;
+  const forfeitLine = forfeitReason
+    ? `<div class="neg-status-sub forfeit-reason">${escapeHtml(forfeitReason)}</div>`
+    : '';
+  return `<div>${headline} — ${result}</div>
+    <div class="neg-status-sub">final utility: Player 1 = ${r[0]} · Player 2 = ${r[1]}</div>${forfeitLine}`;
 }
 
 export function renderer(options: RendererOptions<NegotiationStep[]>) {
@@ -191,7 +216,9 @@ export function renderer(options: RendererOptions<NegotiationStep[]>) {
     return;
   }
 
-  const isTerm = obs.is_terminal;
+  // Prefer currentStep.isTerminal — it also fires on forfeits, which the
+  // raw is_terminal flag does not.
+  const isTerm = !!current?.isTerminal || obs.is_terminal;
   const activeP0 = !isTerm && obs.current_player === 0;
   const activeP1 = !isTerm && obs.current_player === 1;
 
@@ -222,7 +249,7 @@ export function renderer(options: RendererOptions<NegotiationStep[]>) {
 
   header.innerHTML = `
     ${playerCard(0, p0Utils, activeP0, r[0])}
-    ${turnBadge(obs, safeStep, steps.length)}
+    ${turnBadge(obs, safeStep, steps.length, current)}
     ${playerCard(1, p1Utils, activeP1, r[1])}
   `;
 
@@ -235,5 +262,5 @@ export function renderer(options: RendererOptions<NegotiationStep[]>) {
   // Keep the most recent message in view.
   log.scrollTop = log.scrollHeight;
 
-  status.innerHTML = statusText(obs);
+  status.innerHTML = statusText(obs, current);
 }

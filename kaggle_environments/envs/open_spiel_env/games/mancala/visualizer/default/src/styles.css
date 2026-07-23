@@ -95,6 +95,14 @@ body {
   border: 2px solid rgba(255, 255, 255, 0.2);
 }
 
+.mancala-forfeit-reason {
+  color: #a03030;
+  font-style: italic;
+  font-size: clamp(0.8rem, 1.2vw, 1rem);
+  text-align: center;
+  padding: 4px 12px;
+}
+
 /* === Player cards === */
 .mancala-player-card {
   position: relative;

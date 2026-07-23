@@ -5,19 +5,13 @@
 // game — each seat's observation shows different utilities, so `boardState`
 // keeps both players' pre-parsed observations side by side.
 
-interface NegotiationAction {
-  submission?: number;
-  actionString?: string | null;
-  thoughts?: string | null;
-  generate_returns?: string[] | null;
-}
-
-interface NegotiationReplayPlayer {
-  action?: NegotiationAction;
-  reward: number;
-  observation: { observationString?: string };
-  status?: string;
-}
+import {
+  detectForfeit,
+  buildForfeitReason,
+  deriveWinnerFromRewards,
+  parseThoughts,
+  OpenSpielRawPlayer,
+} from '@kaggle-environments/core';
 
 interface NegotiationPlayer {
   id: number;
@@ -27,6 +21,8 @@ interface NegotiationPlayer {
   actionDisplayText: string;
   thoughts: string;
   reward: number;
+  forfeited: boolean;
+  forfeitLastAttempt: string | null;
 }
 
 export interface NegotiationObs {
@@ -59,22 +55,9 @@ export interface NegotiationStep {
   boardState: {
     perPlayer: [NegotiationObs | null, NegotiationObs | null];
   } | null;
-}
-
-// action.thoughts is the harness-curated summary and the preferred source.
-// generate_returns[0].main_response_and_thoughts is the raw LLM output;
-// use it only when the harness didn't populate thoughts.
-function parseThoughts(action?: NegotiationAction): string {
-  if (action?.thoughts) return action.thoughts;
-  if (action?.generate_returns?.[0]) {
-    try {
-      const parsed = JSON.parse(action.generate_returns[0]);
-      if (parsed.main_response_and_thoughts) return parsed.main_response_and_thoughts;
-    } catch {
-      // fall through
-    }
-  }
-  return '';
+  isTerminal: boolean;
+  winner: string | null;
+  forfeitReason: string | null;
 }
 
 function parseObs(raw?: string): NegotiationObs | null {
@@ -91,28 +74,43 @@ const isRealMove = (submission: unknown): boolean =>
 
 export const negotiationTransformer = (environment: any): NegotiationStep[] => {
   const teamNames: string[] = environment?.info?.TeamNames ?? [];
-  const rawSteps: NegotiationReplayPlayer[][] = environment?.steps ?? [];
+  const rawSteps: OpenSpielRawPlayer[][] = environment?.steps ?? [];
 
   return rawSteps.map((step, index): NegotiationStep => {
-    const players: NegotiationPlayer[] = step.map(
-      (p, i): NegotiationPlayer => ({
+    const forfeit = detectForfeit(step);
+
+    const players: NegotiationPlayer[] = step.map((p, i): NegotiationPlayer => {
+      const isForfeiter = forfeit?.index === i;
+      return {
         id: i,
         name: teamNames[i] || `Player ${i + 1}`,
         thumbnail: '',
-        isTurn: isRealMove(p.action?.submission),
+        // Forfeiter submits -1 but should still be treated as acting so
+        // their thoughts / last attempt render in the sidebar.
+        isTurn: isRealMove(p.action?.submission) || isForfeiter,
         actionDisplayText: p.action?.actionString ?? '',
         thoughts: parseThoughts(p.action),
         reward: p.reward ?? 0,
-      })
-    );
+        forfeited: isForfeiter,
+        forfeitLastAttempt: isForfeiter ? (p.action?.actionString ?? null) : null,
+      };
+    });
 
     const obs0 = parseObs(step?.[0]?.observation?.observationString);
     const obs1 = parseObs(step?.[1]?.observation?.observationString);
+
+    // OpenSpiel's is_terminal lives per-seat inside the observation JSON
+    // here; either seat's flag is authoritative when set.
+    const observationTerminal = !!(obs0?.is_terminal || obs1?.is_terminal);
+    const isTerminal = observationTerminal || forfeit !== null;
 
     return {
       step: index,
       players,
       boardState: obs0 || obs1 ? { perPlayer: [obs0, obs1] } : null,
+      isTerminal,
+      winner: isTerminal ? deriveWinnerFromRewards(step, teamNames) : null,
+      forfeitReason: forfeit ? buildForfeitReason(forfeit, teamNames) : null,
     };
   });
 };

@@ -223,6 +223,11 @@ body,
   font-size: 0.95rem;
 }
 
+.status-container .annotation.forfeit-reason {
+  color: #a03030;
+  font-style: italic;
+}
+
 .status-container.team-a-wins {
   background: #d8eaf6;
 }

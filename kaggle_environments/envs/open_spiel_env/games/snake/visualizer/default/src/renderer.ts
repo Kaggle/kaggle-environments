@@ -1,4 +1,4 @@
-import type { RendererOptions } from '@kaggle-environments/core';
+import { escapeHtml, type RendererOptions } from '@kaggle-environments/core';
 import type { SnakeStep, SnakeBoardState } from './transformers/snakeTransformer';
 
 const PLAYER_COLORS = ['#1f4f8b', '#9a3324', '#2e7d32', '#7b1fa2'];
@@ -116,6 +116,12 @@ export function renderer(options: RendererOptions<SnakeStep[]>) {
   const canvas = wrap.querySelector('canvas') as HTMLCanvasElement;
   const statusEl = parent.querySelector('.snake-status') as HTMLDivElement;
 
+  // Snake is a multi-player scoring game — the transformer emits a
+  // step-level `forfeitReason` (already reflects the actual detected
+  // reason: TIMEOUT / INVALID / ERROR) that we append to the status line.
+  const currentStep = steps[step];
+  const forfeitReason = currentStep?.forfeitReason ?? null;
+
   // Header: one card per player.
   const headerHtml = obs.snakes
     .map((snake) => {
@@ -151,6 +157,9 @@ export function renderer(options: RendererOptions<SnakeStep[]>) {
     if (obs.pending_this_turn.length > 0) {
       status += ` (pending: ${obs.pending_this_turn.join(', ')})`;
     }
+  }
+  if (forfeitReason) {
+    status += ` <span class="forfeit-reason">${escapeHtml(forfeitReason)}</span>`;
   }
   statusEl.innerHTML = status;
 

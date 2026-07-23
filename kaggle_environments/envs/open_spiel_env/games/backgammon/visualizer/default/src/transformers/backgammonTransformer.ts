@@ -4,26 +4,18 @@
 // UI expects (one `players` entry per seat, plus a parsed `boardState`).
 // Backgammon is sequential: only the active player submits a real action;
 // the inactive player sends -1.
+//
+// Forfeit handling (illegal-move / TIMEOUT / ERROR) is delegated to the
+// shared helpers in @kaggle-environments/core so that every OpenSpiel game
+// labels early terminations the same way.
 
-interface BackgammonAction {
-  submission?: number;
-  actionString?: string | null;
-  thoughts?: string | null;
-  status?: string | null;
-  generate_returns?: string[] | null;
-}
-
-interface BackgammonObservation {
-  observationString?: string;
-  isTerminal?: boolean;
-}
-
-interface BackgammonReplayPlayer {
-  action?: BackgammonAction;
-  reward: number;
-  observation: BackgammonObservation;
-  status?: string;
-}
+import {
+  detectForfeit,
+  buildForfeitReason,
+  deriveWinnerFromRewards,
+  parseThoughts,
+  OpenSpielRawPlayer,
+} from '@kaggle-environments/core';
 
 interface BackgammonPlayer {
   id: number;
@@ -34,6 +26,8 @@ interface BackgammonPlayer {
   thoughts: string;
   reward: number;
   generateReturns: string[] | null;
+  forfeited: boolean;
+  forfeitLastAttempt: string | null;
 }
 
 export interface BackgammonPoint {
@@ -63,23 +57,12 @@ export interface BackgammonStep {
   boardState: BackgammonBoardState | null;
   isTerminal: boolean;
   winner: string | null;
+  // Non-null on the terminal step when the game ended because a player
+  // forfeited (illegal-move retries exhausted, timeout, or crash).
+  forfeitReason: string | null;
 }
 
-function parseThoughts(action?: BackgammonAction): string {
-  if (action?.generate_returns?.[0]) {
-    try {
-      const parsed = JSON.parse(action.generate_returns[0]);
-      if (parsed.main_response_and_thoughts) {
-        return parsed.main_response_and_thoughts;
-      }
-    } catch {
-      // fall through
-    }
-  }
-  return action?.thoughts ?? '';
-}
-
-function parseBoardState(step: BackgammonReplayPlayer[]): BackgammonBoardState | null {
+function parseBoardState(step: OpenSpielRawPlayer[]): BackgammonBoardState | null {
   const raw = step?.[0]?.observation?.observationString ?? step?.[1]?.observation?.observationString;
   if (!raw) return null;
   try {
@@ -89,23 +72,21 @@ function parseBoardState(step: BackgammonReplayPlayer[]): BackgammonBoardState |
   }
 }
 
-function deriveWinner(step: BackgammonReplayPlayer[], teamNames: string[]): string | null {
-  if (step.length < 2) return null;
-  const r0 = step[0].reward ?? 0;
-  const r1 = step[1].reward ?? 0;
-  if (r0 === r1) return 'Draw';
-  return r0 > r1 ? `${teamNames[0]} wins!` : `${teamNames[1]} wins!`;
-}
-
 export const backgammonTransformer = (environment: any): BackgammonStep[] => {
   const teamNames: string[] = environment?.info?.TeamNames ?? ['Player 1', 'Player 2'];
-  const rawSteps: BackgammonReplayPlayer[][] = environment?.steps ?? [];
+  const rawSteps: OpenSpielRawPlayer[][] = environment?.steps ?? [];
   const out: BackgammonStep[] = [];
 
   rawSteps.forEach((step, index) => {
+    const forfeit = detectForfeit(step);
+
     const players: BackgammonPlayer[] = step.map((p, i): BackgammonPlayer => {
       const submission = p.action?.submission;
-      const isTurn = submission !== undefined && submission !== -1;
+      const isForfeiter = forfeit?.index === i;
+      // A forfeit step's offender has submission === -1 but should still be
+      // treated as "acting" so the step is retained and their thoughts /
+      // last-attempt render in the side panel.
+      const isTurn = (submission !== undefined && submission !== null && submission !== -1) || isForfeiter;
       return {
         id: i,
         name: teamNames[i] ?? (i === 0 ? 'Player 1' : 'Player 2'),
@@ -115,19 +96,24 @@ export const backgammonTransformer = (environment: any): BackgammonStep[] => {
         thoughts: parseThoughts(p.action),
         reward: p.reward ?? 0,
         generateReturns: p.action?.generate_returns ?? null,
+        forfeited: isForfeiter,
+        forfeitLastAttempt: isForfeiter ? (p.action?.actionString ?? null) : null,
       };
     });
 
     // Skip the env's setup step where both players submit -1.
     if (!players.some((pl) => pl.isTurn)) return;
 
-    const isTerminal = !!step[0]?.observation?.isTerminal;
+    const observationTerminal = !!step[0]?.observation?.isTerminal;
+    const isTerminal = observationTerminal || forfeit !== null;
+
     out.push({
       step: index,
       players,
       boardState: parseBoardState(step),
       isTerminal,
-      winner: isTerminal ? deriveWinner(step, teamNames) : null,
+      winner: isTerminal ? deriveWinnerFromRewards(step, teamNames) : null,
+      forfeitReason: forfeit ? buildForfeitReason(forfeit, teamNames) : null,
     });
   });
 

@@ -6,6 +6,5 @@ export function transformer(replay: ReplayData): ReplayData<ChessStep[]> {
   return {
     ...replay,
     steps: chessTransformer(replay),
-    isTransformed: true,
   };
 }

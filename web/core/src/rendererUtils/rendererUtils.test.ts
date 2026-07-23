@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getStepData } from './rendererUtils';
+import { getStepData, escapeHtml } from './rendererUtils';
 import { RawReplayData } from '../types';
 import { makeEntry, makeRawReplay } from '../test-utils';
 
@@ -127,5 +127,21 @@ describe('getStepData', () => {
     expect(result).toHaveLength(2);
     expect(result![0].reward).toBe(1);
     expect(result![1].reward).toBe(-1);
+  });
+});
+
+describe('escapeHtml', () => {
+  it('escapes the five HTML-significant characters', () => {
+    expect(escapeHtml('<script>alert("x&y")</script>')).toBe('&lt;script&gt;alert(&quot;x&amp;y&quot;)&lt;/script&gt;');
+    expect(escapeHtml("it's")).toBe('it&#39;s');
+  });
+
+  it('is a no-op on plain text', () => {
+    expect(escapeHtml('Alice wins!')).toBe('Alice wins!');
+  });
+
+  it('encodes ampersands before other entities', () => {
+    // If the order were wrong, '&lt;' would become '&amp;lt;'.
+    expect(escapeHtml('<')).toBe('&lt;');
   });
 });

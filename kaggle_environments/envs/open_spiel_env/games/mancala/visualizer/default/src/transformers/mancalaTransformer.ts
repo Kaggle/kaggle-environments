@@ -2,22 +2,19 @@
 //
 // Populates `players[]` so the side-panel can show each mover's thoughts
 // and pit choice, and pre-parses the observation JSON into `boardState`.
+//
+// Forfeit handling (illegal-move / TIMEOUT / ERROR) is delegated to the
+// shared helpers in @kaggle-environments/core so that every OpenSpiel game
+// labels early terminations the same way.
 
+import {
+  detectForfeit,
+  buildForfeitReason,
+  deriveWinnerFromRewards,
+  parseThoughts,
+  OpenSpielRawPlayer,
+} from '@kaggle-environments/core';
 import type { MancalaObservation } from '../types';
-
-interface MancalaAction {
-  submission?: number;
-  actionString?: string | null;
-  thoughts?: string | null;
-  generate_returns?: string[] | null;
-}
-
-interface MancalaReplayPlayer {
-  action?: MancalaAction;
-  reward: number;
-  observation: { observationString?: string };
-  status?: string;
-}
 
 interface MancalaPlayer {
   id: number;
@@ -27,31 +24,24 @@ interface MancalaPlayer {
   actionDisplayText: string;
   thoughts: string;
   reward: number;
+  forfeited: boolean;
+  forfeitLastAttempt: string | null;
 }
 
 export interface MancalaStep {
   step: number;
   players: MancalaPlayer[];
   boardState: MancalaObservation | null;
+  isTerminal: boolean;
+  winner: string | null;
+  // Non-null on the terminal step when the game ended because a player
+  // forfeited (illegal-move retries exhausted, timeout, or crash). The
+  // renderer surfaces this instead of the normal "X wins!" line so the
+  // reason for the early end is clear.
+  forfeitReason: string | null;
 }
 
-// action.thoughts is the harness-curated summary and the preferred source.
-// generate_returns[0].main_response_and_thoughts is the raw LLM output;
-// use it only when the harness didn't populate thoughts.
-function parseThoughts(action?: MancalaAction): string {
-  if (action?.thoughts) return action.thoughts;
-  if (action?.generate_returns?.[0]) {
-    try {
-      const parsed = JSON.parse(action.generate_returns[0]);
-      if (parsed.main_response_and_thoughts) return parsed.main_response_and_thoughts;
-    } catch {
-      // fall through
-    }
-  }
-  return '';
-}
-
-function parseBoardState(step: MancalaReplayPlayer[]): MancalaObservation | null {
+function parseBoardState(step: OpenSpielRawPlayer[]): MancalaObservation | null {
   const raw = step?.[0]?.observation?.observationString;
   if (typeof raw !== 'string') return null;
   try {
@@ -66,25 +56,41 @@ const isRealMove = (submission: unknown): boolean =>
 
 export const mancalaTransformer = (environment: any): MancalaStep[] => {
   const teamNames: string[] = environment?.info?.TeamNames ?? [];
-  const rawSteps: MancalaReplayPlayer[][] = environment?.steps ?? [];
+  const rawSteps: OpenSpielRawPlayer[][] = environment?.steps ?? [];
 
   return rawSteps.map((step, index): MancalaStep => {
-    const players: MancalaPlayer[] = step.map(
-      (p, i): MancalaPlayer => ({
+    const forfeit = detectForfeit(step);
+
+    const players: MancalaPlayer[] = step.map((p, i): MancalaPlayer => {
+      const isForfeiter = forfeit?.index === i;
+      return {
         id: i,
         name: teamNames[i] || `Player ${i + 1}`,
         thumbnail: '',
-        isTurn: isRealMove(p.action?.submission),
+        // Forfeiter submits -1 but should still be treated as acting so
+        // their thoughts / last attempt render in the sidebar.
+        isTurn: isRealMove(p.action?.submission) || isForfeiter,
         actionDisplayText: p.action?.actionString ?? '',
         thoughts: parseThoughts(p.action),
         reward: p.reward ?? 0,
-      })
-    );
+        forfeited: isForfeiter,
+        forfeitLastAttempt: isForfeiter ? (p.action?.actionString ?? null) : null,
+      };
+    });
+
+    const boardState = parseBoardState(step);
+    const observationTerminal = !!step[0]?.observation?.isTerminal;
+    // A forfeit ends the episode even though OpenSpiel's own state isn't
+    // terminal; treat it as terminal so downstream UI shows the end state.
+    const isTerminal = observationTerminal || forfeit !== null;
 
     return {
       step: index,
       players,
-      boardState: parseBoardState(step),
+      boardState,
+      isTerminal,
+      winner: isTerminal ? deriveWinnerFromRewards(step, teamNames) : null,
+      forfeitReason: forfeit ? buildForfeitReason(forfeit, teamNames) : null,
     };
   });
 };

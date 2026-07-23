@@ -1,4 +1,4 @@
-import type { RendererOptions } from '@kaggle-environments/core';
+import { escapeHtml, type RendererOptions } from '@kaggle-environments/core';
 import type { CoinBoardState, CoinStep } from './transformers/coinGameTransformer';
 
 const PLAYER_COLORS = ['#1f77b4', '#d62728', '#2ca02c', '#9467bd', '#ff7f0e'];
@@ -268,6 +268,12 @@ export function renderer(options: RendererOptions<CoinStep[]>) {
   const playerNames = Array.from({ length: numPlayers }, (_, i) => getPlayerName(replay, i));
   const coinIndexFor = (label: string) => Math.max(0, (state.coin_colors ?? []).indexOf(label));
 
+  // Prefer currentStep.isTerminal -- it also fires on forfeits, which the raw
+  // OpenSpiel observation.is_terminal does not.
+  const isTerminal = !!currentStep?.isTerminal || state.is_terminal;
+  const forfeitReason = currentStep?.forfeitReason ?? null;
+  const forfeiterIdx = currentStep?.players?.findIndex((p) => p.forfeited) ?? -1;
+
   // Discover each player's preference if revealed (terminal state) or
   // available from any per-step private observation we've seen so far.
   const preferences: Record<number, string | null> = {};
@@ -346,15 +352,25 @@ export function renderer(options: RendererOptions<CoinStep[]>) {
   requestAnimationFrame(sizeAndDraw);
 
   // --- Status ---
+  // Prefer the transformer-supplied winner (also derived on forfeits) over
+  // the raw board's own winner field, which is null when the game ended by
+  // forfeit.
+  const stepWinner = currentStep?.winner ?? state.winner ?? null;
   let statusHTML = '';
-  if (state.is_terminal) {
-    if (state.winner === 'draw') {
+  if (isTerminal) {
+    if (stepWinner === 'draw') {
       statusHTML = `<span>Draw &mdash; returns ${state.returns?.map((r) => r.toFixed(0)).join(' / ') ?? '?'}</span>`;
-    } else if (state.winner !== null && state.winner !== undefined) {
-      const widx = Number(state.winner);
+    } else if (stepWinner !== null && stepWinner !== undefined) {
+      const widx = Number(stepWinner);
       statusHTML = `<span style="color: ${playerColorFor(widx)};">${playerNames[widx] ?? `Player ${widx}`} wins (${state.returns?.[widx]?.toFixed(0) ?? '?'} pts)</span>`;
+    } else if (forfeitReason && forfeiterIdx >= 0) {
+      const winnerIdx = 1 - forfeiterIdx;
+      statusHTML = `<span style="color: ${playerColorFor(winnerIdx)};">${playerNames[winnerIdx] ?? `Player ${winnerIdx}`} wins</span>`;
     } else {
       statusHTML = '<span>Game over</span>';
+    }
+    if (forfeitReason) {
+      statusHTML += `<span class="annotation forfeit-reason">${escapeHtml(forfeitReason)}</span>`;
     }
   } else {
     const turnColor = playerColorFor(state.current_player);

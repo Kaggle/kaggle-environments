@@ -35,6 +35,9 @@ environments: dict[str, dict[str, Any]] = {}
 # Registered Interactive Sessions.
 interactives: dict[str, tuple[Any, Any]] = {}
 
+# Loaders for envs deferred until first make(name). See register_lazy.
+_lazy_environments: dict[str, Callable[[], None]] = {}
+
 
 def register(name: str, environment: dict[str, Any]) -> None:
     """
@@ -45,7 +48,26 @@ def register(name: str, environment: dict[str, Any]) -> None:
      * html_renderer - Function(environment) -> JavaScript HTML renderer function.
      * agents(optional) - List of default agents [Function(observation, config) -> action]
     """
+    _lazy_environments.pop(name, None)
     environments[name] = environment
+
+
+def register_lazy(name: str, loader: Callable[[], None]) -> None:
+    """Register an environment whose module load is deferred until first use.
+
+    `loader` is a zero-arg callable that imports the env module and calls
+    `register(name, {...})`. It runs at most once per process.
+    """
+    _lazy_environments[name] = loader
+
+
+def _resolve_lazy(name: str) -> bool:
+    """Materialize a lazily-registered env if needed. Returns True if resolved."""
+    loader = _lazy_environments.pop(name, None)
+    if loader is None:
+        return name in environments
+    loader()
+    return name in environments
 
 
 def evaluate(
@@ -119,6 +141,8 @@ def make(
     if logs is None:
         logs = []
 
+    if has(environment, str) and environment in _lazy_environments:
+        _resolve_lazy(environment)
     if has(environment, str) and has(environments, dict, path=[environment]):
         return Environment(
             **environments[environment],

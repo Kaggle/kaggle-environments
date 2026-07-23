@@ -12,18 +12,61 @@ import warnings
 from typing import Any, Callable
 
 import numpy as np
-import pokerkit  # noqa: F401
 import pyspiel
-from open_spiel.python.games import (
-    ant_foraging,  # noqa: F401
-    pokerkit_wrapper,  # noqa: F401
-)
 
 from kaggle_environments import core, utils
 from kaggle_environments.envs.open_spiel_env.games.ant_foraging_arena import ant_foraging_arena_game  # noqa: F401
 from kaggle_environments.envs.open_spiel_env.games.bridge_arena import bridge_arena_game  # noqa: F401
 from kaggle_environments.envs.open_spiel_env.games.coin_game_arena import coin_game_arena_game  # noqa: F401
 from kaggle_environments.envs.open_spiel_env.games.snake import snake_game  # noqa: F401
+
+# open_spiel.python.games.{ant_foraging, pokerkit_wrapper} register their
+# games with pyspiel at import time and each pulls in ~1s of Python deps
+# (ant_foraging: NumPy grid setup; pokerkit_wrapper: pokerkit). Only three
+# entries in GAMES_LIST actually need them, so defer until a matching game
+# is built. Everything else — CLI --help, non-poker/non-ant-foraging envs —
+# skips the cost.
+#
+# Some proxy modules under games/*/*_proxy.py also depend on these
+# registrations (e.g. python_ant_foraging_proxy calls pyspiel.load_game
+# at module top). They are skipped during the auto-import scan and loaded
+# lazily by _ensure_python_game_registered when their base game is built.
+_PYTHON_GAME_REGISTRARS = {
+    "python_ant_foraging": ("open_spiel.python.games.ant_foraging", "python_ant_foraging"),
+    "python_pokerkit_wrapper": ("open_spiel.python.games.pokerkit_wrapper", None),
+    "python_repeated_pokerkit": ("open_spiel.python.games.pokerkit_wrapper", None),
+}
+
+
+# Proxy modules deferred at auto-import time (see _DEFERRED_PROXY_FILENAMES
+# below). Loaded on-demand by _ensure_python_game_registered when their base
+# game is built. Each proxy calls pyspiel.load_game at module top, so it
+# can't be auto-imported before its base game is registered.
+_DEFERRED_PROXY_SHORT_NAMES = {"python_ant_foraging", "quoridor"}
+
+
+def _ensure_python_game_registered(game_string: str) -> None:
+    """Import the module that registers `game_string` with pyspiel, if any.
+
+    Also imports the matching deferred proxy module (if one exists) so that
+    `pyspiel.load_game(short_name + "_proxy")` succeeds downstream.
+    """
+    short_name = game_string.split("(", 1)[0]
+    entry = _PYTHON_GAME_REGISTRARS.get(short_name)
+    if entry is not None:
+        base_module, proxy_short_name = entry
+        importlib.import_module(base_module)
+        if proxy_short_name is not None:
+            importlib.import_module(
+                f".games.{proxy_short_name}.{proxy_short_name}_proxy",
+                package=__package__,
+            )
+    elif short_name in _DEFERRED_PROXY_SHORT_NAMES:
+        importlib.import_module(
+            f".games.{short_name}.{short_name}_proxy",
+            package=__package__,
+        )
+
 
 ERROR = "ERROR"
 DONE = "DONE"
@@ -40,9 +83,18 @@ _handler.setFormatter(_formatter)
 _log.addHandler(_handler)
 
 # --- Import proxy games ---
+# Proxies deferred at scan time — either because their base game is a
+# deferred python module (see _PYTHON_GAME_REGISTRARS) or because loading
+# them at all triggers noisy C++ warnings from OpenSpiel (e.g. quoridor).
+# Loaded on-demand from _ensure_python_game_registered when the
+# corresponding env is built.
+_DEFERRED_PROXY_FILENAMES = {f"{n}_proxy.py" for n in _DEFERRED_PROXY_SHORT_NAMES}
+
 _log.debug("Auto-importing OpenSpiel game proxies...")
 GAMES_DIR = pathlib.Path(__file__).parent / "games"
 for proxy_file in GAMES_DIR.glob("**/*_proxy.py"):
+    if proxy_file.name in _DEFERRED_PROXY_FILENAMES:
+        continue
     try:
         relative_path = proxy_file.relative_to(GAMES_DIR.parent)
         module_path = str(relative_path.with_suffix("")).replace(os.path.sep, ".")
@@ -896,6 +948,7 @@ AGENT_REGISTRY = {
 
 
 def _build_env(game_string: str) -> dict[str, Any]:
+    _ensure_python_game_registered(game_string)
     game = pyspiel.load_game(game_string)
     short_name = game.get_type().short_name
 
@@ -954,10 +1007,32 @@ def _build_env(game_string: str) -> dict[str, Any]:
     }
 
 
+# Game short_names whose _build_env call is deferred until first use.
+# quoridor prints a duplicate "known issues" warning from OpenSpiel's C++
+# every time pyspiel.load_game("quoridor") runs; deferring keeps CLI
+# commands like --help / list silent.
+_LAZY_GAMES = {"quoridor"}
+
+
+def _make_lazy_env_loader(game_string: str):
+    """Return a zero-arg loader that materializes an env dict on demand."""
+
+    def _load():
+        return _build_env(game_string)
+
+    return _load
+
+
 def _register_game_envs(games_list: list[str]) -> dict[str, Any]:
     skipped_games = []
     registered_envs = {}
+    lazy_count = 0
     for game_string in games_list:
+        short_name = game_string.split("(", 1)[0]
+        if short_name in _LAZY_GAMES:
+            LAZY_ENV_LOADERS[f"open_spiel_{short_name}"] = _make_lazy_env_loader(game_string)
+            lazy_count += 1
+            continue
         try:
             env_config = _build_env(game_string)
             if env_config is None:
@@ -970,12 +1045,12 @@ def _register_game_envs(games_list: list[str]) -> dict[str, Any]:
             _log.debug(e)
             skipped_games.append(game_string)
 
-    _log.info(f"Successfully loaded OpenSpiel environments: {len(registered_envs)}.")
+    _log.info(f"Successfully loaded OpenSpiel environments: {len(registered_envs) + lazy_count}.")
     for env_name in registered_envs:
-        _log.info(f"   {env_name}")
+        _log.debug(f"   {env_name}")
     _log.info(f"OpenSpiel games skipped: {len(skipped_games)}.")
     for game_string in skipped_games:
-        _log.info(f"   {game_string}")
+        _log.debug(f"   {game_string}")
 
     return registered_envs
 
@@ -1056,4 +1131,5 @@ GAMES_LIST = [
     DEFAULT_REPEATED_POKERKIT_GAME_STRING,
 ]
 
+LAZY_ENV_LOADERS: dict[str, Callable[[], Any]] = {}
 ENV_REGISTRY = _register_game_envs(GAMES_LIST)
