@@ -474,6 +474,47 @@ class GameHarness(Protocol):
 # ---------------------------------------------------------------------------
 
 
+def _close_stream(stream: Any) -> None:
+    """Best-effort close of a litellm streaming response.
+
+    litellm's ``CustomStreamWrapper`` has no sync ``close()`` and does
+    NOT clean up its wrapped provider stream on ``__next__`` errors
+    (only re-raises via ``_handle_stream_fallback_error``). The wrapped
+    ``openai.Stream`` stored in ``.completion_stream`` does have a
+    ``close()`` that releases the underlying ``httpx.Response`` — this
+    is what actually sends the client-close signal upstream and
+    releases the model-proxy queue slot. On the success path the
+    OpenAI SDK closes automatically when the body is read to
+    completion; only the mid-stream error path needs this explicit
+    reach-through.
+    """
+    if stream is None:
+        return
+    # Prefer the wrapper's own close if a future litellm version adds
+    # one; otherwise reach through to the provider stream.
+    for target in (stream, getattr(stream, "completion_stream", None)):
+        if target is None:
+            continue
+        close = getattr(target, "close", None)
+        if callable(close):
+            try:
+                close()
+            except Exception as exc:
+                _log.warning(
+                    "Failed to close LLM stream (%s: %s); connection may "
+                    "leak until GC and MP queue slot may remain held",
+                    type(exc).__name__, exc,
+                )
+            return
+    # No callable close() at either level -- means litellm's stream
+    # structure changed and our reach-through no longer applies.
+    _log.warning(
+        "No close() on LLM stream (type=%s); connection cannot be "
+        "released and MP queue slots may pile up",
+        type(stream).__name__,
+    )
+
+
 def _call_llm(
     prompt: str,
     model_name: str,
@@ -530,6 +571,7 @@ def _call_llm(
         content_parts: list[str] = []
         finish_reason: str | None = None
         usage_obj: Any = None
+        stream: Any = None
         try:
             stream = litellm.completion(
                 model=model_name,
@@ -637,6 +679,8 @@ def _call_llm(
             )
             if backoff > 0:
                 time.sleep(backoff)
+        finally:
+            _close_stream(stream)
 
 
 def _build_call_detail(

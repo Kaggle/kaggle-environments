@@ -731,6 +731,181 @@ class TransportRetryTest(absltest.TestCase):
         failures = [e for e in self.events if "llm_call_exception" in e]
         self.assertTrue(any(e.get("exceeded_deadline") for e in failures))
 
+    def test_inner_stream_closed_after_success(self):
+        """Fully-consumed streams must still trigger the reach-through
+        close so the underlying httpx connection is returned to the pool
+        promptly. Models the litellm CustomStreamWrapper structure: the
+        outer wrapper has no sync close(), so we reach through to
+        .completion_stream (the openai.Stream / provider stream)."""
+
+        class _InnerStream:
+            def __init__(self):
+                self.close_calls = 0
+
+            def close(self):
+                self.close_calls += 1
+
+        class _WrappedStream:
+            """Mirrors litellm CustomStreamWrapper: iterates chunks but
+            has NO sync close(); the real close lives on .completion_stream."""
+
+            def __init__(self, gen, inner):
+                self._gen = gen
+                self.completion_stream = inner
+
+            def __iter__(self):
+                return self._gen
+
+        inner = _InnerStream()
+        wrapper = _WrappedStream(_fake_completion("move_0"), inner)
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", self._env(), clear=False), patch.object(
+            core_harness.litellm, "completion", return_value=wrapper,
+        ):
+            result = agent({}, {})
+        self.assertEqual(result["submission"], 0)
+        self.assertEqual(inner.close_calls, 1)
+
+    def test_outer_close_preferred_when_present(self):
+        """If a future litellm exposes a sync close() on the wrapper
+        itself, we should call that and NOT double-close by also
+        invoking the inner close."""
+
+        class _InnerStream:
+            def __init__(self):
+                self.close_calls = 0
+
+            def close(self):
+                self.close_calls += 1
+
+        class _WrapperWithClose:
+            def __init__(self, gen, inner):
+                self._gen = gen
+                self.completion_stream = inner
+                self.close_calls = 0
+
+            def __iter__(self):
+                return self._gen
+
+            def close(self):
+                self.close_calls += 1
+
+        inner = _InnerStream()
+        wrapper = _WrapperWithClose(_fake_completion("move_0"), inner)
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", self._env(), clear=False), patch.object(
+            core_harness.litellm, "completion", return_value=wrapper,
+        ):
+            agent({}, {})
+        self.assertEqual(wrapper.close_calls, 1)
+        self.assertEqual(inner.close_calls, 0)
+
+    def test_inner_stream_closed_on_transport_error_before_retry(self):
+        """The whole point of this test: on a mid-stream transport error
+        we MUST close the abandoned inner stream before opening a new
+        one, or the model proxy sees N concurrent queued requests per
+        logical call."""
+
+        class _InnerStream:
+            def __init__(self):
+                self.close_calls = 0
+
+            def close(self):
+                self.close_calls += 1
+
+        class _ExplodingWrapper:
+            def __init__(self, inner):
+                self.completion_stream = inner
+                self._iter_started = False
+
+            def __iter__(self):
+                self._iter_started = True
+                return self
+
+            def __next__(self):
+                raise httpx.ReadTimeout("socket died mid-stream")
+
+        inner = _InnerStream()
+        exploding = _ExplodingWrapper(inner)
+        side_effects = [exploding, _fake_completion("move_2")]
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", self._env(), clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=side_effects,
+        ) as mock_call:
+            result = agent({}, {})
+        self.assertEqual(result["submission"], 2)
+        self.assertEqual(mock_call.call_count, 2)
+        # The abandoned inner stream must have been closed exactly once
+        # BEFORE the retry call reached litellm.
+        self.assertEqual(inner.close_calls, 1)
+        self.assertTrue(exploding._iter_started)
+
+    def test_inner_stream_closed_on_non_retryable_exception(self):
+        """Even for terminal (non-retryable) errors, don't leak the response."""
+
+        class _InnerStream:
+            def __init__(self):
+                self.close_calls = 0
+
+            def close(self):
+                self.close_calls += 1
+
+        class _ExplodingWrapper:
+            def __init__(self, inner):
+                self.completion_stream = inner
+
+            def __iter__(self):
+                return self
+
+            def __next__(self):
+                raise RuntimeError("parser blew up")  # not in retryable set
+
+        inner = _InnerStream()
+        exploding = _ExplodingWrapper(inner)
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=1)
+        with patch.dict("os.environ", self._env(), clear=False), patch.object(
+            core_harness.litellm, "completion", return_value=exploding,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "parser blew up"):
+                agent({}, {})
+        self.assertEqual(inner.close_calls, 1)
+
+    def test_close_failure_does_not_mask_original_error(self):
+        """If close() itself raises, we swallow it so the retry logic
+        (or the caller) sees the original transport error, not the close
+        exception."""
+
+        class _StubbornInner:
+            def close(self):
+                raise RuntimeError("close blew up too")
+
+        class _StubbornWrapper:
+            def __init__(self):
+                self.completion_stream = _StubbornInner()
+
+            def __iter__(self):
+                return self
+
+            def __next__(self):
+                raise httpx.ReadTimeout("socket died mid-stream")
+
+        side_effects = [_StubbornWrapper(), _fake_completion("move_1")]
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", self._env(), clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=side_effects,
+        ):
+            result = agent({}, {})
+        # Retry proceeded despite the close-time exception.
+        self.assertEqual(result["submission"], 1)
+        retries = self._retry_events()
+        self.assertLen(retries, 1)
+        self.assertEqual(retries[0]["error_class"], "ReadTimeout")
+
     def test_first_try_success_reports_transport_attempts_1(self):
         harness = _SimpleHarness()
         agent = create_agent_fn(harness)
