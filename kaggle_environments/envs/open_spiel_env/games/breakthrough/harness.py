@@ -19,7 +19,6 @@ import pyspiel
 from kaggle_environments.core_harness import (
     ParseResult,
     parse_json_action,
-    render_rethink_suffix,
 )
 from kaggle_environments.envs.open_spiel_env.games.breakthrough.breakthrough_proxy import (
     PIECE_BLACK,
@@ -29,101 +28,62 @@ from kaggle_environments.envs.open_spiel_env.games.breakthrough.breakthrough_pro
 # --- Prompt -----------------------------------------------------------------
 
 
-BREAKTHROUGH_PROMPT_TEMPLATE = """Let's play Breakthrough.
+BREAKTHROUGH_PROMPT_TEMPLATE = """Let's play Breakthrough on a {rows}x{columns} board.
+Files {file_range} left-to-right; ranks 1-{rows} bottom-to-top.
 
-Rules: {rows}x{columns} board with files {file_range} (left-to-right) and
-ranks 1-{rows} (bottom-to-top). Player 0 ('b', Black) starts on
-{black_start_ranks} and moves first toward rank 1. Player 1 ('w', White)
-starts on {white_start_ranks} and moves toward rank {rows}. Each turn a
-player moves exactly one of their own pieces one square in one of three
-forward directions:
+Rules: Each turn move one of your pieces exactly one square forward:
+straight (empty square only, NEVER a capture), forward-diagonal-left, or
+forward-diagonal-right (each may land on an empty square OR capture an
+adjacent opponent piece diagonally). No sideways, backward, or multi-square
+moves. Captures are optional. Win by reaching the opponent's back rank OR
+capturing all opponent pieces. No draws.
 
-- straight forward (into an empty square),
-- forward-diagonal-left (into an empty square OR onto an opposing piece,
-  capturing it),
-- forward-diagonal-right (into an empty square OR onto an opposing piece,
-  capturing it).
+Notation: ``<from><to>`` for slides (``a7a6``), ``<from><to>*`` for diagonal
+captures (``b2c3*`` = piece on b2 captures diagonally to c3).
 
-Straight-forward moves may NEVER capture. Diagonal moves capture by
-displacing the opposing piece, which is removed from the board. Pieces
-never move sideways or backward, and there is no en-passant or any other
-special rule. Captures are NOT mandatory.
+Common illegal-move trap: a straight-forward slide can NEVER capture. If
+the square directly ahead of your piece holds an opponent, you must either
+approach it from a diagonal (a neighbouring file, one rank behind) or move
+a different piece.
 
-Win conditions (no draws are possible):
-- reach the opponent's back rank with any one of your pieces (rank 1 for
-  Black, rank {rows} for White); OR
-- capture all of the opponent's pieces (leaving them with none).
-
-Board (rank labels on the left, file labels on top; '.' = empty,
-'b' = Black piece, 'w' = White piece):
+Board ('.' = empty, 'b' = Black, 'w' = White):
 {board_ascii}
 
-Piece counts: Black ('b') = {black_count}, White ('w') = {white_count}.
-
-You are Player {player_label} ('{my_piece}'); the opponent is '{opp_piece}'.
-Your pieces are at: {my_squares}
-Opponent pieces are at: {opp_squares}
-"Forward" for you means toward rank {forward_rank} (your goal rank).
+Pieces: Black='b' ({black_count}), White='w' ({white_count}).
+You are Player {player_label} ('{my_piece}'), moving toward rank {forward_rank}.
+Your pieces: {my_squares}
+Opponent pieces: {opp_squares}
 
 Move number: {move_number}
-Last move played: {last_move}
-Moves played so far this game (both players, oldest first): {move_history}
+Last move: {last_move}
+Full move history (both players, oldest first): {move_history}
 
-Action notation: a 4-character string ``<from><to>`` denotes "the piece at
-<from> moves to <to>", where each square is lowercase file+rank (e.g.
-``a7`` or ``e4``). When the move is a diagonal capture, append a single
-``*`` to mark it as a capture, giving a 5-character string such as
-``b2c3*``. Examples: ``a7a6`` means "the piece on a7 slides straight
-forward to a6" (only legal when a6 is empty); ``b2c3*`` means "the White
-piece on b2 captures the Black piece on c3 diagonally". The from-square
-must hold one of your own pieces and the to-square must be adjacent and
-in one of your three forward directions.
-
-It is your turn. Choose one legal move.
-
-Respond with your reasoning followed by your final move in a JSON block:
+Respond with your reasoning, then your final move in a JSON block:
 
 ```json
-{{
-  "move": "<from><to>"
-}}
+{{"move": "<from><to>"}}
 ```
 
-For example: `{{"move": "a7a6"}}` (slide) or `{{"move": "b2c3*"}}` (capture).
+Examples: `{{"move": "a7a6"}}` (slide), `{{"move": "b2c3*"}}` (capture).
 
-Failure to output your final answer in the specified format, or selecting
-an illegal move, will result in a loss.
+Failure to output a legal move in this format results in a loss.
 """
 
-
-RETHINK_ILLEGAL = """
-
-You suggested move "{previous_action}" but this is not a legal move.
-Reconsider the rules and the current board state, then pick a legal move.
-Remember: straight-forward moves cannot capture, diagonal moves must land
-on an empty square or capture an opponent piece, and a diagonal capture
-must be written with a trailing ``*`` (e.g. ``b2c3*``).
-
-(Keep using the same JSON output format as before -- only the move value
-needs to change.)
-"""
 
 RETHINK_UNPARSABLE = """
 
 Your previous response ended with:
 {previous_response}
 
-No JSON answer could be parsed from that. Conclude your response with
-your final move as JSON in a ```json fenced block, exactly as the original
-instructions required:
+No JSON answer could be parsed. Conclude your response with the final move
+as JSON in a ```json fenced block:
 
 ```json
 {{"move": "<from><to>"}}
 ```
 
-For example: `{{"move": "a7a6"}}` (slide) or `{{"move": "b2c3*"}}` (capture).
-
-The move you choose must also be legal in the current state.
+Examples: `{{"move": "a7a6"}}` (slide) or `{{"move": "b2c3*"}}` (capture).
+The move must also be legal in the current state.
 """
 
 
@@ -222,6 +182,135 @@ def _match_move_to_legal(raw: str, legal_action_strings: Sequence[str]) -> str |
     return None
 
 
+def _cell(board: Sequence[Sequence[str]], file_idx: int, rank: int) -> str | None:
+    """Return the board character at (file_idx, rank), or None if off-board."""
+    rows = len(board)
+    row_idx = rows - rank
+    if not (0 <= row_idx < rows and 0 <= file_idx < len(board[row_idx])):
+        return None
+    return board[row_idx][file_idx]
+
+
+def _diagnose_illegal(
+    previous_action: str,
+    board: Sequence[Sequence[str]],
+    my_piece: str,
+    opp_piece: str,
+    forward_dir: int,
+    rows: int,
+) -> str:
+    """Return a one-line explanation of why ``previous_action`` was illegal.
+
+    Falls back to a generic hint when we can't decode the move well enough
+    to say something specific. The board / piece codes / forward_dir must
+    match the player who submitted ``previous_action``.
+    """
+    generic = (
+        "Re-check: from-square must be one of your pieces, to-square must "
+        "be one square forward or forward-diagonal, and only diagonals can "
+        "capture."
+    )
+    s = _normalize_move(previous_action)
+    star = s.endswith("*")
+    core = s[:-1] if star else s
+    if len(core) < 4 or not (core[0].isalpha() and core[1].isdigit()
+                             and core[2].isalpha() and core[3].isdigit()):
+        return (
+            "Move must be exactly `<file><rank><file><rank>` (e.g. `a7a6`), "
+            "with an optional trailing `*` on a diagonal capture."
+        )
+    fc = ord(core[0]) - ord("a")
+    tc = ord(core[2]) - ord("a")
+    try:
+        fr = int(core[1])
+        tr = int(core[3])
+    except ValueError:
+        return generic
+    fcell = _cell(board, fc, fr)
+    tcell = _cell(board, tc, tr)
+    if fcell is None or tcell is None:
+        return f"Square {core[0]}{fr} or {core[2]}{tr} is off the board."
+    if fcell != my_piece:
+        held = "an opponent piece" if fcell == opp_piece else "an empty square"
+        return (
+            f"The from-square {core[0]}{fr} holds {held}, not one of your "
+            f"pieces. Pick a from-square containing '{my_piece}'."
+        )
+    dcol = tc - fc
+    drow = tr - fr
+    if drow == 0:
+        return (
+            f"{core} is a sideways move. Pieces may only move forward "
+            f"(toward rank {rows if forward_dir == 1 else 1})."
+        )
+    if drow == -forward_dir:
+        return (
+            f"{core} moves backward. Forward for you is toward "
+            f"rank {rows if forward_dir == 1 else 1}."
+        )
+    if abs(drow) > 1 or abs(dcol) > 1:
+        return f"{core} spans more than one square; each move is exactly one square."
+    if dcol == 0:
+        if tcell == opp_piece:
+            left = chr(ord("a") + fc - 1) if fc > 0 else None
+            right = chr(ord("a") + fc + 1) if fc + 1 < len(board[0]) else None
+            diag_hint_parts = []
+            if left is not None:
+                diag_hint_parts.append(f"{core[0]}{fr}{left}{tr}*")
+            if right is not None:
+                diag_hint_parts.append(f"{core[0]}{fr}{right}{tr}*")
+            diag_hint = " or ".join(diag_hint_parts) or "a forward-diagonal move"
+            return (
+                f"{core} is a STRAIGHT-forward move onto {core[2]}{tr}, which "
+                f"holds an opponent piece. Straight-forward moves CANNOT "
+                f"capture. To attack {core[2]}{tr}, use a diagonal from an "
+                f"adjacent file one rank behind (e.g. {diag_hint}), or move "
+                f"a different piece."
+            )
+        if tcell == my_piece:
+            return f"{core} is blocked by your own piece on {core[2]}{tr}."
+        # Straight forward into an empty square — shouldn't reach here after
+        # the matcher's `*` toggle, but keep a helpful fallback.
+        if star:
+            return (
+                f"{core}* is marked as a capture but {core[2]}{tr} is empty. "
+                f"Drop the `*` for a slide."
+            )
+        return generic
+    # Diagonal forward.
+    if tcell == my_piece:
+        return f"{core} lands on your own piece on {core[2]}{tr}; pick a different destination."
+    if tcell == opp_piece and not star:
+        return (
+            f"{core} captures the opponent on {core[2]}{tr} diagonally, so it "
+            f"must be written with a trailing `*` (i.e. `{core}*`)."
+        )
+    if tcell == "." and star:
+        return (
+            f"{core}* is marked as a capture but {core[2]}{tr} is empty. "
+            f"Drop the `*` for a diagonal slide."
+        )
+    return generic
+
+
+def _render_illegal_rethink(
+    previous_action: str,
+    board: Sequence[Sequence[str]],
+    my_piece: str,
+    opp_piece: str,
+    forward_dir: int,
+    rows: int,
+) -> str:
+    diagnosis = _diagnose_illegal(
+        previous_action, board, my_piece, opp_piece, forward_dir, rows,
+    )
+    return (
+        f'\n\nYou suggested move "{previous_action}" but this is not a legal '
+        f"move.\n{diagnosis}\n\n(Keep using the same JSON output format as "
+        "before -- only the move value needs to change.)\n"
+    )
+
+
 # --- Public functions (called by main.py) -----------------------------------
 
 
@@ -285,18 +374,10 @@ def generate_prompt(
         columns = max(1, min(26, columns or 8))
     file_letters = string.ascii_lowercase[:columns]
     file_range = f"{file_letters[0]}-{file_letters[-1]}" if columns > 1 else file_letters
-    # OpenSpiel breakthrough fills two back ranks per side when rows >= 6
-    # (see breakthrough.cc kNumRowsForFullPieces); otherwise just the very
-    # back rank.
-    if rows >= 6:
-        black_start_ranks = f"ranks {rows - 1}-{rows}"
-        white_start_ranks = "ranks 1-2"
-    else:
-        black_start_ranks = f"rank {rows}"
-        white_start_ranks = "rank 1"
 
     # Black ('b') moves toward rank 1; White ('w') moves toward rank `rows`.
     forward_rank = 1 if player_id == 0 else rows
+    forward_dir = -1 if player_id == 0 else 1
 
     prompt = BREAKTHROUGH_PROMPT_TEMPLATE.format(
         board_ascii=_format_board_ascii(board),
@@ -314,16 +395,16 @@ def generate_prompt(
         rows=rows,
         columns=columns,
         file_range=file_range,
-        black_start_ranks=black_start_ranks,
-        white_start_ranks=white_start_ranks,
     )
 
-    prompt += render_rethink_suffix(
-        RETHINK_ILLEGAL,
-        RETHINK_UNPARSABLE,
-        previous_response,
-        previous_action,
-    )
+    if previous_action:
+        prompt += _render_illegal_rethink(
+            previous_action, board, my_piece, opp_piece, forward_dir, rows,
+        )
+    elif previous_response is not None:
+        prompt += RETHINK_UNPARSABLE.format(
+            previous_response=previous_response[-500:],
+        )
 
     return prompt
 
