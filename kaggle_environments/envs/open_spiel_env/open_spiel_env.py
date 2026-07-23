@@ -1095,6 +1095,7 @@ GAMES_LIST = [
     "python_ant_foraging",
     "breakthrough",
     "bridge_arena",
+    "capture_the_flag",
     "checkers",
     "chess",
     "clobber",
