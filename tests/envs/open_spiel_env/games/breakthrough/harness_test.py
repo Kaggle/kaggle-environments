@@ -180,8 +180,8 @@ class GeneratePromptTest(absltest.TestCase):
     def test_piece_counts_rendered(self):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [])
-        self.assertIn("Black ('b') = 16", prompt)
-        self.assertIn("White ('w') = 16", prompt)
+        self.assertIn("Black='b' (16)", prompt)
+        self.assertIn("White='w' (16)", prompt)
 
     def test_own_pieces_listed_for_player_0(self):
         obs = _make_observation(self.state, self.game, player_id=0)
@@ -217,7 +217,7 @@ class GeneratePromptTest(absltest.TestCase):
         self.state.apply_action(first)
         obs1 = _make_observation(self.state, self.game, player_id=1)
         prompt = generate_prompt(obs1, [])
-        self.assertIn(f"Last move played: {first_str}", prompt)
+        self.assertIn(f"Last move: {first_str}", prompt)
 
     def test_move_history_includes_both_players(self):
         # Play one move for each side; the full-game history line must
@@ -250,7 +250,8 @@ class GeneratePromptTest(absltest.TestCase):
         # No-draw guarantee.
         self.assertIn("no draws", prompt.lower())
         # Straight-forward moves cannot capture.
-        self.assertIn("Straight-forward", prompt)
+        self.assertIn("straight", prompt.lower())
+        self.assertIn("NEVER a capture", prompt)
         # Capture marker convention is described.
         self.assertIn("*", prompt)
 
@@ -283,11 +284,10 @@ class GeneratePromptTest(absltest.TestCase):
     def test_dimensions_derived_from_state_non_default(self):
         # Loading the game at a non-default size: the prompt's Rules
         # paragraph and win conditions must reflect the live dimensions,
-        # not the 8x8 default. Also exercises the < 6-row starting-rank
-        # branch (single back rank per side).
-        for rows, cols, file_range, black_start in [
-            (6, 6, "a-f", "ranks 5-6"),
-            (5, 5, "a-e", "rank 5"),  # single-rank start below threshold
+        # not the 8x8 default.
+        for rows, cols, file_range in [
+            (6, 6, "a-f"),
+            (5, 5, "a-e"),
         ]:
             game = breakthrough_proxy.BreakthroughGame(
                 {"rows": rows, "columns": cols}
@@ -296,10 +296,11 @@ class GeneratePromptTest(absltest.TestCase):
             obs = _make_observation(state, game, player_id=0)
             prompt = generate_prompt(obs, [])
             self.assertIn(f"{rows}x{cols} board", prompt)
-            self.assertIn(f"files {file_range}", prompt)
+            self.assertIn(f"Files {file_range}", prompt)
             self.assertIn(f"ranks 1-{rows}", prompt)
-            self.assertIn(black_start, prompt)
-            self.assertIn(f"rank {rows} for White", prompt)
+            # Player 0 (black) moves toward rank 1.
+            self.assertIn("toward rank 1", prompt)
+            # Player 1 (white) moves toward the top rank.
             self.assertIn(f"toward rank {rows}", generate_prompt(
                 _make_observation(state, game, player_id=1), []
             ))

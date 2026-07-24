@@ -29,70 +29,45 @@ from kaggle_environments.envs.open_spiel_env.games.breakthrough.breakthrough_pro
 # --- Prompt -----------------------------------------------------------------
 
 
-BREAKTHROUGH_PROMPT_TEMPLATE = """Let's play Breakthrough.
+BREAKTHROUGH_PROMPT_TEMPLATE = """Let's play Breakthrough on a {rows}x{columns} board.
+Files {file_range} left-to-right; ranks 1-{rows} bottom-to-top.
 
-Rules: {rows}x{columns} board with files {file_range} (left-to-right) and
-ranks 1-{rows} (bottom-to-top). Player 0 ('b', Black) starts on
-{black_start_ranks} and moves first toward rank 1. Player 1 ('w', White)
-starts on {white_start_ranks} and moves toward rank {rows}. Each turn a
-player moves exactly one of their own pieces one square in one of three
-forward directions:
+Rules: Each turn move one of your pieces exactly one square forward:
+straight (empty square only, NEVER a capture), forward-diagonal-left, or
+forward-diagonal-right (each may land on an empty square OR capture an
+adjacent opponent piece diagonally). No sideways, backward, or multi-square
+moves. Captures are optional. Win by reaching the opponent's back rank OR
+capturing all opponent pieces. No draws.
 
-- straight forward (into an empty square),
-- forward-diagonal-left (into an empty square OR onto an opposing piece,
-  capturing it),
-- forward-diagonal-right (into an empty square OR onto an opposing piece,
-  capturing it).
+Notation: ``<from><to>`` for slides (``a7a6``), ``<from><to>*`` for diagonal
+captures (``b2c3*`` = piece on b2 captures diagonally to c3).
 
-Straight-forward moves may NEVER capture. Diagonal moves capture by
-displacing the opposing piece, which is removed from the board. Pieces
-never move sideways or backward, and there is no en-passant or any other
-special rule. Captures are NOT mandatory.
+Common illegal-move trap: a straight-forward slide can NEVER capture. If
+the square directly ahead of your piece holds an opponent, you must either
+approach it from a diagonal (a neighbouring file, one rank behind) or move
+a different piece.
 
-Win conditions (no draws are possible):
-- reach the opponent's back rank with any one of your pieces (rank 1 for
-  Black, rank {rows} for White); OR
-- capture all of the opponent's pieces (leaving them with none).
-
-Board (rank labels on the left, file labels on top; '.' = empty,
-'b' = Black piece, 'w' = White piece):
+Board ('.' = empty, 'b' = Black, 'w' = White):
 {board_ascii}
 
-Piece counts: Black ('b') = {black_count}, White ('w') = {white_count}.
-
-You are Player {player_label} ('{my_piece}'); the opponent is '{opp_piece}'.
-Your pieces are at: {my_squares}
-Opponent pieces are at: {opp_squares}
-"Forward" for you means toward rank {forward_rank} (your goal rank).
+Pieces: Black='b' ({black_count}), White='w' ({white_count}).
+You are Player {player_label} ('{my_piece}'), moving toward rank {forward_rank}.
+Your pieces: {my_squares}
+Opponent pieces: {opp_squares}
 
 Move number: {move_number}
-Last move played: {last_move}
-Moves played so far this game (both players, oldest first): {move_history}
+Last move: {last_move}
+Full move history (both players, oldest first): {move_history}
 
-Action notation: a 4-character string ``<from><to>`` denotes "the piece at
-<from> moves to <to>", where each square is lowercase file+rank (e.g.
-``a7`` or ``e4``). When the move is a diagonal capture, append a single
-``*`` to mark it as a capture, giving a 5-character string such as
-``b2c3*``. Examples: ``a7a6`` means "the piece on a7 slides straight
-forward to a6" (only legal when a6 is empty); ``b2c3*`` means "the White
-piece on b2 captures the Black piece on c3 diagonally". The from-square
-must hold one of your own pieces and the to-square must be adjacent and
-in one of your three forward directions.
-
-It is your turn. Choose one legal move.
-
-Respond with your reasoning followed by your final move in a JSON block:
+Respond with your reasoning, then your final move in a JSON block:
 
 ```json
-{{
-  "move": "<from><to>"
-}}
+{{"move": "<from><to>"}}
 ```
 
-For example: `{{"move": "a7a6"}}` (slide) or `{{"move": "b2c3*"}}` (capture).
+Examples: `{{"move": "a7a6"}}` (slide), `{{"move": "b2c3*"}}` (capture).
 
-Failure to output your final answer in the specified format, or selecting
-an illegal move, will result in a loss.
+Failure to output a legal move in this format results in a loss.
 """
 
 
@@ -113,17 +88,15 @@ RETHINK_UNPARSABLE = """
 Your previous response ended with:
 {previous_response}
 
-No JSON answer could be parsed from that. Conclude your response with
-your final move as JSON in a ```json fenced block, exactly as the original
-instructions required:
+No JSON answer could be parsed. Conclude your response with the final move
+as JSON in a ```json fenced block:
 
 ```json
 {{"move": "<from><to>"}}
 ```
 
-For example: `{{"move": "a7a6"}}` (slide) or `{{"move": "b2c3*"}}` (capture).
-
-The move you choose must also be legal in the current state.
+Examples: `{{"move": "a7a6"}}` (slide) or `{{"move": "b2c3*"}}` (capture).
+The move must also be legal in the current state.
 """
 
 
@@ -285,15 +258,6 @@ def generate_prompt(
         columns = max(1, min(26, columns or 8))
     file_letters = string.ascii_lowercase[:columns]
     file_range = f"{file_letters[0]}-{file_letters[-1]}" if columns > 1 else file_letters
-    # OpenSpiel breakthrough fills two back ranks per side when rows >= 6
-    # (see breakthrough.cc kNumRowsForFullPieces); otherwise just the very
-    # back rank.
-    if rows >= 6:
-        black_start_ranks = f"ranks {rows - 1}-{rows}"
-        white_start_ranks = "ranks 1-2"
-    else:
-        black_start_ranks = f"rank {rows}"
-        white_start_ranks = "rank 1"
 
     # Black ('b') moves toward rank 1; White ('w') moves toward rank `rows`.
     forward_rank = 1 if player_id == 0 else rows
@@ -314,8 +278,6 @@ def generate_prompt(
         rows=rows,
         columns=columns,
         file_range=file_range,
-        black_start_ranks=black_start_ranks,
-        white_start_ranks=white_start_ranks,
     )
 
     prompt += render_rethink_suffix(
