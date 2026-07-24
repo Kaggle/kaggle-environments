@@ -36,9 +36,6 @@ Each round both players SIMULTANEOUSLY pick one of five actions:
   North = row-1, South = row+1, East = col+1, West = col-1, Stay = no move.
 After both moves are revealed, a hidden coin flip picks whose move resolves first; you cannot know the order in advance. Consequence: if you both target the same empty cell, only whoever resolves first lands there -- the other stays put.
 
-Board pieces: '.' = empty, 'A'/'B' = players, 'a'/'b' = loose flag at that cell.
-A player standing on their own home base with their own flag still home renders as 'A' or 'B' (the flag is under the player).
-
 Move rules:
   - Moving off-grid or into the OTHER player's cell is a no-op (you stay put; no tag from bumping).
   - Stepping onto the opponent's LOOSE flag AT the opponent's base picks it up; you now carry it and it moves with you.
@@ -50,6 +47,9 @@ Post-turn resolution (after BOTH moves have applied, using final positions):
 Territory split: A owns columns 0..{a_territory_max}; B owns columns {b_territory_min}..{max_col}.{neutral_note}
 
 Bases: A base at {a_base}, B base at {b_base}.
+
+Board pieces: '.' = empty, 'A'/'B' = players, 'a'/'b' = loose flag at that cell.
+A player standing on their own home base with their own flag still home renders as 'A' or 'B' (the flag is under the player).
 
 Current board (row 0 on top; columns labelled 0..{max_col}):
 {board_ascii}
