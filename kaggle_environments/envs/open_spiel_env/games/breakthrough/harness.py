@@ -19,6 +19,7 @@ import pyspiel
 from kaggle_environments.core_harness import (
     ParseResult,
     parse_json_action,
+    render_rethink_suffix,
 )
 from kaggle_environments.envs.open_spiel_env.games.breakthrough.breakthrough_proxy import (
     PIECE_BLACK,
@@ -69,6 +70,18 @@ Examples: `{{"move": "a7a6"}}` (slide), `{{"move": "b2c3*"}}` (capture).
 Failure to output a legal move in this format results in a loss.
 """
 
+
+RETHINK_ILLEGAL = """
+
+You suggested move "{previous_action}" but this is not a legal move.
+Reconsider the rules and the current board state, then pick a legal move.
+Remember: straight-forward moves cannot capture, diagonal moves must land
+on an empty square or capture an opponent piece, and a diagonal capture
+must be written with a trailing ``*`` (e.g. ``b2c3*``).
+
+(Keep using the same JSON output format as before -- only the move value
+needs to change.)
+"""
 
 RETHINK_UNPARSABLE = """
 
@@ -182,135 +195,6 @@ def _match_move_to_legal(raw: str, legal_action_strings: Sequence[str]) -> str |
     return None
 
 
-def _cell(board: Sequence[Sequence[str]], file_idx: int, rank: int) -> str | None:
-    """Return the board character at (file_idx, rank), or None if off-board."""
-    rows = len(board)
-    row_idx = rows - rank
-    if not (0 <= row_idx < rows and 0 <= file_idx < len(board[row_idx])):
-        return None
-    return board[row_idx][file_idx]
-
-
-def _diagnose_illegal(
-    previous_action: str,
-    board: Sequence[Sequence[str]],
-    my_piece: str,
-    opp_piece: str,
-    forward_dir: int,
-    rows: int,
-) -> str:
-    """Return a one-line explanation of why ``previous_action`` was illegal.
-
-    Falls back to a generic hint when we can't decode the move well enough
-    to say something specific. The board / piece codes / forward_dir must
-    match the player who submitted ``previous_action``.
-    """
-    generic = (
-        "Re-check: from-square must be one of your pieces, to-square must "
-        "be one square forward or forward-diagonal, and only diagonals can "
-        "capture."
-    )
-    s = _normalize_move(previous_action)
-    star = s.endswith("*")
-    core = s[:-1] if star else s
-    if len(core) < 4 or not (core[0].isalpha() and core[1].isdigit()
-                             and core[2].isalpha() and core[3].isdigit()):
-        return (
-            "Move must be exactly `<file><rank><file><rank>` (e.g. `a7a6`), "
-            "with an optional trailing `*` on a diagonal capture."
-        )
-    fc = ord(core[0]) - ord("a")
-    tc = ord(core[2]) - ord("a")
-    try:
-        fr = int(core[1])
-        tr = int(core[3])
-    except ValueError:
-        return generic
-    fcell = _cell(board, fc, fr)
-    tcell = _cell(board, tc, tr)
-    if fcell is None or tcell is None:
-        return f"Square {core[0]}{fr} or {core[2]}{tr} is off the board."
-    if fcell != my_piece:
-        held = "an opponent piece" if fcell == opp_piece else "an empty square"
-        return (
-            f"The from-square {core[0]}{fr} holds {held}, not one of your "
-            f"pieces. Pick a from-square containing '{my_piece}'."
-        )
-    dcol = tc - fc
-    drow = tr - fr
-    if drow == 0:
-        return (
-            f"{core} is a sideways move. Pieces may only move forward "
-            f"(toward rank {rows if forward_dir == 1 else 1})."
-        )
-    if drow == -forward_dir:
-        return (
-            f"{core} moves backward. Forward for you is toward "
-            f"rank {rows if forward_dir == 1 else 1}."
-        )
-    if abs(drow) > 1 or abs(dcol) > 1:
-        return f"{core} spans more than one square; each move is exactly one square."
-    if dcol == 0:
-        if tcell == opp_piece:
-            left = chr(ord("a") + fc - 1) if fc > 0 else None
-            right = chr(ord("a") + fc + 1) if fc + 1 < len(board[0]) else None
-            diag_hint_parts = []
-            if left is not None:
-                diag_hint_parts.append(f"{core[0]}{fr}{left}{tr}*")
-            if right is not None:
-                diag_hint_parts.append(f"{core[0]}{fr}{right}{tr}*")
-            diag_hint = " or ".join(diag_hint_parts) or "a forward-diagonal move"
-            return (
-                f"{core} is a STRAIGHT-forward move onto {core[2]}{tr}, which "
-                f"holds an opponent piece. Straight-forward moves CANNOT "
-                f"capture. To attack {core[2]}{tr}, use a diagonal from an "
-                f"adjacent file one rank behind (e.g. {diag_hint}), or move "
-                f"a different piece."
-            )
-        if tcell == my_piece:
-            return f"{core} is blocked by your own piece on {core[2]}{tr}."
-        # Straight forward into an empty square — shouldn't reach here after
-        # the matcher's `*` toggle, but keep a helpful fallback.
-        if star:
-            return (
-                f"{core}* is marked as a capture but {core[2]}{tr} is empty. "
-                f"Drop the `*` for a slide."
-            )
-        return generic
-    # Diagonal forward.
-    if tcell == my_piece:
-        return f"{core} lands on your own piece on {core[2]}{tr}; pick a different destination."
-    if tcell == opp_piece and not star:
-        return (
-            f"{core} captures the opponent on {core[2]}{tr} diagonally, so it "
-            f"must be written with a trailing `*` (i.e. `{core}*`)."
-        )
-    if tcell == "." and star:
-        return (
-            f"{core}* is marked as a capture but {core[2]}{tr} is empty. "
-            f"Drop the `*` for a diagonal slide."
-        )
-    return generic
-
-
-def _render_illegal_rethink(
-    previous_action: str,
-    board: Sequence[Sequence[str]],
-    my_piece: str,
-    opp_piece: str,
-    forward_dir: int,
-    rows: int,
-) -> str:
-    diagnosis = _diagnose_illegal(
-        previous_action, board, my_piece, opp_piece, forward_dir, rows,
-    )
-    return (
-        f'\n\nYou suggested move "{previous_action}" but this is not a legal '
-        f"move.\n{diagnosis}\n\n(Keep using the same JSON output format as "
-        "before -- only the move value needs to change.)\n"
-    )
-
-
 # --- Public functions (called by main.py) -----------------------------------
 
 
@@ -377,7 +261,6 @@ def generate_prompt(
 
     # Black ('b') moves toward rank 1; White ('w') moves toward rank `rows`.
     forward_rank = 1 if player_id == 0 else rows
-    forward_dir = -1 if player_id == 0 else 1
 
     prompt = BREAKTHROUGH_PROMPT_TEMPLATE.format(
         board_ascii=_format_board_ascii(board),
@@ -397,14 +280,12 @@ def generate_prompt(
         file_range=file_range,
     )
 
-    if previous_action:
-        prompt += _render_illegal_rethink(
-            previous_action, board, my_piece, opp_piece, forward_dir, rows,
-        )
-    elif previous_response is not None:
-        prompt += RETHINK_UNPARSABLE.format(
-            previous_response=previous_response[-500:],
-        )
+    prompt += render_rethink_suffix(
+        RETHINK_ILLEGAL,
+        RETHINK_UNPARSABLE,
+        previous_response,
+        previous_action,
+    )
 
     return prompt
 
