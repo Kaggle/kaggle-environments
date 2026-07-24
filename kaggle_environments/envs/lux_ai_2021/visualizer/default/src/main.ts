@@ -5,6 +5,7 @@ import {
   ReplayData,
   BaseGameStep,
 } from '@kaggle-environments/core';
+import { luxNormalizeReplay } from './luxTransformer';
 
 // Helper to load a script
 function loadScript(src: string): Promise<void> {
@@ -85,6 +86,9 @@ class LuxAdapter implements GameAdapter<BaseGameStep[]> {
 const app = document.getElementById('app');
 if (app) {
   createReplayVisualizer(app, new LuxAdapter(), {
-    transformer: (replay) => processEpisodeData(replay, 'lux_ai_2021'),
+    // Normalize LLM-harness dict actions ({submission, thoughts, ...}) down to
+    // the bare command list the external lux-viewer-2021 board renderer expects.
+    // Without this the viewer throws on `action.map` for LLM replays.
+    transformer: (replay) => luxNormalizeReplay(processEpisodeData(replay, 'lux_ai_2021')),
   });
 }
