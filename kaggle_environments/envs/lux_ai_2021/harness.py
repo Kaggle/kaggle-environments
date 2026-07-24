@@ -18,7 +18,6 @@ from kaggle_environments.core_harness import (
     get_telemetry_logger,
     render_rethink_suffix,
 )
-
 from kaggle_environments.envs.lux_ai_2021.test_agents.python.lux.game import Game
 from kaggle_environments.envs.lux_ai_2021.test_agents.python.lux.game_map import GameMap
 from kaggle_environments.envs.lux_ai_2021.test_agents.python.lux.game_objects import Player
@@ -157,9 +156,17 @@ Coordinates are (x, y) with x=0 on the left and y=0 at the top.
 
 You are player {player_id}. Turn {turn} of 360 ({phase}).
 
-Map (uppercase = your units/cities, lowercase = opponent's):
-  legend: `.` empty, `w` wood, `k` coal, `x` crystal,
-          `U/u` worker, `A/a` cart, `T/t` city tile
+Map (uppercase = your units/cities, lowercase = opponent's). Every cell is
+TWO characters: <terrain><occupant>, so a unit never hides the tile it stands on.
+  terrain (1st char): `.` empty, `w` wood, `k` coal, `x` crystal,
+          `T` your city tile, `t` opponent city tile
+  occupant (2nd char): ` ` none, `U`/`A` your worker/cart, `u`/`a` opponent
+          worker/cart, or a DIGIT = that many units stacked on the cell (`+`
+          for 10+). Only a city tile can hold a stack, and units never enter
+          an enemy city, so the terrain char says whose the stack is: `T`+digit
+          is yours, `t`+digit is the opponent's. E.g. `wU` = your worker on
+          wood (you CANNOT `bcity` there); `T3` = your city tile sheltering 3
+          of your units at night; `t2` = opponent city tile with 2 of theirs.
 {ascii_map}
 
 Your state:
@@ -247,13 +254,29 @@ def _phase(turn: int) -> str:
 def _render_ascii_map(game: Game, player_id: int) -> str:
     """Render the game map as an ASCII grid, uppercase = ``player_id``'s side.
 
-    Precedence per cell (last write wins visually): resources → carts →
-    workers → city tiles. Coordinate axes are printed above and to the
-    left so the model can read positions off the grid.
+    Each cell is rendered as TWO characters so that terrain and occupant are
+    BOTH visible even when a unit stands on a resource or several units share a
+    city tile (a single-glyph grid would hide one behind the other):
+
+    - Column 1 (terrain): ``.`` empty, ``w`` wood, ``k`` coal, ``x`` crystal,
+      ``T`` your city tile, ``t`` opponent city tile.
+    - Column 2 (occupant): `` `` (space) none, ``U``/``A`` your worker/cart,
+      ``u``/``a`` opponent worker/cart, or a DIGIT giving the number of units
+      stacked on the cell (``+`` for 10 or more). Stacking is only possible on
+      a city tile, and a unit can never enter an enemy city tile, so the cell
+      only ever holds the city owner's units -- the ``T``/``t`` in column 1
+      says whose they are (``T`` + digit = your stack, ``t`` + digit =
+      opponent stack).
+
+    So ``wU`` is your worker standing on wood (``bcity`` there is rejected by
+    the engine), ``T3`` is your city tile sheltering three of your units at
+    night, and ``t2`` is an opponent city tile sheltering two of theirs.
+    Coordinate axes are printed above and to the left so the model can read
+    positions off the grid.
     """
     width, height = game.map.width, game.map.height
-    grid = [["."] * width for _ in range(height)]
 
+    terrain = [["."] * width for _ in range(height)]
     for y in range(height):
         for x in range(width):
             cell = game.map.get_cell(x, y)
@@ -262,24 +285,44 @@ def _render_ascii_map(game: Game, player_id: int) -> str:
                 # Glyphs chosen to not collide with unit/city letters.
                 # "coal" → "k" (c is stay-in-place direction), "uranium" → "x"
                 # (also avoids the "u" that opponent workers use).
-                grid[y][x] = "w" if r == "wood" else ("k" if r == "coal" else "x")
+                terrain[y][x] = "w" if r == "wood" else ("k" if r == "coal" else "x")
 
-    def _place(char_you: str, char_them: str, team: int, x: int, y: int) -> None:
-        if 0 <= x < width and 0 <= y < height:
-            grid[y][x] = char_you if team == player_id else char_them
-
+    occupant = [[" "] * width for _ in range(height)]
+    # Count units per cell per team. A cell only ever holds one team's units
+    # (two-team co-occupation of a non-city cell is cancelled by the engine,
+    # and a unit can't enter an enemy city tile), so the per-team counts never
+    # contend for the same cell -- whichever team occupies it, the terrain
+    # char (T vs t) identifies the owner.
+    unit_count: dict[tuple[int, int, int], int] = {}
+    unit_kind: dict[tuple[int, int, int], str] = {}
     for team, player in enumerate(game.players):
         for unit in player.units:
-            char_you, char_them = ("A", "a") if unit.is_cart() else ("U", "u")
-            _place(char_you, char_them, team, unit.pos.x, unit.pos.y)
+            x, y = unit.pos.x, unit.pos.y
+            if not (0 <= x < width and 0 <= y < height):
+                continue
+            key = (team, x, y)
+            unit_count[key] = unit_count.get(key, 0) + 1
+            unit_kind[key] = ("A" if unit.is_cart() else "U") if team == player_id else ("a" if unit.is_cart() else "u")
+
+    for (team, x, y), n in unit_count.items():
+        if n == 1:
+            occupant[y][x] = unit_kind[(team, x, y)]
+        else:
+            occupant[y][x] = str(n) if n <= 9 else "+"
+
+    # City tiles are terrain (they persist and can be built upon / sheltered
+    # in); write them after resources so a city tile always shows as T/t.
+    for team, player in enumerate(game.players):
         for city in player.cities.values():
             for tile in city.citytiles:
-                _place("T", "t", team, tile.pos.x, tile.pos.y)
+                x, y = tile.pos.x, tile.pos.y
+                if 0 <= x < width and 0 <= y < height:
+                    terrain[y][x] = "T" if team == player_id else "t"
 
-    # Header: two-digit column indices, top row is tens, second row is units.
-    tens = "   " + "".join(str(x // 10) if x >= 10 else " " for x in range(width))
-    ones = "   " + "".join(str(x % 10) for x in range(width))
-    body = [f"{y:2d} " + "".join(row) for y, row in enumerate(grid)]
+    # Header: two-digit column indices left-justified into the 2-char cells.
+    tens = "   " + "".join(f"{x // 10 if x >= 10 else ' ':<2}" for x in range(width))
+    ones = "   " + "".join(f"{x % 10:<2}" for x in range(width))
+    body = [f"{y:2d} " + "".join(terrain[y][x] + occupant[y][x] for x in range(width)) for y in range(height)]
     return "\n".join([tens, ones, *body])
 
 
@@ -307,6 +350,18 @@ def _render_player(game: Game, player_id: int) -> str:
             kind = "worker" if u.is_worker() else "cart"
             cargo = f"wood={u.cargo.wood} coal={u.cargo.coal} {_DISPLAY_URANIUM}={u.cargo.uranium}"
             lines.append(f"    {u.id} {kind} at ({u.pos.x},{u.pos.y}) cooldown={u.cooldown:g} cargo=[{cargo}]")
+            # A worker on a resource tile cannot build a city there -- the
+            # engine rejects ``bcity`` on any non-empty resource cell. The
+            # ASCII map's terrain column shows the resource, but call it out
+            # explicitly here since this is where the model decides to build.
+            if u.is_worker():
+                cell = game.map.get_cell(u.pos.x, u.pos.y)
+                if cell.has_resource():
+                    res = cell.resource.type
+                    display = _DISPLAY_URANIUM if res == "uranium" else res
+                    lines.append(
+                        f"      -- standing on {display}; cannot build a city here (move to an empty cell first)"
+                    )
     else:
         lines.append("  units: (none)")
 
@@ -315,10 +370,7 @@ def _render_player(game: Game, player_id: int) -> str:
         # Aggregate net upkeep across all cities so the model can see the
         # total per-night fuel drain without having to sum by hand.
         total_upkeep = sum(c.light_upkeep for c in player.cities.values())
-        lines.append(
-            f"  cities ({len(player.cities)}, {total_tiles} tiles, "
-            f"total night upkeep {total_upkeep:g}/turn):"
-        )
+        lines.append(f"  cities ({len(player.cities)}, {total_tiles} tiles, total night upkeep {total_upkeep:g}/turn):")
         for city in player.cities.values():
             tiles = ", ".join(f"({t.pos.x},{t.pos.y})" for t in city.citytiles)
             lines.append(f"    {city.cityid} fuel={city.fuel:g} upkeep={city.light_upkeep:g} tiles=[{tiles}]")
