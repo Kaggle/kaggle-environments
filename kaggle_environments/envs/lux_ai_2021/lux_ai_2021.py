@@ -126,7 +126,12 @@ def interpreter(state, env):
     # prev_step += 1
 
     ### 2. : Pass in actions (json representation along with id of who made that action), agent information (id, status) to dimensions via stdin
-    dimension_process.stdin.write((json.dumps(state) + "\n").encode())
+    # The Node engine expects each agent's ``action`` to be a bare list of
+    # command strings. Project the (possibly dict-wrapped) action down to
+    # its commands for the wire; the wrapper (thoughts, actionString, ...)
+    # stays on ``state`` so it lands in the replay.
+    engine_state = [{**s, "action": _command_list(s.action)} if s is not None else s for s in state]
+    dimension_process.stdin.write((json.dumps(engine_state) + "\n").encode())
     dimension_process.stdin.flush()
 
     ### 3.1 : Receive and parse the observations returned by dimensions via stdout
@@ -194,16 +199,44 @@ def get_message(dimension_process):
                 print("...", file=sys.stderr)
 
 
+def _command_list(action):
+    """Extract the list of Lux command strings from a per-turn action.
+
+    Accepts the legacy bare-list shape (bundled bot agents) and the
+    ``{"submission": [...], ...}`` shape produced by ``core_harness`` for
+    LLM agents (which also carries ``thoughts`` / ``actionString`` /
+    ``call_details`` / ``generate_returns`` for the replay). Anything
+    else is treated as no commands this turn.
+    """
+    if action is None:
+        return []
+    if isinstance(action, list):
+        return action
+    if isinstance(action, dict):
+        sub = action.get("submission")
+        return sub if isinstance(sub, list) else []
+    return []
+
+
+def _replace_commands(action, commands):
+    """Mirror of ``_command_list``: write ``commands`` back into ``action``
+    without disturbing any wrapper fields the harness put alongside them.
+    """
+    if isinstance(action, dict):
+        action["submission"] = commands
+        return action
+    return commands
+
+
 def filter_actions(state, env):
     enable_annotations = env.configuration["annotations"]
     if not enable_annotations:
         for team in range(len(state)):
-            filtered = []
-            if state[team] is not None and state[team].action is not None:
-                for l in state[team].action:
-                    if len(l) > 0 and l[0] != "d":
-                        filtered.append(l)
-                state[team].action = filtered
+            if state[team] is None or state[team].action is None:
+                continue
+            commands = _command_list(state[team].action)
+            filtered = [cmd for cmd in commands if len(cmd) > 0 and cmd[0] != "d"]
+            state[team].action = _replace_commands(state[team].action, filtered)
 
 
 def compute_reward(player):

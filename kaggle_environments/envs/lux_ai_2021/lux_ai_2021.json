@@ -102,10 +102,8 @@
     }
   },
   "action": {
-    "description": "Actions",
-    "type": "array",
-    "items": {
-      "type": "string"
-    }
+    "description": "Per-turn action. Either a bare array of Lux command strings (legacy bot shape) or an object with a `submission` array (LLM harness shape via core_harness, which also carries optional `thoughts`, `actionString`, `call_details`, and `generate_returns` fields for the replay).",
+    "type": ["array", "object", "null"],
+    "default": []
   }
 }
