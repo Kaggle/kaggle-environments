@@ -15,9 +15,9 @@ Each player starts with an empty farm and a small amount of income (seed money, 
 | **Tomato** | Ongoing | 50 | 60 | 8 days | NA | every day | 4 | 1 | 4 |
 | **Strawberry** | Ongoing | 100 | 120 | 10 days | NA | every other day | 4 | 1 | 2 |
 | **Melon** | One-time | 80 | 250 | 10 days | 12 days | none | 6 | 1 | .5 |
-| **Goose/Egg** | Ongoing | 200 | 80 | 3 days | NA | every day | 4 | 1 \+ 1 (build coop) | 2 |
-| **Cow/Milk** | Ongoing | 400 | 240 | 6 days | NA | every two days | 6 | 1 \+ 1 (build pasture) | 1 |
-| **Sheep/Wool** | Ongoing | 400 | 300 | 5 days | NA | every three days | 6 | 1 \+ 1 (build pasture) | .67 |
+| **Goose/Egg** | Ongoing | 300 | 50 | 4 days | NA | every day | 4 | 1 \+ 1 (build coop) | 2 |
+| **Cow/Milk** | Ongoing | 400 | 160 | 8 days | NA | every two days | 6 | 1 \+ 1 (build pasture) | 1 |
+| **Sheep/Wool** | Ongoing | 500 | 200 | 6 days | NA | every three days | 6 | 1 \+ 1 (build pasture) | .67 |
 | **Fertilizer** | NA | 100 | X |  | X | X |  | 1 |  |
 
 All plants must be watered every day. They will turn into weeds if they are not watered for two successive days. All animals must be fed every day using wheat. They will escape and be unrecoverable if they are not fed for two successive days. Wheat is also available to buy at the market and can be purchased at the current market price.
