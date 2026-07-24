@@ -6,7 +6,8 @@ then a hidden coin flip decides whose move resolves first. A player picks up
 the opponent's flag by stepping onto it at the opponent's base while it is
 loose; scores by carrying it back to their own base while their own flag is
 sitting at home; and gets tagged (respawn at own base, drop the flag) when
-the opposing defender is Manhattan-adjacent and the carrier is inside the
+the opposing defender is standing in one of the four cells directly next
+to them (up/down/left/right, not diagonal) and the carrier is inside the
 defender's home territory. Territory is split by column: A owns columns
 strictly left of centre, B owns columns strictly right of centre; on an
 odd-width grid the centre column is neutral. First to ``score_limit``
@@ -35,21 +36,21 @@ Each round both players SIMULTANEOUSLY pick one of five actions:
   North = row-1, South = row+1, East = col+1, West = col-1, Stay = no move.
 After both moves are revealed, a hidden coin flip picks whose move resolves first; you cannot know the order in advance. Consequence: if you both target the same empty cell, only whoever resolves first lands there -- the other stays put.
 
-Board pieces: '.' = empty, '*' = obstacle (impassable), 'A'/'B' = players, 'a'/'b' = loose flag at that cell.
+Board pieces: '.' = empty, 'A'/'B' = players, 'a'/'b' = loose flag at that cell.
 A player standing on their own home base with their own flag still home renders as 'A' or 'B' (the flag is under the player).
 
-Mechanics (per player in initiative order):
-  - Moving off-grid, into an obstacle, or into the OTHER player's cell is a no-op (you stay put; no tag from bumping).
+Move rules:
+  - Moving off-grid or into the OTHER player's cell is a no-op (you stay put; no tag from bumping).
   - Stepping onto the opponent's LOOSE flag AT the opponent's base picks it up; you now carry it and it moves with you.
-  - Moving onto your OWN base while carrying the opponent's flag scores 1 -- BUT only if your own flag is still sitting at your home base AT THAT MOMENT. Standing still (Stay) never triggers a score; you must step onto the base. If your own flag is loose or held by the opponent, arriving at your base does nothing.
+  - Moving onto your OWN base while carrying the opponent's flag means you win -- BUT only if your own flag is still sitting at your home base AT THAT MOMENT. Standing still (Stay) never triggers a score; you must step onto the base. If your own flag is loose or held by the opponent, arriving at your base does nothing.
 
 Post-turn resolution (after BOTH moves have applied, using final positions):
-  - Tagging: any carrier who is Manhattan-adjacent (up/down/left/right, not diagonal) to the flag's owner AND standing inside the flag-owner's home territory is tagged -- respawn at own base, and the flag returns to its owner's base. Because this uses final positions, a defender who moves adjacent to you during the same turn tags you even if you weren't adjacent when the turn started.
+  - Tagging: any carrier who is directly next to the flag's owner (in one of the four cells up, down, left, or right -- not diagonal) AND standing inside the flag-owner's home territory is tagged -- respawn at own base, and the flag returns to its owner's base. Because this uses final positions, a defender who moves next to you during the same turn tags you even if you weren't next to them when the turn started.
 
 Territory split: A owns columns 0..{a_territory_max}; B owns columns {b_territory_min}..{max_col}.{neutral_note}
 
 Bases: A base at {a_base}, B base at {b_base}.
-{obstacles_line}
+
 Current board (row 0 on top; columns labelled 0..{max_col}):
 {board_ascii}
 
@@ -231,13 +232,6 @@ def generate_prompt(
         b_territory_min = centre
         neutral_note = ""
 
-    obstacles = state.get("obstacles") or []
-    if obstacles:
-        obs_positions = ", ".join(f"(row {r}, col {c})" for r, c in obstacles)
-        obstacles_line = f"Obstacles at: {obs_positions}.\n"
-    else:
-        obstacles_line = "Obstacles: none.\n"
-
     is_player_a = player_id == 0
     player_label = "A" if is_player_a else "B"
     opponent_label = "B" if is_player_a else "A"
@@ -273,7 +267,6 @@ def generate_prompt(
         neutral_note=neutral_note,
         a_base=_pos_str(state.get("a_base")),
         b_base=_pos_str(state.get("b_base")),
-        obstacles_line=obstacles_line,
         board_ascii=_format_board_ascii(board),
         a_pos=_pos_str(state.get("a_pos")),
         b_pos=_pos_str(state.get("b_pos")),

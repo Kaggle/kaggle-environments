@@ -149,7 +149,8 @@ class GeneratePromptTest(absltest.TestCase):
     def test_tag_rule_present(self):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [])
-        self.assertIn("Manhattan-adjacent", prompt)
+        self.assertIn("directly next to the flag's owner", prompt)
+        self.assertIn("not diagonal", prompt)
         self.assertIn("respawn", prompt)
 
     def test_tag_uses_final_positions_not_per_initiative(self):
@@ -202,7 +203,7 @@ class GeneratePromptTest(absltest.TestCase):
     def test_carrier_status_rendered(self):
         # Force B to pick up A's flag. First walk A far away from its base so
         # that B doesn't get tagged the moment it steps onto A's flag (a
-        # carrier Manhattan-adjacent to the defender inside the defender's
+        # carrier directly next to the defender inside the defender's
         # home is instantly respawned).
         for _ in range(2):
             self.state.apply_actions([0, 4])  # A North, B Stay
