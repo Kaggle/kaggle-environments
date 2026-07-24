@@ -131,6 +131,24 @@ class GeneratePromptTest(absltest.TestCase):
         for action in ("North", "East", "South", "West", "Stay"):
             self.assertIn(action, prompt)
 
+    def test_default_grid_omits_obstacle_references(self):
+        # The default grid has no '*' cells. Prompt should not mention them.
+        obs = _make_observation(self.state, self.game, player_id=0)
+        prompt = generate_prompt(obs, [])
+        self.assertNotIn("obstacle", prompt.lower())
+        self.assertNotIn("'*'", prompt)
+
+    def test_custom_grid_with_obstacles_documents_them(self):
+        # A custom grid containing '*' cells: the legend must explain them
+        # and the move rules must state that moving into one is a no-op.
+        grid = ".......\n...*...\na..*..b\n...*...\n......."
+        alt_game = capture_the_flag_proxy.CaptureTheFlagGame({"grid": grid})
+        alt_state = alt_game.new_initial_state()
+        obs = _make_observation(alt_state, alt_game, player_id=0)
+        prompt = generate_prompt(obs, [])
+        self.assertIn("'*' = obstacle (impassable)", prompt)
+        self.assertIn("into an obstacle", prompt)
+
     def test_critical_capture_precondition_present(self):
         # The non-obvious mechanic: arriving at your own base with the
         # opponent's flag only scores when your OWN flag is still home.

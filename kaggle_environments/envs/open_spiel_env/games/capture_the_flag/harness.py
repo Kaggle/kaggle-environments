@@ -37,7 +37,7 @@ Each round both players SIMULTANEOUSLY pick one of five actions:
 After both moves are revealed, a hidden coin flip picks whose move resolves first; you cannot know the order in advance. Consequence: if you both target the same empty cell, only whoever resolves first lands there -- the other stays put.
 
 Move rules:
-  - Moving off-grid or into the OTHER player's cell is a no-op (you stay put; no tag from bumping).
+  - Moving off-grid{obstacle_move_clause} or into the OTHER player's cell is a no-op (you stay put; no tag from bumping).
   - Stepping onto the opponent's LOOSE flag AT the opponent's base picks it up; you now carry it and it moves with you.
   - Moving onto your OWN base while carrying the opponent's flag means you win -- BUT only if your own flag is still sitting at your home base AT THAT MOMENT. Standing still (Stay) never triggers a score; you must step onto the base. If your own flag is loose or held by the opponent, arriving at your base does nothing.
 
@@ -48,7 +48,7 @@ Territory split: A owns columns 0..{a_territory_max}; B owns columns {b_territor
 
 Bases: A base at {a_base}, B base at {b_base}.
 
-Board pieces: '.' = empty, 'A'/'B' = players, 'a'/'b' = loose flag at that cell.
+Board pieces: '.' = empty,{obstacle_legend} 'A'/'B' = players, 'a'/'b' = loose flag at that cell.
 A player standing on their own home base with their own flag still home renders as 'A' or 'B' (the flag is under the player).
 
 Current board (row 0 on top; columns labelled 0..{max_col}):
@@ -232,6 +232,14 @@ def generate_prompt(
         b_territory_min = centre
         neutral_note = ""
 
+    obstacles = state.get("obstacles") or []
+    if obstacles:
+        obstacle_legend = " '*' = obstacle (impassable),"
+        obstacle_move_clause = ", into an obstacle,"
+    else:
+        obstacle_legend = ""
+        obstacle_move_clause = ""
+
     is_player_a = player_id == 0
     player_label = "A" if is_player_a else "B"
     opponent_label = "B" if is_player_a else "A"
@@ -267,6 +275,8 @@ def generate_prompt(
         neutral_note=neutral_note,
         a_base=_pos_str(state.get("a_base")),
         b_base=_pos_str(state.get("b_base")),
+        obstacle_legend=obstacle_legend,
+        obstacle_move_clause=obstacle_move_clause,
         board_ascii=_format_board_ascii(board),
         a_pos=_pos_str(state.get("a_pos")),
         b_pos=_pos_str(state.get("b_pos")),
