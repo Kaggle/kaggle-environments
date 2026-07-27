@@ -47,10 +47,12 @@ class _WordArtHarness:
 
 
 def _artist_obs(team="blue", target="ELEPHANT", **overrides):
+    max_attempts = overrides.get("max_attempts", 3)
     obs = {
         "num_rounds": 4,
-        "max_attempts": 3,
-        "first_try_bonus": 1,
+        "max_attempts": max_attempts,
+        "guess_points": [1] * max_attempts,
+        "include_art_history": True,
         "max_art_chars": 4000,
         "current_round": 0,
         "phase": "art",
@@ -75,7 +77,8 @@ def _guesser_obs(team="blue", art=" _\n( o.o)", attempt=1, prev_guesses=(), **ov
     obs = {
         "num_rounds": 4,
         "max_attempts": max_attempts,
-        "first_try_bonus": 1,
+        "guess_points": [1] * max_attempts,
+        "include_art_history": True,
         "max_art_chars": 4000,
         "current_round": 0,
         "phase": "guess",
@@ -514,9 +517,9 @@ class GeneratePromptTest(absltest.TestCase):
 
     def test_artist_prompt_describes_scoring(self):
         prompt = generate_prompt(_artist_obs(), [])
-        self.assertIn("first-try", prompt.lower())
+        self.assertIn("Scoring (per round, per team):", prompt)
         self.assertIn("Correct on attempt 1", prompt)
-        self.assertIn("0 points", prompt)
+        self.assertIn("No correct guess within 3 attempts: 0 pts", prompt)
 
     def test_artist_prompt_warns_about_writing_word_verbatim(self):
         prompt = generate_prompt(_artist_obs(target="ELEPHANT"), [])
@@ -569,10 +572,15 @@ class GeneratePromptTest(absltest.TestCase):
         prompt = generate_prompt(_guesser_obs(art=art), [])
         self.assertIn(art, prompt)
 
-    def test_guesser_prompt_first_attempt_advertises_bonus(self):
-        prompt = generate_prompt(_guesser_obs(attempt=1), [])
-        self.assertIn("first-try bonus", prompt)
+    def test_guesser_prompt_first_attempt_advertises_current_reward(self):
+        # Custom guess_points so the attempt-1 reward differs from the
+        # default (1 pt) — otherwise the pitch line looks identical to
+        # every other attempt.
+        prompt = generate_prompt(
+            _guesser_obs(attempt=1, guess_points=[3, 2, 1]), [],
+        )
         self.assertIn("attempt 1 of 3", prompt)
+        self.assertIn("A correct guess NOW scores 3 pts", prompt)
 
     def test_guesser_prompt_later_attempt_lists_previous_guesses(self):
         prompt = generate_prompt(
@@ -614,7 +622,7 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("Round 1", prompt)
         self.assertIn("'CAT'", prompt)
         self.assertIn("DOG", prompt)
-        self.assertIn("2 points", prompt)
+        self.assertIn("2 pts", prompt)
 
     def test_score_line_shows_current_round_and_scores(self):
         prompt = generate_prompt(
@@ -692,19 +700,40 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn('"guess"', guesser)
 
     def test_max_attempts_propagates_to_prompt(self):
+        # max_attempts=5 → scoring block enumerates attempts 1..5 explicitly
+        # and the "no correct guess" line names the same bound. Every attempt
+        # gets a line in the table so the "attempt 2 through N" range shorthand
+        # is gone.
         prompt = generate_prompt(_artist_obs(max_attempts=5), [])
-        self.assertIn("attempt 2 through 5", prompt)
+        self.assertIn("Correct on attempt 2:", prompt)
+        self.assertIn("Correct on attempt 5:", prompt)
         self.assertIn("within 5 attempts", prompt)
 
-    def test_first_try_bonus_propagates_from_observation(self):
-        prompt = generate_prompt(_artist_obs(first_try_bonus=5), [])
-        self.assertIn("Correct on attempt 1: 6 points", prompt)
-        self.assertIn("1 base + 5 first-try bonus", prompt)
+    def test_guess_points_propagate_from_observation(self):
+        prompt = generate_prompt(_artist_obs(guess_points=[6, 2, 1]), [])
+        self.assertIn("Correct on attempt 1: 6 pts", prompt)
+        self.assertIn("Correct on attempt 2: 2 pts", prompt)
+        self.assertIn("Correct on attempt 3: 1 pt", prompt)
+        # Legacy "1 base + N first-try bonus" wording must be gone.
+        self.assertNotIn("first-try bonus", prompt)
+        self.assertNotIn("1 base +", prompt)
 
-    def test_first_try_bonus_zero_renders_correctly(self):
-        prompt = generate_prompt(_guesser_obs(first_try_bonus=0), [])
-        self.assertIn("Correct on attempt 1: 1 points", prompt)
-        self.assertIn("1 base + 0 first-try bonus", prompt)
+    def test_guess_points_fractional_render(self):
+        prompt = generate_prompt(_guesser_obs(guess_points=[2, 1.5, 1]), [])
+        self.assertIn("Correct on attempt 1: 2 pts", prompt)
+        # Integer-valued floats render without a `.0` suffix.
+        self.assertNotIn("2.0 pts", prompt)
+        # Fractional values render naturally.
+        self.assertIn("1.5 pts", prompt)
+        self.assertIn("Correct on attempt 3: 1 pt", prompt)
+
+    def test_guess_points_default_all_ones(self):
+        prompt = generate_prompt(_artist_obs(), [])
+        self.assertIn("Correct on attempt 1: 1 pt", prompt)
+        self.assertIn("Correct on attempt 2: 1 pt", prompt)
+        self.assertIn("Correct on attempt 3: 1 pt", prompt)
+        # No leftover bonus wording under the default schedule.
+        self.assertNotIn("first-try bonus", prompt)
 
     def test_artist_prompt_mentions_max_art_chars_truncation(self):
         prompt = generate_prompt(_artist_obs(max_art_chars=2500), [])
@@ -782,6 +811,79 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("Yellow art: (DISQUALIFIED", prompt)
         self.assertIn("contained text", prompt)
         self.assertNotIn("Blue art: (DISQUALIFIED", prompt)
+
+    def test_include_art_history_true_shows_art_body(self):
+        """Default include_art_history=True: past-round ASCII art appears
+        indented under the round header, matching the pre-toggle behaviour."""
+        hist = [
+            {
+                "word": "SUN",
+                "blue_art": "  \\|/\n --*--\n  /|\\",
+                "blue_art_disqualified": False,
+                "blue_art_disqualification_reason": None,
+                "blue_guesses": ["SUN"],
+                "blue_points": 2,
+                "yellow_art": "((()))",
+                "yellow_art_disqualified": False,
+                "yellow_art_disqualification_reason": None,
+                "yellow_guesses": ["SUN"],
+                "yellow_points": 2,
+            }
+        ]
+        prompt = generate_prompt(_artist_obs(history=hist, current_round=1), [])
+        # Round header always renders.
+        self.assertIn("Round 1: word was 'SUN'.", prompt)
+        # Art body characters appear (the unique '--*--' spine and '((()))').
+        self.assertIn("--*--", prompt)
+        self.assertIn("((()))", prompt)
+        # No suppression messaging appears.
+        self.assertNotIn("art body omitted", prompt)
+        self.assertNotIn("omitted for brevity", prompt)
+
+    def test_include_art_history_false_omits_art_body(self):
+        """include_art_history=False: no raw art body, but word, guesses,
+        points, and disqualification annotations still render."""
+        hist = [
+            {
+                "word": "MOON",
+                "blue_art": "  ,--.\n /    \\\n \\    /\n  `--'",
+                "blue_art_disqualified": False,
+                "blue_art_disqualification_reason": None,
+                "blue_guesses": ["MOON"],
+                "blue_points": 2,
+                # Yellow labelled their art — engine flagged contains_words.
+                "yellow_art": "the M O O N is round",
+                "yellow_art_disqualified": True,
+                "yellow_art_disqualification_reason": "contains_words",
+                "yellow_guesses": ["STAR", "PLANET", "MOON"],
+                "yellow_points": 1,
+            }
+        ]
+        prompt = generate_prompt(
+            _artist_obs(history=hist, current_round=1, include_art_history=False), [],
+        )
+        # Round header, per-team guesses, points, and word all render.
+        self.assertIn("Round 1: word was 'MOON'.", prompt)
+        self.assertIn("Blue guesses: ['MOON'] -> 2 pts", prompt)
+        self.assertIn("['STAR', 'PLANET', 'MOON'] -> 1 pt", prompt)
+        # Disqualification annotation remains as a one-liner.
+        self.assertIn("Yellow art: DISQUALIFIED", prompt)
+        self.assertIn("contained text", prompt)
+        self.assertIn("art body omitted", prompt)
+        self.assertIn("Blue art: (omitted for brevity)", prompt)
+        # Raw art body characters (from either team) must NOT appear.
+        self.assertNotIn("`--'", prompt)
+        self.assertNotIn(",--.", prompt)
+        self.assertNotIn("the M O O N is round", prompt)
+
+    def test_include_art_history_false_with_empty_history(self):
+        """With no history yet, the toggle is inert — the placeholder line
+        renders unchanged for both settings."""
+        for flag in (True, False):
+            prompt = generate_prompt(
+                _artist_obs(history=[], include_art_history=flag), [],
+            )
+            self.assertIn("No rounds completed yet.", prompt)
 
 
 # --- AgentIntegrationTest ---------------------------------------------------

@@ -28,9 +28,10 @@ Output formats differ by role:
 Word Art is 2v2: agents 0/1 are Team Blue, agents 2/3 are Team Yellow.
 Each round, one teammate on each team draws ASCII art for a secret word
 and passes it to their teammate, who has up to ``max_attempts`` guesses.
-First-try correct scores 1 + ``first_try_bonus`` points; later-attempt
-correct scores 1; failing all attempts scores 0. After ``num_rounds``
-rounds the higher score wins. Roles within each team swap every round.
+A correct guess on attempt ``i`` scores ``guess_points[i-1]`` (per-attempt
+reward table, configurable, may be fractional); failing all attempts
+scores 0. After ``num_rounds`` rounds the higher total wins. Roles within
+each team swap every round.
 """
 
 from __future__ import annotations
@@ -78,7 +79,7 @@ _DISQ_REASON_TEXT = {
 }
 
 
-def _format_history(history: Sequence[Mapping[str, Any]]) -> str:
+def _format_history(history: Sequence[Mapping[str, Any]], include_art: bool = True) -> str:
     """Render a compact, human-readable view of completed rounds.
 
     Each entry summarises the word, both teams' art, every guess, and the
@@ -92,6 +93,13 @@ def _format_history(history: Sequence[Mapping[str, Any]]) -> str:
     time. Rendering the raw art without that annotation would mislead
     the model into thinking the teammate successfully communicated
     something.
+
+    ``include_art`` toggles whether the ASCII art bodies of past rounds
+    are included. When False, the raw art body is dropped but the
+    disqualification annotation is kept: the annotation is a
+    game-mechanics signal (why the team scored 0), not art content, so
+    an artist who tripped the check on a past round still learns to
+    avoid it. Word / guesses / points always render.
     """
     if not history:
         return "No rounds completed yet."
@@ -107,25 +115,64 @@ def _format_history(history: Sequence[Mapping[str, Any]]) -> str:
         blue_points = entry.get("blue_points", 0)
         yellow_points = entry.get("yellow_points", 0)
         lines.append(f"Round {i + 1}: word was '{word}'.")
-        lines.extend(_render_team_history_art("Blue", blue_art, blue_reason))
-        lines.append(f"  Blue guesses: {blue_guesses!r} -> {blue_points} pt{'s' if blue_points != 1 else ''}")
-        lines.extend(_render_team_history_art("Yellow", yellow_art, yellow_reason))
-        lines.append(f"  Yellow guesses: {yellow_guesses!r} -> {yellow_points} pt{'s' if yellow_points != 1 else ''}")
+        lines.extend(_render_team_history_entry("Blue", blue_art, blue_reason, include_art))
+        lines.append(f"  Blue guesses: {blue_guesses!r} -> {_format_points(blue_points)}")
+        lines.extend(_render_team_history_entry("Yellow", yellow_art, yellow_reason, include_art))
+        lines.append(f"  Yellow guesses: {yellow_guesses!r} -> {_format_points(yellow_points)}")
     return "\n".join(lines)
 
 
-def _render_team_history_art(team_label: str, art: str, disq_reason: str | None) -> list[str]:
+def _render_team_history_entry(
+    team_label: str, art: str, disq_reason: str | None, include_art: bool,
+) -> list[str]:
+    """Render one team's art (or disq annotation) for a completed round.
+
+    Four states:
+      * ``include_art=True``, no disqualification: header + indented art body.
+      * ``include_art=True``, disqualified: header naming the check that
+        fired + indented raw art body.
+      * ``include_art=False``, no disqualification: single "art omitted" line
+        so the model knows something WAS drawn (vs. artist forfeit).
+      * ``include_art=False``, disqualified: single "DISQUALIFIED -- reason"
+        line so the model still learns what tripped the check.
+    """
+    if include_art:
+        if disq_reason:
+            why = _DISQ_REASON_TEXT.get(disq_reason, "was disqualified")
+            return [
+                f"  {team_label} art: (DISQUALIFIED -- {why}; "
+                "the guesser saw a placeholder, not the raw drawing below)",
+                _indent(art or "(empty)", 4),
+            ]
+        return [
+            f"  {team_label} art:",
+            _indent(art or "(empty)", 4),
+        ]
     if disq_reason:
         why = _DISQ_REASON_TEXT.get(disq_reason, "was disqualified")
         return [
-            f"  {team_label} art: (DISQUALIFIED -- {why}; "
-            "the guesser saw a placeholder, not the raw drawing below)",
-            _indent(art or "(empty)", 4),
+            f"  {team_label} art: DISQUALIFIED -- {why}. Teammate saw a placeholder. (art body omitted)"
         ]
-    return [
-        f"  {team_label} art:",
-        _indent(art or "(empty)", 4),
-    ]
+    return [f"  {team_label} art: (omitted for brevity)"]
+
+
+def _format_points(points: Any) -> str:
+    """Render a scoring value for prose lines.
+
+    Integer-valued floats print without a trailing `.0` (so guess_points
+    like `[2, 1, 1]` and `[2.0, 1.0, 1.0]` produce identical text);
+    fractional floats print naturally (`1.5`).
+    """
+    if isinstance(points, bool):  # bool is-a int; treat as-is
+        n = 1 if points else 0
+    elif isinstance(points, (int, float)):
+        n = points
+    else:
+        return f"{points} pts"
+    label = "pt" if n == 1 else "pts"
+    if isinstance(n, float) and n.is_integer():
+        return f"{int(n)} {label}"
+    return f"{n} {label}"
 
 
 def _indent(text: str, spaces: int) -> str:
@@ -137,20 +184,23 @@ def _team_label(team: str) -> str:
     return "Blue" if team == "blue" else "Yellow"
 
 
-def _scoring_block(max_attempts: int, first_try_bonus: int) -> str:
-    base = 1
-    first_try_total = base + first_try_bonus
-    return (
-        f"Scoring (per round, per team):\n"
-        f"  - Correct on attempt 1: {first_try_total} points "
-        f"(1 base + {first_try_bonus} first-try bonus)\n"
-        f"  - Correct on attempt 2 through {max_attempts}: 1 point\n"
-        f"  - No correct guess within {max_attempts} attempts: 0 points\n"
+def _scoring_block(max_attempts: int, guess_points: Sequence[float]) -> str:
+    # Enumerate every attempt explicitly. Cheaper for the model than
+    # asking it to interpolate a table, and it makes the reward gradient
+    # obvious when values are fractional (e.g. [2, 1.5, 1] reads as three
+    # distinct lines, not "1 + bonus" arithmetic).
+    lines = ["Scoring (per round, per team):"]
+    for i in range(max_attempts):
+        pts = guess_points[i] if i < len(guess_points) else 1
+        lines.append(f"  - Correct on attempt {i + 1}: {_format_points(pts)}")
+    lines.append(f"  - No correct guess within {max_attempts} attempts: 0 pts")
+    lines.append(
         "Both teams play the same secret word each round in parallel; your "
         "score is independent of the other team's outcome for the round. "
         "After all rounds are played, the team with the higher total wins; "
         "equal totals are a tie."
     )
+    return "\n".join(lines)
 
 
 def _round_status_block(observation: Mapping[str, Any]) -> str:
@@ -240,11 +290,13 @@ def generate_prompt(
     # The env surfaces these config knobs on the observation at init time.
     # The fallback defaults match the env spec defaults and only fire on
     # a malformed obs (e.g. a unit test that hand-rolls one).
-    first_try_bonus = observation.get("first_try_bonus", 1)
+    raw_guess_points = list(observation.get("guess_points") or [])
+    guess_points = raw_guess_points if raw_guess_points else [1] * max_attempts
+    include_art_history = bool(observation.get("include_art_history", True))
     max_art_chars = observation.get("max_art_chars", 4000)
     status_line = _round_status_block(observation)
-    history_text = _format_history(observation.get("history", []))
-    scoring = _scoring_block(max_attempts, first_try_bonus)
+    history_text = _format_history(observation.get("history", []), include_art_history)
+    scoring = _scoring_block(max_attempts, guess_points)
 
     if role == "artist":
         prompt = _build_artist_prompt(
@@ -264,6 +316,7 @@ def generate_prompt(
             history_text,
             scoring,
             max_attempts,
+            guess_points,
         )
     else:
         # No active role yet (e.g. very first probe before init populates the
@@ -305,8 +358,9 @@ def _build_artist_prompt(
 
 Rules:
 - You see a secret word; your teammate (the guesser) sees only your
-  drawing, never the word. The opposing team sees neither. Roles swap
-  each round.
+  drawing, never the word. The opposing team plays the same secret
+  word in parallel but cannot see your drawing (nor you theirs).
+  Roles swap each round.
 - The guesser has up to {max_attempts} attempts. Matching is
   case-insensitive with leading/trailing whitespace trimmed and accepts
   singular/plural equivalents (CAT/CATS both count, CHILD/CHILDREN both
@@ -323,7 +377,7 @@ section headers, arrow annotations, NATO-alphabet, translations, rhymes
 
 CRITICAL (engine-enforced): TWO mechanical checks run on your art. If
 either fires, your teammate sees a placeholder instead of your drawing
-(no info, no first-try bonus, almost certainly 0 points).
+(no info, almost certainly 0 points on this round).
 
   1. TARGET-WORD check. The engine strips every non-alphanumeric
      character and lowercases the result, then looks for the target as
@@ -383,6 +437,7 @@ def _build_guesser_prompt(
     history_text: str,
     scoring: str,
     max_attempts: int,
+    guess_points: Sequence[float],
 ) -> str:
     teammate_art = observation.get("teammate_art", "")
     previous_guesses = list(observation.get("previous_guesses", []) or [])
@@ -394,14 +449,21 @@ def _build_guesser_prompt(
     else:
         prev_block = "This is your first guess this round."
 
+    # Pitch the current attempt in terms of its actual point value from
+    # guess_points, so the model sees the same numbers as the scoring
+    # table above.
+    current_pts = guess_points[attempt_number - 1] if attempt_number - 1 < len(guess_points) else 1
+    current_pts_str = _format_points(current_pts)
     if attempt_number == 1:
-        attempt_pitch = f"This is attempt 1 of {max_attempts} in the current round. A correct guess NOW earns the first-try bonus."
+        attempt_pitch = (
+            f"This is attempt 1 of {max_attempts} in the current round. "
+            f"A correct guess NOW scores {current_pts_str}."
+        )
     else:
         attempt_pitch = (
             f"This is attempt {attempt_number} of {max_attempts} in the "
             f"current round. You have {attempts_remaining} attempt(s) left "
-            "(including this one). No bonus is available now, but a correct "
-            "guess still scores 1 point."
+            f"(including this one). A correct guess NOW scores {current_pts_str}."
         )
 
     return f"""You are the GUESSER on Team {team_label} in Word Art (a 2v2 game).

@@ -61,16 +61,20 @@ def test_game_completes_default():
     assert j["rewards"] == [0, 0, 0, 0]
 
 
-def test_first_try_bonus():
-    """Cheating both teams = both score 2 per round (1 base + 1 first-try bonus)."""
-    env = _make(num_rounds=4, seed=1)
+def test_guess_points_first_attempt_scoring():
+    """Cheating both teams with an explicit [2, 1, 1] guess_points table:
+    first-attempt correct = 2 pts per round.
+    """
+    env = _make(num_rounds=4, seed=1, guess_points=[2, 1, 1])
     env.run([cheating, cheating, cheating, cheating])
     j = env.toJSON()
-    assert j["rewards"] == [8, 8, 8, 8]  # 2 points * 4 rounds
+    assert j["rewards"] == [8, 8, 8, 8]  # 2 pts * 4 rounds
 
 
 def test_second_try_scores_one():
-    """A team that always lands on attempt 2 scores 1 per round (no bonus)."""
+    """A team that always lands on attempt 2 scores guess_points[1] per round.
+    Under the default guess_points ([1, 1, 1]) that's 1 pt per round.
+    """
     env = _make(num_rounds=3, seed=9)
     env.run([lazy_second_try, lazy_second_try, lazy_second_try, lazy_second_try])
     j = env.toJSON()
@@ -78,8 +82,8 @@ def test_second_try_scores_one():
 
 
 def test_blue_first_yellow_misses():
-    """Blue cheats (2 pts/round); yellow always wrong (0 pts/round)."""
-    env = _make(num_rounds=4, seed=1)
+    """Blue cheats (2 pts/round under [2,1,1]); yellow always wrong (0 pts/round)."""
+    env = _make(num_rounds=4, seed=1, guess_points=[2, 1, 1])
     env.run([cheating, cheating, silent, silent])
     j = env.toJSON()
     assert j["rewards"][0] == 8
@@ -91,7 +95,7 @@ def test_blue_first_yellow_misses():
 def test_history_shape_and_attempts():
     """History entries record per-team guess lists and points; the team that
     succeeds first has fewer entries than the team that exhausts all attempts."""
-    env = _make(num_rounds=2, seed=1)
+    env = _make(num_rounds=2, seed=1, guess_points=[2, 1, 1])
     env.run([cheating, cheating, silent, silent])
     j = env.toJSON()
     final_history = j["steps"][-1][0]["observation"]["history"]
@@ -241,7 +245,7 @@ def test_case_insensitive_guess():
         # should still accept it (matching is case-insensitive).
         return _decode_art(observation.teammate_art).lower()
 
-    env = _make(num_rounds=2, seed=17)
+    env = _make(num_rounds=2, seed=17, guess_points=[2, 1, 1])
     env.run([lowercase_guess] * 4)
     j = env.toJSON()
     # First-try correct → 2 per round * 2 rounds = 4
@@ -258,11 +262,11 @@ def test_empty_guess_is_wrong():
     assert j["rewards"][0] > 0
 
 
-def test_configurable_max_attempts_and_bonus():
-    """Override max_attempts=2 and first_try_bonus=4. lazy_second_try wins on
-    attempt 2 → base 1 point, no bonus → 1 per round.
+def test_configurable_guess_points():
+    """Override max_attempts=2 and guess_points=[5, 1]. lazy_second_try wins
+    on attempt 2 → 1 pt per round.
     """
-    env = _make(num_rounds=2, seed=6, max_attempts=2, first_try_bonus=4)
+    env = _make(num_rounds=2, seed=6, max_attempts=2, guess_points=[5, 1])
     env.run([lazy_second_try] * 4)
     j = env.toJSON()
     assert j["rewards"] == [2, 2, 2, 2]
@@ -511,17 +515,25 @@ def test_substring_word_is_disqualified():
 # --- Config surfaced on observation ----------------------------------------
 
 
-def test_first_try_bonus_surfaced_on_observation():
-    """The env must surface first_try_bonus on every agent's observation so
-    the harness can interpolate the correct scoring text. Hardcoding in the
-    harness silently lies to the model when this config is non-default."""
-    env = _make(num_rounds=1, seed=1, first_try_bonus=4)
+def test_guess_points_surfaced_on_observation():
+    """The env must surface guess_points on every agent's observation so
+    the harness can render the scoring table. Hardcoding in the harness
+    silently lies to the model when this config is non-default."""
+    env = _make(num_rounds=1, seed=1, guess_points=[3, 2, 1])
     for s in env.state:
-        assert s.observation.first_try_bonus == 4
+        assert list(s.observation.guess_points) == [3, 2, 1]
+
+
+def test_include_art_history_surfaced_on_observation():
+    """Same contract: the harness reads include_art_history off the obs to
+    decide whether to include past art in the history block."""
+    env = _make(num_rounds=1, seed=1, include_art_history=False)
+    for s in env.state:
+        assert s.observation.include_art_history is False
 
 
 def test_max_art_chars_surfaced_on_observation():
-    """Same contract as first_try_bonus: the artist prompt needs to warn
+    """Same contract as guess_points: the artist prompt needs to warn
     about the truncation length, so the env must hand it to the harness."""
     env = _make(num_rounds=1, seed=1, max_art_chars=2500)
     for s in env.state:
@@ -529,11 +541,16 @@ def test_max_art_chars_surfaced_on_observation():
 
 
 def test_config_defaults_surfaced_on_observation():
-    """Defaults match word_art.json (first_try_bonus=1, max_art_chars=4000)."""
+    """Defaults match word_art.json (guess_points=[1]*max_attempts,
+    include_art_history=True, max_art_chars=4000). first_try_bonus is
+    no longer part of the schema.
+    """
     env = _make(num_rounds=1, seed=1)
     for s in env.state:
-        assert s.observation.first_try_bonus == 1
+        assert list(s.observation.guess_points) == [1, 1, 1]
+        assert s.observation.include_art_history is True
         assert s.observation.max_art_chars == 4000
+        assert "first_try_bonus" not in s.observation.keys()
 
 
 def test_no_hidden_keys_leak_into_any_observation():
@@ -977,3 +994,69 @@ def test_default_uniform_sampling_backwards_compatible():
     j = env.toJSON()
     history = j["steps"][-1][0]["observation"]["history"]
     assert len(history) == 4
+
+
+# --- guess_points config ---------------------------------------------------
+
+
+def test_guess_points_default_is_uniform_ones():
+    """No guess_points config → every attempt scores 1 pt. lazy_second_try
+    wins on attempt 2, so each team ends with 1 pt/round."""
+    env = _make(num_rounds=3, seed=9)
+    env.run([lazy_second_try] * 4)
+    j = env.toJSON()
+    assert j["rewards"] == [3, 3, 3, 3]
+    # Also confirm history recorded 1 pt per team per round.
+    for entry in j["steps"][-1][0]["observation"]["history"]:
+        assert entry["blue_points"] == 1
+        assert entry["yellow_points"] == 1
+
+
+def test_guess_points_fractional_rewards():
+    """Fractional guess_points produce float rewards end to end."""
+    env = _make(num_rounds=2, seed=5, guess_points=[1.5, 0.5, 0.25])
+    env.run([cheating] * 4)
+    j = env.toJSON()
+    # Cheating hits on attempt 1 → 1.5 pts/round * 2 rounds = 3.0.
+    for r in j["rewards"]:
+        assert r == 3.0
+        assert isinstance(r, float)
+
+
+def test_guess_points_length_mismatch_raises():
+    """Non-empty guess_points whose length differs from max_attempts raises
+    at env init (before any agent runs), matching the word_mix sum-check
+    precedent."""
+    with pytest.raises(ValueError, match="length max_attempts"):
+        _make(num_rounds=3, guess_points=[1, 2])
+    with pytest.raises(ValueError, match="length max_attempts"):
+        _make(num_rounds=3, max_attempts=2, guess_points=[3, 2, 1])
+
+
+def test_guess_points_second_attempt_scoring():
+    """guess_points[1] governs the reward when the guesser hits on attempt 2."""
+    env = _make(num_rounds=3, seed=6, guess_points=[10, 3, 1])
+    env.run([lazy_second_try] * 4)
+    j = env.toJSON()
+    # 3 pts on attempt 2 * 3 rounds = 9 per agent.
+    assert j["rewards"] == [9, 9, 9, 9]
+
+
+# --- include_art_history config --------------------------------------------
+
+
+def test_include_art_history_engine_side_is_noop():
+    """The engine records history the same way regardless of
+    include_art_history — the flag only affects harness prompt rendering.
+    We verify that raw art still lives in history[i].blue_art / yellow_art
+    even when include_art_history=False, so replays remain complete.
+    """
+    env = _make(num_rounds=2, seed=1, include_art_history=False, guess_points=[2, 1, 1])
+    env.run([cheating, cheating, silent, silent])
+    j = env.toJSON()
+    history = j["steps"][-1][0]["observation"]["history"]
+    assert len(history) == 2
+    for entry in history:
+        # Blue cheating agent encodes the word; art should be present in
+        # history even though the harness would omit it from prompts.
+        assert entry["blue_art"] != ""

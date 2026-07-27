@@ -366,10 +366,14 @@ def _disqualification_reason(art, target):
     return None
 
 
-def _score_for_attempt(attempt_num, first_try_bonus):
-    """Points awarded when the guesser hits on attempt `attempt_num` (1-indexed)."""
-    base = 1
-    return base + (first_try_bonus if attempt_num == 1 else 0)
+def _score_for_attempt(attempt_num, guess_points):
+    """Points awarded when the guesser hits on attempt `attempt_num` (1-indexed).
+
+    `guess_points` is the resolved per-attempt reward list (length ==
+    max_attempts, validated at init). May contain floats; caller decides
+    what type to accumulate into the reward channel.
+    """
+    return guess_points[attempt_num - 1]
 
 
 class _WordArtState:
@@ -413,8 +417,20 @@ def initialize_game(state, env):
 
     num_rounds = config.num_rounds
     max_attempts = config.max_attempts
-    first_try_bonus = config.get("first_try_bonus", 1)
     max_art_chars = config.get("max_art_chars", 4000)
+    include_art_history = bool(config.get("include_art_history", True))
+    # `guess_points` follows the `word_mix` "empty means default" convention:
+    # an empty/absent list is expanded to the length-max_attempts uniform-1
+    # default; a non-empty list must match max_attempts exactly. Fail loudly
+    # rather than silently truncating or padding — a length mismatch usually
+    # means the caller changed max_attempts without updating guess_points.
+    raw_guess_points = list(config.get("guess_points") or [])
+    guess_points = raw_guess_points if raw_guess_points else [1] * max_attempts
+    if len(guess_points) != max_attempts:
+        raise ValueError(
+            f"guess_points must have length max_attempts={max_attempts}, "
+            f"got {len(guess_points)} (guess_points={guess_points})."
+        )
     word_mix = config.get("word_mix") or {}
     all_words = _load_words()
     sampled = _sample_words(all_words, num_rounds, word_mix, rng)
@@ -422,7 +438,8 @@ def initialize_game(state, env):
     for i, s in enumerate(state):
         s.observation.num_rounds = num_rounds
         s.observation.max_attempts = max_attempts
-        s.observation.first_try_bonus = first_try_bonus
+        s.observation.guess_points = list(guess_points)
+        s.observation.include_art_history = include_art_history
         s.observation.max_art_chars = max_art_chars
         s.observation.current_round = 0
         s.observation.phase = "art"
@@ -482,13 +499,15 @@ def _set_guess_statuses(state, round_idx, wa_state):
         state[i].status = "INACTIVE" if done else "ACTIVE"
 
 
-def _process_team_guess(state, obs0, wa_state, team, env_config, target_norm):
+def _process_team_guess(state, obs0, wa_state, team, target_norm):
     """Read the active guesser's action for `team` and mutate wa_state
     (append to the team's guess list, mark done, award points). No-op if
     the team was already done or its guesser wasn't asked to act this step.
     """
     max_attempts = obs0.max_attempts
-    first_try_bonus = env_config.get("first_try_bonus", 1)
+    # Prefer the observation-surfaced value (already validated at init) so
+    # tests that hand-roll env_config don't have to re-derive the default.
+    guess_points = list(obs0.guess_points) if obs0.guess_points else [1] * max_attempts
 
     if team == "blue":
         if wa_state.blue_done:
@@ -519,7 +538,7 @@ def _process_team_guess(state, obs0, wa_state, team, env_config, target_norm):
 
     guess_norm = _normalize_guess(raw)
     if _matches_target(guess_norm, target_norm):
-        pts = _score_for_attempt(used, first_try_bonus)
+        pts = _score_for_attempt(used, guess_points)
         if team == "blue":
             wa_state.blue_points = pts
             wa_state.blue_done = True
@@ -689,8 +708,8 @@ def process_step(state, env):
     # phase == "guess" — a single sub-step. Each still-active guesser
     # contributes one attempt.
     target_norm = target.strip().upper()
-    _process_team_guess(state, obs0, wa_state, "blue", env.configuration, target_norm)
-    _process_team_guess(state, obs0, wa_state, "yellow", env.configuration, target_norm)
+    _process_team_guess(state, obs0, wa_state, "blue", target_norm)
+    _process_team_guess(state, obs0, wa_state, "yellow", target_norm)
 
     if wa_state.blue_done and wa_state.yellow_done:
         _advance_after_round(state, obs0, wa_state, rnd, words, target)
