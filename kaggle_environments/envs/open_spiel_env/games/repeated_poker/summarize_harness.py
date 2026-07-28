@@ -64,7 +64,8 @@ EV: use GTO as a baseline and deviate to exploit the opponent's tendencies (see
 the HUD and per-street reads below). Consider ranges, board texture, position,
 pot odds, and stack-to-pot ratio.
 
-State your key beliefs and confidence briefly, then end with the final answer.
+Keep your reasoning short: a few sentences at most stating your key beliefs and
+confidence. Do not write long analyses. Then end with the final answer.
 The final answer MUST be the last line, in exactly this format:
 Final Answer: <action> <size-if-bet-or-raise>
 where <action> is one of: fold, check, call, bet, raise. No other text or
