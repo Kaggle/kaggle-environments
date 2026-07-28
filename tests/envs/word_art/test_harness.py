@@ -594,11 +594,23 @@ class GeneratePromptTest(absltest.TestCase):
     def test_guesser_prompt_requests_reasoning_before_json(self):
         prompt = generate_prompt(_guesser_obs(), [])
         lower = prompt.lower()
-        self.assertIn("think step by step", lower)
-        # Reasoning instruction must precede the JSON example.
+        # Any of several equivalent prose-reasoning phrases is fine; the
+        # invariant is that a WRITE-your-reasoning instruction PRECEDES
+        # the JSON example. The verb must be explicit ("write", "think
+        # step by step") so reasoning models produce observable
+        # chain-of-thought in the response, not just internal thinking.
+        reasoning_pos = min(
+            (lower.find(p) for p in (
+                "write your reasoning",
+                "writing your reasoning",
+                "think step by step",
+            ) if lower.find(p) >= 0),
+            default=-1,
+        )
+        self.assertGreater(reasoning_pos, 0, "guesser prompt must instruct the model to write reasoning before the JSON")
         json_pos = prompt.find('{"guess"')
         self.assertGreater(json_pos, 0)
-        self.assertLess(lower.find("think step by step"), json_pos)
+        self.assertLess(reasoning_pos, json_pos)
 
     def test_guesser_prompt_example_shows_json_format(self):
         prompt = generate_prompt(_guesser_obs(), [])
@@ -910,17 +922,23 @@ class GeneratePromptTest(absltest.TestCase):
         """Both role prompts must not claim the opposing team's drawing is
         permanently private — completed rounds are shared via the history
         block, so an unqualified "cannot see" claim contradicts what the
-        model sees ~40 lines below in the same prompt."""
+        model sees ~40 lines below in the same prompt. Both prompts must
+        include the "during the live round" scoping; no unqualified
+        negatives allowed."""
         for prompt in (
             generate_prompt(_artist_obs(), []),
             generate_prompt(_guesser_obs(), []),
         ):
             squished = " ".join(prompt.split())
             self.assertIn("during the live round", squished)
-            self.assertIn("history block below", squished)
             # No unqualified negative that a past-art reader would find false.
             self.assertNotIn("cannot see your drawing (nor you theirs)", squished)
             self.assertNotIn("and cannot see your art or guesses.", squished)
+        # The artist prompt names the history block explicitly (it's the
+        # primary reader of past-round drawings). The guesser prompt doesn't
+        # need to -- the history block below it has its own header.
+        artist_prompt = " ".join(generate_prompt(_artist_obs(), []).split())
+        self.assertIn("history block below", artist_prompt)
 
     def test_include_art_history_false_forfeit_and_omitted_differ(self):
         """Under include_art_history=False, an artist forfeit (empty art)

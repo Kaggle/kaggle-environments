@@ -459,13 +459,11 @@ either fires, your teammate sees a placeholder instead of your drawing
      Same-letter clusters (OOO, III) and 2-distinct patterns
      (A B A B) pass -- letters are fine as visual elements.
 
-Your art is truncated at {max_art_chars} chars. Characters that would
-break monospace alignment are stripped, and so is every non-ASCII
-letter (Cyrillic, Greek, accented, circled, fullwidth or math-styled
-letterforms). Those are deleted BEFORE the two checks run, so they
-can't sneak a label past them -- they just punch holes in your
-drawing. Box-drawing, blocks, geometric shapes, arrows and Braille all
-survive and are the safest way to add detail.
+Your art is truncated at {max_art_chars} chars. Non-monospace
+characters and non-ASCII letters (Cyrillic, Greek, accented, circled,
+fullwidth, math-styled) are stripped BEFORE the checks run -- they
+punch holes in your drawing rather than evading detection.
+Box-drawing, blocks, arrows, and Braille survive.
 
 The secret word you must depict is: '{target_word}'.
 
@@ -542,8 +540,7 @@ Rules:
   equivalents (CAT/CATS both count, CHILD/CHILDREN both count). Synonyms,
   tenses, and other spelling variants don't count.
 - The opposing team plays the same secret word each round in parallel;
-  during the live round they don't see your art or guesses. Past
-  rounds are shared in the history block below.
+  during the live round they don't see your art or guesses.
 - Art containing the target word or any run of letter-text is
   replaced by a placeholder marker; past disqualified rounds are
   labelled "DISQUALIFIED" in the history.
@@ -556,13 +553,12 @@ Past rounds in this game so far:
 {attempt_pitch}
 {prev_block}
 
-Your teammate's drawing (be aware that monospace alignment matters):
+Your teammate's drawing (monospace):
 {teammate_art if teammate_art else "(your teammate submitted nothing)"}
 
-Think step by step about what the art depicts (letter shapes, spatial
-layout, any annotations), writing your reasoning as ordinary prose.
-Then end your response with a JSON object containing your final answer
-as a SINGLE WORD (no spaces, no punctuation, no articles). Example:
+Write your reasoning as prose about what the art depicts. Then end
+your response with a JSON object containing your final answer as a
+SINGLE WORD (no spaces, no punctuation, no articles). Example:
 
 Four-legged animal with a tail and pointy ears; the 'meow'-like
 whiskers suggest CAT.
