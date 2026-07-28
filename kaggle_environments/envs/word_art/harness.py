@@ -71,11 +71,7 @@ def _slice_thoughts(response: str, answer_start: int) -> str | None:
 
 _DISQ_REASON_TEXT = {
     "target_word": "contained the target word",
-    "contains_words": (
-        "contained text (3+ consecutive letters with 2+ distinct chars, "
-        "or 3+ letters with 3+ distinct chars separated by non-letter, "
-        "non-newline chars)"
-    ),
+    "contains_words": "contained a text label",
 }
 
 
@@ -153,6 +149,8 @@ def _render_team_history_entry(
         return [
             f"  {team_label} art: DISQUALIFIED -- {why}. Teammate saw a placeholder. (art body omitted)"
         ]
+    if not art:
+        return [f"  {team_label} art: (nothing submitted)"]
     return [f"  {team_label} art: (omitted for brevity)"]
 
 
@@ -191,8 +189,7 @@ def _scoring_block(max_attempts: int, guess_points: Sequence[float]) -> str:
     # distinct lines, not "1 + bonus" arithmetic).
     lines = ["Scoring (per round, per team):"]
     for i in range(max_attempts):
-        pts = guess_points[i] if i < len(guess_points) else 1
-        lines.append(f"  - Correct on attempt {i + 1}: {_format_points(pts)}")
+        lines.append(f"  - Correct on attempt {i + 1}: {_format_points(guess_points[i])}")
     lines.append(f"  - No correct guess within {max_attempts} attempts: 0 pts")
     lines.append(
         "Both teams play the same secret word each round in parallel; your "
@@ -203,11 +200,23 @@ def _scoring_block(max_attempts: int, guess_points: Sequence[float]) -> str:
     return "\n".join(lines)
 
 
+def _format_score(value: Any) -> str:
+    """Score as a bare number (no unit), collapsing integer-valued floats.
+    Keeps the running-score line consistent with `_format_points`, which
+    already strips `.0` from history-line and scoring-table numbers.
+    """
+    if isinstance(value, bool):
+        return "1" if value else "0"
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value)
+
+
 def _round_status_block(observation: Mapping[str, Any]) -> str:
     rnd = observation.get("current_round", 0)
     n = observation.get("num_rounds", 0)
-    blue_score = observation.get("blue_score", 0)
-    yellow_score = observation.get("yellow_score", 0)
+    blue_score = _format_score(observation.get("blue_score", 0))
+    yellow_score = _format_score(observation.get("yellow_score", 0))
     return f"This is round {rnd + 1} of {n}. Current score: Blue {blue_score} - Yellow {yellow_score}."
 
 
@@ -359,7 +368,8 @@ def _build_artist_prompt(
 Rules:
 - You see a secret word; your teammate (the guesser) sees only your
   drawing, never the word. The opposing team plays the same secret
-  word in parallel but cannot see your drawing (nor you theirs).
+  word in parallel; during the live round neither team sees the
+  other's drawing. Past rounds are shared in the history block below.
   Roles swap each round.
 - The guesser has up to {max_attempts} attempts. Matching is
   case-insensitive with leading/trailing whitespace trimmed and accepts
@@ -387,22 +397,27 @@ either fires, your teammate sees a placeholder instead of your drawing
      '(scale: CAT)', arrow labels like '<- CAT', or section headers
      like 'CAT close-up:'.
 
-  2. ANY-WORD check. Two thresholds:
+  2. ANY-WORD check. The same two patterns fire in two directions:
+     ROW-wise (along a single line):
        * Consecutive letters: a run of 3+ with 2+ distinct chars
          disqualifies ('top', 'HOUSE', 'grid', 'axe' all trip).
        * Spaced-out letters (letters separated by any non-letter,
          non-newline characters): a run of 3+ with 3+ distinct chars
          disqualifies ('A R O U N D', 'T.O.P.', 'H-O-U-S-E',
          'H|O|U|S|E', 'grid_view').
-     Same-character clusters ('OOO' eyes, 'III' columns, 'TTT'
-     texture, 'V V V' zigzag) always pass. Two-letter decorative
-     patterns like 'o X X X o' (dice pips), 'A B A B' (brickwork)
-     also pass -- letters remain fine as visual elements.
+     COLUMN-wise (letters that line up down the SAME column of your
+     drawing, whether on adjacent rows or with non-letter cells
+     between them): a run of 4+ letters with 4+ distinct chars
+     disqualifies. Catches 'F' / 'L' / 'A' / 'G' stacked one per
+     line inside a box, a rainbow row of same-letter rows
+     ('RRRRR' / 'OOOOO' / 'YYYYY' / 'GGGGG' -> 'ROYG' down column),
+     and the same labels with blank rows or decorative dividers
+     between letters.
+     Same-letter clusters (OOO, III) and 2-distinct patterns
+     (A B A B) pass -- letters are fine as visual elements.
 
-Your art is silently sanitized before scoring: combining marks, wide
-characters (CJK, most emoji), and other non-single-cell Unicode are
-dropped so monospace alignment holds for the guesser. It's then
-truncated at {max_art_chars} characters -- keep it compact.
+Your art is truncated at {max_art_chars} chars; non-monospace
+Unicode is stripped.
 
 The secret word you must depict is: '{target_word}'.
 
@@ -452,8 +467,7 @@ def _build_guesser_prompt(
     # Pitch the current attempt in terms of its actual point value from
     # guess_points, so the model sees the same numbers as the scoring
     # table above.
-    current_pts = guess_points[attempt_number - 1] if attempt_number - 1 < len(guess_points) else 1
-    current_pts_str = _format_points(current_pts)
+    current_pts_str = _format_points(guess_points[attempt_number - 1])
     if attempt_number == 1:
         attempt_pitch = (
             f"This is attempt 1 of {max_attempts} in the current round. "
@@ -477,13 +491,12 @@ Rules:
   with leading/trailing whitespace trimmed and accepts singular/plural
   equivalents (CAT/CATS both count, CHILD/CHILDREN both count). Synonyms,
   tenses, and other spelling variants don't count.
-- The opposing team plays the same secret word each round in parallel
-  and cannot see your art or guesses.
-- The engine mechanically disqualifies art that contains either the
-  target word or any run of letters that reads like a label (captions,
-  headings, annotations). When that happens you'll see a placeholder
-  marker instead of a picture. Past rounds in the history below are
-  likewise labelled "DISQUALIFIED" when this happened.
+- The opposing team plays the same secret word each round in parallel;
+  during the live round they don't see your art or guesses. Past
+  rounds are shared in the history block below.
+- Art containing the target word or any run of letter-text is
+  replaced by a placeholder marker; past disqualified rounds are
+  labelled "DISQUALIFIED" in the history.
 
 {scoring}
 

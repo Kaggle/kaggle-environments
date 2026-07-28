@@ -809,7 +809,7 @@ class GeneratePromptTest(absltest.TestCase):
         ]
         prompt = generate_prompt(_artist_obs(history=hist, current_round=1), [])
         self.assertIn("Yellow art: (DISQUALIFIED", prompt)
-        self.assertIn("contained text", prompt)
+        self.assertIn("contained a text label", prompt)
         self.assertNotIn("Blue art: (DISQUALIFIED", prompt)
 
     def test_include_art_history_true_shows_art_body(self):
@@ -868,7 +868,7 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("['STAR', 'PLANET', 'MOON'] -> 1 pt", prompt)
         # Disqualification annotation remains as a one-liner.
         self.assertIn("Yellow art: DISQUALIFIED", prompt)
-        self.assertIn("contained text", prompt)
+        self.assertIn("contained a text label", prompt)
         self.assertIn("art body omitted", prompt)
         self.assertIn("Blue art: (omitted for brevity)", prompt)
         # Raw art body characters (from either team) must NOT appear.
@@ -884,6 +884,64 @@ class GeneratePromptTest(absltest.TestCase):
                 _artist_obs(history=[], include_art_history=flag), [],
             )
             self.assertIn("No rounds completed yet.", prompt)
+
+    def test_running_score_line_matches_pts_formatting(self):
+        """Fractional guess_points make blue_score / yellow_score floats.
+        The running-score line must use the same formatting convention as
+        history lines and the scoring table (`_format_points`), so a value
+        of 3.0 renders as `3` (not `3.0`) and a fractional value renders
+        naturally. Otherwise the same prompt shows the same quantity in
+        two different formats."""
+        prompt = generate_prompt(
+            _artist_obs(blue_score=3.0, yellow_score=1.5, current_round=2), [],
+        )
+        self.assertIn("Current score: Blue 3 - Yellow 1.5.", prompt)
+        self.assertNotIn("Blue 3.0", prompt)
+
+    def test_opposing_team_visibility_rule_is_scoped_to_live_round(self):
+        """Both role prompts must not claim the opposing team's drawing is
+        permanently private — completed rounds are shared via the history
+        block, so an unqualified "cannot see" claim contradicts what the
+        model sees ~40 lines below in the same prompt."""
+        for prompt in (
+            generate_prompt(_artist_obs(), []),
+            generate_prompt(_guesser_obs(), []),
+        ):
+            squished = " ".join(prompt.split())
+            self.assertIn("during the live round", squished)
+            self.assertIn("history block below", squished)
+            # No unqualified negative that a past-art reader would find false.
+            self.assertNotIn("cannot see your drawing (nor you theirs)", squished)
+            self.assertNotIn("and cannot see your art or guesses.", squished)
+
+    def test_include_art_history_false_forfeit_and_omitted_differ(self):
+        """Under include_art_history=False, an artist forfeit (empty art)
+        must render distinctly from a real drawing that was merely omitted
+        for brevity. Otherwise the model reasoning about a 0-point round
+        would conflate "teammate drew something unreadable" with "teammate
+        submitted nothing.\""""
+        hist = [
+            {
+                "word": "MOON",
+                "blue_art": "  ,--.\n /    \\\n \\    /\n  `--'",  # real drawing
+                "blue_art_disqualified": False,
+                "blue_art_disqualification_reason": None,
+                "blue_guesses": ["MOON"],
+                "blue_points": 2,
+                "yellow_art": "",  # forfeit / timeout — no art submitted
+                "yellow_art_disqualified": False,
+                "yellow_art_disqualification_reason": None,
+                "yellow_guesses": [],
+                "yellow_points": 0,
+            }
+        ]
+        prompt = generate_prompt(
+            _artist_obs(history=hist, current_round=1, include_art_history=False), [],
+        )
+        self.assertIn("Blue art: (omitted for brevity)", prompt)
+        self.assertIn("Yellow art: (nothing submitted)", prompt)
+        # The two states must not collide onto the same line.
+        self.assertNotIn("Yellow art: (omitted for brevity)", prompt)
 
 
 # --- AgentIntegrationTest ---------------------------------------------------

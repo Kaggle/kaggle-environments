@@ -11,7 +11,7 @@ dir_path = path.dirname(__file__)
 def _load_words():
     """Load words.csv. Each entry is {word, category, tier, source}.
 
-    Category ('noun'/'verb'/'abstract') and tier ('easy'/'medium'/'hard')
+    Category ('noun'/'verb'/'abstract') and tier ('easy'/'hard')
     are metadata used only by _sample_words for stratified episode
     composition; the runtime word channel exposes just the string.
     """
@@ -269,10 +269,7 @@ DISQUALIFIED_ART_PLACEHOLDERS = {
         "<your teammate's drawing was disqualified for containing the target word>"
     ),
     "contains_words": (
-        "<your teammate's drawing was disqualified for containing text "
-        "(3+ consecutive letters with 2+ distinct chars, or 3+ letters "
-        "with 3+ distinct chars separated by non-letter, non-newline "
-        "characters)>"
+        "<your teammate's drawing was disqualified for containing a text label>"
     ),
 }
 
@@ -313,22 +310,51 @@ _WORD_LIKE_RE = re.compile(r"[A-Za-z]{3,}")
 _SPACED_WORD_RE = re.compile(r"[A-Za-z](?:[^A-Za-z\n]+[A-Za-z]){2,}")
 
 
+def _transposed_art(art):
+    """Rotate the art 90 degrees so column i of the original becomes row i
+    of the returned string. Lines are padded to the max width with spaces
+    so every column is well-defined. Used to run the row-oriented text
+    checks against columns without a second regex family.
+    """
+    lines = art.split("\n")
+    if not lines:
+        return ""
+    width = max((len(ln) for ln in lines), default=0)
+    if width == 0:
+        return ""
+    padded = [ln + " " * (width - len(ln)) for ln in lines]
+    return "\n".join(
+        "".join(padded[row][col] for row in range(len(padded)))
+        for col in range(width)
+    )
+
+
 def _art_contains_any_word(art):
-    """Return True if `art` contains a text-like run of letters. Two
-    thresholds, chosen so decoration passes but labels don't:
+    """Return True if `art` contains a text-like run of letters. The same
+    two regexes fire in two directions with different thresholds:
 
-    * Consecutive letters (`_WORD_LIKE_RE`): 3+ letters, 2+ distinct.
-      Catches 'top', 'HOUSE', 'grid', 'axe'. Same-letter clusters like
-      'OOO' (eyes), 'III' (columns), 'TTT' (texture) pass.
+    Row-oriented (chosen so decoration passes but labels don't):
+      * Consecutive letters (`_WORD_LIKE_RE`): 3+ letters, 2+ distinct.
+        Catches 'top', 'HOUSE', 'grid', 'axe'. Same-letter clusters like
+        'OOO' (eyes), 'III' (columns), 'TTT' (texture) pass.
+      * Spaced-out letters (`_SPACED_WORD_RE`): 3+ letters separated by
+        non-letter, non-newline characters, and 3+ distinct. Catches
+        'A R O U N D', 'H|O|U|S|E', 'T O P', 'A.R.O.U.N.D'. Two-letter
+        decorations like 'o X X X o' (dice pips), 'A B A B' (brickwork),
+        or 'V W V W' pass. A 2-distinct spelled-out word ('POP', 'EYE')
+        slips through when spaced ('P O P'), but the consecutive check
+        catches the tightly-written form.
 
-    * Spaced-out letters (`_SPACED_WORD_RE`): 3+ letters separated by
-      non-letter, non-newline characters, and 3+ distinct. Catches
-      'A R O U N D', 'H|O|U|S|E', 'T O P', 'A.R.O.U.N.D'. Two-letter
-      decorations like 'o X X X o' (dice pips), 'A B A B' (brickwork),
-      or 'V W V W' pass -- they're almost always visual patterns, not
-      labels. A 2-distinct spelled-out word ('POP', 'EYE') will slip
-      through when spaced ('P O P'), but the consecutive check still
-      catches the tightly-written form.
+    Column-oriented (same regexes on the transposed art, tighter
+    thresholds because 2D layouts naturally produce incidental letter
+    columns):
+      * Consecutive letters down a column: 4+ letters, 4+ distinct.
+        Catches 'FLAG' spelled one-letter-per-line inside a box, or a
+        column of same-letter rows whose leading letters spell a label
+        ('RRR' / 'OOO' / 'YYY' / 'GGG' -> 'ROYG').
+      * Spaced letters down a column: 4+ letters, 4+ distinct. Catches
+        the same labels with blank rows or decorative dividers between
+        letters ('F' / '===' / 'L' / '===' / 'A' / '===' / 'G').
 
     Complementary to _art_contains_word; that catches only the target
     word, this catches every OTHER word.
@@ -339,13 +365,22 @@ def _art_contains_any_word(art):
     """
     if not art:
         return False
+    if _scan_for_text(art, min_consec_distinct=2, min_spaced_distinct=3, min_len=3):
+        return True
+    return _scan_for_text(
+        _transposed_art(art),
+        min_consec_distinct=4, min_spaced_distinct=4, min_len=4,
+    )
+
+
+def _scan_for_text(art, min_consec_distinct, min_spaced_distinct, min_len):
     for m in _WORD_LIKE_RE.finditer(art):
-        distinct_letters = {c for c in m.group(0).lower() if c.isalpha()}
-        if len(distinct_letters) >= 2:
+        s = m.group(0)
+        if len(s) >= min_len and len({c for c in s.lower() if c.isalpha()}) >= min_consec_distinct:
             return True
     for m in _SPACED_WORD_RE.finditer(art):
-        distinct_letters = {c for c in m.group(0).lower() if c.isalpha()}
-        if len(distinct_letters) >= 3:
+        letters = [c for c in m.group(0) if c.isalpha()]
+        if len(letters) >= min_len and len({c.lower() for c in letters}) >= min_spaced_distinct:
             return True
     return False
 

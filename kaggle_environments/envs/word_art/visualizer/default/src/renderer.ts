@@ -87,7 +87,7 @@ function disqReasonText(reason: DisqReason): string {
   // Matches the phrasing the harness uses in the artist prompt so the
   // visualizer reader sees the same rule name the model was told about.
   if (reason === 'contains_words') {
-    return 'contained text (3+ consecutive letters with 2+ distinct chars, or 3+ spaced-out letters with 3+ distinct chars)';
+    return 'contained a text label (row or column of letters)';
   }
   return 'contained the target word';
 }

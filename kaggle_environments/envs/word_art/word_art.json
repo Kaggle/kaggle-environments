@@ -47,7 +47,7 @@
     "word_mix": {
       "type": "object",
       "default": {},
-      "description": "Optional per-tier round mix. Keys are tier names ('easy', 'medium', 'hard'); values are integer counts of rounds to draw from each tier. Counts must sum to num_rounds; a mismatch (or a tier count exceeding its pool size) raises at episode init. Empty (default) samples uniformly at random from the full word pool regardless of tier."
+      "description": "Optional per-tier round mix. Keys are tier names ('easy', 'hard'); values are integer counts of rounds to draw from each tier. Counts must sum to num_rounds; a mismatch (or a tier count exceeding its pool size) raises at episode init. Empty (default) samples uniformly at random from the full word pool regardless of tier."
     },
     "freeForm": {
       "description": "If true, the core harness allows free-form actions on turns where the action space is not enumerable (artist drawing, guesser typing). Always true for word_art.",

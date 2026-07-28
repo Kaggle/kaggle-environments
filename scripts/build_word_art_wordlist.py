@@ -71,11 +71,13 @@ VERB_SUBTLEX_MIN = 20
 VERB_SUBTLEX_MAX = 200_000
 VERB_TOP_N = 400
 
-# Heuristic tier boundaries for nouns. QuickDraw membership auto-promotes
+# Heuristic tier boundary for nouns. QuickDraw membership auto-promotes
 # to easy because those categories have been vetted as drawable in ~20s
 # by humans, which is a strong prior even for lower-concreteness entries.
+# Anything below this threshold (and not in QuickDraw) is hard. The tier
+# system collapsed from 3 to 2 after replay analysis showed the mid tier
+# was gameplay-indistinguishable from the bottom (see word_art.py).
 NOUN_EASY_CONC = 4.7
-NOUN_MEDIUM_CONC = 4.3
 
 
 # Category taxonomy used by the human-curated blocklist. The blocklist
@@ -315,7 +317,7 @@ def _drop_synonyms(rows: list[dict], wn) -> tuple[list[dict], list[tuple[str, st
             continue
         groups.setdefault(synsets[0].name(), []).append(w)
 
-    tier_rank = {"easy": 0, "medium": 1, "hard": 2}
+    tier_rank = {"easy": 0, "hard": 1}
     dropped_pairs: list[tuple[str, str]] = []
     dropped_set: set[str] = set()
     for members in groups.values():
@@ -349,8 +351,6 @@ def _drop_synonyms(rows: list[dict], wn) -> tuple[list[dict], list[tuple[str, st
 def _tier_for_noun(conc_m: float, in_quickdraw: bool) -> str:
     if conc_m >= NOUN_EASY_CONC or in_quickdraw:
         return "easy"
-    if conc_m >= NOUN_MEDIUM_CONC:
-        return "medium"
     return "hard"
 
 

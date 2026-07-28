@@ -447,9 +447,64 @@ def test_visual_letter_elements_pass(art):
 def test_letters_on_different_lines_do_not_chain():
     """Same-line-only chaining: `T`, `O`, `P` each on their own line should
     NOT combine into 'TOP' -- otherwise a 2D layout with letter-based
-    visual elements becomes unusable."""
+    visual elements becomes unusable. The column check requires 4+
+    letters with 4+ distinct, so a 3-letter column passes."""
     art = "T\n O\n  P"
     assert _art_check(art) is False
+
+
+# --- Column labels (letters lined up down a column) ------------------------
+#
+# The row-oriented checks intentionally don't chain across newlines -- 2D
+# art with letters scattered around must stay usable. The column check
+# runs the same two regexes on the transposed art with tighter thresholds
+# (4+ letters, 4+ distinct) to plug the specific hole where a model
+# stacks a label like 'F' / 'L' / 'A' / 'G' one per line, or draws a
+# column of same-letter rows whose leading letters spell a hint. Because
+# the column check reuses `_SPACED_WORD_RE`, decorative dividers or blank
+# rows between the label letters ('F' / '===' / 'L' / '===' / ...) are
+# also caught -- the transposed row for that column is 'F===L===A===G',
+# which reads as spaced text.
+
+
+@pytest.mark.parametrize("art", [
+    # FLAG boxed one-letter-per-line (real evasion caught in replay analysis).
+    "     ___\n    |   |\n    | F |\n    | L |\n    | A |\n    | G |\n    |___|",
+    # Rainbow mnemonic: same-letter row columns whose leading letters spell
+    # 'ROYGB' (each row on its own has only 1 distinct letter so the
+    # consecutive check doesn't fire).
+    "  1. RRRRRRRRR\n  2. OOOOOOOOO\n  3. YYYYYYYYY\n  4. GGGGGGGGG\n  5. BBBBBBBBB",
+    # Bare 4-letter column of distinct letters.
+    "F\nL\nA\nG",
+    # Longer column ('LABEL' - 4 distinct: L, A, B, E).
+    "L\nA\nB\nE\nL",
+    # Column of distinct letters with leading indentation on each line.
+    "      W\n      O\n      R\n      D",
+    # Blank rows between every letter -- transposed row is 'F L A G',
+    # 4 letters with 3 separators, matches the column spaced check.
+    "F\n\nL\n\nA\n\nG",
+    # Decorative dividers between letters -- transposed column across the
+    # label letters reads 'F===L===A===G' with '=' as separators.
+    "| F |\n=====\n| L |\n=====\n| A |\n=====\n| G |",
+])
+def test_column_label_is_disqualified(art):
+    assert _art_check(art) is True, f"expected {art!r} to be flagged as a column label"
+
+
+@pytest.mark.parametrize("art", [
+    # 3 letters -- under the 4-letter threshold, still visual decoration.
+    "T\nO\nP",
+    # 4 letters but only 3 distinct -- likely repeated decoration, not text.
+    "O\nI\nI\nI",
+    # 5 letters, 2 distinct -- alternating brick / zigzag pattern.
+    "A\nB\nA\nB\nA",
+    # Two consecutive letters + one gap + two consecutive letters: the
+    # spaced regex needs letter-(sep+letter){2,}, so 'FL AG' (transposed
+    # from FL / blank / AG) has only one separator group and passes.
+    "F\nL\n\nA\nG",
+])
+def test_column_decoration_passes(art):
+    assert _art_check(art) is False, f"expected {art!r} to pass the column check"
 
 
 def test_guesser_sees_placeholder_on_disqualification():
@@ -885,18 +940,17 @@ def _all_words():
 
 
 def test_word_mix_honors_per_tier_counts():
-    """A word_mix with 3 easy + 2 medium + 1 hard must produce exactly that
+    """A word_mix with 4 easy + 2 hard must produce exactly that
     tier distribution, regardless of shuffle order."""
-    env = _make(num_rounds=6, seed=42, word_mix={"easy": 3, "medium": 2, "hard": 1})
+    env = _make(num_rounds=6, seed=42, word_mix={"easy": 4, "hard": 2})
     env.run([silent] * 4)
     j = env.toJSON()
     history = j["steps"][-1][0]["observation"]["history"]
     words_used = [h["word"] for h in history]
     tier_by_word = {w["word"]: w["tier"] for w in _all_words()}
     tiers = [tier_by_word[w] for w in words_used]
-    assert tiers.count("easy") == 3
-    assert tiers.count("medium") == 2
-    assert tiers.count("hard") == 1
+    assert tiers.count("easy") == 4
+    assert tiers.count("hard") == 2
 
 
 def test_word_mix_sum_mismatch_raises():
@@ -904,7 +958,7 @@ def test_word_mix_sum_mismatch_raises():
     construction (make() calls initialize_game), so the raise happens
     before any agent runs."""
     with pytest.raises(ValueError, match="sum to num_rounds"):
-        _make(num_rounds=8, seed=1, word_mix={"easy": 2, "medium": 2})
+        _make(num_rounds=8, seed=1, word_mix={"easy": 2, "hard": 2})
 
 
 def test_word_mix_tier_pool_too_small_raises():
