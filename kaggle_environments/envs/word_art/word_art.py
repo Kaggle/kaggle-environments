@@ -88,14 +88,36 @@ def _yellow_guesser(round_idx):
 
 
 def _unwrap(action):
-    """Harnesses sometimes wrap actions as {'submission': ...}. Unwrap before use."""
+    """Harnesses sometimes wrap actions as {'submission': ...}. Unwrap before use.
+
+    A submission of -1 is core_harness's `illegalMoveForfeit` signal (the
+    LLM never produced a parseable answer). Word Art has no action index,
+    so it reads as a forfeited turn: empty art / empty guess.
+    """
     if isinstance(action, dict) and "submission" in action:
-        return action["submission"]
+        action = action["submission"]
+    if action == -1:
+        return ""
     return action
 
 
+def _is_letter_like(ch):
+    """True if `ch` reads as a Latin letter to a human.
+
+    Covers both alphabets that merely resemble Latin (Cyrillic 'А',
+    Greek 'Α') and compatibility forms that decompose to one (fullwidth
+    'Ａ', circled 'Ⓐ', math-bold '𝐀', '™' -> 'TM').
+    """
+    if unicodedata.category(ch).startswith("L"):
+        return True
+    return any(
+        c.isascii() and c.isalpha() for c in unicodedata.normalize("NFKD", ch)
+    )
+
+
 def _sanitize_art(s):
-    """Drop characters that break monospace alignment.
+    """Drop characters that break monospace alignment, plus non-ASCII
+    letters.
 
     Keeps: printable ASCII, `\\n`/`\\t`, and any Unicode character whose
     East Asian Width is single-cell (Na/N/H/A) — box-drawing (─│┌┐),
@@ -105,12 +127,17 @@ def _sanitize_art(s):
     combining marks (Mn/Mc/Me), and wide/fullwidth glyphs
     (CJK ideographs, most emoji) — anything that would shift subsequent
     characters in a monospace grid and desync the guesser's view.
+    Also drops non-ASCII letter-likes: both anti-text checks below match
+    `[A-Za-z]` only, so keeping them would let 'САТ' (Cyrillic) or 'ⒸⒶⓉ'
+    render legibly to the guesser while passing every check.
     """
     def _keep(ch):
         if ch in "\n\t":
             return True
         cat = unicodedata.category(ch)
         if cat[0] in ("C", "M"):
+            return False
+        if not ch.isascii() and _is_letter_like(ch):
             return False
         return unicodedata.east_asian_width(ch) in ("Na", "N", "H", "A")
     return "".join(c for c in s if _keep(c))
@@ -363,42 +390,78 @@ def _art_contains_any_word(art):
     separators between them), so 'V V V' evaluates as one distinct
     letter even though the raw match string contains both 'v' and ' '.
     """
+    return _find_text_run(art) is not None
+
+
+def _find_text_run(art):
+    """Return ``(orientation, offending_run)`` for the first text-like run
+    in `art`, or None. Orientation is ``"row"`` or ``"column"``."""
     if not art:
-        return False
-    if _scan_for_text(art, min_consec_distinct=2, min_spaced_distinct=3, min_len=3):
-        return True
-    return _scan_for_text(
+        return None
+    hit = _scan_for_text(art, min_consec_distinct=2, min_spaced_distinct=3, min_len=3)
+    if hit is not None:
+        return "row", hit
+    hit = _scan_for_text(
         _transposed_art(art),
         min_consec_distinct=4, min_spaced_distinct=4, min_len=4,
     )
+    if hit is not None:
+        return "column", hit
+    return None
 
 
 def _scan_for_text(art, min_consec_distinct, min_spaced_distinct, min_len):
+    """Return the first matching letter run, or None if `art` is clean."""
     for m in _WORD_LIKE_RE.finditer(art):
         s = m.group(0)
         if len(s) >= min_len and len({c for c in s.lower() if c.isalpha()}) >= min_consec_distinct:
-            return True
+            return s
     for m in _SPACED_WORD_RE.finditer(art):
         letters = [c for c in m.group(0) if c.isalpha()]
         if len(letters) >= min_len and len({c.lower() for c in letters}) >= min_spaced_distinct:
-            return True
-    return False
+            return m.group(0)
+    return None
 
 
 def _disqualification_reason(art, target):
     """Return why this art submission is disqualified, or None if it passes.
+    `art` must already be sanitized and truncated. None means the art
+    reached the guesser unmodified.
+    """
+    verdict = _check_art(art, target)
+    return verdict[0] if verdict else None
+
+
+def _check_art(art, target):
+    """Return ``(reason, detail)`` if `art` is disqualified, else None.
 
     Priority order: target-word check first (more specific message for the
-    artist to learn from), then the general any-word check. None means the
-    art reached the guesser unmodified.
+    artist to learn from), then the general any-word check.
     """
     if not art:
         return None
     if _art_contains_word(art, target):
-        return "target_word"
-    if _art_contains_any_word(art):
-        return "contains_words"
-    return None
+        return "target_word", f"the target word '{target}'"
+    found = _find_text_run(art)
+    if found is None:
+        return None
+    orientation, run = found
+    where = "along a row" if orientation == "row" else "reading down a column"
+    return "contains_words", f"the letter run {run!r} ({where})"
+
+
+def check_art(art, target, max_art_chars):
+    """Return ``(reason, detail)`` if this art submission would be
+    disqualified, or None if it would reach the guesser intact.
+
+    Applies the same sanitize-and-truncate pass the interpreter runs, so a
+    harness can pre-validate an artist's draft and get the verdict the
+    engine will reach at step time. ``reason`` matches the value stored on
+    observations (``'target_word'`` / ``'contains_words'``); ``detail``
+    names the offending text so the harness can quote it back in a
+    correction prompt.
+    """
+    return _check_art(_coerce_str(art, max_art_chars), target)
 
 
 def _score_for_attempt(attempt_num, guess_points):

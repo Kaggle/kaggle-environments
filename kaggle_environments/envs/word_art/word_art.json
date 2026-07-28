@@ -54,6 +54,11 @@
       "type": "boolean",
       "default": true
     },
+    "illegalMoveForfeit": {
+      "description": "If true, an agent that fails to produce a parseable submission after all harness retries forfeits that single turn (empty art / empty guess) instead of raising, which would abort the whole episode. Word Art alternates roles every round, so an aborted agent would cripple its team for every remaining round -- a single unparseable response should cost one turn, not the match.",
+      "type": "boolean",
+      "default": true
+    },
     "savePrompt": {
       "description": "If disabled, skip logging LLM prompts in the replay file.",
       "type": "boolean",

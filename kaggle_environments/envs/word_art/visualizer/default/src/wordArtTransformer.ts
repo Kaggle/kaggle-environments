@@ -45,7 +45,11 @@ export const wordArtTransformer = (environment: ReplayData, _gameName: string): 
       // core_harness wraps as {submission, thoughts, status, ...}.
       const rawAction = agent.action;
       const isCoreHarness = typeof rawAction === 'object' && rawAction !== null && 'submission' in rawAction;
-      const submission = isCoreHarness ? rawAction.submission : rawAction;
+      const rawSubmission = isCoreHarness ? rawAction.submission : rawAction;
+      // -1 is core_harness's illegalMoveForfeit signal; the engine reads it as
+      // an empty turn, so the log should too.
+      const forfeited = rawSubmission === -1;
+      const submission = forfeited ? '' : rawSubmission;
       const thoughts: string = (isCoreHarness && rawAction?.thoughts) || '';
 
       let actionDisplayText = '';
@@ -53,7 +57,7 @@ export const wordArtTransformer = (environment: ReplayData, _gameName: string): 
         if (role === 'artist') {
           const artStr = typeof submission === 'string' ? submission : '';
           if (!artStr) {
-            actionDisplayText = 'Drew (empty submission)';
+            actionDisplayText = forfeited ? 'Drew nothing (forfeited turn)' : 'Drew (empty submission)';
           } else {
             // Intentionally NOT including a preview of the art itself:
             // the ASCII drawing needs a monospace font and multi-line
@@ -66,7 +70,11 @@ export const wordArtTransformer = (environment: ReplayData, _gameName: string): 
           }
         } else if (role === 'guesser') {
           const guess = typeof submission === 'string' ? submission : String(submission ?? '');
-          actionDisplayText = guess ? `Guessed: ${guess}` : 'Guessed (empty)';
+          if (guess) {
+            actionDisplayText = `Guessed: ${guess}`;
+          } else {
+            actionDisplayText = forfeited ? 'Guessed nothing (forfeited turn)' : 'Guessed (empty)';
+          }
         }
       }
 

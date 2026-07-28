@@ -171,9 +171,9 @@ class ParseResponseArtistTest(absltest.TestCase):
         """Model self-corrects: the earlier block is the rejected draft,
         the trailing block is the intent."""
         obs = _artist_obs()
-        response = 'Draft:\n<art>DRAFT_DRAWING</art>\nActually, revised:\n<art>FINAL_DRAWING</art>'
+        response = 'Draft:\n<art>^_^</art>\nActually, revised:\n<art>>_<</art>'
         result = parse_response(response, None, observation=obs)
-        self.assertEqual(result.submission, "FINAL_DRAWING")
+        self.assertEqual(result.submission, ">_<")
 
     def test_tolerates_tag_case_and_whitespace_variants(self):
         for opener, closer in [
@@ -184,10 +184,10 @@ class ParseResponseArtistTest(absltest.TestCase):
             ("<art >", "</ art>"),
         ]:
             obs = _artist_obs()
-            response = f"Prose.\n{opener}MEOW{closer}"
+            response = f"Prose.\n{opener}( o.o ){closer}"
             result = parse_response(response, None, observation=obs)
             self.assertEqual(
-                result.submission, "MEOW",
+                result.submission, "( o.o )",
                 msg=f"Failed on {opener!r}/{closer!r}",
             )
 
@@ -335,30 +335,30 @@ class ThoughtsExtractionTest(absltest.TestCase):
         final block itself."""
         obs = _artist_obs()
         response = (
-            "Draft:\n<art>DRAFT</art>\n"
-            "Actually, revised approach:\n<art>FINAL</art>"
+            "Draft:\n<art>^_^</art>\n"
+            "Actually, revised approach:\n<art>>_<</art>"
         )
         result = parse_response(response, None, observation=obs)
-        self.assertEqual(result.submission, "FINAL")
+        self.assertEqual(result.submission, ">_<")
         self.assertIsNotNone(result.thoughts)
         self.assertIn("Draft", result.thoughts)
-        self.assertIn("<art>DRAFT</art>", result.thoughts)
+        self.assertIn("<art>^_^</art>", result.thoughts)
         self.assertIn("revised", result.thoughts)
         # The winning block itself must NOT be in thoughts.
-        self.assertNotIn("FINAL", result.thoughts)
+        self.assertNotIn(">_<", result.thoughts)
 
     def test_artist_no_prose_leaves_thoughts_none(self):
         """Model wrote only the answer -- fallback to logging the full
         raw response (core_harness handles that when thoughts=None)."""
         obs = _artist_obs()
-        response = "<art>MEOW</art>"
+        response = "<art>( o.o )</art>"
         result = parse_response(response, None, observation=obs)
-        self.assertEqual(result.submission, "MEOW")
+        self.assertEqual(result.submission, "( o.o )")
         self.assertIsNone(result.thoughts)
 
     def test_artist_whitespace_only_prose_leaves_thoughts_none(self):
         obs = _artist_obs()
-        response = "   \n\n  <art>MEOW</art>"
+        response = "   \n\n  <art>( o.o )</art>"
         result = parse_response(response, None, observation=obs)
         self.assertIsNone(result.thoughts)
 
@@ -740,6 +740,14 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("2500", prompt)
         self.assertIn("truncated", prompt.lower())
 
+    def test_artist_prompt_warns_non_ascii_letters_are_dropped(self):
+        """The sanitizer deletes them before the anti-text checks run, so a
+        model reaching for Cyrillic homoglyphs loses the glyphs outright.
+        The prompt has to say so or that failure is unattributable."""
+        lower = generate_prompt(_artist_obs(), []).lower()
+        self.assertIn("non-ascii", lower)
+        self.assertIn("cyrillic", lower)
+
     def test_scoring_block_states_win_and_tie_conditions(self):
         for obs in (_artist_obs(), _guesser_obs()):
             prompt = generate_prompt(obs, [])
@@ -1013,7 +1021,7 @@ class AgentIntegrationTest(absltest.TestCase):
         obs = _artist_obs()
         responses = [
             _fake_completion("Here's my drawing:\n /\\_/\\"),  # no <art> tag
-            _fake_completion("Retry.\n<art>MEOW</art>"),
+            _fake_completion("Retry.\n<art>( o.o )</art>"),
         ]
         with (
             patch.dict("os.environ", _ENV, clear=False),
@@ -1024,7 +1032,7 @@ class AgentIntegrationTest(absltest.TestCase):
             ) as mock_call,
         ):
             result = agent(obs, {"freeForm": True})
-        self.assertEqual(result["submission"], "MEOW")
+        self.assertEqual(result["submission"], "( o.o )")
         self.assertEqual(mock_call.call_count, 2)
 
     def test_artist_no_valid_response_raises_after_retries(self):
@@ -1041,6 +1049,69 @@ class AgentIntegrationTest(absltest.TestCase):
         ):
             with self.assertRaises(ValueError):
                 agent(obs, {"freeForm": True})
+
+
+class ArtPreValidationTest(absltest.TestCase):
+    """The engine disqualifies text-bearing art AFTER the turn is committed,
+    which is worth 0 and unrecoverable. Pre-validating in the parser turns
+    that into a retry the artist can actually act on."""
+
+    def test_text_bearing_art_is_withheld_from_submission(self):
+        obs = _artist_obs(target="CHEEKBONE")
+        result = parse_response("Prose.\n<art>\n  O  <-- eye\n /|\\\n</art>", None, observation=obs)
+        self.assertIsNone(result.submission)
+        # raw_action carries the drawing so the rethink can quote it back
+        # (and so telemetry categorizes this ILLEGAL, not UNPARSABLE).
+        self.assertIn("eye", result.raw_action)
+
+    def test_target_word_art_is_withheld_from_submission(self):
+        obs = _artist_obs(target="CAT")
+        result = parse_response("Prose.\n<art>C A T</art>", None, observation=obs)
+        self.assertIsNone(result.submission)
+
+    def test_clean_art_still_submits(self):
+        obs = _artist_obs(target="SNOWFLAKE")
+        result = parse_response("Prose.\n<art>\n  *\n \\|/\n--+--\n</art>", None, observation=obs)
+        self.assertIsNotNone(result.submission)
+
+    def test_rethink_names_the_offending_run(self):
+        obs = _artist_obs(target="CHEEKBONE")
+        rejected = "\n  O  <-- eye\n /|\\\n"
+        prompt = generate_prompt(obs, [], previous_response="resp", previous_action=rejected)
+        self.assertIn("REJECTED", prompt)
+        self.assertIn("'eye'", prompt)
+        self.assertIn("along a row", prompt)
+        # The drawing is echoed so the model can edit rather than restart.
+        self.assertIn("<-- eye", prompt)
+        self.assertNotIn("empty or whitespace-only", prompt)
+
+    def test_empty_block_still_gets_the_empty_rethink(self):
+        """The empty-block sentinel is itself letter-bearing ('art'), so the
+        rejection branch must not swallow it."""
+        obs = _artist_obs()
+        result = parse_response("<art>   </art>", None, observation=obs)
+        prompt = generate_prompt(
+            obs, [], previous_response="resp", previous_action=result.raw_action,
+        )
+        self.assertIn("empty or whitespace-only", prompt)
+        self.assertNotIn("REJECTED", prompt)
+
+    def test_artist_recovers_on_retry(self):
+        agent = create_agent_fn(_WordArtHarness(), max_retries=2)
+        obs = _artist_obs(target="CHEEKBONE")
+        responses = [
+            _fake_completion("Draft.\n<art>  O  <-- eye</art>"),
+            _fake_completion("Removed the label.\n<art>  O\n /|\\</art>"),
+        ]
+        with (
+            patch.dict("os.environ", _ENV, clear=False),
+            patch.object(
+                core_harness.litellm, "completion", side_effect=responses,
+            ) as mock_call,
+        ):
+            result = agent(obs, {"freeForm": True})
+        self.assertEqual(mock_call.call_count, 2)
+        self.assertNotIn("eye", result["submission"])
 
 
 if __name__ == "__main__":

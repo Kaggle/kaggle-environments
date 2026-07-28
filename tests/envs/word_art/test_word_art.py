@@ -1,7 +1,12 @@
 import pytest
 
 from kaggle_environments import make
-from kaggle_environments.envs.word_art.word_art import _matches_target, _sample_words
+from kaggle_environments.envs.word_art.word_art import (
+    _matches_target,
+    _sample_words,
+    _sanitize_art,
+    check_art,
+)
 from kaggle_environments.errors import DeadlineExceeded
 
 
@@ -1114,3 +1119,86 @@ def test_include_art_history_engine_side_is_noop():
         # Blue cheating agent encodes the word; art should be present in
         # history even though the harness would omit it from prompts.
         assert entry["blue_art"] != ""
+
+
+# --- Homoglyph hardening ----------------------------------------------------
+
+
+def test_sanitize_drops_non_ascii_letter_likes():
+    """Both anti-text checks match [A-Za-z] only, so a Cyrillic or circled
+    spelling of the target would render legibly while passing every check.
+    Sanitizing them away closes the bypass at the source.
+    """
+    assert _sanitize_art("САТ") == ""       # Cyrillic CAT
+    assert _sanitize_art("ⒸⒶⓉ") == ""       # circled CAT
+    assert _sanitize_art("\U0001d402\U0001d400\U0001d413") == ""  # math-bold CAT
+
+
+def test_sanitize_keeps_non_letter_decoration():
+    """The drop must be narrow: box-drawing, blocks, shapes, arrows and
+    Braille are the whole point of the non-ASCII allowance."""
+    art = "─│┌█░●←★⠿ ½"
+    assert _sanitize_art(art) == art
+
+
+def test_homoglyph_target_word_conveys_nothing():
+    def cyrillic_artist(observation, configuration):
+        if observation.role != "artist":
+            return ""
+        cyr = {"A": "А", "C": "С", "E": "Е", "O": "О", "T": "Т"}
+        return "".join(cyr.get(c, "А") for c in observation.target_word)
+
+    env = _make(num_rounds=2, seed=3)
+    env.run([cyrillic_artist] * 4)
+    for entry in env.steps[-1][0].observation.history:
+        assert entry["blue_art"] == ""
+
+
+# --- check_art --------------------------------------------------------------
+
+
+def test_check_art_names_the_offending_text():
+    assert check_art("  O  <-- eye\n /|\\", "CHEEKBONE", 4000) == (
+        "contains_words", "the letter run 'eye' (along a row)",
+    )
+    assert check_art("F..\nL..\nA..\nG..", "ZEBRA", 4000) == (
+        "contains_words", "the letter run 'FLAG' (reading down a column)",
+    )
+    reason, detail = check_art("C A T", "CAT", 4000)
+    assert reason == "target_word"
+    assert "CAT" in detail
+
+
+def test_check_art_passes_clean_drawing():
+    assert check_art("  *\n \\|/\n--+--\n / \\", "SNOWFLAKE", 4000) is None
+
+
+def test_check_art_agrees_with_the_interpreter_verdict():
+    """check_art exists so a harness can predict the engine. If it applied a
+    different sanitize/truncate pass it would reject art the engine accepts
+    (wasted retries) or miss art the engine rejects (silent zeros)."""
+    art = "x" * 30 + "eye"
+    assert check_art(art, "CHEEKBONE", 4000)[0] == "contains_words"
+    # Truncated below the offending run -> the engine never sees it either.
+    assert check_art(art, "CHEEKBONE", 30) is None
+
+
+# --- illegalMoveForfeit -----------------------------------------------------
+
+
+def test_forfeit_submission_reads_as_an_empty_turn():
+    """core_harness signals "no parseable answer after all retries" with
+    submission=-1. Word Art has no action index, so it must land as a
+    forfeited turn rather than art reading '-1'."""
+    def forfeiter(observation, configuration):
+        # The action shape core_harness returns when illegalMoveForfeit fires.
+        return {"submission": -1, "actionString": None, "status": "forfeiting."}
+
+    env = _make(num_rounds=2, seed=5)
+    env.run([forfeiter] * 4)
+    j = env.toJSON()
+    assert [s["status"] for s in j["steps"][-1]] == ["DONE"] * 4
+    for entry in j["steps"][-1][0]["observation"]["history"]:
+        assert entry["blue_art"] == ""
+        assert entry["blue_guesses"] == ["", "", ""]
+    assert j["rewards"] == [0, 0, 0, 0]

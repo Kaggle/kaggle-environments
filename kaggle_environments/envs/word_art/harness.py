@@ -44,6 +44,7 @@ from kaggle_environments.core_harness import (
     ParseResult,
     extract_last_json_object_with_position,
 )
+from kaggle_environments.envs.word_art.word_art import check_art
 
 # Matches every <art>...</art> block. Case-insensitive and tolerant of
 # whitespace around the tag names so `<Art>`, `< art >`, `</ART >` all
@@ -54,6 +55,13 @@ _ART_TAG_RE = re.compile(
     r"<\s*art\s*>(.*?)<\s*/\s*art\s*>",
     re.DOTALL | re.IGNORECASE,
 )
+
+# Stand-in `raw_action` for an <art> block that was present but empty, so
+# the rethink prompt can quote back what got rejected. It has to be a
+# distinguishable sentinel rather than "" because `generate_prompt` picks
+# the artist's correction template by re-checking `previous_action` --
+# and this literal happens to trip the any-word check on 'art'.
+_EMPTY_ART_MARKER = "<art></art>"
 
 
 def _slice_thoughts(response: str, answer_start: int) -> str | None:
@@ -254,6 +262,26 @@ Re-read the output format above and respond again. The <art>...</art>
 block must contain the actual ASCII drawing."""
 
 
+# REJECTED is not a parse failure -- the <art> block was well-formed, but
+# running the engine's own checks against it says the drawing would be
+# swapped for a placeholder and score ~0. Catching it here converts a
+# silent post-hoc zero into a correctable retry, so the message must name
+# the exact offending run: telling the model only "you included text"
+# leaves it guessing which glyphs to change.
+RETHINK_ARTIST_REJECTED = """
+
+Your previous drawing would be REJECTED by the engine: it contains
+{detail}. Your teammate would see a placeholder instead of the drawing
+and your team would score 0 this round. Your submitted drawing was:
+{previous_action}
+
+Redraw it so no run of letters spells anything -- delete the offending
+text outright rather than disguising it (spacing it out, punctuating
+between the letters, reversing it, or stacking it down a column all trip
+the same checks). Re-read the two engine checks above, then respond again
+with reasoning followed by a single <art>...</art> block."""
+
+
 RETHINK_GUESSER_NO_ANSWER = """
 
 Your previous response did not contain a parseable JSON object with a
@@ -339,7 +367,22 @@ def generate_prompt(
     # model sees a correction tailored to what actually broke.
     if role == "artist":
         if previous_action is not None:
-            prompt += RETHINK_ARTIST_EMPTY.format(previous_action=previous_action)
+            # Two shapes of `previous_action` land here: the empty-block
+            # sentinel, and a well-formed drawing that `parse_response`
+            # refused because it would be disqualified. Re-derive the
+            # verdict instead of smuggling it through the protocol -- the
+            # check is deterministic, so this reproduces exactly what the
+            # parser saw.
+            verdict = (
+                None if previous_action == _EMPTY_ART_MARKER
+                else check_art(previous_action, observation.get("target_word", ""), max_art_chars)
+            )
+            if verdict is None:
+                prompt += RETHINK_ARTIST_EMPTY.format(previous_action=previous_action)
+            else:
+                prompt += RETHINK_ARTIST_REJECTED.format(
+                    detail=verdict[1], previous_action=previous_action,
+                )
         elif previous_response is not None:
             prompt += RETHINK_ARTIST_NO_ANSWER.format(previous_response=previous_response[-500:])
     elif role == "guesser":
@@ -416,8 +459,13 @@ either fires, your teammate sees a placeholder instead of your drawing
      Same-letter clusters (OOO, III) and 2-distinct patterns
      (A B A B) pass -- letters are fine as visual elements.
 
-Your art is truncated at {max_art_chars} chars; non-monospace
-Unicode is stripped.
+Your art is truncated at {max_art_chars} chars. Characters that would
+break monospace alignment are stripped, and so is every non-ASCII
+letter (Cyrillic, Greek, accented, circled, fullwidth or math-styled
+letterforms). Those are deleted BEFORE the two checks run, so they
+can't sneak a label past them -- they just punch holes in your
+drawing. Box-drawing, blocks, geometric shapes, arrows and Braille all
+survive and are the safest way to add detail.
 
 The secret word you must depict is: '{target_word}'.
 
@@ -425,8 +473,10 @@ Past rounds in this game so far:
 {history_text}
 
 Think step by step about how to depict the word visually, writing
-your reasoning as ordinary prose. Then end your response with your
-final drawing wrapped in a single <art>...</art> block. Everything
+your reasoning as ordinary prose. Before you commit to a drawing,
+re-scan it once across each row and once down each column and delete
+any letter run that trips the checks above. Then end your response
+with your final drawing wrapped in a single <art>...</art> block. Everything
 inside the block is taken verbatim -- literal newlines are fine, no
 escaping, no markdown -- and everything outside is treated as
 reasoning and ignored. The example below shows the OUTPUT FORMAT, not
@@ -537,7 +587,13 @@ def parse_response(
       -- categorized as UNPARSABLE in telemetry. If a block matches but
       its contents are empty/whitespace-only, returns
       ``ParseResult(raw_action=<the empty tag>)`` so the rethink prompt
-      can quote it back.
+      can quote it back. A well-formed block is additionally run through
+      the engine's own art checks (``word_art.check_art``); art that
+      would be disqualified is withheld from ``submission`` so the retry
+      loop fires. Without this the violation is only caught at step time,
+      by which point the turn is committed and the round is worth 0 --
+      and past-round annotations in the history block demonstrably do not
+      teach models to stop.
 
     - **Guesser**: extracts the LAST parseable JSON object containing a
       ``"guess"`` key. Same two failure modes (no JSON vs. present but
@@ -554,7 +610,8 @@ def parse_response(
     ``None`` and ``core_harness`` falls back to logging the full raw
     response, which is still the useful thing to keep in the replay.
     """
-    role = (observation or {}).get("role", "")
+    obs = observation or {}
+    role = obs.get("role", "")
 
     if role == "artist":
         matches = list(_ART_TAG_RE.finditer(response))
@@ -566,7 +623,12 @@ def parse_response(
         if raw.strip() == "":
             # Empty <art> block -- record the (empty) tag for the rethink
             # prompt to quote back so the model sees what got rejected.
-            return ParseResult(raw_action="<art></art>", thoughts=thoughts)
+            return ParseResult(raw_action=_EMPTY_ART_MARKER, thoughts=thoughts)
+        if check_art(raw, obs.get("target_word", ""), obs.get("max_art_chars", 4000)):
+            # Well-formed but would be disqualified by the engine. Withhold
+            # the submission so the retry loop fires: the artist gets one
+            # more shot at a clean drawing instead of a silent 0.
+            return ParseResult(raw_action=raw, thoughts=thoughts)
         return ParseResult(submission=raw, raw_action=raw, thoughts=thoughts)
 
     if role == "guesser":

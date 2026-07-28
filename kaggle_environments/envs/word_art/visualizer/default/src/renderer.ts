@@ -346,7 +346,8 @@ export function renderer(options: RendererOptions) {
     } else {
       const empty = document.createElement('span');
       empty.className = 'wa-art-empty';
-      empty.textContent = '(waiting for the artist…)';
+      const artistIsStillDrawing = !isHistoricalView && !isDone && phase === 'art';
+      empty.textContent = artistIsStillDrawing ? '(waiting for the artist…)' : '(the artist submitted nothing)';
       box.appendChild(empty);
     }
     cell.appendChild(box);
