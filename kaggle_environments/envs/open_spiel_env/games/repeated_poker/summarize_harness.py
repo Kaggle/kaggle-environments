@@ -325,8 +325,7 @@ def _render_standing(state_dict: dict, cur: int) -> str:
         standing = "EVEN"
     return (
         f"=== Standing (scored on cumulative chip profit) ===\n"
-        f"{standing}, hand {hand_number + 1}/{max_num_hands} ({hands_left} left). "
-        "Adjust risk accordingly."
+        f"{standing}, hand {hand_number + 1}/{max_num_hands} ({hands_left} left)."
     )
 
 
