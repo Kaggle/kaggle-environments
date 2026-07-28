@@ -277,6 +277,27 @@ def test_configurable_guess_points():
     assert j["rewards"] == [2, 2, 2, 2]
 
 
+def test_fractional_guess_points_keep_observations_schema_valid():
+    """Fractional `guess_points` must not make observations unservable.
+
+    In production every agent turn is an HTTP call whose handler rebuilds the
+    env with `make(..., state={"observation": obs})`; that path runs the
+    observation through the spec's JSON schema. When `blue_score` /
+    `yellow_score` were typed "integer", the first round boundary at which a
+    team banked a fractional total made every subsequent turn fail schema
+    validation for all four seats — surfacing to the caller as a bare
+    KeyError: 'action'.
+    """
+    config = {"num_rounds": 3, "max_attempts": 2, "guess_points": [2, 1.5], "seed": 6}
+    env = _make(**config)
+    env.run([lazy_second_try] * 4)
+
+    assert env.state[0].observation.blue_score == 4.5
+    for step in env.steps:
+        for agent in step:
+            make("word_art", configuration=config, state={"observation": agent["observation"]})
+
+
 def test_renderer():
     env = _make(num_rounds=2, seed=4)
     env.run([cheating, cheating, silent, silent])

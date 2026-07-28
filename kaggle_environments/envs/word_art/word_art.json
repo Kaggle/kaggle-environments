@@ -137,13 +137,13 @@
       "default": 0
     },
     "blue_score": {
-      "description": "Total points scored by team Blue so far.",
-      "type": "integer",
+      "description": "Total points scored by team Blue so far. Numeric rather than integer because guess_points may contain fractional values.",
+      "type": "number",
       "default": 0
     },
     "yellow_score": {
-      "description": "Total points scored by team Yellow so far.",
-      "type": "integer",
+      "description": "Total points scored by team Yellow so far. Numeric rather than integer because guess_points may contain fractional values.",
+      "type": "number",
       "default": 0
     },
     "blue_attempts_used": {
