@@ -1022,6 +1022,7 @@ def create_agent_fn(
                 "submission": -1,
                 "actionString": previous_action,
                 "thoughts": last_content,
+                "failureCategory": failure_category,
                 "status": (
                     f"Failed to parse a legal move after {max_retries}"
                     f" attempts ({failure_category}); forfeiting."

@@ -1,3 +1,4 @@
+import { detectForfeit, FORFEIT_REASONS, FORFEIT_STATUSES } from '@kaggle-environments/core';
 import { ChessAttempt, ChessReplay, ChessPlayer, ChessStep, FenState } from './chessReplayTypes';
 
 function parseFen(fen?: string): FenState {
@@ -102,9 +103,11 @@ function renderAttemptsMarkdown(player: ChessPlayer): string {
   attempts.forEach((attempt, i) => {
     const isLast = i === attempts.length - 1;
     const ok = isLast && !player.forfeited;
+    const outcome = isLast ? 'forfeited' : 'retried';
+    const cause = attempt.finishReason === 'length' ? 'cut off at token limit' : 'illegal';
     const tag = ok
       ? `✅ **Attempt ${i + 1} of ${total}** (submitted)`
-      : `❌ **Attempt ${i + 1} of ${total}** (illegal — ${isLast ? 'forfeited' : 'retried'})`;
+      : `❌ **Attempt ${i + 1} of ${total}** (${cause} — ${outcome})`;
     lines.push(`### ${tag}`);
     lines.push('');
     lines.push(attempt.response || '_(empty response)_');
@@ -130,74 +133,6 @@ export function deriveWinnerFromRewards(players: ChessPlayer[]) {
   return `🎉 ${color} (${players[winnerPlayerIndex].name}) Wins!`;
 }
 
-/**
- * Statuses set by open_spiel_env when an agent fails to produce a valid action:
- *   TIMEOUT — exceeded the per-move / overage time budget
- *   ERROR   — agent crashed or response was unparsable / cut off
- *   INVALID — submitted an illegal move
- * In all three cases the opponent wins by default.
- *
- * Note: when illegalMoveForfeit:true and the env's INVALID branch runs, both
- * players' top-level status gets overwritten to DONE — the per-player forfeit
- * is only visible via action.submission === -1 + a non-null action.status on
- * the offender. detectForfeitLoser() below handles that case.
- */
-const FORFEIT_STATUSES = new Set(['TIMEOUT', 'ERROR', 'INVALID']);
-
-function describeForfeit(status: string): string {
-  switch (status) {
-    case 'TIMEOUT':
-      return 'ran out of time';
-    case 'INVALID':
-      return 'submitted an illegal move';
-    case 'ERROR':
-    default:
-      return 'failed to produce valid input';
-  }
-}
-
-/**
- * Find the index of the player who forfeited, or -1 if there's no
- * unambiguous single forfeiter. Returns ``{loserIndex, reason}``.
- *
- * Two signals:
- *   1. Top-level player.status in FORFEIT_STATUSES — used in strict mode
- *      and for ERROR/TIMEOUT cases where the env doesn't overwrite status.
- *   2. action.submission === -1 with a non-null action.status — used for
- *      the illegalMoveForfeit:true path, where the env normalizes both
- *      top-level statuses to DONE but leaves the offender's self-reported
- *      forfeit message on action.status.
- *
- * Returns -1 / null when no detector fires OR when both players match
- * (genuinely undetermined — episode voided).
- */
-function detectForfeitLoser(rawLastStep: any[]): { loserIndex: number; reason: string | null } {
-  if (rawLastStep.length < 2) return { loserIndex: -1, reason: null };
-
-  const statusForfeits = rawLastStep
-    .map((player, index) => (FORFEIT_STATUSES.has(player.status) ? index : -1))
-    .filter((index) => index !== -1);
-  if (statusForfeits.length === 1) {
-    const i = statusForfeits[0];
-    return { loserIndex: i, reason: describeForfeit(rawLastStep[i].status) };
-  }
-  if (statusForfeits.length > 1) {
-    return { loserIndex: -1, reason: null };
-  }
-
-  const actionForfeits = rawLastStep
-    .map((player, index) => (player.action?.submission === -1 && player.action?.status ? index : -1))
-    .filter((index) => index !== -1);
-  if (actionForfeits.length === 1) {
-    // Reuse INVALID phrasing — submission=-1 is the same forfeit-by-illegal-
-    // move mechanism, just routed through the env's invalid_action branch
-    // (which normalizes top-level status to DONE).
-    return { loserIndex: actionForfeits[0], reason: describeForfeit('INVALID') };
-  }
-
-  return { loserIndex: -1, reason: null };
-}
-
 export const chessTransformer = (environment: any) => {
   const chessReplay = environment as ChessReplay;
   const agents = environment.info.TeamNames;
@@ -207,7 +142,11 @@ export const chessTransformer = (environment: any) => {
   chessReplay.steps.forEach((step, index) => {
     // Each step contains a tuple of players, one who acted and one who's waiting
     const stepPlayers: ChessPlayer[] = step.map((player, playerIndex): ChessPlayer => {
-      const attempts: ChessAttempt[] = player.action?.call_details?.map((c) => ({ response: c.response ?? '' })) ?? [];
+      const attempts: ChessAttempt[] =
+        player.action?.call_details?.map((c) => ({
+          response: c.response ?? '',
+          finishReason: c.finish_reason ?? null,
+        })) ?? [];
       // A forfeit step is one where the player submitted -1 *and* the harness
       // wrote a self-reported status (action.status). Inactive turns also
       // have submission === -1 but with null action.status.
@@ -261,14 +200,15 @@ export const chessTransformer = (environment: any) => {
   // rewards-based detection (normal checkmate/stalemate paths).
   let winDescription: string;
   let forfeitReason: string | null = null;
-  const { loserIndex, reason } = detectForfeitLoser(rawLastStep);
+  const forfeit = detectForfeit(rawLastStep);
 
-  if (loserIndex !== -1) {
+  if (forfeit) {
+    const loserIndex = forfeit.index;
     const winnerIndex = 1 - loserIndex;
     const loserName = agents[loserIndex] || `Player ${loserIndex + 1}`;
     const winnerName = agents[winnerIndex] || `Player ${winnerIndex + 1}`;
     const winnerColor = winnerIndex === 0 ? 'Black' : 'White';
-    forfeitReason = `${loserName} ${reason}. ${winnerName} wins by default.`;
+    forfeitReason = `${loserName} ${FORFEIT_REASONS[forfeit.reasonKey]}. ${winnerName} wins by default.`;
     winDescription = `🎉 ${winnerColor} (${winnerName}) Wins!`;
   } else {
     winDescription = deriveWinnerFromRewards(terminalPlayers);

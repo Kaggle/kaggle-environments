@@ -168,13 +168,15 @@ class CoreHarnessTest(absltest.TestCase):
             core_harness.litellm, "completion",
             return_value=_fake_completion("not_a_legal_move"),
         ):
-            agent({}, {"illegalMoveForfeit": True})
+            result = agent({}, {"illegalMoveForfeit": True})
         failures = self._parse_failure_events()
         self.assertEqual(failures[-1]["category"], "ILLEGAL")
         self.assertEqual(failures[-1]["raw_action"], "not_a_legal_move")
         # Final-attempts telemetry reports the same category.
         finals = [e for e in self.events if "all_attempts_failed" in e]
         self.assertEqual(finals[-1]["final_failure_category"], "ILLEGAL")
+        # Visualizers branch on this structured field, not the status string.
+        self.assertEqual(result["failureCategory"], "ILLEGAL")
 
     def test_parse_failure_telemetry_unparsable(self):
         # Stub parse_response to return raw_action=None for non-empty
@@ -228,6 +230,8 @@ class CoreHarnessTest(absltest.TestCase):
         finals = [e for e in self.events if "all_attempts_failed" in e]
         self.assertEqual(finals[-1]["final_failure_category"], "TRUNCATED")
         self.assertIn("TRUNCATED", result["status"])
+        # Visualizers branch on this structured field, not the status string.
+        self.assertEqual(result["failureCategory"], "TRUNCATED")
 
     def test_truncated_response_with_legal_move_still_succeeds(self):
         # Truncation changes no game behaviour: if the cut-off text still

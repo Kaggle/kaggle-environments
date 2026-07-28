@@ -1,6 +1,5 @@
-import { BaseGameStep } from '@kaggle-environments/core';
+import { BaseGameStep, FORFEIT_REASONS } from '@kaggle-environments/core';
 import { ChessPlayer, ChessStep } from '../transformers/chessReplayTypes';
-import { FORFEIT_REASONS } from '../transformers/forfeit';
 
 export function getStepLabel(step: BaseGameStep) {
   const player = step.players.find((p) => p.isTurn) as ChessPlayer | undefined;

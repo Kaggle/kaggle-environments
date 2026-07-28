@@ -4,6 +4,8 @@ import { BaseGamePlayer, BaseGameStep } from '@kaggle-environments/core';
 export interface ChessAttempt {
   /** Full LLM response text for this attempt. */
   response: string;
+  /** Why generation stopped; 'length' means it hit the output token cap. */
+  finishReason?: string | null;
 }
 
 export interface ChessPlayer extends BaseGamePlayer {
@@ -85,7 +87,9 @@ export interface ChessReplay {
 interface ChessReplayStep {
   action?: {
     actionString?: string;
-    call_details?: Array<{ response?: string }>;
+    call_details?: Array<{ response?: string; finish_reason?: string | null }>;
+    /** Why the harness gave up: TRUNCATED / EMPTY / UNPARSABLE / ILLEGAL. */
+    failureCategory?: string | null;
     generate_returns?: string[];
     status?: string;
     submission: number;

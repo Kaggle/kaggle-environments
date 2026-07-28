@@ -37,6 +37,70 @@ describe('detectForfeit', () => {
     expect(result).toEqual({ index: 1, reasonKey: 'INVALID' });
   });
 
+  it('reports TRUNCATED when the harness blamed the output token cap', () => {
+    const result = detectForfeit([
+      activePlayer(),
+      activePlayer({
+        action: { submission: -1, status: 'failed to parse', failureCategory: 'TRUNCATED' },
+      }),
+    ]);
+    expect(result).toEqual({ index: 1, reasonKey: 'TRUNCATED' });
+  });
+
+  it('keeps INVALID for non-truncation failure categories', () => {
+    const result = detectForfeit([
+      activePlayer(),
+      activePlayer({
+        action: { submission: -1, status: 'failed to parse', failureCategory: 'UNPARSABLE' },
+      }),
+    ]);
+    expect(result).toEqual({ index: 1, reasonKey: 'INVALID' });
+  });
+
+  // Replays predating failureCategory still carry finish_reason per LLM call.
+  it('falls back to the last call_details finish_reason', () => {
+    const result = detectForfeit([
+      activePlayer(),
+      activePlayer({
+        action: {
+          submission: -1,
+          status: 'failed to parse',
+          call_details: [{ finish_reason: 'stop' }, { finish_reason: 'length' }],
+        },
+      }),
+    ]);
+    expect(result).toEqual({ index: 1, reasonKey: 'TRUNCATED' });
+  });
+
+  it('ignores an earlier truncated attempt when the last one was not cut off', () => {
+    const result = detectForfeit([
+      activePlayer(),
+      activePlayer({
+        action: {
+          submission: -1,
+          status: 'failed to parse',
+          call_details: [{ finish_reason: 'length' }, { finish_reason: 'stop' }],
+        },
+      }),
+    ]);
+    expect(result).toEqual({ index: 1, reasonKey: 'INVALID' });
+  });
+
+  it('prefers failureCategory over the call_details fallback', () => {
+    const result = detectForfeit([
+      activePlayer(),
+      activePlayer({
+        action: {
+          submission: -1,
+          status: 'failed to parse',
+          failureCategory: 'ILLEGAL',
+          call_details: [{ finish_reason: 'length' }],
+        },
+      }),
+    ]);
+    expect(result).toEqual({ index: 1, reasonKey: 'INVALID' });
+  });
+
   it('returns null when both players carry a forfeit top-level status', () => {
     expect(detectForfeit([activePlayer({ status: 'TIMEOUT' }), activePlayer({ status: 'ERROR' })])).toBeNull();
   });
@@ -62,6 +126,9 @@ describe('buildForfeitReason', () => {
     expect(buildForfeitReason({ index: 1, reasonKey: 'INVALID' }, ['Alice', 'Bob'])).toBe(
       'Bob submitted an illegal move. Alice wins by default.'
     );
+    expect(buildForfeitReason({ index: 0, reasonKey: 'TRUNCATED' }, ['Alice', 'Bob'])).toBe(
+      'Alice ran out of output tokens. Bob wins by default.'
+    );
   });
 
   it('falls back to Player N labels when team names missing', () => {
@@ -81,11 +148,14 @@ describe('exported constants', () => {
     expect(FORFEIT_STATUSES.has('ERROR')).toBe(true);
     expect(FORFEIT_STATUSES.has('INVALID')).toBe(true);
     expect(FORFEIT_STATUSES.has('DONE')).toBe(false);
+    // TRUNCATED is derived from action.failureCategory, never a top-level status.
+    expect(FORFEIT_STATUSES.has('TRUNCATED')).toBe(false);
   });
 
   it('FORFEIT_REASONS maps each status key', () => {
     expect(FORFEIT_REASONS.TIMEOUT).toBeTruthy();
     expect(FORFEIT_REASONS.INVALID).toBeTruthy();
     expect(FORFEIT_REASONS.ERROR).toBeTruthy();
+    expect(FORFEIT_REASONS.TRUNCATED).toBeTruthy();
   });
 });
