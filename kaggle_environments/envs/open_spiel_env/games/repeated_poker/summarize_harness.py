@@ -324,12 +324,9 @@ def _render_standing(state_dict: dict, cur: int) -> str:
     else:
         standing = "EVEN"
     return (
-        "=== Your standing (this is what you are scored on) ===\n"
-        "Score = your cumulative chip profit summed over all hands in the match "
-        "(zero-sum vs the opponent).\n"
-        f"Currently {standing}. Hand {hand_number + 1} of {max_num_hands} "
-        f"({hands_left} hand(s) remaining after this one). "
-        "Let your standing and the hands left inform how much risk to take."
+        f"=== Standing (scored on cumulative chip profit) ===\n"
+        f"{standing}, hand {hand_number + 1}/{max_num_hands} ({hands_left} left). "
+        "Adjust risk accordingly."
     )
 
 
