@@ -51,8 +51,12 @@ from kaggle_environments.envs.word_art.word_art import check_art
 # match. DOTALL so the tag contents can span newlines -- essential for
 # multi-line ASCII art. Last-wins: if the model rethinks and emits a
 # second <art> block, the trailing one is the intent.
+#
+# The body is tempered so it cannot span another opening `<art>`: without
+# that, a stray unpaired `<art>` in the prose ("I'll use <art> tags") binds
+# to the closing tag of the real drawing and swallows the reasoning into it.
 _ART_TAG_RE = re.compile(
-    r"<\s*art\s*>(.*?)<\s*/\s*art\s*>",
+    r"<\s*art\s*>((?:(?!<\s*art\s*>).)*?)<\s*/\s*art\s*>",
     re.DOTALL | re.IGNORECASE,
 )
 

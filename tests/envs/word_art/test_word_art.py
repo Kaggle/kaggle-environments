@@ -512,6 +512,16 @@ def test_column_decoration_passes(art):
     assert _art_check(art) is False, f"expected {art!r} to pass the column check"
 
 
+def test_tab_indented_column_label_is_disqualified():
+    """The column check counts characters, not render width, so a tab-indented
+    label lines up for the guesser but not for the check. `_sanitize_art`
+    expands tabs first so both see the same grid."""
+    tabbed = "\tF\n        L\n\tA\n        G"
+    spaced = "        F\n        L\n        A\n        G"
+    assert check_art(tabbed, "CAT", 4000) == check_art(spaced, "CAT", 4000)
+    assert check_art(tabbed, "CAT", 4000)[0] == "contains_words"
+
+
 def test_guesser_sees_placeholder_on_disqualification():
     """When the artist's art is disqualified, the guesser's teammate_art is
     replaced with the placeholder string and the original is NOT leaked."""
@@ -1202,3 +1212,25 @@ def test_forfeit_submission_reads_as_an_empty_turn():
         assert entry["blue_art"] == ""
         assert entry["blue_guesses"] == ["", "", ""]
     assert j["rewards"] == [0, 0, 0, 0]
+
+
+def test_forfeited_art_is_preserved_and_disqualified():
+    """An artist forfeit means the retries all produced rejected art, which
+    core_harness hands back as `actionString`. Keep it: the guesser is told
+    the drawing was pulled instead of guessing at a blank canvas, and the
+    replay shows what was actually drawn."""
+    rejected = "  C A T\n /\\_/\\"
+    seen = {}
+
+    def agent(observation, configuration):
+        if observation.role == "artist":
+            return {"submission": -1, "actionString": rejected, "status": "forfeit"}
+        seen.setdefault(observation.team, observation.teammate_art)
+        return "WHATEVER"
+
+    env = _make(num_rounds=1, seed=5)
+    env.run([agent] * 4)
+    entry = env.toJSON()["steps"][-1][0]["observation"]["history"][0]
+    assert entry["blue_art"] == rejected
+    assert entry["blue_art_disqualified"] is True
+    assert "disqualified" in seen["blue"]

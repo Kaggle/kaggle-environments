@@ -329,6 +329,19 @@ class ThoughtsExtractionTest(absltest.TestCase):
         self.assertNotIn("<art>", result.thoughts)
         self.assertNotIn("/\\_/\\", result.thoughts)
 
+    def test_stray_art_tag_in_prose_does_not_swallow_reasoning(self):
+        """An unpaired `<art>` mentioned in the prose must not bind to the
+        real drawing's closing tag -- that would submit the reasoning as
+        part of the art."""
+        obs = _artist_obs()
+        response = (
+            "I will use <art> tags for this. Drawing a cat face now.\n"
+            "<art>\n( o.o )\n</art>"
+        )
+        result = parse_response(response, None, observation=obs)
+        self.assertEqual(result.submission, "\n( o.o )\n")
+        self.assertIn("tags for this", result.thoughts)
+
     def test_artist_thoughts_stop_at_last_art_tag_on_rethink(self):
         """When the model self-corrects with a second <art> block, thoughts
         should include the earlier draft (it IS reasoning) but not the

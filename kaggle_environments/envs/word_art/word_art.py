@@ -101,6 +101,21 @@ def _unwrap(action):
     return action
 
 
+def _unwrap_art(action):
+    """Like `_unwrap`, but keeps the drawing behind a forfeit.
+
+    On the `illegalMoveForfeit` path core_harness stashes the last
+    rejected attempt in `actionString`. That art was rejected for
+    containing text, not for being absent, so it still goes through the
+    normal disqualification pipeline -- the guesser gets told why the
+    drawing was pulled instead of being sent to guess at a blank canvas,
+    and the replay keeps what was actually drawn.
+    """
+    if isinstance(action, dict) and action.get("submission") == -1:
+        return action.get("actionString") or ""
+    return _unwrap(action)
+
+
 def _is_letter_like(ch):
     """True if `ch` reads as a Latin letter to a human.
 
@@ -119,7 +134,7 @@ def _sanitize_art(s):
     """Drop characters that break monospace alignment, plus non-ASCII
     letters.
 
-    Keeps: printable ASCII, `\\n`/`\\t`, and any Unicode character whose
+    Keeps: printable ASCII, `\\n`, and any Unicode character whose
     East Asian Width is single-cell (Na/N/H/A) — box-drawing (─│┌┐),
     blocks (▀█░▒), geometric shapes (●○▲), arrows (←→), common symbols
     (★♥), Braille, etc.
@@ -130,9 +145,15 @@ def _sanitize_art(s):
     Also drops non-ASCII letter-likes: both anti-text checks below match
     `[A-Za-z]` only, so keeping them would let 'САТ' (Cyrillic) or 'ⒸⒶⓉ'
     render legibly to the guesser while passing every check.
+
+    Tabs become spaces up front: the column check treats one character as
+    one column, so a tab-indented drawing would render as aligned text to
+    the guesser while reading as misaligned to the check.
     """
+    s = s.expandtabs(8)
+
     def _keep(ch):
-        if ch in "\n\t":
+        if ch == "\n":
             return True
         cat = unicodedata.category(ch)
         if cat[0] in ("C", "M"):
@@ -768,8 +789,8 @@ def process_step(state, env):
 
     if phase == "art":
         max_chars = env.configuration.get("max_art_chars", 4000)
-        blue_action = _unwrap(state[_blue_artist(rnd)].action)
-        yellow_action = _unwrap(state[_yellow_artist(rnd)].action)
+        blue_action = _unwrap_art(state[_blue_artist(rnd)].action)
+        yellow_action = _unwrap_art(state[_yellow_artist(rnd)].action)
         blue_art = _coerce_str(blue_action, max_chars)
         yellow_art = _coerce_str(yellow_action, max_chars)
 
