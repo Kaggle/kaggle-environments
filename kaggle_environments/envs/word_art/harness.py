@@ -60,12 +60,15 @@ _ART_TAG_RE = re.compile(
     re.DOTALL | re.IGNORECASE,
 )
 
-# Stand-in `raw_action` for an <art> block that was present but empty, so
-# the rethink prompt can quote back what got rejected. It has to be a
-# distinguishable sentinel rather than "" because `generate_prompt` picks
-# the artist's correction template by re-checking `previous_action` --
-# and this literal happens to trip the any-word check on 'art'.
-_EMPTY_ART_MARKER = "<art></art>"
+# Stand-in `raw_action` for an <art> block that was present but empty.
+# Must stay empty: on the `illegalMoveForfeit` path core_harness copies the
+# last `raw_action` into `actionString`, which the env submits as the
+# drawing. Any non-empty sentinel gets scored as real art -- a literal
+# "<art></art>" trips the any-word check on 'art' and tells the guesser
+# their teammate drew a text label when the artist in fact drew nothing.
+# `generate_prompt` still distinguishes it from "no <art> tag at all",
+# which parses to `raw_action=None`.
+_EMPTY_ART_MARKER = ""
 
 
 def _slice_thoughts(response: str, answer_start: int) -> str | None:
@@ -194,6 +197,16 @@ def _team_label(team: str) -> str:
     return "Blue" if team == "blue" else "Yellow"
 
 
+def _points_for_attempt(guess_points: Sequence[float], attempt_number: int) -> float:
+    # Clamped rather than indexed directly: prompt building happens outside
+    # core_harness's retry try-block, so an IndexError here escapes agent_fn
+    # and marks the seat ERROR for the rest of the episode.
+    if not guess_points:
+        return 1
+    index = min(max(attempt_number, 1), len(guess_points)) - 1
+    return guess_points[index]
+
+
 def _scoring_block(max_attempts: int, guess_points: Sequence[float]) -> str:
     # Enumerate every attempt explicitly. Cheaper for the model than
     # asking it to interpolate a table, and it makes the reward gradient
@@ -201,7 +214,10 @@ def _scoring_block(max_attempts: int, guess_points: Sequence[float]) -> str:
     # distinct lines, not "1 + bonus" arithmetic).
     lines = ["Scoring (per round, per team):"]
     for i in range(max_attempts):
-        lines.append(f"  - Correct on attempt {i + 1}: {_format_points(guess_points[i])}")
+        lines.append(
+            f"  - Correct on attempt {i + 1}: "
+            f"{_format_points(_points_for_attempt(guess_points, i + 1))}"
+        )
     lines.append(f"  - No correct guess within {max_attempts} attempts: 0 pts")
     lines.append(
         "Both teams play the same secret word each round in parallel; your "
@@ -259,8 +275,7 @@ reasoning and ignored."""
 RETHINK_ARTIST_EMPTY = """
 
 Your previous response included an <art>...</art> block but its contents
-were empty or whitespace-only. Your submitted block was:
-{previous_action}
+were empty or whitespace-only, so nothing was submitted.
 
 Re-read the output format above and respond again. The <art>...</art>
 block must contain the actual ASCII drawing."""
@@ -382,7 +397,7 @@ def generate_prompt(
                 else check_art(previous_action, observation.get("target_word", ""), max_art_chars)
             )
             if verdict is None:
-                prompt += RETHINK_ARTIST_EMPTY.format(previous_action=previous_action)
+                prompt += RETHINK_ARTIST_EMPTY
             else:
                 prompt += RETHINK_ARTIST_REJECTED.format(
                     detail=verdict[1], previous_action=previous_action,
@@ -460,8 +475,13 @@ either fires, your teammate sees a placeholder instead of your drawing
      ('RRRRR' / 'OOOOO' / 'YYYYY' / 'GGGGG' -> 'ROYG' down column),
      and the same labels with blank rows or decorative dividers
      between letters.
-     Same-letter clusters (OOO, III) and 2-distinct patterns
-     (A B A B) pass -- letters are fine as visual elements.
+     Repeating a SINGLE letter (OOO, IIIII) never trips any of the
+     three checks -- only runs of DISTINCT letters do. A 2-distinct
+     alternation is safe when spaced ('A B A B') or read down a
+     column, but NOT when the letters are consecutive on a row:
+     'ABAB', 'VWVW' and 'ABBA' are 3+ long with 2 distinct chars, so
+     the ROW check rejects them. Within those limits letters are fine
+     as visual elements.
 
 Your art is truncated at {max_art_chars} chars. Non-monospace
 characters and non-ASCII letters (Cyrillic, Greek, accented, circled,
@@ -519,7 +539,7 @@ def _build_guesser_prompt(
     # Pitch the current attempt in terms of its actual point value from
     # guess_points, so the model sees the same numbers as the scoring
     # table above.
-    current_pts_str = _format_points(guess_points[attempt_number - 1])
+    current_pts_str = _format_points(_points_for_attempt(guess_points, attempt_number))
     if attempt_number == 1:
         attempt_pitch = (
             f"This is attempt 1 of {max_attempts} in the current round. "

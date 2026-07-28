@@ -21,6 +21,7 @@ from kaggle_environments.envs.word_art.harness import (
     get_legal_moves,
     parse_response,
 )
+from kaggle_environments.envs.word_art.word_art import _unwrap_art, check_art
 
 
 class _WordArtHarness:
@@ -200,8 +201,9 @@ class ParseResponseArtistTest(absltest.TestCase):
         self.assertIsNone(result.raw_action)
 
     def test_empty_tag_surfaces_raw_action(self):
-        """Model wrote the tag but left it empty -- the rethink prompt should
-        be able to quote it back."""
+        """Model wrote the tag but left it empty. raw_action must stay
+        non-None so generate_prompt can tell this apart from "no <art> tag
+        at all", which parses to None."""
         obs = _artist_obs()
         for response in (
             "<art></art>",
@@ -677,17 +679,58 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertNotIn("were empty", prompt)
 
     def test_artist_rethink_empty_tag_branch(self):
-        # <art> tag present but empty -> quote it back verbatim.
+        # <art> tag present but empty -> the "you submitted nothing" branch,
+        # not the "your drawing would be rejected" one.
+        obs = _artist_obs()
+        response = "here you go: <art></art>"
+        raw_action = parse_response(response, None, observation=obs).raw_action
         prompt = generate_prompt(
-            _artist_obs(),
-            [],
-            previous_response="here you go: <art></art>",
-            previous_action="<art></art>",
+            obs, [], previous_response=response, previous_action=raw_action,
         )
         self.assertIn("empty or whitespace-only", prompt)
-        self.assertIn("<art></art>", prompt)
+        self.assertNotIn("would be REJECTED", prompt)
         # Must NOT use the no-answer branch's phrasing.
         self.assertNotIn("Last 500 characters", prompt)
+
+    def test_empty_tag_forfeit_reaches_env_as_no_drawing(self):
+        """On the illegalMoveForfeit path core_harness copies the last
+        `raw_action` into `actionString`, which the env submits as the
+        drawing. The empty-tag sentinel must not survive that trip: a
+        non-empty one gets scored as real art and disqualifies the team."""
+        raw_action = parse_response(
+            "<art>   </art>", None, observation=_artist_obs(),
+        ).raw_action
+        forfeit = {"submission": -1, "actionString": raw_action}
+        self.assertEqual(_unwrap_art(forfeit), "")
+        self.assertIsNone(check_art(_unwrap_art(forfeit), "ELEPHANT", 4000))
+
+    def test_prompt_never_raises_on_odd_guess_points(self):
+        """generate_prompt is called OUTSIDE core_harness's retry try-block,
+        so anything it raises escapes agent_fn and marks the seat ERROR for
+        the rest of the episode. Indexing guess_points must be total."""
+        for label, obs in (
+            ("exhausted", _guesser_obs(attempts_remaining=0)),
+            ("short table", _guesser_obs(guess_points=[3])),
+            ("empty table", _guesser_obs(guess_points=[])),
+            ("overlong table", _guesser_obs(guess_points=[5, 4, 3, 2, 1])),
+        ):
+            with self.subTest(label):
+                self.assertIn("GUESSER", generate_prompt(obs, []))
+
+    def test_artist_prompt_letter_run_claims_match_engine(self):
+        """The prompt names specific runs as safe/unsafe. If the engine
+        disagrees, artists follow the stated rule straight into a
+        disqualification."""
+        prompt = generate_prompt(_artist_obs(), [])
+        for run in ("ABAB", "VWVW", "ABBA"):
+            self.assertIn(run, prompt)
+            self.assertIsNotNone(
+                check_art(run, "ELEPHANT", 4000), msg=f"{run} should be rejected",
+            )
+        for run in ("OOO", "IIIII", "A B A B"):
+            self.assertIsNone(
+                check_art(run, "ELEPHANT", 4000), msg=f"{run} should pass",
+            )
 
     def test_guesser_rethink_no_json_branch(self):
         prompt = generate_prompt(
