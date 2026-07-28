@@ -305,6 +305,34 @@ def _render_street_tendencies(stats: _OpponentStats, street: Street, opp: int) -
     return "\n".join(lines)
 
 
+def _render_standing(state_dict: dict, cur: int) -> str:
+    """Render the model's current standing on the scored metric.
+
+    The episode is scored on cumulative chip profit summed across all hands
+    (zero-sum in heads-up). A model's optimal risk tolerance depends on whether
+    it is ahead or behind and how many hands remain, so we surface both.
+    """
+    hand_returns = state_dict.get("hand_returns", [])
+    cur_net = int(sum(r[cur] for r in hand_returns if len(r) > cur))
+    hand_number = state_dict["hand_number"]
+    max_num_hands = state_dict["max_num_hands"]
+    hands_left = max_num_hands - hand_number
+    if cur_net > 0:
+        standing = f"AHEAD by {cur_net} chips"
+    elif cur_net < 0:
+        standing = f"BEHIND by {-cur_net} chips"
+    else:
+        standing = "EVEN"
+    return (
+        "=== Your standing (this is what you are scored on) ===\n"
+        "Score = your cumulative chip profit summed over all hands in the match "
+        "(zero-sum vs the opponent).\n"
+        f"Currently {standing}. Hand {hand_number + 1} of {max_num_hands} "
+        f"({hands_left} hand(s) remaining after this one). "
+        "Let your standing and the hands left inform how much risk to take."
+    )
+
+
 # ---------------------------------------------------------------------------
 # Readable-state builder (replaces harness._render_readable_state)
 # ---------------------------------------------------------------------------
@@ -352,6 +380,7 @@ def _render_readable_state(pyspiel_state: pyspiel.State) -> str:
         )
 
     sections: list[str] = [f"You are Player{cur}."]
+    sections.append(_render_standing(state_dict, cur))
 
     if stats.hands > 0:
         sections.append(_render_opponent_model(stats, opp))
