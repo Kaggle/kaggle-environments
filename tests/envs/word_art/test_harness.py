@@ -727,10 +727,36 @@ class GeneratePromptTest(absltest.TestCase):
             self.assertIsNotNone(
                 check_art(run, "ELEPHANT", 4000), msg=f"{run} should be rejected",
             )
-        for run in ("OOO", "IIIII", "A B A B"):
+        # The stated safe harbour must actually be safe, including several
+        # single-letter runs sharing a row and stacked texture rows that stay
+        # under four distinct letters per column.
+        for run in ("OOO", "IIIII", "vvvvv", "OOO XXX III", "ooo\nXXX\nIII"):
             self.assertIsNone(
-                check_art(run, "ELEPHANT", 4000), msg=f"{run} should pass",
+                check_art(run, "ELEPHANT", 4000), msg=f"{run!r} should pass",
             )
+
+    def test_artist_prompt_does_not_advertise_evasions(self):
+        """The prompt discloses the checks so honest artists avoid false
+        positives -- it must not also hand over a recipe for slipping a real
+        label past them (spacing a 2-distinct word, stacking it down a
+        column). Both are live channels: 'M O O' passes the engine today."""
+        prompt = generate_prompt(_artist_obs(), [])
+        self.assertIsNone(check_art("M O O", "COW", 4000))  # the channel exists
+        for leak in ("safe when spaced", "is safe when", "2-distinct"):
+            self.assertNotIn(leak, prompt)
+        # The spaced check's threshold is the one number with no
+        # false-positive upside -- every separator-style texture pattern is
+        # disqualified anyway, so publishing it only teaches evasion.
+        self.assertNotIn("3+ with 3+ distinct", prompt)
+        for texture in ("o-x-i", "v.w.m", "(o)(x)(i)", "O | X | I", "o_x_i"):
+            self.assertIsNotNone(
+                check_art(texture, "ELEPHANT", 4000),
+                msg=f"{texture!r} is on the safe side of the spaced threshold",
+            )
+        # Every word the spaced bullet names as tripping really must trip.
+        for word in ("A R O U N D", "T.O.P.", "H-O-U-S-E", "H|O|U|S|E", "grid_view"):
+            self.assertIn(word, prompt)
+            self.assertIsNotNone(check_art(word, "ELEPHANT", 4000), msg=word)
 
     def test_guesser_rethink_no_json_branch(self):
         prompt = generate_prompt(

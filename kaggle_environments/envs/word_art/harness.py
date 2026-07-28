@@ -463,10 +463,11 @@ either fires, your teammate sees a placeholder instead of your drawing
      ROW-wise (along a single line):
        * Consecutive letters: a run of 3+ with 2+ distinct chars
          disqualifies ('top', 'HOUSE', 'grid', 'axe' all trip).
-       * Spaced-out letters (letters separated by any non-letter,
-         non-newline characters): a run of 3+ with 3+ distinct chars
-         disqualifies ('A R O U N D', 'T.O.P.', 'H-O-U-S-E',
-         'H|O|U|S|E', 'grid_view').
+       * Spaced-out letters: breaking a word up does not help. The
+         engine strips the separators and reads the letters straight
+         through, so 'A R O U N D', 'T.O.P.', 'H-O-U-S-E',
+         'H|O|U|S|E' and 'grid_view' all trip exactly like the
+         unbroken word.
      COLUMN-wise (letters that line up down the SAME column of your
      drawing, whether on adjacent rows or with non-letter cells
      between them): a run of 4+ letters with 4+ distinct chars
@@ -475,13 +476,13 @@ either fires, your teammate sees a placeholder instead of your drawing
      ('RRRRR' / 'OOOOO' / 'YYYYY' / 'GGGGG' -> 'ROYG' down column),
      and the same labels with blank rows or decorative dividers
      between letters.
-     Repeating a SINGLE letter (OOO, IIIII) never trips any of the
-     three checks -- only runs of DISTINCT letters do. A 2-distinct
-     alternation is safe when spaced ('A B A B') or read down a
-     column, but NOT when the letters are consecutive on a row:
-     'ABAB', 'VWVW' and 'ABBA' are 3+ long with 2 distinct chars, so
-     the ROW check rejects them. Within those limits letters are fine
-     as visual elements.
+     Repeating a SINGLE letter is always safe on a row: 'OOO' as
+     wheels, 'IIIII' as railings, 'vvvvv' as grass. What trips the ROW
+     check is mixing distinct letters into one run -- 'ABAB', 'VWVW'
+     and 'ABBA' are each built from only two letters, but they still
+     read as 3+ character runs and get rejected. Stacking rows of
+     letter texture is fine so long as no column ends up with four
+     different letters in it.
 
 Your art is truncated at {max_art_chars} chars. Non-monospace
 characters and non-ASCII letters (Cyrillic, Greek, accented, circled,
