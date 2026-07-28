@@ -6,12 +6,12 @@ prompt quadratically over a 100-hand session), this harness replaces the past
 hands with a compact, deterministic **opponent model**:
 
   1. A global HUD computed from the opponent's actions across all prior hands
-     (VPIP / PFR / 3bet preflop, postflop aggression, showdown frequency, net).
-  2. A **context-aware** section that summarizes the opponent's tendencies on
-     the *current street* -- split by whether they were the aggressor or facing
-     a bet -- so the model gets the read that is most relevant to the decision
-     actually in front of it.
-  3. Full ACPC-style renders of only the last few hands, for concrete recency.
+     (VPIP / PFR / 3B / F3B preflop, CB / FCB on the flop, WTSD, and postflop
+     aggression factor). Preflop and flop tendencies are fully captured here.
+  2. Full ACPC-style renders of only the most recent hands that reached the
+     turn or a showdown -- these are the ones where later-street lines and (at
+     showdown) actual holdings are revealed, which the HUD cannot summarize.
+     Hands decided preflop or on the flop are already covered by the HUD.
 
 All of this is computed by the harness from the structured hand histories, so it
 costs no LLM tokens to produce and stays constant-size as the session grows.
@@ -94,8 +94,6 @@ ActionKind = hh_utils.ActionKind
 
 # Actions taken while facing an outstanding wager this street.
 _FACING_KINDS = (ActionKind.CALL, ActionKind.RAISE, ActionKind.FOLD)
-# Actions taken with no wager to call (first-in or checked-to).
-_UNFACED_KINDS = (ActionKind.BET, ActionKind.CHECK)
 _AGGRESSIVE_KINDS = (ActionKind.BET, ActionKind.RAISE)
 _POSTFLOP_STREETS = (Street.FLOP, Street.TURN, Street.RIVER)
 
@@ -131,22 +129,6 @@ class _OpponentStats:
         # Aggression factor components (postflop).
         self.af_aggressive = 0
         self.af_calls = 0
-        # Per-street facing/unfaced distribution for the context-aware block.
-        self.by_street: dict[Street, dict[str, int]] = {}
-
-    def _street(self, street: Street) -> dict[str, int]:
-        return self.by_street.setdefault(
-            street,
-            {
-                "faced": 0,
-                "fold": 0,
-                "call": 0,
-                "raise": 0,
-                "unfaced": 0,
-                "bet": 0,
-                "check": 0,
-            },
-        )
 
 
 def _accumulate_hand(stats: _OpponentStats, hand: hh_utils.Hand, opp: int) -> None:
@@ -216,30 +198,14 @@ def _accumulate_hand(stats: _OpponentStats, hand: hh_utils.Hand, opp: int) -> No
                 if response is not None and response.kind is ActionKind.FOLD:
                     stats.fold_to_cbet[0] += 1
 
-    # --- Postflop aggression factor + per-street distribution ---
+    # --- Postflop aggression factor ---
     for e in events:
-        if e.actor != opp:
+        if e.actor != opp or e.street not in _POSTFLOP_STREETS:
             continue
-        if e.street in _POSTFLOP_STREETS:
-            if e.kind in _AGGRESSIVE_KINDS:
-                stats.af_aggressive += 1
-            elif e.kind is ActionKind.CALL:
-                stats.af_calls += 1
-        bucket = stats._street(e.street)
-        if e.kind in _FACING_KINDS:
-            bucket["faced"] += 1
-            if e.kind is ActionKind.FOLD:
-                bucket["fold"] += 1
-            elif e.kind is ActionKind.CALL:
-                bucket["call"] += 1
-            elif e.kind is ActionKind.RAISE:
-                bucket["raise"] += 1
-        elif e.kind in _UNFACED_KINDS:
-            bucket["unfaced"] += 1
-            if e.kind is ActionKind.BET:
-                bucket["bet"] += 1
-            else:
-                bucket["check"] += 1
+        if e.kind in _AGGRESSIVE_KINDS:
+            stats.af_aggressive += 1
+        elif e.kind is ActionKind.CALL:
+            stats.af_calls += 1
 
 
 def _pct(pair: list[int]) -> str:
@@ -255,53 +221,37 @@ def _af(stats: _OpponentStats) -> str:
     return f"{stats.af_aggressive / stats.af_calls:.1f}"
 
 
+def _reached_turn_or_showdown(hand: hh_utils.Hand) -> bool:
+    """True if the hand went past the flop -- i.e. a turn card was dealt (so
+    there was turn/river action) or it ended in a showdown. These are the hands
+    where full replay adds information the HUD can't capture; hands decided
+    preflop or on the flop are already summarized by the stats."""
+    # community is [flop(3), turn(1), river(1)] with later streets possibly empty.
+    turn_dealt = len(hand.community) >= 2 and len(hand.community[1]) >= 1
+    showdown = not any(e.kind is ActionKind.FOLD for e in hand.events)
+    saw_flop = len(hand.community) >= 1 and len(hand.community[0]) == 3
+    return turn_dealt or (showdown and saw_flop)
+
+
 def _render_opponent_model(stats: _OpponentStats, opp: int) -> str:
     """A HUD line block, mirroring an online-poker tracker overlay."""
-    sign = "+" if stats.net >= 0 else ""
     lines = [
-        f"=== HUD for Player{opp} (opponent) -- {stats.hands} hands, net {sign}{stats.net} chips vs you ===",
+        f"=== HUD for Player{opp} (opponent) -- {stats.hands} hands ===",
         f"VPIP {_pct(stats.vpip)} ({stats.vpip[0]}/{stats.vpip[1]})  |  "
         f"PFR {_pct(stats.pfr)} ({stats.pfr[0]}/{stats.pfr[1]})  |  "
-        f"3Bet {_pct(stats.threebet)} ({stats.threebet[0]}/{stats.threebet[1]})  |  "
-        f"Fold-to-3Bet {_pct(stats.fold_to_3bet)} "
-        f"({stats.fold_to_3bet[0]}/{stats.fold_to_3bet[1]})",
-        f"CBet {_pct(stats.cbet)} ({stats.cbet[0]}/{stats.cbet[1]})  |  "
-        f"Fold-to-CBet {_pct(stats.fold_to_cbet)} "
-        f"({stats.fold_to_cbet[0]}/{stats.fold_to_cbet[1]})  |  "
+        f"3B {_pct(stats.threebet)} ({stats.threebet[0]}/{stats.threebet[1]})  |  "
+        f"F3B {_pct(stats.fold_to_3bet)} ({stats.fold_to_3bet[0]}/{stats.fold_to_3bet[1]})",
+        f"CB {_pct(stats.cbet)} ({stats.cbet[0]}/{stats.cbet[1]})  |  "
+        f"FCB {_pct(stats.fold_to_cbet)} ({stats.fold_to_cbet[0]}/{stats.fold_to_cbet[1]})  |  "
         f"WTSD {_pct(stats.wtsd)} ({stats.wtsd[0]}/{stats.wtsd[1]})  |  "
         f"AF {_af(stats)}",
-        "Legend: pct (made/opportunities). VPIP=voluntary play%, PFR=raise% "
-        "preflop; 3Bet/Fold-to-3Bet=preflop reraise made/faced; "
-        "CBet/Fold-to-CBet=flop continuation-bet made/faced; WTSD=showdown% when "
-        "saw flop; AF=postflop aggression (bets+raises per call). Small samples "
-        "are noisy -- weight by opportunities.",
+        "Legend (percentages shown as pct (made/opportunities)): "
+        "VPIP=Voluntary Put In Pot, PFR=Pre-Flop Raise, 3B=3-Bet, "
+        "F3B=Fold to 3-Bet, CB=flop Continuation Bet, FCB=Fold to Continuation "
+        "Bet, WTSD=Went To Showdown (of hands that saw the flop), "
+        "AF=Aggression Factor = postflop (bets+raises)/call. "
+        "Small samples are noisy -- weight by opportunities.",
     ]
-    return "\n".join(lines)
-
-
-def _render_street_tendencies(stats: _OpponentStats, street: Street, opp: int) -> str:
-    """Context-aware block: opponent's behavior on the *current* street."""
-    bucket = stats.by_street.get(street)
-    label = street.name.capitalize()
-    if not bucket or (bucket["faced"] == 0 and bucket["unfaced"] == 0):
-        return (
-            f"=== Opponent tendencies on the {label} ===\n"
-            f"No prior {label.lower()} actions observed for Player{opp} yet."
-        )
-    lines = [f"=== Opponent tendencies on the {label} (Player{opp}) ==="]
-    if bucket["unfaced"] > 0:
-        lines.append(
-            f"First to act / checked to ({bucket['unfaced']}x): "
-            f"bet {_pct([bucket['bet'], bucket['unfaced']])}, "
-            f"check {_pct([bucket['check'], bucket['unfaced']])}."
-        )
-    if bucket["faced"] > 0:
-        lines.append(
-            f"Facing a bet/raise ({bucket['faced']}x): "
-            f"fold {_pct([bucket['fold'], bucket['faced']])}, "
-            f"call {_pct([bucket['call'], bucket['faced']])}, "
-            f"raise {_pct([bucket['raise'], bucket['faced']])}."
-        )
     return "\n".join(lines)
 
 
@@ -309,20 +259,23 @@ def _render_standing(state_dict: dict, cur: int) -> str:
     """Render the model's current standing on the scored metric.
 
     The episode is scored on cumulative chip profit summed across all hands
-    (zero-sum in heads-up). A model's optimal risk tolerance depends on whether
-    it is ahead or behind and how many hands remain, so we surface both.
+    (zero-sum in heads-up). Report it in chips and big blinds, alongside how
+    many hands remain, so the model has its full standing.
     """
     hand_returns = state_dict.get("hand_returns", [])
     cur_net = int(sum(r[cur] for r in hand_returns if len(r) > cur))
     hand_number = state_dict["hand_number"]
     max_num_hands = state_dict["max_num_hands"]
     hands_left = max_num_hands - hand_number
+    big_blind = state_dict.get("big_blind", 0) or 0
     if cur_net > 0:
         standing = f"AHEAD by {cur_net} chips"
     elif cur_net < 0:
         standing = f"BEHIND by {-cur_net} chips"
     else:
         standing = "EVEN"
+    if big_blind:
+        standing += f" ({cur_net / big_blind:+.1f} BB)"
     return (
         f"=== Standing (scored on cumulative chip profit) ===\n"
         f"{standing}, hand {hand_number + 1}/{max_num_hands} ({hands_left} left)."
@@ -356,18 +309,21 @@ def _render_readable_state(pyspiel_state: pyspiel.State) -> str:
         button_index=(state_dict["hand_number"] % 2) + 1,
         hand_id_override=str(state_dict["hand_number"]),
     )
-    current_street = cur_parse_state.street
+    del cur_parse_state  # street-specific read is fully covered by the HUD now
 
-    # Accumulate the opponent model over all completed hands, and keep the
-    # parsed objects for the last few so we can render them in full.
+    # Accumulate the opponent model over all completed hands. Preflop and flop
+    # tendencies are captured by the HUD; only hands that reached the turn or a
+    # showdown are worth replaying in full (later-street lines and revealed
+    # holdings can't be summarized statistically).
     stats = _OpponentStats()
-    recent_hands: list[hh_utils.Hand] = []
     acpc_hhs = list(pyspiel_state.acpc_hand_histories())
+    deep_hand_indices: list[int] = []
     for i, acpc_hh in enumerate(acpc_hhs):
         button_index = (i % 2) + 1
         hand, _ = hh_utils.parse_acpc_line(acpc_hh, cfg=cfg, policy=hh_utils.ButtonPolicy(), button_index=button_index)
         _accumulate_hand(stats, hand, opp)
-        recent_hands.append(hand)
+        if _reached_turn_or_showdown(hand):
+            deep_hand_indices.append(i)
 
     if len(acpc_hhs) != state_dict["hand_number"]:
         raise ValueError(
@@ -380,12 +336,14 @@ def _render_readable_state(pyspiel_state: pyspiel.State) -> str:
 
     if stats.hands > 0:
         sections.append(_render_opponent_model(stats, opp))
-        sections.append(_render_street_tendencies(stats, current_street, opp))
 
-        recent = acpc_hhs[-_NUM_RECENT_HANDS:]
-        start = len(acpc_hhs) - len(recent)
-        rendered_recent = [_render_past_hand(acpc_hh, ((start + j) % 2) + 1, cfg) for j, acpc_hh in enumerate(recent)]
-        sections.append(f"=== Most recent {len(recent)} hand(s) in full ===\n\n" + "\n\n".join(rendered_recent))
+        recent_idx = deep_hand_indices[-_NUM_RECENT_HANDS:]
+        if recent_idx:
+            rendered_recent = [_render_past_hand(acpc_hhs[i], (i % 2) + 1, cfg) for i in recent_idx]
+            sections.append(
+                f"=== Most recent {len(recent_idx)} hand(s) that reached the turn "
+                "or showdown, in full ===\n\n" + "\n\n".join(rendered_recent)
+            )
     else:
         sections.append("This is the first hand of the session; no history yet.")
 
