@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { detectForfeit } from '@kaggle-environments/core';
 import { ChessAttempt, ChessReplay, ChessPlayer, ChessStep, FenState, ChessReplayStep } from './chessReplayTypes';
-import { FORFEIT_STATUSES } from './forfeit';
 
 function parseFen(fen?: string): FenState {
   if (!fen || typeof fen !== 'string') {
@@ -95,9 +95,11 @@ function renderAttemptsMarkdown(player: ChessPlayer): string {
   attempts.forEach((attempt, i) => {
     const isLast = i === attempts.length - 1;
     const ok = isLast && !player.forfeited;
+    const outcome = isLast ? 'forfeited' : 'retried';
+    const cause = attempt.finishReason === 'length' ? 'cut off at token limit' : 'illegal';
     const tag = ok
       ? `✅ **Attempt ${i + 1} of ${total}** (submitted)`
-      : `❌ **Attempt ${i + 1} of ${total}** (illegal — ${isLast ? 'forfeited' : 'retried'})`;
+      : `❌ **Attempt ${i + 1} of ${total}** (${cause} — ${outcome})`;
     lines.push(`### ${tag}`);
     lines.push('');
     lines.push(attempt.response || '_(empty response)_');
@@ -110,39 +112,6 @@ function renderAttemptsMarkdown(player: ChessPlayer): string {
 function deriveWinner(step: ChessReplayStep[]): string | null {
   if (step[0].reward === 1) return 'black';
   if (step[1].reward === 1) return 'white';
-  return null;
-}
-
-/**
- * Detect the forfeit status from the terminal replay step, or null if no
- * single player unambiguously forfeited.
- *
- * Two signals:
- *   1. Top-level player.status in FORFEIT_STATUSES — used in strict mode
- *      and for ERROR/TIMEOUT cases where the env doesn't overwrite status.
- *   2. action.submission === -1 with a non-null action.status — used for
- *      the illegalMoveForfeit:true path, where the env normalizes both
- *      top-level statuses to DONE but leaves the offender's self-reported
- *      forfeit message on action.status.
- *
- * Returns null when no detector fires OR when both players match (genuinely
- * undetermined — episode voided).
- */
-function deriveStatus(step: ChessReplayStep[]): string | null {
-  if (step.length < 2) return null;
-
-  const statusForfeiters = step.filter((p) => FORFEIT_STATUSES.has(p.status));
-  if (statusForfeiters.length === 1) return statusForfeiters[0].status;
-  if (statusForfeiters.length > 1) return null;
-
-  const actionForfeiters = step.filter((p) => p.action?.submission === -1 && p.action?.status);
-  if (actionForfeiters.length === 1) {
-    // Reuse INVALID phrasing — submission=-1 with action.status is the same
-    // forfeit-by-illegal-move mechanism, routed through the env's
-    // invalid_action branch (which normalizes top-level status to DONE).
-    return 'INVALID';
-  }
-
   return null;
 }
 
@@ -175,7 +144,11 @@ export const chessTransformer = (environment: any): ChessStep[] => {
   for (const step of chessReplay.steps) {
     // Each step contains a tuple of players, one who acted and one who's waiting
     const stepPlayers: ChessPlayer[] = step.map((player, index): ChessPlayer => {
-      const attempts: ChessAttempt[] = player.action?.call_details?.map((c) => ({ response: c.response ?? '' })) ?? [];
+      const attempts: ChessAttempt[] =
+        player.action?.call_details?.map((c) => ({
+          response: c.response ?? '',
+          finishReason: c.finish_reason ?? null,
+        })) ?? [];
       // A forfeit step is one where the player submitted -1 *and* we have a
       // non-null action.status. Inactive turns also have submission === -1
       // but with null action.status.
@@ -224,7 +197,9 @@ export const chessTransformer = (environment: any): ChessStep[] => {
     fenState: chessSteps[chessSteps.length - 1].fenState,
     step: chessSteps.length,
     winner: deriveWinner(lastReplayStep),
-    status: deriveStatus(lastReplayStep),
+    // Only the reason category is rendered here — GameOver/getStepLabel derive
+    // the loser from the winner, so detectForfeit's index isn't needed.
+    status: detectForfeit(lastReplayStep)?.reasonKey ?? null,
   });
 
   return chessSteps;

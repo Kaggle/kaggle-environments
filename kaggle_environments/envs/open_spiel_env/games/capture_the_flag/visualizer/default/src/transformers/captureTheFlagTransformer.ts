@@ -4,32 +4,13 @@
 // and the framework then resolves a chance node for move-order initiative.
 // After every "real" step both players have submission != -1.
 
-const FORFEIT_STATUSES = new Set(['TIMEOUT', 'ERROR', 'INVALID']);
-const FORFEIT_REASONS: Record<string, string> = {
-  TIMEOUT: 'ran out of time',
-  INVALID: 'submitted an illegal move',
-  ERROR: 'failed to produce valid input',
-};
-
-interface RawAction {
-  submission?: number;
-  actionString?: string | null;
-  thoughts?: string | null;
-  status?: string | null;
-  generate_returns?: string[] | null;
-}
-
-interface RawObservation {
-  observationString?: string;
-  isTerminal?: boolean;
-}
-
-interface RawPlayer {
-  action?: RawAction;
-  observation: RawObservation;
-  reward: number;
-  status?: string;
-}
+import {
+  buildForfeitReason,
+  detectForfeit,
+  deriveWinnerFromRewards,
+  OpenSpielRawPlayer,
+  parseThoughts,
+} from '@kaggle-environments/core';
 
 export interface CtfPlayer {
   id: number;
@@ -78,20 +59,7 @@ export interface CtfStep {
   forfeitReason: string | null;
 }
 
-function parseThoughts(action?: RawAction): string {
-  if (action?.thoughts) return action.thoughts;
-  if (action?.generate_returns?.[0]) {
-    try {
-      const parsed = JSON.parse(action.generate_returns[0]);
-      if (parsed.main_response_and_thoughts) return parsed.main_response_and_thoughts;
-    } catch {
-      // fall through
-    }
-  }
-  return '';
-}
-
-function parseBoardState(step: RawPlayer[]): CtfBoardState | null {
+function parseBoardState(step: OpenSpielRawPlayer[]): CtfBoardState | null {
   const raw = step?.[0]?.observation?.observationString ?? step?.[1]?.observation?.observationString;
   if (!raw) return null;
   try {
@@ -101,33 +69,9 @@ function parseBoardState(step: RawPlayer[]): CtfBoardState | null {
   }
 }
 
-// Detect a forfeit and its reason category. Two signals:
-//   1. top-level player.status in FORFEIT_STATUSES
-//   2. action.submission === -1 with a non-null action.status
-//      (illegalMoveForfeit path: env normalizes top-level statuses to DONE)
-function detectForfeit(step: RawPlayer[]): { index: number; reasonKey: string } | null {
-  if (step.length < 2) return null;
-
-  const byStatus = step.map((p, i) => ({ p, i })).filter(({ p }) => p.status && FORFEIT_STATUSES.has(p.status));
-  if (byStatus.length === 1) return { index: byStatus[0].i, reasonKey: byStatus[0].p.status! };
-  if (byStatus.length > 1) return null;
-
-  const byAction = step.map((p, i) => ({ p, i })).filter(({ p }) => p.action?.submission === -1 && !!p.action?.status);
-  if (byAction.length === 1) return { index: byAction[0].i, reasonKey: 'INVALID' };
-  return null;
-}
-
-function deriveWinner(step: RawPlayer[], teamNames: string[]): string | null {
-  if (step.length < 2) return null;
-  const r0 = step[0].reward ?? 0;
-  const r1 = step[1].reward ?? 0;
-  if (r0 === r1) return 'Draw';
-  return r0 > r1 ? `${teamNames[0]} wins!` : `${teamNames[1]} wins!`;
-}
-
 export const captureTheFlagTransformer = (environment: any): CtfStep[] => {
   const teamNames: string[] = environment?.info?.TeamNames ?? ['Player A', 'Player B'];
-  const rawSteps: RawPlayer[][] = environment?.steps ?? [];
+  const rawSteps: OpenSpielRawPlayer[][] = environment?.steps ?? [];
   const out: CtfStep[] = [];
 
   rawSteps.forEach((step, index) => {
@@ -157,21 +101,13 @@ export const captureTheFlagTransformer = (environment: any): CtfStep[] => {
     const observationTerminal = !!step[0]?.observation?.isTerminal;
     const isTerminal = observationTerminal || forfeit !== null;
 
-    let forfeitReason: string | null = null;
-    if (forfeit) {
-      const loser = teamNames[forfeit.index] ?? `Player ${String.fromCharCode(65 + forfeit.index)}`;
-      const winnerIdx = 1 - forfeit.index;
-      const winner = teamNames[winnerIdx] ?? `Player ${String.fromCharCode(65 + winnerIdx)}`;
-      forfeitReason = `${loser} ${FORFEIT_REASONS[forfeit.reasonKey] ?? 'forfeited'}. ${winner} wins by default.`;
-    }
-
     out.push({
       step: index,
       players,
       boardState: parseBoardState(step),
       isTerminal,
-      winner: isTerminal ? deriveWinner(step, teamNames) : null,
-      forfeitReason,
+      winner: isTerminal ? deriveWinnerFromRewards(step, teamNames) : null,
+      forfeitReason: forfeit ? buildForfeitReason(forfeit, teamNames) : null,
     });
   });
 

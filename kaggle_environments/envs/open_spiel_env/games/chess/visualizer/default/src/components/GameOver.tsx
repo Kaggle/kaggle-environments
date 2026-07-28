@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Ribbon } from './Ribbon';
 import useGameStore from '../stores/useGameStore';
 import { trackEvent } from '../utils/analytics';
-import { FORFEIT_REASONS } from '../transformers/forfeit';
+import { FORFEIT_REASONS } from '@kaggle-environments/core';
 import styles from './GameOver.module.css';
 
 function formatDuration(totalSeconds: number): string {

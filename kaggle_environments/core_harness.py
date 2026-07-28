@@ -640,6 +640,7 @@ def _call_llm(
                 prompt_tokens=details["prompt_tokens"],
                 completion_tokens=details["generation_tokens"],
                 transport_attempts=attempt,
+                finish_reason=finish_reason,
             )
             return content, details
         except Exception as exc:
@@ -879,6 +880,7 @@ def create_agent_fn(
         all_responses: list[str] = []
         call_records: list[dict[str, Any]] = []
         last_exception: Exception | None = None
+        failure_category: str | None = None
 
         for attempt in range(max_retries):
             if attempt == 0:
@@ -958,12 +960,19 @@ def create_agent_fn(
 
             # -- parse failed → prepare rethink --
             # Categorize the failure so dashboards can tell apart:
+            #   TRUNCATED  -> generation hit the token cap, so the answer was
+            #                 very likely cut off mid-reasoning. Takes priority
+            #                 over the categories below because it is the root
+            #                 cause; `raw_action` still distinguishes "nothing
+            #                 extracted" from "extracted but illegal".
             #   EMPTY      -> LLM returned no usable content at all
             #   UNPARSABLE -> content present, but parser couldn't extract
             #                 a structured answer (raw_action is None)
             #   ILLEGAL    -> parser extracted something, but it didn't
             #                 match a legal move
-            if not (content or "").strip():
+            if call_details.get("finish_reason") == "length":
+                failure_category = "TRUNCATED"
+            elif not (content or "").strip():
                 failure_category = "EMPTY"
             elif result.raw_action is None:
                 failure_category = "UNPARSABLE"
@@ -985,13 +994,13 @@ def create_agent_fn(
             )
 
         # -- all attempts exhausted --
-        # `failure_category` here reports the LAST attempt's failure
-        # category (EMPTY / UNPARSABLE / ILLEGAL). Set defensively in
-        # case max_retries was 0 and the variable was never assigned.
+        # `failure_category` here reports the LAST attempt's failure category
+        # (TRUNCATED / EMPTY / UNPARSABLE / ILLEGAL), or None if max_retries
+        # was 0 and the loop never ran.
         _TELEMETRY(
             all_attempts_failed=True,
             total_attempts=max_retries,
-            final_failure_category=locals().get("failure_category"),
+            final_failure_category=failure_category,
         )
         if last_exception is not None:
             raise last_exception
@@ -1013,9 +1022,10 @@ def create_agent_fn(
                 "submission": -1,
                 "actionString": previous_action,
                 "thoughts": last_content,
+                "failureCategory": failure_category,
                 "status": (
                     f"Failed to parse a legal move after {max_retries}"
-                    " attempts; forfeiting."
+                    f" attempts ({failure_category}); forfeiting."
                 ),
                 "call_details": [
                     _build_call_detail(r, save_prompt, save_response)

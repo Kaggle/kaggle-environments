@@ -168,13 +168,15 @@ class CoreHarnessTest(absltest.TestCase):
             core_harness.litellm, "completion",
             return_value=_fake_completion("not_a_legal_move"),
         ):
-            agent({}, {"illegalMoveForfeit": True})
+            result = agent({}, {"illegalMoveForfeit": True})
         failures = self._parse_failure_events()
         self.assertEqual(failures[-1]["category"], "ILLEGAL")
         self.assertEqual(failures[-1]["raw_action"], "not_a_legal_move")
         # Final-attempts telemetry reports the same category.
         finals = [e for e in self.events if "all_attempts_failed" in e]
         self.assertEqual(finals[-1]["final_failure_category"], "ILLEGAL")
+        # Visualizers branch on this structured field, not the status string.
+        self.assertEqual(result["failureCategory"], "ILLEGAL")
 
     def test_parse_failure_telemetry_unparsable(self):
         # Stub parse_response to return raw_action=None for non-empty
@@ -208,6 +210,46 @@ class CoreHarnessTest(absltest.TestCase):
         failures = self._parse_failure_events()
         self.assertEqual(failures[-1]["category"], "EMPTY")
 
+    def test_parse_failure_telemetry_truncated(self):
+        # finish_reason="length" means the generation hit the token cap, so
+        # the failure is categorized TRUNCATED rather than ILLEGAL even
+        # though the parser did extract an (unmatched) action.
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=1)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion",
+            return_value=_fake_completion(
+                "not_a_legal_move", finish_reason="length",
+            ),
+        ):
+            result = agent({}, {"illegalMoveForfeit": True})
+        failures = self._parse_failure_events()
+        self.assertEqual(failures[-1]["category"], "TRUNCATED")
+        # raw_action survives, so illegal-vs-unparsable is still recoverable.
+        self.assertEqual(failures[-1]["raw_action"], "not_a_legal_move")
+        finals = [e for e in self.events if "all_attempts_failed" in e]
+        self.assertEqual(finals[-1]["final_failure_category"], "TRUNCATED")
+        self.assertIn("TRUNCATED", result["status"])
+        # Visualizers branch on this structured field, not the status string.
+        self.assertEqual(result["failureCategory"], "TRUNCATED")
+
+    def test_truncated_response_with_legal_move_still_succeeds(self):
+        # Truncation changes no game behaviour: if the cut-off text still
+        # contains a legal move, the action is returned as normal. The only
+        # record of the truncation is the llm_call_success telemetry.
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion",
+            return_value=_fake_completion("move_1", finish_reason="length"),
+        ):
+            result = agent({}, {})
+
+        self.assertEqual(result["submission"], 1)
+        self.assertEqual(result["status"], "OK")
+        self.assertEqual(self._parse_failure_events(), [])
+        successes = [e for e in self.events if "llm_call_success" in e]
+        self.assertEqual(successes[-1]["finish_reason"], "length")
 
     def test_all_attempts_fail_forfeits_when_opted_in(self):
         harness = _SimpleHarness()

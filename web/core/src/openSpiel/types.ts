@@ -9,6 +9,10 @@ export interface OpenSpielRawAction {
   thoughts?: string | null;
   status?: string | null;
   generate_returns?: string[] | null;
+  /** Why the harness gave up: TRUNCATED / EMPTY / UNPARSABLE / ILLEGAL. */
+  failureCategory?: string | null;
+  /** One entry per LLM call the harness completed this turn, in attempt order. */
+  call_details?: Array<{ finish_reason?: string | null }> | null;
 }
 
 export interface OpenSpielRawObservation {
@@ -19,6 +23,7 @@ export interface OpenSpielRawObservation {
 export interface OpenSpielRawPlayer {
   action?: OpenSpielRawAction;
   observation?: OpenSpielRawObservation;
-  reward?: number;
+  /** null on every non-terminal step -- the env only populates rewards at the end. */
+  reward?: number | null;
   status?: string;
 }

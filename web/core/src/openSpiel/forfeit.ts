@@ -7,7 +7,7 @@
 // "Turn: X" line. These helpers give per-game transformers a uniform way to
 // spot the three forfeit signals and label the ending explicitly.
 
-import { OpenSpielRawPlayer } from './types';
+import { OpenSpielRawAction, OpenSpielRawPlayer } from './types';
 
 // Reasons the env sets on a player's top-level status when they fail to
 // produce a legal action. The illegal-move path additionally routes through
@@ -19,6 +19,7 @@ export const FORFEIT_REASONS: Readonly<Record<string, string>> = {
   TIMEOUT: 'ran out of time',
   INVALID: 'submitted an illegal move',
   ERROR: 'failed to produce valid input',
+  TRUNCATED: 'ran out of output tokens',
 };
 
 export interface ForfeitInfo {
@@ -44,9 +45,24 @@ export function detectForfeit(step: OpenSpielRawPlayer[] | undefined | null): Fo
     .map((p, i) => ({ p, i }))
     .filter(({ p }) => p.action?.submission === -1 && !!p.action?.status);
   if (actionForfeiters.length === 1) {
-    return { index: actionForfeiters[0].i, reasonKey: 'INVALID' };
+    const { p, i } = actionForfeiters[0];
+    // A generation cut off at the token cap is a budget problem, not an
+    // illegal-move signal, so it gets its own label. Every other harness
+    // failure category (EMPTY / UNPARSABLE / ILLEGAL) keeps INVALID.
+    return { index: i, reasonKey: wasTruncated(p.action) ? 'TRUNCATED' : 'INVALID' };
   }
   return null;
+}
+
+// `failureCategory` is authoritative but only present on replays recorded
+// after the harness started emitting it. On older ones the equivalent signal
+// is the last call_details entry: the harness appends a record for every LLM
+// call that returned, and a forfeit is only reachable when the final attempt
+// returned, so the last entry is always the attempt that failed.
+function wasTruncated(action: OpenSpielRawAction | undefined): boolean {
+  if (action?.failureCategory) return action.failureCategory === 'TRUNCATED';
+  const calls = action?.call_details;
+  return !!calls?.length && calls[calls.length - 1]?.finish_reason === 'length';
 }
 
 // Compose the human-readable "X forfeited. Y wins by default." line.
