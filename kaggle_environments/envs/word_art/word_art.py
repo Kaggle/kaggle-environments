@@ -11,7 +11,7 @@ dir_path = path.dirname(__file__)
 def _load_words():
     """Load words.csv. Each entry is {word, category, tier, source}.
 
-    Category ('noun'/'verb'/'abstract') and tier ('easy'/'medium'/'hard')
+    Category ('noun'/'verb'/'abstract') and tier ('easy'/'hard')
     are metadata used only by _sample_words for stratified episode
     composition; the runtime word channel exposes just the string.
     """
@@ -88,16 +88,53 @@ def _yellow_guesser(round_idx):
 
 
 def _unwrap(action):
-    """Harnesses sometimes wrap actions as {'submission': ...}. Unwrap before use."""
+    """Harnesses sometimes wrap actions as {'submission': ...}. Unwrap before use.
+
+    A submission of -1 is core_harness's `illegalMoveForfeit` signal (the
+    LLM never produced a parseable answer). Word Art has no action index,
+    so it reads as a forfeited turn: empty art / empty guess.
+    """
     if isinstance(action, dict) and "submission" in action:
-        return action["submission"]
+        action = action["submission"]
+    if action == -1:
+        return ""
     return action
 
 
-def _sanitize_art(s):
-    """Drop characters that break monospace alignment.
+def _unwrap_art(action):
+    """Like `_unwrap`, but keeps the drawing behind a forfeit.
 
-    Keeps: printable ASCII, `\\n`/`\\t`, and any Unicode character whose
+    On the `illegalMoveForfeit` path core_harness stashes the last
+    rejected attempt in `actionString`. That art was rejected for
+    containing text, not for being absent, so it still goes through the
+    normal disqualification pipeline -- the guesser gets told why the
+    drawing was pulled instead of being sent to guess at a blank canvas,
+    and the replay keeps what was actually drawn.
+    """
+    if isinstance(action, dict) and action.get("submission") == -1:
+        return action.get("actionString") or ""
+    return _unwrap(action)
+
+
+def _is_letter_like(ch):
+    """True if `ch` reads as a Latin letter to a human.
+
+    Covers both alphabets that merely resemble Latin (Cyrillic 'А',
+    Greek 'Α') and compatibility forms that decompose to one (fullwidth
+    'Ａ', circled 'Ⓐ', math-bold '𝐀', '™' -> 'TM').
+    """
+    if unicodedata.category(ch).startswith("L"):
+        return True
+    return any(
+        c.isascii() and c.isalpha() for c in unicodedata.normalize("NFKD", ch)
+    )
+
+
+def _sanitize_art(s):
+    """Drop characters that break monospace alignment, plus non-ASCII
+    letters.
+
+    Keeps: printable ASCII, `\\n`, and any Unicode character whose
     East Asian Width is single-cell (Na/N/H/A) — box-drawing (─│┌┐),
     blocks (▀█░▒), geometric shapes (●○▲), arrows (←→), common symbols
     (★♥), Braille, etc.
@@ -105,12 +142,23 @@ def _sanitize_art(s):
     combining marks (Mn/Mc/Me), and wide/fullwidth glyphs
     (CJK ideographs, most emoji) — anything that would shift subsequent
     characters in a monospace grid and desync the guesser's view.
+    Also drops non-ASCII letter-likes: both anti-text checks below match
+    `[A-Za-z]` only, so keeping them would let 'САТ' (Cyrillic) or 'ⒸⒶⓉ'
+    render legibly to the guesser while passing every check.
+
+    Tabs become spaces up front: the column check treats one character as
+    one column, so a tab-indented drawing would render as aligned text to
+    the guesser while reading as misaligned to the check.
     """
+    s = s.expandtabs(8)
+
     def _keep(ch):
-        if ch in "\n\t":
+        if ch == "\n":
             return True
         cat = unicodedata.category(ch)
         if cat[0] in ("C", "M"):
+            return False
+        if not ch.isascii() and _is_letter_like(ch):
             return False
         return unicodedata.east_asian_width(ch) in ("Na", "N", "H", "A")
     return "".join(c for c in s if _keep(c))
@@ -269,10 +317,7 @@ DISQUALIFIED_ART_PLACEHOLDERS = {
         "<your teammate's drawing was disqualified for containing the target word>"
     ),
     "contains_words": (
-        "<your teammate's drawing was disqualified for containing text "
-        "(3+ consecutive letters with 2+ distinct chars, or 3+ letters "
-        "with 3+ distinct chars separated by non-letter, non-newline "
-        "characters)>"
+        "<your teammate's drawing was disqualified for containing a text label>"
     ),
 }
 
@@ -313,22 +358,51 @@ _WORD_LIKE_RE = re.compile(r"[A-Za-z]{3,}")
 _SPACED_WORD_RE = re.compile(r"[A-Za-z](?:[^A-Za-z\n]+[A-Za-z]){2,}")
 
 
+def _transposed_art(art):
+    """Rotate the art 90 degrees so column i of the original becomes row i
+    of the returned string. Lines are padded to the max width with spaces
+    so every column is well-defined. Used to run the row-oriented text
+    checks against columns without a second regex family.
+    """
+    lines = art.split("\n")
+    if not lines:
+        return ""
+    width = max((len(ln) for ln in lines), default=0)
+    if width == 0:
+        return ""
+    padded = [ln + " " * (width - len(ln)) for ln in lines]
+    return "\n".join(
+        "".join(padded[row][col] for row in range(len(padded)))
+        for col in range(width)
+    )
+
+
 def _art_contains_any_word(art):
-    """Return True if `art` contains a text-like run of letters. Two
-    thresholds, chosen so decoration passes but labels don't:
+    """Return True if `art` contains a text-like run of letters. The same
+    two regexes fire in two directions with different thresholds:
 
-    * Consecutive letters (`_WORD_LIKE_RE`): 3+ letters, 2+ distinct.
-      Catches 'top', 'HOUSE', 'grid', 'axe'. Same-letter clusters like
-      'OOO' (eyes), 'III' (columns), 'TTT' (texture) pass.
+    Row-oriented (chosen so decoration passes but labels don't):
+      * Consecutive letters (`_WORD_LIKE_RE`): 3+ letters, 2+ distinct.
+        Catches 'top', 'HOUSE', 'grid', 'axe'. Same-letter clusters like
+        'OOO' (eyes), 'III' (columns), 'TTT' (texture) pass.
+      * Spaced-out letters (`_SPACED_WORD_RE`): 3+ letters separated by
+        non-letter, non-newline characters, and 3+ distinct. Catches
+        'A R O U N D', 'H|O|U|S|E', 'T O P', 'A.R.O.U.N.D'. Two-letter
+        decorations like 'o X X X o' (dice pips), 'A B A B' (brickwork),
+        or 'V W V W' pass. A 2-distinct spelled-out word ('POP', 'EYE')
+        slips through when spaced ('P O P'), but the consecutive check
+        catches the tightly-written form.
 
-    * Spaced-out letters (`_SPACED_WORD_RE`): 3+ letters separated by
-      non-letter, non-newline characters, and 3+ distinct. Catches
-      'A R O U N D', 'H|O|U|S|E', 'T O P', 'A.R.O.U.N.D'. Two-letter
-      decorations like 'o X X X o' (dice pips), 'A B A B' (brickwork),
-      or 'V W V W' pass -- they're almost always visual patterns, not
-      labels. A 2-distinct spelled-out word ('POP', 'EYE') will slip
-      through when spaced ('P O P'), but the consecutive check still
-      catches the tightly-written form.
+    Column-oriented (same regexes on the transposed art, tighter
+    thresholds because 2D layouts naturally produce incidental letter
+    columns):
+      * Consecutive letters down a column: 4+ letters, 4+ distinct.
+        Catches 'FLAG' spelled one-letter-per-line inside a box, or a
+        column of same-letter rows whose leading letters spell a label
+        ('RRR' / 'OOO' / 'YYY' / 'GGG' -> 'ROYG').
+      * Spaced letters down a column: 4+ letters, 4+ distinct. Catches
+        the same labels with blank rows or decorative dividers between
+        letters ('F' / '===' / 'L' / '===' / 'A' / '===' / 'G').
 
     Complementary to _art_contains_word; that catches only the target
     word, this catches every OTHER word.
@@ -337,39 +411,88 @@ def _art_contains_any_word(art):
     separators between them), so 'V V V' evaluates as one distinct
     letter even though the raw match string contains both 'v' and ' '.
     """
+    return _find_text_run(art) is not None
+
+
+def _find_text_run(art):
+    """Return ``(orientation, offending_run)`` for the first text-like run
+    in `art`, or None. Orientation is ``"row"`` or ``"column"``."""
     if not art:
-        return False
+        return None
+    hit = _scan_for_text(art, min_consec_distinct=2, min_spaced_distinct=3, min_len=3)
+    if hit is not None:
+        return "row", hit
+    hit = _scan_for_text(
+        _transposed_art(art),
+        min_consec_distinct=4, min_spaced_distinct=4, min_len=4,
+    )
+    if hit is not None:
+        return "column", hit
+    return None
+
+
+def _scan_for_text(art, min_consec_distinct, min_spaced_distinct, min_len):
+    """Return the first matching letter run, or None if `art` is clean."""
     for m in _WORD_LIKE_RE.finditer(art):
-        distinct_letters = {c for c in m.group(0).lower() if c.isalpha()}
-        if len(distinct_letters) >= 2:
-            return True
+        s = m.group(0)
+        if len(s) >= min_len and len({c for c in s.lower() if c.isalpha()}) >= min_consec_distinct:
+            return s
     for m in _SPACED_WORD_RE.finditer(art):
-        distinct_letters = {c for c in m.group(0).lower() if c.isalpha()}
-        if len(distinct_letters) >= 3:
-            return True
-    return False
+        letters = [c for c in m.group(0) if c.isalpha()]
+        if len(letters) >= min_len and len({c.lower() for c in letters}) >= min_spaced_distinct:
+            return m.group(0)
+    return None
 
 
 def _disqualification_reason(art, target):
     """Return why this art submission is disqualified, or None if it passes.
+    `art` must already be sanitized and truncated. None means the art
+    reached the guesser unmodified.
+    """
+    verdict = _check_art(art, target)
+    return verdict[0] if verdict else None
+
+
+def _check_art(art, target):
+    """Return ``(reason, detail)`` if `art` is disqualified, else None.
 
     Priority order: target-word check first (more specific message for the
-    artist to learn from), then the general any-word check. None means the
-    art reached the guesser unmodified.
+    artist to learn from), then the general any-word check.
     """
     if not art:
         return None
     if _art_contains_word(art, target):
-        return "target_word"
-    if _art_contains_any_word(art):
-        return "contains_words"
-    return None
+        return "target_word", f"the target word '{target}'"
+    found = _find_text_run(art)
+    if found is None:
+        return None
+    orientation, run = found
+    where = "along a row" if orientation == "row" else "reading down a column"
+    return "contains_words", f"the letter run {run!r} ({where})"
 
 
-def _score_for_attempt(attempt_num, first_try_bonus):
-    """Points awarded when the guesser hits on attempt `attempt_num` (1-indexed)."""
-    base = 1
-    return base + (first_try_bonus if attempt_num == 1 else 0)
+def check_art(art, target, max_art_chars):
+    """Return ``(reason, detail)`` if this art submission would be
+    disqualified, or None if it would reach the guesser intact.
+
+    Applies the same sanitize-and-truncate pass the interpreter runs, so a
+    harness can pre-validate an artist's draft and get the verdict the
+    engine will reach at step time. ``reason`` matches the value stored on
+    observations (``'target_word'`` / ``'contains_words'``); ``detail``
+    names the offending text so the harness can quote it back in a
+    correction prompt.
+    """
+    return _check_art(_coerce_str(art, max_art_chars), target)
+
+
+def _score_for_attempt(attempt_num, guess_points):
+    """Points awarded when the guesser hits on attempt `attempt_num` (1-indexed).
+
+    `guess_points` is the resolved per-attempt reward list (length ==
+    max_attempts, validated at init). May contain floats; caller decides
+    what type to accumulate into the reward channel.
+    """
+    return guess_points[attempt_num - 1]
 
 
 class _WordArtState:
@@ -413,8 +536,20 @@ def initialize_game(state, env):
 
     num_rounds = config.num_rounds
     max_attempts = config.max_attempts
-    first_try_bonus = config.get("first_try_bonus", 1)
     max_art_chars = config.get("max_art_chars", 4000)
+    include_art_history = bool(config.get("include_art_history", True))
+    # `guess_points` follows the `word_mix` "empty means default" convention:
+    # an empty/absent list is expanded to the length-max_attempts uniform-1
+    # default; a non-empty list must match max_attempts exactly. Fail loudly
+    # rather than silently truncating or padding — a length mismatch usually
+    # means the caller changed max_attempts without updating guess_points.
+    raw_guess_points = list(config.get("guess_points") or [])
+    guess_points = raw_guess_points if raw_guess_points else [1] * max_attempts
+    if len(guess_points) != max_attempts:
+        raise ValueError(
+            f"guess_points must have length max_attempts={max_attempts}, "
+            f"got {len(guess_points)} (guess_points={guess_points})."
+        )
     word_mix = config.get("word_mix") or {}
     all_words = _load_words()
     sampled = _sample_words(all_words, num_rounds, word_mix, rng)
@@ -422,7 +557,8 @@ def initialize_game(state, env):
     for i, s in enumerate(state):
         s.observation.num_rounds = num_rounds
         s.observation.max_attempts = max_attempts
-        s.observation.first_try_bonus = first_try_bonus
+        s.observation.guess_points = list(guess_points)
+        s.observation.include_art_history = include_art_history
         s.observation.max_art_chars = max_art_chars
         s.observation.current_round = 0
         s.observation.phase = "art"
@@ -482,13 +618,15 @@ def _set_guess_statuses(state, round_idx, wa_state):
         state[i].status = "INACTIVE" if done else "ACTIVE"
 
 
-def _process_team_guess(state, obs0, wa_state, team, env_config, target_norm):
+def _process_team_guess(state, obs0, wa_state, team, target_norm):
     """Read the active guesser's action for `team` and mutate wa_state
     (append to the team's guess list, mark done, award points). No-op if
     the team was already done or its guesser wasn't asked to act this step.
     """
     max_attempts = obs0.max_attempts
-    first_try_bonus = env_config.get("first_try_bonus", 1)
+    # Prefer the observation-surfaced value (already validated at init) so
+    # tests that hand-roll env_config don't have to re-derive the default.
+    guess_points = list(obs0.guess_points) if obs0.guess_points else [1] * max_attempts
 
     if team == "blue":
         if wa_state.blue_done:
@@ -519,7 +657,7 @@ def _process_team_guess(state, obs0, wa_state, team, env_config, target_norm):
 
     guess_norm = _normalize_guess(raw)
     if _matches_target(guess_norm, target_norm):
-        pts = _score_for_attempt(used, first_try_bonus)
+        pts = _score_for_attempt(used, guess_points)
         if team == "blue":
             wa_state.blue_points = pts
             wa_state.blue_done = True
@@ -651,8 +789,8 @@ def process_step(state, env):
 
     if phase == "art":
         max_chars = env.configuration.get("max_art_chars", 4000)
-        blue_action = _unwrap(state[_blue_artist(rnd)].action)
-        yellow_action = _unwrap(state[_yellow_artist(rnd)].action)
+        blue_action = _unwrap_art(state[_blue_artist(rnd)].action)
+        yellow_action = _unwrap_art(state[_yellow_artist(rnd)].action)
         blue_art = _coerce_str(blue_action, max_chars)
         yellow_art = _coerce_str(yellow_action, max_chars)
 
@@ -689,8 +827,8 @@ def process_step(state, env):
     # phase == "guess" — a single sub-step. Each still-active guesser
     # contributes one attempt.
     target_norm = target.strip().upper()
-    _process_team_guess(state, obs0, wa_state, "blue", env.configuration, target_norm)
-    _process_team_guess(state, obs0, wa_state, "yellow", env.configuration, target_norm)
+    _process_team_guess(state, obs0, wa_state, "blue", target_norm)
+    _process_team_guess(state, obs0, wa_state, "yellow", target_norm)
 
     if wa_state.blue_done and wa_state.yellow_done:
         _advance_after_round(state, obs0, wa_state, rnd, words, target)

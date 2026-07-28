@@ -45,7 +45,13 @@ export const wordArtTransformer = (environment: ReplayData, _gameName: string): 
       // core_harness wraps as {submission, thoughts, status, ...}.
       const rawAction = agent.action;
       const isCoreHarness = typeof rawAction === 'object' && rawAction !== null && 'submission' in rawAction;
-      const submission = isCoreHarness ? rawAction.submission : rawAction;
+      const rawSubmission = isCoreHarness ? rawAction.submission : rawAction;
+      // -1 is core_harness's illegalMoveForfeit signal. For a guesser the
+      // engine reads it as an empty turn; for an artist it keeps the last
+      // rejected drawing from `actionString`, so mirror that here.
+      const forfeited = rawSubmission === -1;
+      const forfeitArt = forfeited && role === 'artist' ? rawAction.actionString || '' : '';
+      const submission = forfeited ? forfeitArt : rawSubmission;
       const thoughts: string = (isCoreHarness && rawAction?.thoughts) || '';
 
       let actionDisplayText = '';
@@ -53,7 +59,9 @@ export const wordArtTransformer = (environment: ReplayData, _gameName: string): 
         if (role === 'artist') {
           const artStr = typeof submission === 'string' ? submission : '';
           if (!artStr) {
-            actionDisplayText = 'Drew (empty submission)';
+            actionDisplayText = forfeited ? 'Drew nothing (forfeited turn)' : 'Drew (empty submission)';
+          } else if (forfeited) {
+            actionDisplayText = `Drew ${artStr.length} chars (forfeited turn — art was rejected)`;
           } else {
             // Intentionally NOT including a preview of the art itself:
             // the ASCII drawing needs a monospace font and multi-line
@@ -66,7 +74,11 @@ export const wordArtTransformer = (environment: ReplayData, _gameName: string): 
           }
         } else if (role === 'guesser') {
           const guess = typeof submission === 'string' ? submission : String(submission ?? '');
-          actionDisplayText = guess ? `Guessed: ${guess}` : 'Guessed (empty)';
+          if (guess) {
+            actionDisplayText = `Guessed: ${guess}`;
+          } else {
+            actionDisplayText = forfeited ? 'Guessed nothing (forfeited turn)' : 'Guessed (empty)';
+          }
         }
       }
 

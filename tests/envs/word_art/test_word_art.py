@@ -1,7 +1,12 @@
 import pytest
 
 from kaggle_environments import make
-from kaggle_environments.envs.word_art.word_art import _matches_target, _sample_words
+from kaggle_environments.envs.word_art.word_art import (
+    _matches_target,
+    _sample_words,
+    _sanitize_art,
+    check_art,
+)
 from kaggle_environments.errors import DeadlineExceeded
 
 
@@ -61,16 +66,20 @@ def test_game_completes_default():
     assert j["rewards"] == [0, 0, 0, 0]
 
 
-def test_first_try_bonus():
-    """Cheating both teams = both score 2 per round (1 base + 1 first-try bonus)."""
-    env = _make(num_rounds=4, seed=1)
+def test_guess_points_first_attempt_scoring():
+    """Cheating both teams with an explicit [2, 1, 1] guess_points table:
+    first-attempt correct = 2 pts per round.
+    """
+    env = _make(num_rounds=4, seed=1, guess_points=[2, 1, 1])
     env.run([cheating, cheating, cheating, cheating])
     j = env.toJSON()
-    assert j["rewards"] == [8, 8, 8, 8]  # 2 points * 4 rounds
+    assert j["rewards"] == [8, 8, 8, 8]  # 2 pts * 4 rounds
 
 
 def test_second_try_scores_one():
-    """A team that always lands on attempt 2 scores 1 per round (no bonus)."""
+    """A team that always lands on attempt 2 scores guess_points[1] per round.
+    Under the default guess_points ([1, 1, 1]) that's 1 pt per round.
+    """
     env = _make(num_rounds=3, seed=9)
     env.run([lazy_second_try, lazy_second_try, lazy_second_try, lazy_second_try])
     j = env.toJSON()
@@ -78,8 +87,8 @@ def test_second_try_scores_one():
 
 
 def test_blue_first_yellow_misses():
-    """Blue cheats (2 pts/round); yellow always wrong (0 pts/round)."""
-    env = _make(num_rounds=4, seed=1)
+    """Blue cheats (2 pts/round under [2,1,1]); yellow always wrong (0 pts/round)."""
+    env = _make(num_rounds=4, seed=1, guess_points=[2, 1, 1])
     env.run([cheating, cheating, silent, silent])
     j = env.toJSON()
     assert j["rewards"][0] == 8
@@ -91,7 +100,7 @@ def test_blue_first_yellow_misses():
 def test_history_shape_and_attempts():
     """History entries record per-team guess lists and points; the team that
     succeeds first has fewer entries than the team that exhausts all attempts."""
-    env = _make(num_rounds=2, seed=1)
+    env = _make(num_rounds=2, seed=1, guess_points=[2, 1, 1])
     env.run([cheating, cheating, silent, silent])
     j = env.toJSON()
     final_history = j["steps"][-1][0]["observation"]["history"]
@@ -241,7 +250,7 @@ def test_case_insensitive_guess():
         # should still accept it (matching is case-insensitive).
         return _decode_art(observation.teammate_art).lower()
 
-    env = _make(num_rounds=2, seed=17)
+    env = _make(num_rounds=2, seed=17, guess_points=[2, 1, 1])
     env.run([lowercase_guess] * 4)
     j = env.toJSON()
     # First-try correct → 2 per round * 2 rounds = 4
@@ -258,11 +267,11 @@ def test_empty_guess_is_wrong():
     assert j["rewards"][0] > 0
 
 
-def test_configurable_max_attempts_and_bonus():
-    """Override max_attempts=2 and first_try_bonus=4. lazy_second_try wins on
-    attempt 2 → base 1 point, no bonus → 1 per round.
+def test_configurable_guess_points():
+    """Override max_attempts=2 and guess_points=[5, 1]. lazy_second_try wins
+    on attempt 2 → 1 pt per round.
     """
-    env = _make(num_rounds=2, seed=6, max_attempts=2, first_try_bonus=4)
+    env = _make(num_rounds=2, seed=6, max_attempts=2, guess_points=[5, 1])
     env.run([lazy_second_try] * 4)
     j = env.toJSON()
     assert j["rewards"] == [2, 2, 2, 2]
@@ -443,9 +452,74 @@ def test_visual_letter_elements_pass(art):
 def test_letters_on_different_lines_do_not_chain():
     """Same-line-only chaining: `T`, `O`, `P` each on their own line should
     NOT combine into 'TOP' -- otherwise a 2D layout with letter-based
-    visual elements becomes unusable."""
+    visual elements becomes unusable. The column check requires 4+
+    letters with 4+ distinct, so a 3-letter column passes."""
     art = "T\n O\n  P"
     assert _art_check(art) is False
+
+
+# --- Column labels (letters lined up down a column) ------------------------
+#
+# The row-oriented checks intentionally don't chain across newlines -- 2D
+# art with letters scattered around must stay usable. The column check
+# runs the same two regexes on the transposed art with tighter thresholds
+# (4+ letters, 4+ distinct) to plug the specific hole where a model
+# stacks a label like 'F' / 'L' / 'A' / 'G' one per line, or draws a
+# column of same-letter rows whose leading letters spell a hint. Because
+# the column check reuses `_SPACED_WORD_RE`, decorative dividers or blank
+# rows between the label letters ('F' / '===' / 'L' / '===' / ...) are
+# also caught -- the transposed row for that column is 'F===L===A===G',
+# which reads as spaced text.
+
+
+@pytest.mark.parametrize("art", [
+    # FLAG boxed one-letter-per-line (real evasion caught in replay analysis).
+    "     ___\n    |   |\n    | F |\n    | L |\n    | A |\n    | G |\n    |___|",
+    # Rainbow mnemonic: same-letter row columns whose leading letters spell
+    # 'ROYGB' (each row on its own has only 1 distinct letter so the
+    # consecutive check doesn't fire).
+    "  1. RRRRRRRRR\n  2. OOOOOOOOO\n  3. YYYYYYYYY\n  4. GGGGGGGGG\n  5. BBBBBBBBB",
+    # Bare 4-letter column of distinct letters.
+    "F\nL\nA\nG",
+    # Longer column ('LABEL' - 4 distinct: L, A, B, E).
+    "L\nA\nB\nE\nL",
+    # Column of distinct letters with leading indentation on each line.
+    "      W\n      O\n      R\n      D",
+    # Blank rows between every letter -- transposed row is 'F L A G',
+    # 4 letters with 3 separators, matches the column spaced check.
+    "F\n\nL\n\nA\n\nG",
+    # Decorative dividers between letters -- transposed column across the
+    # label letters reads 'F===L===A===G' with '=' as separators.
+    "| F |\n=====\n| L |\n=====\n| A |\n=====\n| G |",
+])
+def test_column_label_is_disqualified(art):
+    assert _art_check(art) is True, f"expected {art!r} to be flagged as a column label"
+
+
+@pytest.mark.parametrize("art", [
+    # 3 letters -- under the 4-letter threshold, still visual decoration.
+    "T\nO\nP",
+    # 4 letters but only 3 distinct -- likely repeated decoration, not text.
+    "O\nI\nI\nI",
+    # 5 letters, 2 distinct -- alternating brick / zigzag pattern.
+    "A\nB\nA\nB\nA",
+    # Two consecutive letters + one gap + two consecutive letters: the
+    # spaced regex needs letter-(sep+letter){2,}, so 'FL AG' (transposed
+    # from FL / blank / AG) has only one separator group and passes.
+    "F\nL\n\nA\nG",
+])
+def test_column_decoration_passes(art):
+    assert _art_check(art) is False, f"expected {art!r} to pass the column check"
+
+
+def test_tab_indented_column_label_is_disqualified():
+    """The column check counts characters, not render width, so a tab-indented
+    label lines up for the guesser but not for the check. `_sanitize_art`
+    expands tabs first so both see the same grid."""
+    tabbed = "\tF\n        L\n\tA\n        G"
+    spaced = "        F\n        L\n        A\n        G"
+    assert check_art(tabbed, "CAT", 4000) == check_art(spaced, "CAT", 4000)
+    assert check_art(tabbed, "CAT", 4000)[0] == "contains_words"
 
 
 def test_guesser_sees_placeholder_on_disqualification():
@@ -511,17 +585,25 @@ def test_substring_word_is_disqualified():
 # --- Config surfaced on observation ----------------------------------------
 
 
-def test_first_try_bonus_surfaced_on_observation():
-    """The env must surface first_try_bonus on every agent's observation so
-    the harness can interpolate the correct scoring text. Hardcoding in the
-    harness silently lies to the model when this config is non-default."""
-    env = _make(num_rounds=1, seed=1, first_try_bonus=4)
+def test_guess_points_surfaced_on_observation():
+    """The env must surface guess_points on every agent's observation so
+    the harness can render the scoring table. Hardcoding in the harness
+    silently lies to the model when this config is non-default."""
+    env = _make(num_rounds=1, seed=1, guess_points=[3, 2, 1])
     for s in env.state:
-        assert s.observation.first_try_bonus == 4
+        assert list(s.observation.guess_points) == [3, 2, 1]
+
+
+def test_include_art_history_surfaced_on_observation():
+    """Same contract: the harness reads include_art_history off the obs to
+    decide whether to include past art in the history block."""
+    env = _make(num_rounds=1, seed=1, include_art_history=False)
+    for s in env.state:
+        assert s.observation.include_art_history is False
 
 
 def test_max_art_chars_surfaced_on_observation():
-    """Same contract as first_try_bonus: the artist prompt needs to warn
+    """Same contract as guess_points: the artist prompt needs to warn
     about the truncation length, so the env must hand it to the harness."""
     env = _make(num_rounds=1, seed=1, max_art_chars=2500)
     for s in env.state:
@@ -529,11 +611,16 @@ def test_max_art_chars_surfaced_on_observation():
 
 
 def test_config_defaults_surfaced_on_observation():
-    """Defaults match word_art.json (first_try_bonus=1, max_art_chars=4000)."""
+    """Defaults match word_art.json (guess_points=[1]*max_attempts,
+    include_art_history=True, max_art_chars=4000). first_try_bonus is
+    no longer part of the schema.
+    """
     env = _make(num_rounds=1, seed=1)
     for s in env.state:
-        assert s.observation.first_try_bonus == 1
+        assert list(s.observation.guess_points) == [1, 1, 1]
+        assert s.observation.include_art_history is True
         assert s.observation.max_art_chars == 4000
+        assert "first_try_bonus" not in s.observation.keys()
 
 
 def test_no_hidden_keys_leak_into_any_observation():
@@ -868,18 +955,17 @@ def _all_words():
 
 
 def test_word_mix_honors_per_tier_counts():
-    """A word_mix with 3 easy + 2 medium + 1 hard must produce exactly that
+    """A word_mix with 4 easy + 2 hard must produce exactly that
     tier distribution, regardless of shuffle order."""
-    env = _make(num_rounds=6, seed=42, word_mix={"easy": 3, "medium": 2, "hard": 1})
+    env = _make(num_rounds=6, seed=42, word_mix={"easy": 4, "hard": 2})
     env.run([silent] * 4)
     j = env.toJSON()
     history = j["steps"][-1][0]["observation"]["history"]
     words_used = [h["word"] for h in history]
     tier_by_word = {w["word"]: w["tier"] for w in _all_words()}
     tiers = [tier_by_word[w] for w in words_used]
-    assert tiers.count("easy") == 3
-    assert tiers.count("medium") == 2
-    assert tiers.count("hard") == 1
+    assert tiers.count("easy") == 4
+    assert tiers.count("hard") == 2
 
 
 def test_word_mix_sum_mismatch_raises():
@@ -887,7 +973,7 @@ def test_word_mix_sum_mismatch_raises():
     construction (make() calls initialize_game), so the raise happens
     before any agent runs."""
     with pytest.raises(ValueError, match="sum to num_rounds"):
-        _make(num_rounds=8, seed=1, word_mix={"easy": 2, "medium": 2})
+        _make(num_rounds=8, seed=1, word_mix={"easy": 2, "hard": 2})
 
 
 def test_word_mix_tier_pool_too_small_raises():
@@ -977,3 +1063,174 @@ def test_default_uniform_sampling_backwards_compatible():
     j = env.toJSON()
     history = j["steps"][-1][0]["observation"]["history"]
     assert len(history) == 4
+
+
+# --- guess_points config ---------------------------------------------------
+
+
+def test_guess_points_default_is_uniform_ones():
+    """No guess_points config → every attempt scores 1 pt. lazy_second_try
+    wins on attempt 2, so each team ends with 1 pt/round."""
+    env = _make(num_rounds=3, seed=9)
+    env.run([lazy_second_try] * 4)
+    j = env.toJSON()
+    assert j["rewards"] == [3, 3, 3, 3]
+    # Also confirm history recorded 1 pt per team per round.
+    for entry in j["steps"][-1][0]["observation"]["history"]:
+        assert entry["blue_points"] == 1
+        assert entry["yellow_points"] == 1
+
+
+def test_guess_points_fractional_rewards():
+    """Fractional guess_points produce float rewards end to end."""
+    env = _make(num_rounds=2, seed=5, guess_points=[1.5, 0.5, 0.25])
+    env.run([cheating] * 4)
+    j = env.toJSON()
+    # Cheating hits on attempt 1 → 1.5 pts/round * 2 rounds = 3.0.
+    for r in j["rewards"]:
+        assert r == 3.0
+        assert isinstance(r, float)
+
+
+def test_guess_points_length_mismatch_raises():
+    """Non-empty guess_points whose length differs from max_attempts raises
+    at env init (before any agent runs), matching the word_mix sum-check
+    precedent."""
+    with pytest.raises(ValueError, match="length max_attempts"):
+        _make(num_rounds=3, guess_points=[1, 2])
+    with pytest.raises(ValueError, match="length max_attempts"):
+        _make(num_rounds=3, max_attempts=2, guess_points=[3, 2, 1])
+
+
+def test_guess_points_second_attempt_scoring():
+    """guess_points[1] governs the reward when the guesser hits on attempt 2."""
+    env = _make(num_rounds=3, seed=6, guess_points=[10, 3, 1])
+    env.run([lazy_second_try] * 4)
+    j = env.toJSON()
+    # 3 pts on attempt 2 * 3 rounds = 9 per agent.
+    assert j["rewards"] == [9, 9, 9, 9]
+
+
+# --- include_art_history config --------------------------------------------
+
+
+def test_include_art_history_engine_side_is_noop():
+    """The engine records history the same way regardless of
+    include_art_history — the flag only affects harness prompt rendering.
+    We verify that raw art still lives in history[i].blue_art / yellow_art
+    even when include_art_history=False, so replays remain complete.
+    """
+    env = _make(num_rounds=2, seed=1, include_art_history=False, guess_points=[2, 1, 1])
+    env.run([cheating, cheating, silent, silent])
+    j = env.toJSON()
+    history = j["steps"][-1][0]["observation"]["history"]
+    assert len(history) == 2
+    for entry in history:
+        # Blue cheating agent encodes the word; art should be present in
+        # history even though the harness would omit it from prompts.
+        assert entry["blue_art"] != ""
+
+
+# --- Homoglyph hardening ----------------------------------------------------
+
+
+def test_sanitize_drops_non_ascii_letter_likes():
+    """Both anti-text checks match [A-Za-z] only, so a Cyrillic or circled
+    spelling of the target would render legibly while passing every check.
+    Sanitizing them away closes the bypass at the source.
+    """
+    assert _sanitize_art("САТ") == ""       # Cyrillic CAT
+    assert _sanitize_art("ⒸⒶⓉ") == ""       # circled CAT
+    assert _sanitize_art("\U0001d402\U0001d400\U0001d413") == ""  # math-bold CAT
+
+
+def test_sanitize_keeps_non_letter_decoration():
+    """The drop must be narrow: box-drawing, blocks, shapes, arrows and
+    Braille are the whole point of the non-ASCII allowance."""
+    art = "─│┌█░●←★⠿ ½"
+    assert _sanitize_art(art) == art
+
+
+def test_homoglyph_target_word_conveys_nothing():
+    def cyrillic_artist(observation, configuration):
+        if observation.role != "artist":
+            return ""
+        cyr = {"A": "А", "C": "С", "E": "Е", "O": "О", "T": "Т"}
+        return "".join(cyr.get(c, "А") for c in observation.target_word)
+
+    env = _make(num_rounds=2, seed=3)
+    env.run([cyrillic_artist] * 4)
+    for entry in env.steps[-1][0].observation.history:
+        assert entry["blue_art"] == ""
+
+
+# --- check_art --------------------------------------------------------------
+
+
+def test_check_art_names_the_offending_text():
+    assert check_art("  O  <-- eye\n /|\\", "CHEEKBONE", 4000) == (
+        "contains_words", "the letter run 'eye' (along a row)",
+    )
+    assert check_art("F..\nL..\nA..\nG..", "ZEBRA", 4000) == (
+        "contains_words", "the letter run 'FLAG' (reading down a column)",
+    )
+    reason, detail = check_art("C A T", "CAT", 4000)
+    assert reason == "target_word"
+    assert "CAT" in detail
+
+
+def test_check_art_passes_clean_drawing():
+    assert check_art("  *\n \\|/\n--+--\n / \\", "SNOWFLAKE", 4000) is None
+
+
+def test_check_art_agrees_with_the_interpreter_verdict():
+    """check_art exists so a harness can predict the engine. If it applied a
+    different sanitize/truncate pass it would reject art the engine accepts
+    (wasted retries) or miss art the engine rejects (silent zeros)."""
+    art = "x" * 30 + "eye"
+    assert check_art(art, "CHEEKBONE", 4000)[0] == "contains_words"
+    # Truncated below the offending run -> the engine never sees it either.
+    assert check_art(art, "CHEEKBONE", 30) is None
+
+
+# --- illegalMoveForfeit -----------------------------------------------------
+
+
+def test_forfeit_submission_reads_as_an_empty_turn():
+    """core_harness signals "no parseable answer after all retries" with
+    submission=-1. Word Art has no action index, so it must land as a
+    forfeited turn rather than art reading '-1'."""
+    def forfeiter(observation, configuration):
+        # The action shape core_harness returns when illegalMoveForfeit fires.
+        return {"submission": -1, "actionString": None, "status": "forfeiting."}
+
+    env = _make(num_rounds=2, seed=5)
+    env.run([forfeiter] * 4)
+    j = env.toJSON()
+    assert [s["status"] for s in j["steps"][-1]] == ["DONE"] * 4
+    for entry in j["steps"][-1][0]["observation"]["history"]:
+        assert entry["blue_art"] == ""
+        assert entry["blue_guesses"] == ["", "", ""]
+    assert j["rewards"] == [0, 0, 0, 0]
+
+
+def test_forfeited_art_is_preserved_and_disqualified():
+    """An artist forfeit means the retries all produced rejected art, which
+    core_harness hands back as `actionString`. Keep it: the guesser is told
+    the drawing was pulled instead of guessing at a blank canvas, and the
+    replay shows what was actually drawn."""
+    rejected = "  C A T\n /\\_/\\"
+    seen = {}
+
+    def agent(observation, configuration):
+        if observation.role == "artist":
+            return {"submission": -1, "actionString": rejected, "status": "forfeit"}
+        seen.setdefault(observation.team, observation.teammate_art)
+        return "WHATEVER"
+
+    env = _make(num_rounds=1, seed=5)
+    env.run([agent] * 4)
+    entry = env.toJSON()["steps"][-1][0]["observation"]["history"][0]
+    assert entry["blue_art"] == rejected
+    assert entry["blue_art_disqualified"] is True
+    assert "disqualified" in seen["blue"]

@@ -1,7 +1,7 @@
 {
   "name": "word_art",
   "title": "Word Art",
-  "description": "A 2v2 cooperative-vs-competitive game. Each round a secret word is shown to one artist per team; that artist draws ASCII art and passes it to their teammate, who has up to max_attempts guesses. Getting it right on the first guess scores 1 + first_try_bonus points; getting it right on a later attempt scores 1 point; failing all attempts scores 0. After N rounds the higher score wins. The artist and guesser within each team swap every round.",
+  "description": "A 2v2 cooperative-vs-competitive game. Each round a secret word is shown to one artist per team; that artist draws ASCII art and passes it to their teammate, who has up to max_attempts guesses. Point value awarded on a correct guess is looked up in guess_points by attempt index (element 0 = attempt 1, element 1 = attempt 2, ...); failing all attempts scores 0. After N rounds the higher total wins. The artist and guesser within each team swap every round.",
   "version": "1.1.0",
   "agents": [4],
   "configuration": {
@@ -17,11 +17,16 @@
       "minimum": 1,
       "description": "Number of guesses the guesser gets per artwork. The round ends for a team once they answer correctly or exhaust all attempts."
     },
-    "first_try_bonus": {
-      "type": "integer",
-      "default": 1,
-      "minimum": 0,
-      "description": "Extra points awarded on top of the base correct-guess point when the guesser nails the word on the first attempt."
+    "guess_points": {
+      "type": "array",
+      "default": [],
+      "items": { "type": "number", "minimum": 0 },
+      "description": "Per-attempt point values awarded on a correct guess: element 0 is attempt 1's reward, element 1 is attempt 2's reward, etc. Length must equal max_attempts (mismatch raises at episode init). Values may be fractional (e.g. [2, 1.5, 1]); the reward channel is numeric to accommodate this. Empty (default) is interpreted as [1] * max_attempts (uniform 1 pt per attempt)."
+    },
+    "include_art_history": {
+      "type": "boolean",
+      "default": true,
+      "description": "If true, past rounds' ASCII art bodies are included in the harness prompt's history block. If false, the history block omits the raw art for every past round but still shows the target word, per-team guesses, points, and any disqualification annotation."
     },
     "max_art_chars": {
       "type": "integer",
@@ -42,10 +47,15 @@
     "word_mix": {
       "type": "object",
       "default": {},
-      "description": "Optional per-tier round mix. Keys are tier names ('easy', 'medium', 'hard'); values are integer counts of rounds to draw from each tier. Counts must sum to num_rounds; a mismatch (or a tier count exceeding its pool size) raises at episode init. Empty (default) samples uniformly at random from the full word pool regardless of tier."
+      "description": "Optional per-tier round mix. Keys are tier names ('easy', 'hard'); values are integer counts of rounds to draw from each tier. Counts must sum to num_rounds; a mismatch (or a tier count exceeding its pool size) raises at episode init. Empty (default) samples uniformly at random from the full word pool regardless of tier."
     },
     "freeForm": {
       "description": "If true, the core harness allows free-form actions on turns where the action space is not enumerable (artist drawing, guesser typing). Always true for word_art.",
+      "type": "boolean",
+      "default": true
+    },
+    "illegalMoveForfeit": {
+      "description": "If true, an agent that fails to produce a parseable submission after all harness retries forfeits that single turn (empty art / empty guess) instead of raising, which would abort the whole episode. Word Art alternates roles every round, so an aborted agent would cripple its team for every remaining round -- a single unparseable response should cost one turn, not the match.",
       "type": "boolean",
       "default": true
     },
@@ -71,10 +81,15 @@
       "type": "integer",
       "default": 3
     },
-    "first_try_bonus": {
-      "description": "Extra points awarded on top of the base correct-guess point when the guesser nails the word on the first attempt (mirrors configuration.first_try_bonus).",
-      "type": "integer",
-      "default": 1
+    "guess_points": {
+      "description": "Per-attempt point values (mirrors configuration.guess_points). Length equals max_attempts; element i is the reward for scoring on attempt i+1. Surfaced on every seat's observation so the harness can quote the scoring table in prompts.",
+      "type": "array",
+      "default": []
+    },
+    "include_art_history": {
+      "description": "Mirrors configuration.include_art_history. Surfaced on every seat's observation so the harness can decide whether to include past art bodies in the history block.",
+      "type": "boolean",
+      "default": true
     },
     "max_art_chars": {
       "description": "Maximum length (in characters) of an artist's ASCII art submission; longer art is truncated (mirrors configuration.max_art_chars).",
@@ -183,8 +198,8 @@
     "default": ""
   },
   "reward": {
-    "description": "Cumulative points scored by this agent's team. Each round contributes 0, 1, or 1+first_try_bonus.",
-    "type": "integer",
+    "description": "Cumulative points scored by this agent's team. Each round contributes 0 (no correct guess) or the value of guess_points[attempt_index] on a correct guess. May be fractional when guess_points contains non-integer values.",
+    "type": "number",
     "default": 0
   }
 }

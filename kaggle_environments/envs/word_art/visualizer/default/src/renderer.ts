@@ -75,17 +75,19 @@ function getLiveGuesses(stepArr: any[], team: 'blue' | 'yellow', round: number):
   return Array.isArray(list) ? list : [];
 }
 
-function pointsLabel(points: number): string {
-  if (points >= 2) return `${points} pts (first try!)`;
-  if (points === 1) return '1 pt';
-  return '0 pts';
+function pointsLabel(points: number, isFirstTry: boolean): string {
+  // JS number formatting already collapses 2.0 -> "2" and prints 1.5 -> "1.5",
+  // so `${points}` matches the Python `_format_points` output naturally.
+  const label = points === 1 ? 'pt' : 'pts';
+  const suffix = isFirstTry && points > 0 ? ' (first try!)' : '';
+  return `${points} ${label}${suffix}`;
 }
 
 function disqReasonText(reason: DisqReason): string {
   // Matches the phrasing the harness uses in the artist prompt so the
   // visualizer reader sees the same rule name the model was told about.
   if (reason === 'contains_words') {
-    return 'contained text (3+ consecutive letters with 2+ distinct chars, or 3+ spaced-out letters with 3+ distinct chars)';
+    return 'contained a text label (row or column of letters)';
   }
   return 'contained the target word';
 }
@@ -182,17 +184,24 @@ export function renderer(options: RendererOptions) {
     blueGuesses = getLiveGuesses(currentStep, 'blue', displayRound);
     yellowGuesses = getLiveGuesses(currentStep, 'yellow', displayRound);
     // Live per-team points are derived from the public
-    // `{team}_guessed_correctly` bool + the guess count + first_try_bonus.
+    // `{team}_guessed_correctly` bool + the guess count + guess_points table.
     // We can't just look at the last guess and compare it to the target
     // ourselves because _matches_target does singular/plural leniency
     // (CAT<->CATS, CHILD<->CHILDREN, CACTUS<->CACTI, ...) that we won't
-    // reproduce here. Old replays predate the bool and expose the
-    // pre-computed points under an underscore-prefixed field instead;
-    // fall back to that so historical replays still color correctly.
+    // reproduce here.
+    //
+    // Legacy fallbacks (in priority order): the pre-`guess_points` schema
+    // exposed `first_try_bonus` (int) and derived attempt-1 as `1+bonus`,
+    // later attempts as 1. The even-older schema wrote pre-computed
+    // `_round_{team}_points` under an underscore-prefixed field. Preserve
+    // both so historical replays still color correctly.
+    const guessPoints: number[] = Array.isArray(obs0.guess_points) ? obs0.guess_points : [];
     const firstTryBonus: number = obs0.first_try_bonus ?? 1;
     const derivePoints = (correct: boolean | undefined, guessCount: number): number | null => {
       if (correct === undefined) return null;
       if (!correct) return 0;
+      const fromTable = guessPoints[guessCount - 1];
+      if (typeof fromTable === 'number') return fromTable;
       return guessCount === 1 ? 1 + firstTryBonus : 1;
     };
     const blueCorrect = obs0.blue_guessed_correctly as boolean | undefined;
@@ -337,7 +346,8 @@ export function renderer(options: RendererOptions) {
     } else {
       const empty = document.createElement('span');
       empty.className = 'wa-art-empty';
-      empty.textContent = '(waiting for the artist…)';
+      const artistIsStillDrawing = !isHistoricalView && !isDone && phase === 'art';
+      empty.textContent = artistIsStillDrawing ? '(waiting for the artist…)' : '(the artist submitted nothing)';
       box.appendChild(empty);
     }
     cell.appendChild(box);
@@ -389,7 +399,12 @@ export function renderer(options: RendererOptions) {
     const tally = document.createElement('div');
     tally.className = 'wa-guess-tally';
     if (isHistoricalView || isDone) {
-      tally.textContent = pointsLabel(points ?? 0);
+      // "first try!" fires only when they scored (>0 pts) on their first guess.
+      // Under the historical `[1+bonus, 1, ...]` schedule that's the only way
+      // to earn >1 pt, but under a custom guess_points table (e.g. [2, 1.5, 1])
+      // attempt 2 also earns >1 pt without being a "first try".
+      const isFirstTry = (points ?? 0) > 0 && guesses.length === 1;
+      tally.textContent = pointsLabel(points ?? 0, isFirstTry);
     } else if (phase === 'guess') {
       tally.textContent = `${remaining} left`;
     } else {
