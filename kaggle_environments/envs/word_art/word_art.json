@@ -36,8 +36,8 @@
     },
     "actTimeout": {
       "type": "number",
-      "default": 180,
-      "description": "Timeout in seconds for agent actions. Bumped from the framework default to accommodate reasoning-heavy LLM artists: a 60s budget caused observed wall durations of 70-140s with current frontier reasoning models, silently forfeiting artist turns once banked overage was exhausted."
+      "default": 3600,
+      "description": "Timeout in seconds for agent actions. Matches the core harness LLM_CALL_TIMEOUT budget of 3600s, which spans all transport retries of a single call. Anything lower lets the framework kill a seat that the harness still considers in-flight, and since word_art ends the episode on a timed-out seat that would abort otherwise-healthy games. Reasoning-heavy artists were already exceeding 140s at the old 60s default."
     },
     "seed": {
       "type": ["integer", "null"],

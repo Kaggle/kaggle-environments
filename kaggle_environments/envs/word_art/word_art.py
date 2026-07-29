@@ -583,19 +583,37 @@ def initialize_game(state, env):
     env.word_art_state = _WordArtState(sampled)
 
 
-# Statuses set by the kaggle framework when an agent fails. We must NOT
-# overwrite them on phase transitions: a TIMEOUT'd or ERROR'd agent has
-# forfeited and should stay in that state for the rest of the episode, so
-# the framework stops calling them and the failure remains visible in the
-# replay. Without this guard, an artist that times out gets silently
-# resurrected as ACTIVE on the next round and times out again.
+# Statuses the kaggle framework sets when an agent crashes or times out.
+# These end the episode -- see _abort_on_agent_failure.
 _TERMINAL_FAILURE_STATUSES = ("TIMEOUT", "ERROR", "INVALID")
+
+
+def _abort_on_agent_failure(state):
+    """End the episode if the framework marked any seat TIMEOUT/ERROR/INVALID.
+    Returns True if the episode was ended.
+
+    A seat that crashed or timed out is a broken participant, not a player
+    making a bad move, and word_art cannot score a 2v2 game around one. The
+    alternative -- skipping that seat and playing on -- yields an episode
+    where one model contributes no art and no guesses for the rest of the
+    game while the scoreboard still reports a winner. Ending here keeps the
+    failure loud: the offending seat retains its status, so core.py nulls its
+    reward and the replay shows an errored episode rather than a lopsided one.
+
+    Note this is deliberately NOT the illegalMoveForfeit path. A model that
+    answers unparseably forfeits the turn and plays on; a model whose agent
+    raised has no working turn to fall back to.
+    """
+    if not any(s.status in _TERMINAL_FAILURE_STATUSES for s in state):
+        return False
+    for s in state:
+        if s.status not in _TERMINAL_FAILURE_STATUSES:
+            s.status = "DONE"
+    return True
 
 
 def _set_art_statuses(state, round_idx):
     for i in range(4):
-        if state[i].status in _TERMINAL_FAILURE_STATUSES:
-            continue
         role = get_role(i, round_idx)
         state[i].status = "ACTIVE" if role == "artist" else "INACTIVE"
 
@@ -603,12 +621,9 @@ def _set_art_statuses(state, round_idx):
 def _set_guess_statuses(state, round_idx, wa_state):
     """During the guess phase: a team's guesser stays ACTIVE until they score
     or exhaust attempts; once done, they go INACTIVE. Artists are always
-    INACTIVE in the guess phase. Agents in a terminal failure state
-    (TIMEOUT/ERROR/INVALID) are left alone -- see _TERMINAL_FAILURE_STATUSES.
+    INACTIVE in the guess phase.
     """
     for i in range(4):
-        if state[i].status in _TERMINAL_FAILURE_STATUSES:
-            continue
         role = get_role(i, round_idx)
         if role == "artist":
             state[i].status = "INACTIVE"
@@ -636,15 +651,6 @@ def _process_team_guess(state, obs0, wa_state, team, target_norm):
         if wa_state.yellow_done:
             return
         g_idx = _yellow_guesser(obs0.current_round)
-
-    if state[g_idx].status != "ACTIVE":
-        # Guesser was not asked for an action this step (e.g. ERROR/TIMEOUT
-        # propagated from a prior step). Treat as out of the round.
-        if team == "blue":
-            wa_state.blue_done = True
-        else:
-            wa_state.yellow_done = True
-        return
 
     raw = _unwrap(state[g_idx].action)
     guess_str = raw if isinstance(raw, str) else (str(raw) if raw is not None else "")
@@ -761,8 +767,6 @@ def _advance_after_round(state, obs0, wa_state, round_idx, words, target):
 
     if is_done:
         for i in range(4):
-            if state[i].status in _TERMINAL_FAILURE_STATUSES:
-                continue
             state[i].status = "DONE"
     else:
         _set_art_statuses(state, next_round)
@@ -869,6 +873,9 @@ def interpreter(state, env):
         return state
 
     if env.done:
+        return state
+
+    if _abort_on_agent_failure(state):
         return state
 
     process_step(state, env)
