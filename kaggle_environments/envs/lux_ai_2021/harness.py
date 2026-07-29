@@ -185,11 +185,7 @@ Reply with a JSON object of the form:
 {{"actions": ["m u_1 n", "bcity u_2", "r 5 7"]}}
 ```
 
-Issue at least one command for every unit and every city tile that is off
-cooldown -- passing on an actor that could act wastes an irrecoverable turn of
-production and leaves your cities closer to collapsing at night. An empty list
-(`{{"actions": []}}`) is accepted by the engine but should only be used when
-every one of your units and city tiles is still on cooldown.
+An empty list (`{{"actions": []}}`) is legal and means "do nothing this turn".
 """
 
 
@@ -379,7 +375,9 @@ def _render_player(game: Game, player_id: int) -> str:
         total_upkeep = sum(c.light_upkeep for c in player.cities.values())
         lines.append(f"  cities ({len(player.cities)}, {total_tiles} tiles, total night upkeep {total_upkeep:g}/turn):")
         for city in player.cities.values():
-            tiles = ", ".join(f"({t.pos.x},{t.pos.y})" for t in city.citytiles)
+            # Per-tile cooldown so the model can see which tiles can act this
+            # turn (a city tile can issue a command only when cooldown < 1).
+            tiles = ", ".join(f"({t.pos.x},{t.pos.y} cd={t.cooldown:g})" for t in city.citytiles)
             lines.append(f"    {city.cityid} fuel={city.fuel:g} upkeep={city.light_upkeep:g} tiles=[{tiles}]")
     else:
         lines.append("  cities: (none)")
@@ -415,6 +413,17 @@ _TRAILING_COMMENT_RE = re.compile(r"\s*(?:#|//).*$")
 # digits) and coordinate integers (``5``) are never mistaken for ids.
 _ID_TOKEN_RE = re.compile(r"([uUcC])_?(\d+)")
 
+# Which argument slots of each command actually hold a unit/city id (and so are
+# safe to canonicalise). ``r``/``bw``/``bc`` take *coordinate integers*, and a
+# ``c``-prefixed coordinate token (``c5``) would otherwise be mis-rewritten to
+# ``c_5``, so those commands appear here with no id slots at all.
+_ID_ARG_SLOTS: dict[str, tuple[int, ...]] = {
+    "m": (1,),  # m <unit_id> <dir>
+    "bcity": (1,),  # bcity <unit_id>
+    "p": (1,),  # p <unit_id>
+    "t": (1, 2),  # t <from_id> <to_id> <res> <amt>
+}
+
 
 def _canonical_id(token: str) -> str:
     """Canonicalise a unit/city id token, or return it unchanged.
@@ -422,6 +431,9 @@ def _canonical_id(token: str) -> str:
     ``u_9``/``U_9``/``u9``/``U9`` (and the ``c`` city variants) all fold to
     ``u_9`` / ``c_9``. Only a token that is *entirely* an id is rewritten, so
     coordinate integers and the ``c`` (stay) direction pass through untouched.
+    Callers additionally restrict this to id-argument slots (see
+    ``_ID_ARG_SLOTS``) so ``c``-prefixed coordinates in ``r``/``bw``/``bc``
+    are never touched.
     """
     m = _ID_TOKEN_RE.fullmatch(token)
     if m is None:
@@ -461,9 +473,12 @@ def _normalize_command(cmd: str) -> str:
     # Unit and city ids are exclusively lowercase ``u_N`` / ``c_N`` in the
     # engine's wire protocol. Models routinely uppercase them to match the
     # ASCII map letters (``U``/``T``) and/or drop the underscore (``u9``), so
-    # canonicalise every id-shaped token: lowercase the letter and insert the
-    # underscore if it's missing.
-    parts = [_canonical_id(p) for p in parts]
+    # canonicalise the id-shaped tokens: lowercase the letter and insert the
+    # underscore if it's missing. Only the slots that actually hold ids are
+    # touched, so a ``c``-prefixed coordinate (``r c5 c7``) is left intact.
+    for i in _ID_ARG_SLOTS.get(parts[0], ()):
+        if i < len(parts):
+            parts[i] = _canonical_id(parts[i])
     if parts[0] == "m" and len(parts) == 3:
         # direction lowercased and folded from full-word aliases.
         d = parts[2].lower()

@@ -215,6 +215,15 @@ class NormalizeCommandTest(absltest.TestCase):
         self.assertEqual(_normalize_command("r 5 7"), "r 5 7")
         self.assertEqual(_normalize_command("bw 0 6"), "bw 0 6")
 
+    def test_c_prefixed_coordinates_not_rewritten_as_ids(self):
+        # ``r``/``bw``/``bc`` take coordinate integers, not ids. A stray
+        # ``c``-prefixed coordinate token (``c5``) must NOT be folded to a
+        # ``c_5`` city id -- only the id-argument slots of id-taking commands
+        # are canonicalised.
+        self.assertEqual(_normalize_command("r c5 c7"), "r c5 c7")
+        self.assertEqual(_normalize_command("bw c0 c6"), "bw c0 c6")
+        self.assertEqual(_normalize_command("bc c1 c2"), "bc c1 c2")
+
     def test_strips_bracket_wrappers(self):
         for raw in ["m [u_1] n", "bcity <u_2>", "t (u_1) (u_2) wood 40"]:
             normalized = _normalize_command(raw)
