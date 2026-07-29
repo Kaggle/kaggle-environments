@@ -204,16 +204,24 @@ def _accumulate_hand(stats: _OpponentStats, hand: hh_utils.Hand, opp: int) -> No
     pf_aggressor = last_raiser  # last preflop raiser, or None in a limped pot
 
     # --- Saw flop / showdown / WTSD ---
+    # Gate postflop stats on there being at least one voluntary postflop action.
+    # When both players are all-in preflop the flop (and often turn/river) is
+    # still dealt, but neither player had any decision on those streets -- the
+    # board just runs out. Counting those hands would score the opponent as
+    # "went to showdown" (they never folded) and, below, as "declined to c-bet"
+    # (they never got to bet), badly skewing WTSD up and CB down.
     saw_flop = len(hand.community) >= 1 and len(hand.community[0]) == 3
+    has_postflop_action = any(e.street in _POSTFLOP_STREETS for e in events)
+    saw_flop_with_action = saw_flop and has_postflop_action
     went_to_showdown = not any(e.kind is ActionKind.FOLD for e in events)
-    if saw_flop:
+    if saw_flop_with_action:
         stats.wtsd[1] += 1
         if went_to_showdown:
             stats.wtsd[0] += 1
 
     # --- Flop: C-Bet and Fold-to-C-Bet ---
     flop = [e for e in events if e.street is Street.FLOP]
-    if saw_flop and pf_aggressor is not None:
+    if saw_flop_with_action and pf_aggressor is not None:
         if pf_aggressor == opp:
             stats.cbet[1] += 1
             if any(e.actor == opp and e.kind is ActionKind.BET for e in flop):
