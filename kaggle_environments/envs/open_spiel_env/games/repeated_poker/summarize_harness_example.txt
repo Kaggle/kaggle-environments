@@ -1,0 +1,103 @@
+You are a world-class Heads-Up No-Limit Texas Hold'em poker AI. Play to maximize
+EV: use GTO as a baseline and deviate to exploit the opponent's tendencies (see
+the HUD below). Consider ranges, board texture, position, pot odds, and
+stack-to-pot ratio.
+
+Keep your reasoning short: a few sentences at most stating your key beliefs and
+confidence. Do not write long analyses. Then end with the final answer.
+The final answer MUST be the last line, in exactly this format:
+Final Answer: <action> <size-if-bet-or-raise>
+where <action> is one of: fold, check, call, bet, raise. No other text or
+punctuation on that line (not "**Final Answer:** call", not "final answer - bet").
+Valid: "Final Answer: fold" / "Final Answer: check" / "Final Answer: call" /
+"Final Answer: bet 100" / "Final Answer: raise 100".
+
+For bet/raise, <size> is the TOTAL chips committed that round, not the increment.
+E.g. facing a bet of 100, reply "raise 200" to raise by 100 more; "raise 100" is
+invalid. Sizes are in chips, not big blinds.
+
+Hand to analyze:
+
+You are Player0.
+
+=== Standing (scored on cumulative chip profit) ===
+BEHIND by 1463 chips (-731.5 BB), hand 95/100.
+
+=== HUD for Player1 (opponent) -- 94 hands ===
+VPIP 95% (89/94)  |  PFR 85% (80/94)  |  3B 70% (33/47)  |  F3B 34% (12/35)
+CB 43% (10/23)  |  FCB 20% (1/5)  |  WTSD 54% (25/46)  |  AF 3.3 (33b+r/10c)
+Legend (percentages shown as pct (made/opportunities)): VPIP=Voluntary Put In Pot, PFR=Pre-Flop Raise, 3B=3-Bet, F3B=Fold to 3-Bet, CB=flop Continuation Bet, FCB=Fold to Continuation Bet, WTSD=Went To Showdown (of hands that saw the flop), AF=Aggression Factor = postflop (bets+raises)/call. Small samples are noisy -- weight by opportunities.
+
+=== Most recent 2 hand(s) that reached the turn or showdown, in full ===
+
+Hand #92: Hold'em No Limit (1/2)
+Table '' 2-max (USD) Seat #2 is the button
+Seat 1: Player0 (200 in chips)
+Seat 2: Player1 (200 in chips)
+Player1: posts small blind 1
+Player0: posts big blind 2
+*** HOLE CARDS ***
+Dealt to Player0 [8h Qd]
+Dealt to Player1 [?? ??]
+Player1: raises 189 to 191
+Player0: calls 189
+*** FLOP *** [6h 9s 8c]
+Player0: bets 3
+Player1: calls 3
+*** TURN *** [6h 9s 8c] [3s]
+Player0: bets 6 and is all-in
+Player1: folds
+Uncalled bet (6) returned to Player0
+Player0 collected 388.0 from pot
+*** SUMMARY ***
+Total pot 388 | Rake 0
+Board [6h 9s 8c 3s]
+Seat 2: Player1 folded
+
+Hand #93: Hold'em No Limit (1/2)
+Table '' 2-max (USD) Seat #1 is the button
+Seat 1: Player0 (200 in chips)
+Seat 2: Player1 (200 in chips)
+Player0: posts small blind 1
+Player1: posts big blind 2
+*** HOLE CARDS ***
+Dealt to Player0 [8c 8h]
+Dealt to Player1 [Js 9s]
+Player0: raises 35 to 37
+Player1: raises 109 to 146
+Player0: calls 109
+*** FLOP *** [Kc Td 9c]
+Player1: bets 14
+Player0: raises 27 to 41
+Player1: calls 27
+*** TURN *** [Kc Td 9c] [As]
+Player1: bets 9
+Player0: calls 9
+*** RIVER *** [Kc Td 9c] [As] [Jc]
+Player1: checks
+Player0: bets 4 and is all-in
+Player1: calls 4
+*** SHOWDOWN ***
+Player1: shows [Js 9s]
+Player1 collected 400.0 from pot
+*** SUMMARY ***
+Total pot 400 | Rake 0
+Board [Kc Td 9c As Jc]
+Seat 1: Player0 showed [8c 8h] and lost
+Seat 2: Player1 showed [Js 9s] and won (400.0)
+
+=== Current hand ===
+
+Hand #94: Hold'em No Limit (1/2)
+Table '' 2-max (USD) Seat #2 is the button
+Seat 1: Player0 (200 in chips)
+Seat 2: Player1 (200 in chips)
+Player1: posts small blind 1
+Player0: posts big blind 2
+*** HOLE CARDS ***
+Dealt to Player0 [4d Ac]
+Dealt to Player1 [?? ??]
+Player1: raises 159 to 161
+
+Action is on you. Format your response correctly.
+
