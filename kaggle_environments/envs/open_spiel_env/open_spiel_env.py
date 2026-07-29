@@ -1106,6 +1106,7 @@ GAMES_LIST = [
     "dots_and_boxes(num_rows=8,num_cols=8)",
     "gin_rummy",
     "go(board_size=9)",
+    "go_fish",
     "goofspiel(num_cards=4,points_order=descending,returns_type=total_points)",
     "havannah(board_size=8)",
     "hearts",
