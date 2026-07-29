@@ -7,7 +7,10 @@ hands with a compact, deterministic **opponent model**:
 
   1. A global HUD computed from the opponent's actions across all prior hands
      (VPIP / PFR / 3B / F3B preflop, CB / FCB on the flop, WTSD, and postflop
-     aggression factor). Preflop and flop tendencies are fully captured here.
+     aggression factor). Preflop and flop tendencies are captured directly;
+     turn/river tendencies are only partially captured -- the aggression factor
+     lumps flop/turn/river together and there are no street-specific turn or
+     river stats, so later-street reads come from (2) below instead.
   2. Full ACPC-style renders of only the most recent hands that reached the
      turn or a showdown -- these are the ones where later-street lines and (at
      showdown) actual holdings are revealed, which the HUD cannot summarize.
@@ -33,12 +36,15 @@ from kaggle_environments.envs.open_spiel_env.games.repeated_poker import (
 )
 
 # Reused verbatim from the full-history harness -- identical game mechanics.
+# NOTE: we deliberately do NOT import harness._render_past_hand -- it renders
+# with observer_id=None (both players' hole cards visible), which would leak the
+# opponent's cards for hands that never reached showdown. We render past hands
+# locally with the correct observer instead (see _render_recent_hand).
 from kaggle_environments.envs.open_spiel_env.games.repeated_poker.harness import (  # noqa: F401
     POKER_RETHINK,
     _config_for_state,
     _deserialize_state,
     _extract_move_from_response,
-    _render_past_hand,
     _soft_parse_poker_action,
     get_legal_moves,
     parse_response,
@@ -61,8 +67,8 @@ from kaggle_environments.envs.open_spiel_env.games.repeated_poker.harness import
 REPEATED_POKER = """
 You are a world-class Heads-Up No-Limit Texas Hold'em poker AI. Play to maximize
 EV: use GTO as a baseline and deviate to exploit the opponent's tendencies (see
-the HUD and per-street reads below). Consider ranges, board texture, position,
-pot odds, and stack-to-pot ratio.
+the HUD below). Consider ranges, board texture, position, pot odds, and
+stack-to-pot ratio.
 
 Keep your reasoning short: a few sentences at most stating your key beliefs and
 confidence. Do not write long analyses. Then end with the final answer.
@@ -84,6 +90,17 @@ Hand to analyze:
 Action is on you. Format your response correctly.
 
 {rethink_prompt}
+""".strip()
+
+# Rethink suffix for when a move WAS parsed but is not a legal action here
+# (POKER_RETHINK, imported from harness, only covers the unparsable case and
+# always claims "a legal action could not be parsed"). Branching on the parse
+# outcome gives the model the accurate correction signal.
+POKER_RETHINK_ILLEGAL = """
+"{previous_action}" was parsed from your previous response, but it is not a legal
+action in this spot. Choose one of the legal actions and respond in the exact
+format:
+Final Answer: <action> <size-if-bet-or-raise>
 """.strip()
 
 # Number of most-recent hands to render in full (concrete recency anchor).
@@ -117,7 +134,6 @@ class _OpponentStats:
 
     def __init__(self) -> None:
         self.hands = 0
-        self.net = 0
         # Each stat is a [numerator, denominator] pair.
         self.vpip = [0, 0]
         self.pfr = [0, 0]
@@ -134,8 +150,6 @@ class _OpponentStats:
 def _accumulate_hand(stats: _OpponentStats, hand: hh_utils.Hand, opp: int) -> None:
     """Fold one parsed past hand's opponent actions into the HUD counters."""
     stats.hands += 1
-    if opp < len(hand.profits):
-        stats.net += hand.profits[opp]
 
     events = hand.events
     preflop = [e for e in events if e.street is Street.PREFLOP]
@@ -216,21 +230,58 @@ def _pct(pair: list[int]) -> str:
 
 
 def _af(stats: _OpponentStats) -> str:
+    frac = f"({stats.af_aggressive}b+r/{stats.af_calls}c)"
     if stats.af_calls == 0:
-        return "inf" if stats.af_aggressive > 0 else "n/a"
-    return f"{stats.af_aggressive / stats.af_calls:.1f}"
+        return f"{'inf' if stats.af_aggressive > 0 else 'n/a'} {frac}"
+    return f"{stats.af_aggressive / stats.af_calls:.1f} {frac}"
 
 
 def _reached_turn_or_showdown(hand: hh_utils.Hand) -> bool:
-    """True if the hand went past the flop -- i.e. a turn card was dealt (so
-    there was turn/river action) or it ended in a showdown. These are the hands
-    where full replay adds information the HUD can't capture; hands decided
-    preflop or on the flop are already summarized by the stats."""
+    """True if the hand went past the flop with real postflop play -- i.e. a
+    turn card was dealt (so there was turn/river action) or it ended in a
+    showdown. These are the hands where full replay adds information the HUD
+    can't capture; hands decided preflop or on the flop are already summarized
+    by the stats.
+
+    Requires at least one voluntary postflop action so all-in-preflop runouts
+    (where the board is dealt out with no further decisions) don't waste a
+    recency slot -- those carry no postflop line to learn from."""
     # community is [flop(3), turn(1), river(1)] with later streets possibly empty.
     turn_dealt = len(hand.community) >= 2 and len(hand.community[1]) >= 1
     showdown = not any(e.kind is ActionKind.FOLD for e in hand.events)
     saw_flop = len(hand.community) >= 1 and len(hand.community[0]) == 3
-    return turn_dealt or (showdown and saw_flop)
+    has_postflop_action = any(e.street in _POSTFLOP_STREETS for e in hand.events)
+    return has_postflop_action and (turn_dealt or (showdown and saw_flop))
+
+
+def _reached_showdown(hand: hh_utils.Hand) -> bool:
+    """True if the hand went to showdown (nobody folded). Only then were both
+    players' hole cards revealed at the table -- so only then may we render the
+    opponent's cards. Hands that ended in a fold keep the folder's cards
+    hidden, exactly as they were during play."""
+    return not any(e.kind is ActionKind.FOLD for e in hand.events)
+
+
+def _button_index_for_hand(hand_index: int, cur_hand: int, cur_dealer: int, rotate: bool) -> int:
+    """Return the 0-based seat holding the button for a past hand.
+
+    ``cur_dealer`` is the dealer of the current (in-progress) hand ``cur_hand``,
+    read from the live state. With ``rotate_dealer`` the button alternates each
+    hand, so a hand played ``cur_hand - hand_index`` hands ago sat on the other
+    button iff that gap is odd; without rotation the dealer never moves. This is
+    correct for both ``rotate_dealer`` settings, unlike assuming alternation.
+    """
+    if not rotate:
+        return cur_dealer
+    return cur_dealer ^ ((cur_hand - hand_index) % 2)
+
+
+def _render_recent_hand(hand: hh_utils.Hand, cur: int) -> str:
+    """Render a completed past hand for the current player. The opponent's hole
+    cards are shown only if the hand reached showdown (they were revealed at the
+    table); otherwise they stay masked, exactly as during play."""
+    observer_id = None if _reached_showdown(hand) else f"Player{cur}"
+    return hh_utils.render_pokersite(hand=hand, observer_id=observer_id, sitename="")
 
 
 def _render_opponent_model(stats: _OpponentStats, opp: int) -> str:
@@ -266,7 +317,6 @@ def _render_standing(state_dict: dict, cur: int) -> str:
     cur_net = int(sum(r[cur] for r in hand_returns if len(r) > cur))
     hand_number = state_dict["hand_number"]
     max_num_hands = state_dict["max_num_hands"]
-    hands_left = max_num_hands - hand_number
     big_blind = state_dict.get("big_blind", 0) or 0
     if cur_net > 0:
         standing = f"AHEAD by {cur_net} chips"
@@ -276,10 +326,7 @@ def _render_standing(state_dict: dict, cur: int) -> str:
         standing = "EVEN"
     if big_blind:
         standing += f" ({cur_net / big_blind:+.1f} BB)"
-    return (
-        f"=== Standing (scored on cumulative chip profit) ===\n"
-        f"{standing}, hand {hand_number + 1}/{max_num_hands} ({hands_left} left)."
-    )
+    return f"=== Standing (scored on cumulative chip profit) ===\n{standing}, hand {hand_number + 1}/{max_num_hands}."
 
 
 # ---------------------------------------------------------------------------
@@ -295,21 +342,28 @@ def _render_readable_state(pyspiel_state: pyspiel.State) -> str:
     cur = pyspiel_state.current_player()
     opp = 1 - cur
 
-    # Parse the current (in-progress) hand to learn the current street.
+    # Button assignment. ``dealer`` is the current hand's button seat; whether it
+    # rotates each hand comes from the game params. Both are needed to place the
+    # button correctly for every past hand (assuming plain alternation is wrong
+    # when rotate_dealer=False, which corrupts positional stats).
+    cur_hand_number = state_dict["hand_number"]
+    cur_dealer = state_dict["dealer"]
+    rotate = bool(pyspiel_state.get_game().get_parameters().get("rotate_dealer"))
+
+    # Parse the current (in-progress) hand.
     players = [f"Player{i}" for i in range(pyspiel_state.num_players())]
     up_state_dict = json.loads(state_dict["current_universal_poker_json"])
     acpc_state_str = up_state_dict["acpc_state"].split("\n")[0]
     if not acpc_state_str.startswith("STATE:"):
         raise ValueError(f"Expected ACPC state to start with STATE:, got {acpc_state_str}")
     acpc_state_str_full = acpc_state_str + "::" + "|".join(players)
-    cur_hand, cur_parse_state = hh_utils.parse_acpc_line(
+    cur_hand, _ = hh_utils.parse_acpc_line(
         acpc_state_str_full,
         cfg=cfg,
         policy=hh_utils.ButtonPolicy(),
-        button_index=(state_dict["hand_number"] % 2) + 1,
-        hand_id_override=str(state_dict["hand_number"]),
+        button_index=cur_dealer,
+        hand_id_override=str(cur_hand_number),
     )
-    del cur_parse_state  # street-specific read is fully covered by the HUD now
 
     # Accumulate the opponent model over all completed hands. Preflop and flop
     # tendencies are captured by the HUD; only hands that reached the turn or a
@@ -317,18 +371,20 @@ def _render_readable_state(pyspiel_state: pyspiel.State) -> str:
     # holdings can't be summarized statistically).
     stats = _OpponentStats()
     acpc_hhs = list(pyspiel_state.acpc_hand_histories())
+    parsed_hands: list[hh_utils.Hand] = []
     deep_hand_indices: list[int] = []
     for i, acpc_hh in enumerate(acpc_hhs):
-        button_index = (i % 2) + 1
+        button_index = _button_index_for_hand(i, cur_hand_number, cur_dealer, rotate)
         hand, _ = hh_utils.parse_acpc_line(acpc_hh, cfg=cfg, policy=hh_utils.ButtonPolicy(), button_index=button_index)
+        parsed_hands.append(hand)
         _accumulate_hand(stats, hand, opp)
         if _reached_turn_or_showdown(hand):
             deep_hand_indices.append(i)
 
-    if len(acpc_hhs) != state_dict["hand_number"]:
+    if len(acpc_hhs) != cur_hand_number:
         raise ValueError(
             f"Number of past hands {len(acpc_hhs)} does not match number of"
-            f" hands in state (current hand={state_dict['hand_number']})."
+            f" hands in state (current hand={cur_hand_number})."
         )
 
     sections: list[str] = [f"You are Player{cur}."]
@@ -339,7 +395,7 @@ def _render_readable_state(pyspiel_state: pyspiel.State) -> str:
 
         recent_idx = deep_hand_indices[-_NUM_RECENT_HANDS:]
         if recent_idx:
-            rendered_recent = [_render_past_hand(acpc_hhs[i], (i % 2) + 1, cfg) for i in recent_idx]
+            rendered_recent = [_render_recent_hand(parsed_hands[i], cur) for i in recent_idx]
             sections.append(
                 f"=== Most recent {len(recent_idx)} hand(s) that reached the turn "
                 "or showdown, in full ===\n\n" + "\n\n".join(rendered_recent)
@@ -362,14 +418,19 @@ def _render_readable_state(pyspiel_state: pyspiel.State) -> str:
 def generate_prompt_from_state(
     state: pyspiel.State,
     previous_response: str | None = None,
+    previous_action: str | None = None,
 ) -> str:
     """Build the LLM prompt from a pre-deserialized pyspiel state, using the
     compact opponent-model rendering."""
     readable_state_str = _render_readable_state(state)
 
-    if previous_response is None:
+    if previous_action:
+        # A move was parsed but was not legal here -- say so specifically.
+        rethink_prompt = POKER_RETHINK_ILLEGAL.format(previous_action=previous_action)
+    elif previous_response is None:
         rethink_prompt = ""
     else:
+        # Nothing parsable was extracted -- echo the tail of the response.
         if not previous_response:
             generation = "NO RESPONSE RECEIVED"
         else:
@@ -389,8 +450,12 @@ def generate_prompt(
     previous_action: str | None = None,
 ) -> str:
     """Build the LLM prompt with the compact opponent model."""
-    del move_history, previous_action  # not used in repeated_poker prompts
+    del move_history  # not used in repeated_poker prompts
     state = _deserialize_state(observation)
     if state is None:
         raise ValueError("Observation is missing serializedGameAndState.")
-    return generate_prompt_from_state(state, previous_response=previous_response)
+    return generate_prompt_from_state(
+        state,
+        previous_response=previous_response,
+        previous_action=previous_action,
+    )
