@@ -1,7 +1,6 @@
-You are a world-class Heads-Up No-Limit Texas Hold'em poker AI. Play to maximize
-EV: use GTO as a baseline and deviate to exploit the opponent's tendencies (see
-the HUD below). Consider ranges, board texture, position, pot odds, and
-stack-to-pot ratio.
+Let's play No-Limit Texas Hold'em. Play to maximize EV: use GTO as a baseline
+and deviate to exploit the opponent's tendencies (see the HUD below). Consider
+ranges, board texture, position, pot odds, and stack-to-pot ratio.
 
 Keep your reasoning short: a few sentences at most stating your key beliefs and
 confidence. Do not write long analyses. Then end with the final answer.
@@ -15,8 +14,6 @@ Valid: "Final Answer: fold" / "Final Answer: check" / "Final Answer: call" /
 For bet/raise, <size> is the TOTAL chips committed that round, not the increment.
 E.g. facing a bet of 100, reply "raise 200" to raise by 100 more; "raise 100" is
 invalid. Sizes are in chips, not big blinds.
-
-Hand to analyze:
 
 You are Player0.
 
