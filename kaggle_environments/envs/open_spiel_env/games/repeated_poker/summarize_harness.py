@@ -19,36 +19,43 @@ hands with a compact, deterministic **opponent model**:
 All of this is computed by the harness from the structured hand histories, so it
 costs no LLM tokens to produce and stays constant-size as the session grows.
 
-The prompt template, legal-move extraction, and response parsing are imported
-verbatim from :mod:`harness` -- the game mechanics are identical, only the
-``{readable_state_str}`` construction differs.
+The game mechanics are identical to :mod:`harness`; the ``{readable_state_str}``
+construction differs (compact opponent model instead of full hand histories),
+and the response format uses the shared JSON answer structure
+(```json {"move": ...}```) that the other game harnesses use rather than the
+GameArena ``Final Answer:`` tag convention.
 """
 
 from __future__ import annotations
 
 import json
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 import pyspiel
 
+from kaggle_environments.core_harness import (
+    ParseResult,
+    extract_last_json_object,
+    render_rethink_suffix,
+)
 from kaggle_environments.envs.open_spiel_env.games.repeated_poker import (
     hand_history_utils as hh_utils,
 )
 
-# Reused verbatim from the full-history harness -- identical game mechanics.
+# Reused from the full-history harness -- identical game mechanics.
 # NOTE: we deliberately do NOT import harness._render_past_hand -- it renders
 # with observer_id=None (both players' hole cards visible), which would leak the
 # opponent's cards for hands that never reached showdown. We render past hands
-# locally with the correct observer instead (see _render_recent_hand).
-from kaggle_environments.envs.open_spiel_env.games.repeated_poker.harness import (  # noqa: F401
-    POKER_RETHINK,
+# locally with the correct observer instead (see _render_recent_hand). We also
+# do NOT reuse harness's response parsing: that harness follows the GameArena
+# "Final Answer: <action>" tag convention, whereas this harness uses the shared
+# JSON answer structure (```json {"move": ...}```) that the other game harnesses
+# use, so it parses the move out of the JSON object instead.
+from kaggle_environments.envs.open_spiel_env.games.repeated_poker.harness import (
     _config_for_state,
     _deserialize_state,
-    _extract_move_from_response,
     _soft_parse_poker_action,
-    get_legal_moves,
-    parse_response,
-    parse_response_with_state,
+    get_legal_moves,  # noqa: F401  (re-exported for main.py)
 )
 
 # ---------------------------------------------------------------------------
@@ -56,11 +63,12 @@ from kaggle_environments.envs.open_spiel_env.games.repeated_poker.harness import
 #
 # The full-history harness re-sends a ~2.8k-char GTO preamble on every prompt.
 # Once the history is compressed to a HUD, that fixed boilerplate dominates the
-# prompt (~60%), so we trim it here. The load-bearing pieces are preserved so
-# the response parser is unaffected:
-#   - the literal "Final Answer:" tag (RuleBasedMoveParser splits on it),
+# prompt (~60%), so we trim it here. Unlike the byte-parity harness (which uses
+# the GameArena "Final Answer:" tag), this harness concludes with the shared
+# ```json {"move": ...}``` answer block used by the other game harnesses. The
+# load-bearing pieces the soft parser assumes are preserved:
 #   - the five action words fold/check/call/bet/raise,
-#   - the "total for the round" bet-sizing convention (soft parser assumes it).
+#   - the "total for the round" bet-sizing convention.
 # The GTO prose, the concept checklist, and the duplicated examples are dropped.
 # ---------------------------------------------------------------------------
 
@@ -69,36 +77,48 @@ Let's play No-Limit Texas Hold'em. Play to maximize EV: use GTO as a baseline
 and deviate to exploit the opponent's tendencies (see the HUD below). Consider
 ranges, board texture, position, pot odds, and stack-to-pot ratio.
 
-Keep your reasoning short: a few sentences at most stating your key beliefs and
-confidence. Do not write long analyses. Then end with the final answer.
-The final answer MUST be the last line, in exactly this format:
-Final Answer: <action> <size-if-bet-or-raise>
-where <action> is one of: fold, check, call, bet, raise. No other text or
-punctuation on that line (not "**Final Answer:** call", not "final answer - bet").
-Valid: "Final Answer: fold" / "Final Answer: check" / "Final Answer: call" /
-"Final Answer: bet 100" / "Final Answer: raise 100".
-
-For bet/raise, <size> is the TOTAL chips committed that round, not the increment.
-E.g. facing a bet of 100, reply "raise 200" to raise by 100 more; "raise 100" is
-invalid. Sizes are in chips, not big blinds.
-
 {readable_state_str}
 
-Action is on you. Format your response correctly.
+Reason briefly (a few sentences: key beliefs and your confidence; no long
+analyses), then conclude with your move as JSON:
 
+```json
+{{"move": "<action> <size-if-bet-or-raise>"}}
+```
+
+where <action> is one of: fold, check, call, bet, raise. For bet/raise, <size>
+is the TOTAL chips committed that round, not the increment. E.g. facing a bet of
+100, reply {{"move": "raise 200"}} to raise by 100 more; {{"move": "raise 100"}}
+is invalid. Sizes are in chips, not big blinds.
 {rethink_prompt}
 """.strip()
 
-# Rethink suffix for when a move WAS parsed but is not a legal action here
-# (POKER_RETHINK, imported from harness, only covers the unparsable case and
-# always claims "a legal action could not be parsed"). Branching on the parse
-# outcome gives the model the accurate correction signal.
-POKER_RETHINK_ILLEGAL = """
-"{previous_action}" was parsed from your previous response, but it is not a legal
-action in this spot. Choose one of the legal actions and respond in the exact
-format:
-Final Answer: <action> <size-if-bet-or-raise>
-""".strip()
+# Rethink suffix for when a move WAS parsed but is not a legal action here.
+RETHINK_ILLEGAL = """
+
+You suggested move "{previous_action}" but this is not a legal action in this
+spot. Choose a legal action and keep the same JSON output format:
+
+```json
+{{"move": "<action> <size-if-bet-or-raise>"}}
+```
+"""
+
+# Rethink suffix for when no JSON move could be parsed from the response.
+RETHINK_UNPARSABLE = """
+
+Your previous response ended with:
+{previous_response}
+
+No JSON move could be parsed from that. Conclude your response with your move as
+JSON in a ```json fenced block, exactly as the original instructions required:
+
+```json
+{{"move": "<action> <size-if-bet-or-raise>"}}
+```
+
+For example: `{{"move": "call"}}` or `{{"move": "raise 200"}}`.
+"""
 
 # Number of most-recent hands to render in full (concrete recency anchor).
 _NUM_RECENT_HANDS = 2
@@ -420,20 +440,12 @@ def generate_prompt_from_state(
     """Build the LLM prompt from a pre-deserialized pyspiel state, using the
     compact opponent-model rendering."""
     readable_state_str = _render_readable_state(state)
-
-    if previous_action:
-        # A move was parsed but was not legal here -- say so specifically.
-        rethink_prompt = POKER_RETHINK_ILLEGAL.format(previous_action=previous_action)
-    elif previous_response is None:
-        rethink_prompt = ""
-    else:
-        # Nothing parsable was extracted -- echo the tail of the response.
-        if not previous_response:
-            generation = "NO RESPONSE RECEIVED"
-        else:
-            generation = "\n".join(previous_response.split("\n")[-5:])
-        rethink_prompt = POKER_RETHINK.format(generation=generation)
-
+    rethink_prompt = render_rethink_suffix(
+        RETHINK_ILLEGAL,
+        RETHINK_UNPARSABLE,
+        previous_response,
+        previous_action,
+    )
     return REPEATED_POKER.format(
         readable_state_str=readable_state_str,
         rethink_prompt=rethink_prompt,
@@ -456,3 +468,61 @@ def generate_prompt(
         previous_response=previous_response,
         previous_action=previous_action,
     )
+
+
+def parse_response_with_state(
+    response: str,
+    legal_action_strings: Sequence[str],
+    state: pyspiel.State,
+) -> ParseResult:
+    """Parse with a pre-deserialized state. Same as ``parse_response`` but
+    skips deserialization -- exposed for the verify script.
+
+    Two-stage pipeline: pull the ``"move"`` string out of the last JSON object
+    in the response (the shared answer structure), then soft-match it against
+    the legal moves with the stateful poker parser, which resolves the
+    "total for the round" bet-sizing convention against the live state.
+    """
+    data = extract_last_json_object(response, required_keys=("move",))
+    if data is None:
+        return ParseResult(legal_action=None, raw_action=None)
+    raw_value = data.get("move")
+    if raw_value is None:
+        return ParseResult(legal_action=None, raw_action=None)
+    raw = str(raw_value).strip()
+    if not raw:
+        return ParseResult(legal_action=None, raw_action=None)
+    player_number = state.current_player()
+    matched = _soft_parse_poker_action(raw, legal_action_strings, state, player_number)
+    if matched is not None and matched in legal_action_strings:
+        return ParseResult(legal_action=matched, raw_action=raw)
+    return ParseResult(legal_action=None, raw_action=raw)
+
+
+def parse_response(
+    response: str,
+    legal_action_strings: Sequence[str],
+    *,
+    observation: Mapping[str, Any] | None = None,
+) -> ParseResult:
+    """Extract a legal poker action from the model response.
+
+    Uses the shared JSON answer structure (```json {"move": ...}```) that the
+    other game harnesses use, then soft-matches the extracted move against the
+    legal actions using the live pyspiel state (needed for bet-size math).
+    """
+    data = extract_last_json_object(response, required_keys=("move",))
+    if data is None:
+        return ParseResult(legal_action=None, raw_action=None)
+    raw_value = data.get("move")
+    raw = None if raw_value is None else str(raw_value).strip()
+    if not raw:
+        return ParseResult(legal_action=None, raw_action=None)
+    if observation is None:
+        # Without state context we can only return what we extracted; the
+        # framework will treat this as an illegal-move retry.
+        return ParseResult(legal_action=None, raw_action=raw)
+    state = _deserialize_state(observation)
+    if state is None:
+        return ParseResult(legal_action=None, raw_action=raw)
+    return parse_response_with_state(response, legal_action_strings, state)
