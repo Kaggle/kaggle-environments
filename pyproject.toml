@@ -11,7 +11,11 @@ dependencies = [
     "gymnax==0.0.8",
     "jax",
     "jsonschema >= 3.0.1",
-    "litellm >= 1.86.1",
+    # Capped below 1.94.0: it added _propagate_usage_cost_to_hidden_params,
+    # which does an unguarded float() on the provider-reported usage.cost. The
+    # Kaggle Model Proxy reports cost as a nanodollar dict, so that raises
+    # TypeError from the stream's final __next__ and kills the whole call.
+    "litellm >= 1.86.1, < 1.94.0",
     "numpy >= 2.0",
     "open_spiel == 2.0.1",
     "pettingzoo == 1.24.0",
