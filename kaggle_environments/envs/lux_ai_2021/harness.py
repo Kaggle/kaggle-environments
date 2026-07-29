@@ -135,7 +135,10 @@ Commands (one per line in your JSON response):
                                       not on an existing city tile)
   p <unit_id>                      -- worker pillages road at its position
   t <from_id> <to_id> <res> <amt>  -- transfer resources between adjacent units
-                                      (res: wood, coal, or crystal)
+                                      (res: wood, coal, or crystal). BOTH ids
+                                      must be UNIT ids (u_N) -- you cannot
+                                      transfer into a city; a unit fuels a city
+                                      by standing on it or building it.
   r <x> <y>                        -- city tile at (x,y) researches
   bw <x> <y>                       -- city tile at (x,y) builds a worker
   bc <x> <y>                       -- city tile at (x,y) builds a cart
@@ -182,7 +185,11 @@ Reply with a JSON object of the form:
 {{"actions": ["m u_1 n", "bcity u_2", "r 5 7"]}}
 ```
 
-An empty list (`{{"actions": []}}`) is legal and means "do nothing this turn".
+Issue at least one command for every unit and every city tile that is off
+cooldown -- passing on an actor that could act wastes an irrecoverable turn of
+production and leaves your cities closer to collapsing at night. An empty list
+(`{{"actions": []}}`) is accepted by the engine but should only be used when
+every one of your units and city tiles is still on cooldown.
 """
 
 
@@ -400,7 +407,26 @@ _DIRECTION_ALIASES = {
 _LEADING_JUNK_RE = re.compile(r"^[\s\-*•]+|^\d+[.)]\s*")
 _TRAILING_JUNK_RE = re.compile(r"[\s.,;:!?]+$")
 _TRAILING_COMMENT_RE = re.compile(r"\s*(?:#|//).*$")
-_ID_TOKEN_RE = re.compile(r"[uUcC]_\d+")
+# Unit/city id token, tolerating a MISSING underscore. The engine's wire form
+# is ``u_N`` / ``c_N``, but models routinely drop the underscore (``u9``) or
+# uppercase the letter (``U_9``) to match the ASCII map glyphs. The optional
+# ``_`` lets ``_normalize_command`` fold ``u9``/``U9``/``U_9`` all to ``u_9``.
+# The letter class is only ``u``/``c`` so a bare direction (``c`` = stay, no
+# digits) and coordinate integers (``5``) are never mistaken for ids.
+_ID_TOKEN_RE = re.compile(r"([uUcC])_?(\d+)")
+
+
+def _canonical_id(token: str) -> str:
+    """Canonicalise a unit/city id token, or return it unchanged.
+
+    ``u_9``/``U_9``/``u9``/``U9`` (and the ``c`` city variants) all fold to
+    ``u_9`` / ``c_9``. Only a token that is *entirely* an id is rewritten, so
+    coordinate integers and the ``c`` (stay) direction pass through untouched.
+    """
+    m = _ID_TOKEN_RE.fullmatch(token)
+    if m is None:
+        return token
+    return f"{m.group(1).lower()}_{m.group(2)}"
 
 
 def _normalize_command(cmd: str) -> str:
@@ -411,8 +437,9 @@ def _normalize_command(cmd: str) -> str:
     - Strips trailing line-comments (``# ...`` and ``// ...``).
     - Strips ``[]``, ``()``, and ``<>`` wrappers around any token.
     - Collapses runs of internal whitespace to a single space.
-    - Lowercases command head, unit/city id tokens (``U_1`` -> ``u_1``),
-      and full direction names for the ``m`` command.
+    - Lowercases command head, canonicalises unit/city id tokens (folding
+      case AND inserting a missing underscore, so ``U_1``/``u1``/``U1`` all
+      become ``u_1``), and folds full direction names for the ``m`` command.
     - Rewrites the display resource name (``crystal``) back to the engine's
       wire keyword (``uranium``) in ``t`` transfer commands.
     """
@@ -431,10 +458,12 @@ def _normalize_command(cmd: str) -> str:
     # All command heads (``m``, ``bcity``, ``p``, ``t``, ``r``, ``bw``, ``bc``)
     # are lowercase in the engine's grammar.
     parts[0] = parts[0].lower()
-    # Unit and city ids are exclusively lowercase in the engine's wire
-    # protocol (``u_N`` / ``c_N``). Models routinely uppercase them to match
-    # the ASCII map letters (``U``/``T``), so fold every id-shaped token.
-    parts = [p.lower() if _ID_TOKEN_RE.fullmatch(p) else p for p in parts]
+    # Unit and city ids are exclusively lowercase ``u_N`` / ``c_N`` in the
+    # engine's wire protocol. Models routinely uppercase them to match the
+    # ASCII map letters (``U``/``T``) and/or drop the underscore (``u9``), so
+    # canonicalise every id-shaped token: lowercase the letter and insert the
+    # underscore if it's missing.
+    parts = [_canonical_id(p) for p in parts]
     if parts[0] == "m" and len(parts) == 3:
         # direction lowercased and folded from full-word aliases.
         d = parts[2].lower()
