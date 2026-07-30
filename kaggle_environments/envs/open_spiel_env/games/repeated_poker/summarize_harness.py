@@ -255,7 +255,7 @@ def _pct(pair: list[int]) -> str:
 
 
 def _af(stats: _OpponentStats) -> str:
-    frac = f"({stats.af_aggressive}b+r/{stats.af_calls}c)"
+    frac = f"({stats.af_aggressive}(b+r)/{stats.af_calls}c)"
     if stats.af_calls == 0:
         return f"{'inf' if stats.af_aggressive > 0 else 'n/a'} {frac}"
     return f"{stats.af_aggressive / stats.af_calls:.1f} {frac}"
@@ -423,7 +423,7 @@ def _render_readable_state(pyspiel_state: pyspiel.State) -> str:
             rendered_recent = [_render_recent_hand(parsed_hands[i], cur) for i in recent_idx]
             sections.append(
                 f"=== Most recent {len(recent_idx)} hand(s) that reached the turn "
-                "or showdown, in full ===\n\n" + "\n\n".join(rendered_recent)
+                "or later, in full ===\n\n" + "\n\n".join(rendered_recent)
             )
     else:
         sections.append("This is the first hand of the session; no history yet.")
