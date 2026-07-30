@@ -179,13 +179,16 @@ Opponent state:
 {opponent_summary}
 
 {recent_moves_block}
-Reply with a JSON object of the form:
+First give a short justification of your plan for this turn (a few
+sentences -- which units and city tiles you are acting and why), then
+conclude with your commands as a JSON object of the form:
 
 ```json
 {{"actions": ["m u_1 n", "bcity u_2", "r 5 7"]}}
 ```
 
-An empty list (`{{"actions": []}}`) is legal and means "do nothing this turn".
+Put the JSON object last; it is read as your final answer. An empty list
+(`{{"actions": []}}`) is legal and means "do nothing this turn".
 """
 
 
