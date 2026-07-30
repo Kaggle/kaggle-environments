@@ -276,8 +276,8 @@ class CoreHarnessTest(absltest.TestCase):
 
     def test_truncated_attempt_appends_concise_nudge_to_retry(self):
         # After a length-truncated attempt, the retry prompt must carry the
-        # "answer concisely" nudge so the model stops over-reasoning; a normal
-        # unparsable/illegal attempt must not.
+        # (gentlest-stage) "answer concisely" nudge so the model stops
+        # over-reasoning; the first attempt itself must not.
         harness = _SimpleHarness()
         agent = create_agent_fn(harness, max_retries=2)
         side_effects = [
@@ -291,8 +291,74 @@ class CoreHarnessTest(absltest.TestCase):
 
         self.assertEqual(result["submission"], 1)
         prompts = [cd["prompt"] for cd in result["call_details"]]
-        self.assertNotIn(core_harness.BASIC_RETHINK_TRUNCATED, prompts[0])
-        self.assertIn(core_harness.BASIC_RETHINK_TRUNCATED, prompts[1])
+        stage1 = core_harness.BASIC_RETHINK_TRUNCATED_RAMP[0]
+        self.assertNotIn(stage1, prompts[0])
+        self.assertIn(stage1, prompts[1])
+
+    def test_truncation_nudge_ramps_across_consecutive_truncations(self):
+        # Each consecutive truncation escalates the nudge to the next, stronger
+        # ramp stage, so repeated overthinking is pushed toward answering fast.
+        ramp = core_harness.BASIC_RETHINK_TRUNCATED_RAMP
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=4)
+        side_effects = [
+            _fake_completion("", pieces=1, finish_reason="length"),
+            _fake_completion("", pieces=1, finish_reason="length"),
+            _fake_completion("", pieces=1, finish_reason="length"),
+            _fake_completion("move_1"),
+        ]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=side_effects,
+        ):
+            result = agent({}, {})
+
+        self.assertEqual(result["submission"], 1)
+        prompts = [cd["prompt"] for cd in result["call_details"]]
+        # Attempt 0: no prior truncation, no nudge.
+        for stage in ramp:
+            self.assertNotIn(stage, prompts[0])
+        # Attempts 1/2/3 carry ramp stages 0/1/2 respectively.
+        self.assertIn(ramp[0], prompts[1])
+        self.assertIn(ramp[1], prompts[2])
+        self.assertIn(ramp[2], prompts[3])
+
+    def test_truncation_nudge_clamps_at_strongest_stage(self):
+        # Beyond the ramp length the nudge stays at the strongest stage rather
+        # than falling off, so long retry budgets keep the maximum pressure.
+        ramp = core_harness.BASIC_RETHINK_TRUNCATED_RAMP
+        n = len(ramp)
+        self.assertEqual(core_harness.render_truncation_nudge(0), "")
+        self.assertEqual(core_harness.render_truncation_nudge(1), ramp[0])
+        self.assertEqual(core_harness.render_truncation_nudge(n), ramp[-1])
+        self.assertEqual(core_harness.render_truncation_nudge(n + 5), ramp[-1])
+
+    def test_truncation_ramp_resets_after_non_truncated_attempt(self):
+        # A single non-truncated failure between truncations resets the ramp,
+        # so the next truncation starts gentle again rather than escalating.
+        ramp = core_harness.BASIC_RETHINK_TRUNCATED_RAMP
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=4)
+        side_effects = [
+            _fake_completion("", pieces=1, finish_reason="length"),  # truncate
+            _fake_completion("not_a_legal_move"),                    # illegal -> reset
+            _fake_completion("", pieces=1, finish_reason="length"),  # truncate again
+            _fake_completion("move_1"),
+        ]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=side_effects,
+        ):
+            result = agent({}, {})
+
+        self.assertEqual(result["submission"], 1)
+        prompts = [cd["prompt"] for cd in result["call_details"]]
+        # Attempt 1 (after first truncation) -> stage 0.
+        self.assertIn(ramp[0], prompts[1])
+        # Attempt 2 (after non-truncated illegal) -> no nudge at all.
+        for stage in ramp:
+            self.assertNotIn(stage, prompts[2])
+        # Attempt 3 (after truncation resumes) -> stage 0 again, not escalated.
+        self.assertIn(ramp[0], prompts[3])
+        self.assertNotIn(ramp[1], prompts[3])
 
     def test_non_truncated_failure_omits_concise_nudge(self):
         # A plain illegal move (finish_reason="stop") must retry WITHOUT the
@@ -310,7 +376,8 @@ class CoreHarnessTest(absltest.TestCase):
 
         self.assertEqual(result["submission"], 1)
         prompts = [cd["prompt"] for cd in result["call_details"]]
-        self.assertNotIn(core_harness.BASIC_RETHINK_TRUNCATED, prompts[1])
+        for stage in core_harness.BASIC_RETHINK_TRUNCATED_RAMP:
+            self.assertNotIn(stage, prompts[1])
 
     def test_truncated_response_with_legal_move_still_succeeds(self):
         # Truncation changes no game behaviour: if the cut-off text still
