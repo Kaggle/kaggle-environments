@@ -191,6 +191,39 @@ class NormalizeCommandTest(absltest.TestCase):
         # already handled elsewhere; the fold is scoped to [uUcC]_\\d+).
         self.assertEqual(_normalize_command("m U_1 N"), "m u_1 n")
 
+    def test_missing_underscore_in_id_inserted(self):
+        # Models routinely drop the underscore in unit/city ids (``u9`` for
+        # ``u_9``), often to match the bare numbers on the ASCII map. The
+        # engine's wire form requires the underscore, so normalization must
+        # insert it or the command is silently dropped.
+        self.assertEqual(_normalize_command("m u9 w"), "m u_9 w")
+        self.assertEqual(_normalize_command("bcity u12"), "bcity u_12")
+        self.assertEqual(_normalize_command("p u3"), "p u_3")
+        self.assertEqual(_normalize_command("t u12 u1 wood 45"), "t u_12 u_1 wood 45")
+        # Case + missing underscore together fold in one pass.
+        self.assertEqual(_normalize_command("M U9 N"), "m u_9 n")
+        # After folding, each is a valid command.
+        for raw in ["m u9 w", "bcity u12", "p u3", "t u12 u1 wood 45", "M U9 N"]:
+            self.assertTrue(_validate_command(_normalize_command(raw)), raw)
+
+    def test_missing_underscore_does_not_touch_directions_or_coords(self):
+        # The ``c`` (stay) direction is a bare letter with no digits, and city
+        # commands take coordinate integers -- neither is an id, so neither
+        # must be rewritten into ``c_N``/``u_N``.
+        self.assertEqual(_normalize_command("m u_1 c"), "m u_1 c")
+        self.assertEqual(_normalize_command("m u1 center"), "m u_1 c")
+        self.assertEqual(_normalize_command("r 5 7"), "r 5 7")
+        self.assertEqual(_normalize_command("bw 0 6"), "bw 0 6")
+
+    def test_c_prefixed_coordinates_not_rewritten_as_ids(self):
+        # ``r``/``bw``/``bc`` take coordinate integers, not ids. A stray
+        # ``c``-prefixed coordinate token (``c5``) must NOT be folded to a
+        # ``c_5`` city id -- only the id-argument slots of id-taking commands
+        # are canonicalised.
+        self.assertEqual(_normalize_command("r c5 c7"), "r c5 c7")
+        self.assertEqual(_normalize_command("bw c0 c6"), "bw c0 c6")
+        self.assertEqual(_normalize_command("bc c1 c2"), "bc c1 c2")
+
     def test_strips_bracket_wrappers(self):
         for raw in ["m [u_1] n", "bcity <u_2>", "t (u_1) (u_2) wood 40"]:
             normalized = _normalize_command(raw)
@@ -582,7 +615,7 @@ class GeneratePromptTest(absltest.TestCase):
         # City tile upkeep + adjacency bonus formula are surfaced.
         self.assertIn("23", prompt)  # per-tile base
         # Worker/cart night-consumption numbers and the "in a city is safe" carve-out.
-        self.assertIn("4", prompt)   # worker night burn
+        self.assertIn("4", prompt)  # worker night burn
         self.assertIn("10", prompt)  # cart night burn
         self.assertIn("city tile at night", prompt.lower().replace("standing on a friendly ", ""))
 
