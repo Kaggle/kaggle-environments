@@ -156,6 +156,20 @@ Your previously suggested move was: {last_move}, which is an illegal move.
 Please think carefully and generate a new and legal move.
 """
 
+# Rethink suffix appended (in addition to any illegal/unparsable suffix) when
+# the previous attempt hit the output-token limit (finish_reason="length")
+# before emitting a usable move. The model spent its entire budget on reasoning
+# and produced a truncated (often empty) answer, so the correction it needs is
+# not "your move was wrong" but "stop over-reasoning and answer concisely".
+# No placeholders -- game-agnostic so it can be appended by the core loop for
+# every harness. Prepended with a blank line so it reads as its own paragraph
+# regardless of what precedes it.
+BASIC_RETHINK_TRUNCATED = """
+
+In your last answer you reasoned for so long that you used your entire \
+output-token budget before giving a move, so no move was recorded. Spend far \
+less time reasoning this turn and output your final move quickly and concisely."""
+
 
 # ---------------------------------------------------------------------------
 # JSON extraction helper
@@ -879,6 +893,7 @@ def create_agent_fn(
         # -- prompt / parse / retry loop --
         previous_response: str | None = None
         previous_action: str | None = None
+        previous_truncated = False
         last_content = ""
         all_responses: list[str] = []
         call_records: list[dict[str, Any]] = []
@@ -899,6 +914,13 @@ def create_agent_fn(
                 previous_response=previous_response,
                 previous_action=previous_action,
             )
+            # A truncated previous attempt needs a different correction than a
+            # wrong move: the model ran out of output budget while reasoning.
+            # Append the concise-answer nudge on top of whatever rethink suffix
+            # the harness already produced, so it applies uniformly across
+            # every game without threading a new signal through each make_prompt.
+            if previous_truncated:
+                prompt += BASIC_RETHINK_TRUNCATED
 
             try:
                 content, call_details = _call_llm(
@@ -995,6 +1017,7 @@ def create_agent_fn(
             )
             previous_action = result.raw_action
             previous_response = content
+            previous_truncated = failure_category == "TRUNCATED"
             _log.warning(
                 "Attempt %d: failed to parse a legal move.", attempt + 1,
             )

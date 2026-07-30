@@ -274,6 +274,44 @@ class CoreHarnessTest(absltest.TestCase):
         self.assertEqual(result["submission"], -1)
         self.assertEqual(result["failureCategory"], "TRUNCATED")
 
+    def test_truncated_attempt_appends_concise_nudge_to_retry(self):
+        # After a length-truncated attempt, the retry prompt must carry the
+        # "answer concisely" nudge so the model stops over-reasoning; a normal
+        # unparsable/illegal attempt must not.
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=2)
+        side_effects = [
+            _fake_completion("", pieces=1, finish_reason="length"),
+            _fake_completion("move_1"),
+        ]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=side_effects,
+        ):
+            result = agent({}, {})
+
+        self.assertEqual(result["submission"], 1)
+        prompts = [cd["prompt"] for cd in result["call_details"]]
+        self.assertNotIn(core_harness.BASIC_RETHINK_TRUNCATED, prompts[0])
+        self.assertIn(core_harness.BASIC_RETHINK_TRUNCATED, prompts[1])
+
+    def test_non_truncated_failure_omits_concise_nudge(self):
+        # A plain illegal move (finish_reason="stop") must retry WITHOUT the
+        # truncation nudge -- that correction only applies to budget blowups.
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=2)
+        side_effects = [
+            _fake_completion("not_a_legal_move"),
+            _fake_completion("move_1"),
+        ]
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion", side_effect=side_effects,
+        ):
+            result = agent({}, {})
+
+        self.assertEqual(result["submission"], 1)
+        prompts = [cd["prompt"] for cd in result["call_details"]]
+        self.assertNotIn(core_harness.BASIC_RETHINK_TRUNCATED, prompts[1])
+
     def test_truncated_response_with_legal_move_still_succeeds(self):
         # Truncation changes no game behaviour: if the cut-off text still
         # contains a legal move, the action is returned as normal. The only
