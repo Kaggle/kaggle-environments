@@ -600,7 +600,10 @@ def _call_llm(
             content = "".join(content_parts).strip()
             duration = time.perf_counter() - attempt_start
 
-            if not content:
+            # `length` with no content means reasoning consumed the whole
+            # token budget -- a model failure the caller categorizes as
+            # TRUNCATED (retry, then forfeit), not an infrastructure error.
+            if not content and finish_reason != "length":
                 raise RuntimeError(
                     "LLM stream produced no content "
                     f"(finish_reason={finish_reason!r}, duration_secs={duration:.3f})"
@@ -909,9 +912,12 @@ def create_agent_fn(
                     "model": model_name,
                     **call_details,
                 })
-                result = game_harness.parse_response(
-                    content, legal_action_strings, observation=observation,
-                )
+                if content:
+                    result = game_harness.parse_response(
+                        content, legal_action_strings, observation=observation,
+                    )
+                else:
+                    result = ParseResult()
                 last_exception = None
             except Exception as exc:
                 last_exception = exc
