@@ -194,9 +194,9 @@ class CoreHarnessTest(absltest.TestCase):
         self.assertIsNone(failures[-1]["raw_action"])
 
     def test_parse_failure_telemetry_empty(self):
-        # _call_llm normally raises on empty content, so EMPTY can't be
-        # reached through the litellm path. We stub _call_llm so the
-        # classifier sees an empty string and emits the EMPTY category.
+        # _call_llm raises on empty content unless finish_reason is "length",
+        # so EMPTY can't be reached through the litellm path. We stub
+        # _call_llm so the classifier sees an empty string.
         harness = _SimpleHarness()
         agent = create_agent_fn(harness, max_retries=1)
         empty_call_details = {
@@ -231,6 +231,47 @@ class CoreHarnessTest(absltest.TestCase):
         self.assertEqual(finals[-1]["final_failure_category"], "TRUNCATED")
         self.assertIn("TRUNCATED", result["status"])
         # Visualizers branch on this structured field, not the status string.
+        self.assertEqual(result["failureCategory"], "TRUNCATED")
+
+    def test_empty_truncated_response_forfeits_instead_of_raising(self):
+        # Reasoning can consume the entire token budget, leaving no content
+        # with finish_reason="length". That is a model failure, so it must
+        # flow through the retry/forfeit path rather than erroring the
+        # episode out as an infrastructure failure.
+        harness = _SimpleHarness()
+        agent = create_agent_fn(harness, max_retries=2)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion",
+            side_effect=lambda *a, **kw: _fake_completion(
+                "", pieces=1, finish_reason="length",
+            ),
+        ):
+            result = agent({}, {"illegalMoveForfeit": True})
+
+        self.assertEqual(result["submission"], -1)
+        self.assertEqual(result["failureCategory"], "TRUNCATED")
+        failures = self._parse_failure_events()
+        self.assertLen(failures, 2)
+        self.assertIsNone(failures[-1]["raw_action"])
+        self.assertFalse(any("llm_call_exception" in e for e in self.events))
+
+    def test_empty_truncated_response_skips_parser(self):
+        # There is nothing to parse, and a game harness parser is entitled to
+        # raise on empty input -- which would resurrect the error path.
+        class _StrictHarness(_SimpleHarness):
+            def parse_response(self, response, legal_action_strings, **kwargs):
+                raise AssertionError("parser must not see empty content")
+
+        agent = create_agent_fn(_StrictHarness(), max_retries=1)
+        with patch.dict("os.environ", _ENV, clear=False), patch.object(
+            core_harness.litellm, "completion",
+            side_effect=lambda *a, **kw: _fake_completion(
+                "", pieces=1, finish_reason="length",
+            ),
+        ):
+            result = agent({}, {"illegalMoveForfeit": True})
+
+        self.assertEqual(result["submission"], -1)
         self.assertEqual(result["failureCategory"], "TRUNCATED")
 
     def test_truncated_response_with_legal_move_still_succeeds(self):
