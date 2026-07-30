@@ -156,6 +156,57 @@ Your previously suggested move was: {last_move}, which is an illegal move.
 Please think carefully and generate a new and legal move.
 """
 
+# Rethink suffixes appended (in addition to any illegal/unparsable suffix) when
+# the previous attempt hit the output-token limit (finish_reason="length")
+# before emitting a usable move. The model spent its entire budget on reasoning
+# and produced a truncated (often empty) answer, so the correction it needs is
+# not "your move was wrong" but "stop over-reasoning and answer concisely".
+#
+# The nudge RAMPS with the number of consecutive truncations: the first retry
+# asks for "less" reasoning (cutting reasoning too hard can hurt move quality,
+# so we start gentle), and each further truncation escalates the demand. A
+# forfeit from repeated overthinking is catastrophic -- worse than any move --
+# so by the last stage we insist on answering almost immediately.
+#
+# No placeholders -- game-agnostic so the core loop can append the right stage
+# for every harness. Each begins with a blank line so it reads as its own
+# paragraph regardless of what precedes it.
+BASIC_RETHINK_TRUNCATED_RAMP = (
+    """
+
+In your last answer you reasoned for so long that you used your entire \
+output-token budget before giving a move, so no move was recorded. Spend less \
+time reasoning this turn and make sure you output your final move.""",
+    """
+
+Once again you ran out of output-token budget while reasoning and recorded no \
+move. Spend much less time reasoning this turn -- decide quickly and output \
+your final move well before you run out of budget.""",
+    """
+
+You have repeatedly used your entire output-token budget on reasoning without \
+recording a move, which will cause you to forfeit. Reason as briefly as \
+possible -- even a quick, imperfect move is far better than none. Output your \
+final move immediately.""",
+)
+
+# Back-compat alias: the strongest stage of the ramp.
+BASIC_RETHINK_TRUNCATED = BASIC_RETHINK_TRUNCATED_RAMP[-1]
+
+
+def render_truncation_nudge(consecutive_truncations: int) -> str:
+    """Pick the ramped truncation nudge for ``consecutive_truncations`` (>=1).
+
+    Clamps to the strongest stage once the count exceeds the ramp length, so
+    the demand keeps applying (at maximum intensity) no matter how many
+    retries a harness allows. Returns ``""`` for a non-positive count so the
+    caller can append unconditionally.
+    """
+    if consecutive_truncations < 1:
+        return ""
+    idx = min(consecutive_truncations, len(BASIC_RETHINK_TRUNCATED_RAMP)) - 1
+    return BASIC_RETHINK_TRUNCATED_RAMP[idx]
+
 
 # ---------------------------------------------------------------------------
 # JSON extraction helper
@@ -879,6 +930,7 @@ def create_agent_fn(
         # -- prompt / parse / retry loop --
         previous_response: str | None = None
         previous_action: str | None = None
+        consecutive_truncations = 0
         last_content = ""
         all_responses: list[str] = []
         call_records: list[dict[str, Any]] = []
@@ -899,6 +951,13 @@ def create_agent_fn(
                 previous_response=previous_response,
                 previous_action=previous_action,
             )
+            # A truncated previous attempt needs a different correction than a
+            # wrong move: the model ran out of output budget while reasoning.
+            # Append the concise-answer nudge on top of whatever rethink suffix
+            # the harness already produced, so it applies uniformly across
+            # every game without threading a new signal through each make_prompt.
+            # The nudge ramps with consecutive truncations (see the ramp docs).
+            prompt += render_truncation_nudge(consecutive_truncations)
 
             try:
                 content, call_details = _call_llm(
@@ -995,6 +1054,12 @@ def create_agent_fn(
             )
             previous_action = result.raw_action
             previous_response = content
+            # Track a RUN of truncations so the nudge can escalate; a single
+            # non-truncated attempt resets the ramp to its gentlest stage.
+            if failure_category == "TRUNCATED":
+                consecutive_truncations += 1
+            else:
+                consecutive_truncations = 0
             _log.warning(
                 "Attempt %d: failed to parse a legal move.", attempt + 1,
             )
