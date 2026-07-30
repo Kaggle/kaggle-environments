@@ -76,7 +76,11 @@ TIMEOUT = "TIMEOUT"
 INVALID = "INVALID"
 
 _log = logging.getLogger(__name__)
-_log.setLevel(logging.INFO)
+# Silent by default. Enable at import time via OPEN_SPIEL_ENV_DEBUG, or per-run
+# via the framework's debug flag (see interpreter, which bumps the level when
+# env.debug is set).
+_DEBUG = os.environ.get("OPEN_SPIEL_ENV_DEBUG", "").lower() in ("1", "true", "yes")
+_log.setLevel(logging.DEBUG if _DEBUG else logging.WARNING)
 _handler = logging.StreamHandler(sys.stdout)
 _formatter = logging.Formatter("[%(name)s] %(levelname)s: %(message)s")
 _handler.setFormatter(_formatter)
@@ -457,6 +461,10 @@ def interpreter(
     """Updates environment using player responses and returns new observations."""
     kaggle_state = state  # Not to be confused with OpenSpiel state.
     del state
+
+    # Surface this module's logs when the run is in debug mode.
+    if getattr(env, "debug", False):
+        _log.setLevel(logging.DEBUG)
 
     # TODO(jhtschultz): Test reset behavior. Currently containers are restarted
     # after each episode.
