@@ -810,18 +810,41 @@ def test_mid_game_missing_word_art_state_raises_clearly():
         env.step([None] * 4)
 
 
-# --- Failure-status preservation across phase / round transitions ----------
+# --- Agent failure ends the episode ----------------------------------------
 #
-# When the framework marks an agent TIMEOUT/ERROR/INVALID, the interpreter
-# must NOT flip that status back to ACTIVE on the next phase transition.
-# Otherwise a timed-out artist gets silently resurrected, times out again,
-# and the round's failure is invisible in the replay.
+# When the framework marks an agent TIMEOUT/ERROR/INVALID, the seat is broken,
+# not merely playing badly, and word_art cannot score a 2v2 game around one.
+# The interpreter ends the episode instead of playing on without that seat --
+# which would silently produce a game where one model draws nothing and
+# guesses nothing while the scoreboard still reports a winner.
 
 
-def test_artist_timeout_preserved_into_guess_phase():
-    """An artist that raises DeadlineExceeded during the art phase must
-    remain TIMEOUT after the env transitions into the guess phase — NOT
-    get flipped to INACTIVE by _set_guess_statuses."""
+def test_agent_failure_ends_the_episode_immediately():
+    """One crashed seat ends the whole game — the remaining three must not
+    keep playing out the rest of the rounds."""
+
+    def crash_blue_artist(observation, configuration):
+        if observation.role == "artist" and observation.team == "blue":
+            raise RuntimeError("provider exploded")
+        if observation.role == "artist":
+            return observation.target_word
+        return observation.teammate_art
+
+    env = _make(num_rounds=5, seed=1)
+    env.run([crash_blue_artist] * 4)
+
+    assert env.done
+    assert env.state[0].status == "ERROR"
+    assert env.state[0].reward is None
+    assert [s.status for s in env.state[1:]] == ["DONE", "DONE", "DONE"]
+    # Aborted during round 0's art phase, so no round ever completed.
+    assert env.state[0].observation.history == []
+    assert env.state[0].observation.current_round == 0
+
+
+def test_artist_timeout_ends_the_episode():
+    """A timed-out artist keeps TIMEOUT rather than being laundered into
+    INACTIVE by the art->guess transition, and the game stops there."""
 
     def slow_artist(observation, configuration):
         if observation.role == "artist":
@@ -830,17 +853,15 @@ def test_artist_timeout_preserved_into_guess_phase():
 
     env = _make(num_rounds=2, seed=1)
     env.run([slow_artist, slow_artist, slow_artist, slow_artist])
-    # After the env runs, both timed-out artists from round 0 (agents 0 and 2)
-    # should still carry TIMEOUT — not be silently flipped back to ACTIVE/DONE.
+    assert env.done
     assert env.state[0].status == "TIMEOUT"
     assert env.state[2].status == "TIMEOUT"
+    assert env.state[0].observation.history == []
 
 
-def test_timed_out_artist_not_resurrected_in_later_round():
-    """An agent that timed out in round 0's art phase must NOT be flipped
-    back to ACTIVE when _set_art_statuses runs at the start of round 2
-    (the next even-numbered round, where agent 0 would otherwise be the
-    blue artist again)."""
+def test_timed_out_artist_never_acts_again():
+    """The framework must stop calling a seat once it has failed, even
+    though _set_art_statuses would otherwise hand it a role in round 2."""
 
     # Time out the first artist call; thereafter everyone plays normally.
     state_bag = {"timed_out_once": False}
@@ -860,9 +881,6 @@ def test_timed_out_artist_not_resurrected_in_later_round():
 
     env = _make(num_rounds=3, seed=1)
     env.run([timeout_first_blue_artist] * 4)
-    # Agent 0 (blue artist on even rounds) must stay TIMEOUT for the whole
-    # episode — even though _set_art_statuses runs at the start of round 2
-    # and would otherwise flip them back to ACTIVE.
     assert env.state[0].status == "TIMEOUT"
     assert env.state[0].reward is None
     # Scan every recorded step: agent 0 was never ACTIVE after the timeout
@@ -878,23 +896,26 @@ def test_timed_out_artist_not_resurrected_in_later_round():
     )
 
 
-def test_guesser_timeout_preserved_across_round_boundary():
-    """A guesser that errors out in round 1 must not be reactivated for
-    round 2's art phase."""
+def test_guesser_timeout_ends_the_episode_keeping_earlier_scores():
+    """A failure partway through ends the game, but the rounds that did
+    complete stay on the board."""
 
-    def fail_guesser(observation, configuration):
-        if observation.role == "guesser" and observation.team == "yellow":
+    def fail_yellow_guesser_in_round_1(observation, configuration):
+        if observation.role == "guesser" and observation.current_round == 1:
             return DeadlineExceeded()
-        if observation.role == "artist":
-            return observation.target_word
-        return observation.teammate_art
+        return cheating(observation, configuration)
 
-    env = _make(num_rounds=2, seed=1)
-    env.run([fail_guesser] * 4)
-    # Yellow guesser in round 0 is agent 3. Should stay TIMEOUT — must not
-    # be flipped to ACTIVE/INACTIVE for the round-1 art phase, and must
-    # remain TIMEOUT after the game DONE sweep.
-    assert env.state[3].status == "TIMEOUT"
+    env = _make(num_rounds=3, seed=1)
+    # `cheating` smuggles the word through the art, so round 0 scores for both.
+    env.run([cheating] * 2 + [fail_yellow_guesser_in_round_1] * 2)
+
+    assert env.done
+    # Round 1's yellow guesser is seat 2 (the artist alternates each round).
+    assert env.state[2].status == "TIMEOUT"
+    assert env.state[2].reward is None
+    # Round 0 completed before the failure and its result survives.
+    assert len(env.state[0].observation.history) == 1
+    assert env.state[0].observation.yellow_score > 0
 
 
 # --- Singular/plural guess leniency ---------------------------------------
