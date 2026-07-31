@@ -110,9 +110,79 @@ class GoFishState(proxy.State):
     def _num_ranks(self) -> int:
         return int(self.__wrapped__.get_game().get_parameters().get("ranks", 13))
 
+    def _num_suits(self) -> int:
+        return int(self.__wrapped__.get_game().get_parameters().get("suits", 4))
+
+    def _deductions(self, observer: int, num_ranks: int, num_suits: int) -> list[dict[str, Any]]:
+        """Decode the durable public deduction table from the observation tensor.
+
+        In Go Fish, asks are public and accumulate into common knowledge that
+        every player is entitled to track: who is known to hold a rank (they
+        asked for it, so hold >=1, or received cards of it) and who is known to
+        have *none* of a rank (they were emptied by an ask and have not drawn
+        since). OpenSpiel maintains exactly this as common info in the
+        observation tensor (go_fish.cc:497-510) -- it never truncates, unlike
+        the ``recent_events`` window. We reconstruct it here so the harness can
+        surface the full game-long signal, not just events since the last turn.
+
+        The tensor layout (see ``ObservationTensor``) is::
+
+            [ranks]            observer's own card fractions
+            [4]                phase one-hots
+            [1]                pool size fraction
+            [ranks]            booked flags
+            per player:
+              [1]              is-current-player flag
+              [1]              books fraction (/ranks)
+              [1]              total-cards fraction (/(ranks*suits))
+              per rank: [4]    did_ask, was_asked, drawn_since, min
+
+        ``drawn_since`` counts cards drawn after being asked but NEVER their
+        ranks, so decoding it leaks no hidden information -- it only weakens a
+        known-void into "possibly holds again".
+        """
+        # The tensor is computed from a valid player's perspective; the common
+        # (public) fields we read are identical for every observer. current_player
+        # is kInvalidPlayer at chance/terminal nodes, so key off the observer.
+        tensor = list(self.__wrapped__.observation_tensor(observer))
+        num_players = self.__wrapped__.get_game().num_players()
+        per_player = 3 + num_ranks * 4
+        base0 = num_ranks + 4 + 1 + num_ranks  # own cards + phase + pool + booked
+
+        deductions: list[dict[str, Any]] = []
+        for pid in range(num_players):
+            base = base0 + pid * per_player
+            known_has: list[str] = []  # rank labels this player is known to hold
+            known_void: list[str] = []  # rank labels this player is known to lack
+            wanted: list[str] = []  # ranks this player has asked for
+            for rank in range(num_ranks):
+                b = base + 3 + rank * 4
+                did_ask = round(tensor[b] * (num_suits * num_ranks))
+                was_asked = tensor[b + 1] > 0.5
+                drawn_since = round(tensor[b + 2] * (num_ranks * num_suits))
+                minimum = round(tensor[b + 3] * num_suits)
+                label = _rank_label(rank, num_ranks)
+                if minimum > 0:
+                    known_has.append(f"{label}>={minimum}")
+                if was_asked and drawn_since == 0 and minimum == 0:
+                    known_void.append(label)
+                if did_ask > 0:
+                    wanted.append(label)
+            deductions.append(
+                {
+                    "player": pid,
+                    "known_has": known_has,
+                    "known_void": known_void,
+                    "wanted": wanted,
+                }
+            )
+        return deductions
+
     def state_dict(self, player: int | None = None) -> dict[str, Any]:
         observer = player if player is not None else 0
-        parsed = _parse_observation(self.__wrapped__.observation_string(observer), self._num_ranks())
+        num_ranks = self._num_ranks()
+        num_suits = self._num_suits()
+        parsed = _parse_observation(self.__wrapped__.observation_string(observer), num_ranks)
 
         winner: int | str | None = None
         returns_list: list[float] = []
@@ -132,9 +202,12 @@ class GoFishState(proxy.State):
             "is_terminal": self.is_terminal(),
             "winner": winner,
             "returns": returns_list,
+            "num_ranks": num_ranks,
+            "num_suits": num_suits,
             "hand": parsed["hand"],
             "players": parsed["players"],
             "recent_events": parsed["recent_events"],
+            "deductions": self._deductions(observer, num_ranks, num_suits),
         }
 
     def to_json(self, player: int | None = None) -> str:

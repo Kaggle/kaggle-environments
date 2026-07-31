@@ -110,6 +110,25 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response('```json\n{"move": "1, 10"}\n```', self.legal)
         self.assertEqual(result.legal_action, "1j")
 
+    def test_uppercase_action_letter_is_literal_not_relabeled(self):
+        # CRITICAL: a bare uppercase action letter must resolve to that action
+        # letter, never to the rank whose human label happens to match. Here
+        # BOTH the literal reading and the mistaken label reading are legal, so
+        # only correct precedence prevents a silent wrong-rank substitution:
+        #   "1J" -> action letter j (=rank 10), NOT label J=Jack (letter k)
+        #   "1K" -> action letter k (=Jack),    NOT label K=King (letter m)
+        legal = ["1j", "1k", "1m"]
+        self.assertEqual(parse_response('{"move": "1J"}', legal).legal_action, "1j")
+        self.assertEqual(parse_response('{"move": "1K"}', legal).legal_action, "1k")
+
+    def test_uppercase_label_fallback_when_literal_illegal(self):
+        # When the literal action-letter reading is NOT legal, fall back to the
+        # human-label interpretation so real intent is still recovered:
+        #   "1K" with only 1m legal -> label K=King -> letter m.
+        self.assertEqual(parse_response('{"move": "1K"}', ["1a", "1m"]).legal_action, "1m")
+        # "1Q" -> 'q' is never an action letter -> label Q=Queen -> letter l.
+        self.assertEqual(parse_response('{"move": "1Q"}', ["1a", "1l"]).legal_action, "1l")
+
     def test_separators_tolerated(self):
         result = parse_response('```json\n{"move": "1-a"}\n```', self.legal)
         self.assertEqual(result.legal_action, "1a")
@@ -185,6 +204,30 @@ class GeneratePromptTest(absltest.TestCase):
         listed = [s for s in legal if s not in example_ok and f'"{s}"' in prompt]
         # No verbatim legal-list block: at most the single example may appear.
         self.assertLessEqual(len(listed), 0)
+
+    def test_deduction_section_rendered(self):
+        # The prompt must surface the game-long public deduction table so the
+        # model retains ask history that has scrolled out of recent_events.
+        game, state = _make_ask_state(seed=7, plies=8)
+        obs = _make_observation(state, game)
+        prompt = generate_prompt(obs, [])
+        self.assertIn("What you know about opponents' cards", prompt)
+
+    def test_deduction_signal_survives_events_truncation(self):
+        # After many plies, recent_events only spans the last turn, but the
+        # deduction block should still carry standing facts about the opponent.
+        game, state = _make_ask_state(seed=11, plies=10)
+        observer = int(state.current_player())
+        obs = _make_observation(state, game, player_id=observer)
+        prompt = generate_prompt(obs, [])
+        section = prompt.split("What you know about opponents' cards")[1]
+        section = section.split("Events since your last turn")[0]
+        # Some concrete deduction was rendered (not the empty "(none)" body and
+        # not merely "nothing deduced yet" for every opponent).
+        self.assertTrue(
+            "known to hold" in section or "known to have none of" in section or "has asked for" in section,
+            f"no standing deduction rendered:\n{section}",
+        )
 
     def test_events_rendered_after_play(self):
         # A mid-game state produces opponent events since the last turn.

@@ -66,6 +66,11 @@ Your hand (rank: count, ask-letter):
 Other players (public info):
 {other_players}
 
+What you know about opponents' cards (deduced from every ask so far -- asks are
+public: asking reveals the asker holds that rank, and a miss reveals the target
+holds none of it):
+{deductions}
+
 Events since your last turn (oldest first):
 {events}
 
@@ -123,28 +128,27 @@ and the letter must be a rank you hold.
 # --- Helpers ----------------------------------------------------------------
 
 
-def _num_ranks(observation: Mapping[str, Any]) -> int:
-    """Number of distinct ranks in this game's deck (default 13)."""
+def _deck_params(observation: Mapping[str, Any], state: Mapping[str, Any]) -> tuple[int, int]:
+    """Return ``(num_ranks, num_suits)`` for this game's deck (default 13x4).
+
+    Prefer the values the proxy already embeds in the observation payload so we
+    don't deserialize the game a second time; fall back to the serialized game
+    only when the payload lacks them (e.g. a hand-built observation in tests).
+    """
+    num_ranks = state.get("num_ranks")
+    num_suits = state.get("num_suits")
+    if isinstance(num_ranks, int) and isinstance(num_suits, int):
+        return num_ranks, num_suits
+
     serialized = observation.get("serializedGameAndState", "")
     if serialized:
         try:
             game, _ = pyspiel.deserialize_game_and_state(serialized)
-            return int(game.get_parameters().get("ranks", 13))
-        except Exception:  # noqa: BLE001 -- fall back to the standard deck
+            params = game.get_parameters()
+            return int(params.get("ranks", 13)), int(params.get("suits", 4))
+        except (RuntimeError, ValueError):  # malformed serialization -> defaults
             pass
-    return 13
-
-
-def _num_suits(observation: Mapping[str, Any]) -> int:
-    """Number of copies of each rank (a completed book needs all of them)."""
-    serialized = observation.get("serializedGameAndState", "")
-    if serialized:
-        try:
-            game, _ = pyspiel.deserialize_game_and_state(serialized)
-            return int(game.get_parameters().get("suits", 4))
-        except Exception:  # noqa: BLE001
-            pass
-    return 4
+    return 13, 4
 
 
 def _rank_label(rank_index: int, num_ranks: int) -> str:
@@ -175,7 +179,7 @@ def _parse_observation_payload(observation: Mapping[str, Any]) -> dict[str, Any]
             _, state = pyspiel.deserialize_game_and_state(serialized)
             player = observation.get("playerId", 0)
             return json.loads(state.observation_string(player))
-        except (json.JSONDecodeError, RuntimeError):
+        except (json.JSONDecodeError, RuntimeError, ValueError):
             pass
     return {}
 
@@ -204,6 +208,36 @@ def _format_other_players(players: Sequence[Mapping[str, Any]], player_id: int) 
         books = p.get("books", 0)
         note = "" if cards > 0 else "  (no cards -- cannot be asked)"
         lines.append(f"  Player {pid}: {cards} card(s), {books} book(s){note}")
+    return "\n".join(lines) if lines else "(none)"
+
+
+def _format_deductions(deductions: Sequence[Mapping[str, Any]], player_id: int) -> str:
+    """Render the game-long public deduction table for every opponent.
+
+    This is the accumulated common knowledge from *all* asks so far -- not just
+    the events since our last turn. It is the game's core deduction signal:
+    every ask publicly reveals that the asker holds a rank and (on a miss) that
+    the target holds none of it. ``recent_events`` alone would drop everything
+    older than the current observation window, so we surface the distilled
+    standing facts here.
+    """
+    lines = []
+    for d in deductions:
+        pid = d.get("player")
+        if pid == player_id:
+            continue
+        parts = []
+        known_has = d.get("known_has") or []
+        known_void = d.get("known_void") or []
+        wanted = d.get("wanted") or []
+        if known_has:
+            parts.append(f"known to hold {', '.join(known_has)}")
+        if known_void:
+            parts.append(f"known to have none of {', '.join(known_void)}")
+        if wanted:
+            parts.append(f"has asked for {', '.join(wanted)}")
+        detail = "; ".join(parts) if parts else "nothing deduced yet"
+        lines.append(f"  Player {pid}: {detail}")
     return "\n".join(lines) if lines else "(none)"
 
 
@@ -262,13 +296,13 @@ def generate_prompt(
     state = _parse_observation_payload(observation)
     player_id = observation.get("playerId", 0)
 
-    num_ranks = _num_ranks(observation)
-    num_suits = _num_suits(observation)
+    num_ranks, num_suits = _deck_params(observation, state)
     label_to_letter = _label_to_letter(num_ranks)
 
     hand = state.get("hand") or {}
     players = state.get("players") or []
     events = state.get("recent_events") or []
+    deductions = state.get("deductions") or []
 
     my_books = 0
     for p in players:
@@ -278,14 +312,28 @@ def generate_prompt(
 
     rank_legend = ", ".join(f"{letter}={label}" for label, letter in label_to_letter.items())
 
-    # A concrete example drawn from the model's own hand when possible, so the
-    # format line is never illegal advice. Fall back to a generic ask.
-    example_letter = "a"
-    if hand:
-        first_label = next((lbl for lbl in label_to_letter if lbl in hand), next(iter(hand)))
-        example_letter = label_to_letter.get(first_label, "a")
-    example_target = next((p.get("player") for p in players if p.get("player") != player_id), 1)
-    example_move = f"{example_target}{example_letter}"
+    # A concrete example for the format line. Prefer an actual legal action so
+    # the example is never illegal advice (e.g. never names an opponent who is
+    # out of cards); fall back to a hand-derived ask, then a generic one.
+    legal_moves = get_legal_moves(observation)
+    if legal_moves:
+        example_move = next(iter(legal_moves.values()))
+        example_target = example_move[0]
+        example_letter = example_move[1:]
+    else:
+        example_letter = "a"
+        if hand:
+            first_label = next((lbl for lbl in label_to_letter if lbl in hand), next(iter(hand)))
+            example_letter = label_to_letter.get(first_label, "a")
+        # Prefer an opponent who still has cards to ask.
+        example_target = next(
+            (p.get("player") for p in players if p.get("player") != player_id and p.get("cards", 0) > 0),
+            next(
+                (p.get("player") for p in players if p.get("player") != player_id),
+                1,
+            ),
+        )
+        example_move = f"{example_target}{example_letter}"
 
     move_history_str = ", ".join(move_history) if move_history else "None"
 
@@ -297,6 +345,7 @@ def generate_prompt(
         my_books=my_books,
         hand_lines=_format_hand(hand, label_to_letter),
         other_players=_format_other_players(players, player_id),
+        deductions=_format_deductions(deductions, player_id),
         events=_format_events(events),
         move_history=move_history_str,
         example_move=example_move,
@@ -324,12 +373,20 @@ _SEPARATORS_RE = re.compile(r"[\s,:;._\-]")
 def _match_move_to_legal(raw: str, legal_action_strings: Sequence[str]) -> str | None:
     """Match a model's move to a legal ``<target><letter>`` action string.
 
-    Tolerates common drift: uppercase letters (``"1A"``), stray separators
-    (``"1, a"``, ``"1-a"``), and the model naming the rank by its human label
-    instead of the action letter (``"1K"`` -> ask for Kings -> letter ``m``;
-    ``"110"`` / ``"1 10"`` -> ask for tens -> letter ``j``). Lowercase single
-    letters are treated as literal action letters; uppercase or multi-character
-    rank tokens are treated as human rank labels.
+    Tolerates common drift: stray separators (``"1, a"``, ``"1-a"``), case
+    (``"1A"``, ``"1K"``), and the model naming the rank by its human label
+    instead of the action letter (``"110"`` / ``"1 10"`` -> ask for tens ->
+    letter ``j``; ``"1Q"`` -> ask for Queens -> letter ``l``).
+
+    The prompt instructs the model to use action *letters* (a..m), so the
+    literal action-letter reading is authoritative and is tried FIRST,
+    case-insensitively. This is critical: a bare uppercase action letter like
+    ``"1J"`` or ``"1K"`` must resolve to that action letter (``1j``/``1k``),
+    never to the rank whose human label happens to be ``J``/``K`` (which would
+    silently pick a *different* legal move -- Jack=``k``, King=``m``). The
+    human-label interpretation is only a fallback, reached when the literal
+    action-letter reading is not itself legal, so it can never override a valid
+    action-letter move.
     """
     compact = _SEPARATORS_RE.sub("", raw.strip())
     if not compact:
@@ -340,17 +397,20 @@ def _match_move_to_legal(raw: str, legal_action_strings: Sequence[str]) -> str |
     m = re.match(r"^(\d)(.+)$", compact)
     if m:
         target, tok = m.group(1), m.group(2)
-        # Human-label interpretation (numeric like "10", or uppercase like "K").
+        # Authoritative: literal action-letter interpretation (case-insensitive).
+        matched = _default_match(compact, legal_action_strings)
+        if matched:
+            return matched
+        # Fallback only: the model named the rank by its human label ("10",
+        # "Q", ...) rather than the action letter. Reached only when the
+        # literal reading above found no legal move, so it cannot silently
+        # rewrite a legal uppercased action letter to a different rank.
         if tok.isdigit() or tok.isupper() or len(tok) > 1:
             letter = _STD_LABEL_TO_LETTER.get(tok.upper())
             if letter is not None:
                 matched = _default_match(f"{target}{letter}", legal_action_strings)
                 if matched:
                     return matched
-        # Literal action-letter interpretation (e.g. lowercase "a").
-        matched = _default_match(compact, legal_action_strings)
-        if matched:
-            return matched
 
     return _default_match(compact, legal_action_strings)
 
