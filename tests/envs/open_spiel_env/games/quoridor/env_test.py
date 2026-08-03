@@ -1,6 +1,7 @@
 """Env-level tests for open_spiel_quoridor."""
 
 import json
+import random
 
 from absl.testing import absltest
 
@@ -10,6 +11,12 @@ from kaggle_environments.envs.open_spiel_env import open_spiel_env
 
 class QuoridorEnvTest(absltest.TestCase):
     def test_quoridor_agent_playthrough(self):
+        # The built-in "random" agent draws from the global RNG, so seeding it
+        # pins the playthrough. This matters: OpenSpiel caps quoridor at
+        # max_game_length = board_size**2 * 4 (36 plies here) and scores the
+        # capped game as a draw, which roughly 8% of unseeded random 3x3
+        # episodes hit. Seed 0 reaches a decisive result in 14 steps.
+        random.seed(0)
         env = make(
             "open_spiel_quoridor",
             configuration={
@@ -22,10 +29,11 @@ class QuoridorEnvTest(absltest.TestCase):
         playthrough = env.toJSON()
         self.assertEqual(playthrough["name"], "open_spiel_quoridor")
         self.assertTrue(all(status == "DONE" for status in playthrough["statuses"]))
-        # A 3x3 board has 3 cells of distance and almost no wall placements,
-        # so random play always terminates with a winner well within the step
-        # budget. If this starts producing draws, it signals a real regression
-        # (e.g. the env exhausting steps without terminating).
+        # The env must terminate on OpenSpiel's own terminal state rather than
+        # by exhausting its step budget.
+        final_obs = json.loads(env.state[0]["observation"]["observationString"])
+        self.assertTrue(final_obs["is_terminal"])
+        self.assertLess(len(playthrough["steps"]), env.configuration.episodeSteps)
         self.assertEqual(sorted(playthrough["rewards"]), [-1.0, 1.0])
 
     def test_quoridor_manual_playthrough(self):
