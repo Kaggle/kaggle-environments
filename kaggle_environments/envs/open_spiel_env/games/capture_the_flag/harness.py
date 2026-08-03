@@ -257,7 +257,7 @@ def generate_prompt(
     )
 
     score = state.get("score") or [0, 0]
-    horizon = state.get("horizon", 1000)
+    horizon = state.get("horizon", 500)
     move_number = state.get("move_number", 0)
     round_number = int(move_number) + 1
 
