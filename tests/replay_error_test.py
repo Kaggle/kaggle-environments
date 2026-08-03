@@ -1,22 +1,18 @@
 """Tests for the per-step `error` field attached to failing agents.
 
 Covers all three failure modes: ERROR (agent raises), TIMEOUT (agent exceeds
-actTimeout), and INVALID (action rejected by the interpreter).
+actTimeout, injected as a DeadlineExceeded action), and INVALID (action
+rejected by the interpreter).
 """
 
 from absl.testing import absltest
 
 from kaggle_environments import make
+from kaggle_environments.errors import DeadlineExceeded
 
 
 def raising_agent(obs, cfg):
     raise ValueError("intentional boom")
-
-
-def slow_agent(obs, cfg):
-    import time
-    time.sleep(30)
-    return 0
 
 
 def invalid_agent(obs, cfg):
@@ -41,14 +37,29 @@ class ReplayErrorTest(absltest.TestCase):
         self.assertEqual(log_error["type"], "ValueError")
         self.assertIn("ValueError: intentional boom", log_error["traceback"])
 
-    def test_timeout_status_attaches_error(self):
+    def test_timeout_status_falls_back_to_generated_message(self):
+        # Inject the DeadlineExceeded the runner would have produced, so the
+        # timeout path is exercised deterministically instead of sleeping past
+        # the banked overage. An empty message should fall back to a generated
+        # "Exceeded actTimeout" string.
         env = make("connectx", configuration={"actTimeout": 1})
-        env.run([slow_agent, "random"])
+        env.reset(2)
+        state = env.step([DeadlineExceeded(), 0])
 
-        self.assertEqual(env.toJSON()["statuses"], ["TIMEOUT", "DONE"])
-        error = env.steps[-1][0]["error"]
+        self.assertEqual(state[0]["status"], "TIMEOUT")
+        error = state[0]["error"]
         self.assertEqual(error["type"], "TIMEOUT")
-        self.assertTrue(error["message"], "TIMEOUT message should be non-empty")
+        self.assertEqual(error["message"], "Exceeded actTimeout (1s)")
+
+    def test_timeout_status_preserves_custom_message(self):
+        env = make("connectx", configuration={"actTimeout": 1})
+        env.reset(2)
+        state = env.step([DeadlineExceeded("agent ran too long"), 0])
+
+        self.assertEqual(state[0]["status"], "TIMEOUT")
+        error = state[0]["error"]
+        self.assertEqual(error["type"], "TIMEOUT")
+        self.assertEqual(error["message"], "agent ran too long")
 
     def test_invalid_status_preserves_interpreter_reason(self):
         env = make("connectx")
