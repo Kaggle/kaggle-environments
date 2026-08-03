@@ -20,11 +20,11 @@ Each player starts with an empty farm and a small amount of income (seed money, 
 | **Sheep/Wool** | Ongoing | 500 | 200 | 6 days | NA | every three days, indefinitely | 6 held | 1 \+ 1 (build pasture) | 0.33 |
 | **Fertilizer** | NA | 100 | X |  | X | X |  | 1 |  |
 
-**Reading the table.** For crops, "Yield / tile / day" is total units harvested divided by the days the tile is occupied, harvesting at peak yield and watering daily — the rate that actually matters when comparing what to plant in a fixed number of tiles. For animals it is the steady-state production rate (`1 / interval`) once the first yield lands; animals keep producing for as long as they are fed, so there is no fixed occupancy to divide by. "Max Yield" for animals is `max_held`, the cap on *unharvested* product sitting on the tile, not a lifetime total.
+For crops, "Yield / tile / day" is total units harvested divided by the days the tile is occupied, watering daily and harvesting at peak yield. For animals it is the steady-state production rate (`1 / interval`) once the first yield lands; animals keep producing for as long as they are fed, so there is no fixed occupancy to divide by. "Max Yield" for animals is `max_held`, the cap on *unharvested* product sitting on the tile, not a lifetime total.
 
 Crop "Time to Max Yield" is the age at which yield stops increasing under daily watering, which is not always the end of the bonus window:
 
-- **Melon** has a documented bonus window of ages 6–12, but base 1 plus one unit per watered day reaches the cap of 6 at age 10. Ages 11–12 add nothing — harvest at 10. Fertilizing pulls the cap forward to age 8.
+- **Melon**'s bonus window is ages 6–12, but base 1 plus one unit per watered day reaches the cap of 6 at age 10, so ages 11–12 add nothing. Fertilizing reaches the cap at age 8.
 - **Wheat** and **Carrot** only reach their listed Max Yield of 6 and 4 with fertilizer; watering alone peaks at 4 and 3.
 - **Tomato** and **Strawberry** are ongoing but *not* indefinite: production is capped at 4 scheduled yields (tomato at ages 8–11, strawberry at ages 10, 12, 14, 16), after which the plant decays into a weed.
 
@@ -40,7 +40,7 @@ Each Farmer / Farm Hand can be given an action every turn. Farmer/Farm Hand CAN 
 
 #### Movement
 
-- NORTH, SOUTH, EAST, WEST — Move one cell in that direction. Moves off the edge of the board are no-ops. Locked tiles are **passable**: a unit may walk onto and across quadrants you have not bought, it simply cannot act there (`PLANT`, `WATER`, `BUILD_*`, etc. all no-op on a locked tile, consuming nothing).
+- NORTH, SOUTH, EAST, WEST — Move one cell in that direction. Moves off the edge of the board are no-ops. Locked tiles are passable: a unit may move onto and across unbought quadrants, but tile actions (`PLANT`, `WATER`, `BUILD_*`, etc.) all no-op on a locked tile and consume nothing.
 
 #### Shed
 
@@ -76,14 +76,14 @@ CARE banks a yield bonus that is paid out on the animal's next scheduled product
 
 * At end of day, if the animal was both fed AND cared for that day, `pending_care_bonus` increments by 1. Days where the animal was unfed do not bank a bonus (basic needs first).
 * On a scheduled production day, if the animal is fed, the entire banked bonus is added to that production's yield (in addition to the base 1) and the bank resets to 0.
-* If the animal is unfed on the production day, the base 1 unit is still produced, but the banked bonus is forfeited and the bank resets to 0. Going unfed costs you the bonus, not the base yield — two consecutive unfed days is what loses the animal.
+* If the animal is unfed on the production day, the base 1 unit is still produced, but the banked bonus is not applied and the bank resets to 0.
 * `pending_care_bonus` is capped indirectly by the per-animal `max_held` cap on `yield_units`.
 
 #### Terrain
 
 - BUILD\_COOP \- adds a coop to an unoccupied tile  
 - BUILD\_PASTURE \- add pasture to an unoccupied tile  
-- DIG — Remove a plant from a square to free up space OR remove a weed from a square (does not yield any produce) OR remove an **empty** goose coop / pasture. A coop or pasture with an animal on it cannot be dug; the DIG is a no-op until the animal is gone.
+- DIG — Remove a plant from a square to free up space OR remove a weed from a square (does not yield any produce) OR remove an **empty** goose coop / pasture. A coop or pasture with an animal on it cannot be dug; the DIG is a no-op.
 
 #### Other
 
@@ -110,9 +110,9 @@ Each turn you can submit up to `maxMarketOrdersPerTurn` (default 10) market acti
 
 Plants (and animals) must be watered/fed a minimum of every other day. Watering only needs to be done once per day, and subsequent watering actions are a no-op. In the case of plants not watered for two consecutive days, at the end of the day they turn into a WEED. In the case of animals they escape (unrecoverable).
 
-**Water on the day you plant.** A new seed starts with `consecutive_unwatered = 1` — the planting day itself counts as the first missed day. If you plant and do not water that same day, the end-of-day refresh pushes the counter to 2 and the seed becomes a weed that night, before it ever grows. There is no one-day grace period for fresh plantings. Plan on `PLANT` and `WATER` within the same day, using two units or two of the day's 24 turns.
+A new seed starts with `consecutive_unwatered = 1` — the planting day itself counts as the first missed day. A seed planted and left unwatered that same day reaches 2 at the end-of-day refresh and becomes a weed that night, before it grows. There is no grace period for fresh plantings.
 
-Animals are the opposite: `consecutive_unfed` starts at 0, so a newly placed animal survives its first day unfed.
+A newly placed animal starts with `consecutive_unfed = 0`, so it survives its first day unfed.
 
 Note that watering one-time yield plants during their yield window results in a higher yield. This is NOT true for ongoing yield plants/animals. See below.
 
@@ -146,14 +146,7 @@ Each player has their own farm with a set number of squares. Players are unable 
 - Farmer and hired farm hands drop their inventory at the end of the day in the shed (if there is room)  
 - Limited to 100 items, excluding seeds. Once the shed is full, any further items added (via `PLACE` mid-day or end-of-day inventory drop) are discarded — there is no overflow holding area, so stockpiling on farmer/hand inventories does not bypass the cap.
 
-**The shed is not a tile.** It sits at the center of the board and never appears in the `tiles` array, so searching `tiles` for a shed marker finds nothing — the only tile values are `None`, `"LOCKED"`, and structure dicts. "Orthogonally adjacent to the shed" means standing on one of the four center tiles, which for the default `boardSize = 10` are:
-
-```
-(4,4)  (5,4)
-(4,5)  (5,5)
-```
-
-In general they are `(half-1, half-1)`, `(half, half-1)`, `(half-1, half)`, `(half, half)` for `half = boardSize // 2`. `PICKUP`, `DROP`, and the shed-drop form of `PLACE` only work from these four tiles. Note that one tile falls in each quadrant, so at the start of the game only `(4,4)` (the NW one) is unlocked.
+The shed sits at the center of the board and is not a tile — it never appears in the `tiles` array, whose only values are `None`, `"LOCKED"`, and structure dicts. "Orthogonally adjacent to the shed" means standing on one of the four center tiles, `(half-1, half-1)`, `(half, half-1)`, `(half-1, half)`, `(half, half)` for `half = boardSize // 2`. At the default `boardSize = 10` those are `(4,4)`, `(5,4)`, `(4,5)`, and `(5,5)`, one in each quadrant.
 
 ### Farmer/Farm Hand
 
@@ -163,7 +156,7 @@ In general they are `(half-1, half-1)`, `(half, half-1)`, `(half-1, half)`, `(ha
 - Cost is `farmHandCostMult * fib(n)` where `n` is the number of hires already made today (fib starts 1, 1, 2, 3, 5, 8, 13, ...).  
   - With the default `farmHandCostMult = 1`: 1, 1, 2, 3, 5, 8, 13, 21, etc… (resets at the start of each day)  
 - A hired hand appears orthogonally adjacent to the shed in a free space following NWSE. If there are not open spaces, it looks for the one with the least occupants, breaking ties by NWSE preference
-- Spawn placement ignores whether the tile is locked. Since the main farmer starts on `(4,4)`, the least-occupied rule sends the first hire of each day to `(5,4)` — a locked tile until you buy the NE quadrant. This is not fatal: locked tiles are passable, so the hand can walk back to unlocked land, but it costs a turn or two. Budget for that when planning early-game hires
+- Spawn placement ignores whether the tile is locked. Since the main farmer starts on `(4,4)`, the least-occupied rule sends the first hire of each day to `(5,4)`, which is locked until the NE quadrant is bought. Locked tiles are passable, so a hand spawned on one can move back to unlocked land.
 
 #### Inventory
 
