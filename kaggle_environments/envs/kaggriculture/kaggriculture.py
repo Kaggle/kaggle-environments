@@ -310,8 +310,9 @@ def _apply_unit_action(farm, private, idx, action, board_size, day, turns_per_da
         nx, ny = fx + dx, fy + dy
         if not (0 <= nx < board_size and 0 <= ny < board_size):
             return
-        if farm["tiles"][ny][nx] == "LOCKED":
-            return
+        # Movement onto LOCKED tiles is allowed: a hand can spawn on a locked
+        # shed-access tile, and blocking movement would strand it there forever.
+        # Tile operations (PLANT, WATER, etc.) still no-op on LOCKED tiles.
         _set_farmer_position(farm, idx, (nx, ny))
         return
 

@@ -118,15 +118,48 @@ def test_buy_land_rejected_when_too_expensive():
     assert farm["money"] == 500
 
 
-def test_movement_blocked_into_locked_tiles():
+def test_movement_allowed_onto_locked_tiles():
     farm = _new_farm(10, 100)
     private = _new_private()
     # Farmer starts at (4,4). EAST -> (5,4) which is in NE quadrant (locked).
+    # Movement onto locked tiles is permitted so units are never stranded.
     _apply_unit_action(farm, private, 0, ["EAST"], 10, 0, 24)
-    assert farm["farmer"] == [4, 4]
-    # WEST -> (3, 4) is unlocked NW.
+    assert farm["farmer"] == [5, 4]
+    assert farm["tiles"][4][5] == "LOCKED"
+    # And they can step back off the locked tile.
     _apply_unit_action(farm, private, 0, ["WEST"], 10, 0, 24)
-    assert farm["farmer"] == [3, 4]
+    assert farm["farmer"] == [4, 4]
+
+
+def test_hand_spawned_on_locked_tile_can_move_off():
+    """A hand spawned on a locked shed-access tile must not be stranded."""
+    farm = _new_farm(10, 100)
+    private = _new_private()
+    # Force a hand onto a locked SE shed-access tile (5,5).
+    farm["hands"].append([5, 5])
+    private["inventories"].append({})
+    assert farm["tiles"][5][5] == "LOCKED"
+    _apply_unit_action(farm, private, 1, ["NORTH"], 10, 0, 24)
+    assert farm["hands"][0] == [5, 4]
+
+
+def test_movement_blocked_off_map():
+    """Allowing movement onto locked tiles must not allow moving off the board."""
+    farm = _new_farm(10, 100)
+    private = _new_private()
+    # Main farmer at NW corner (0, 0): NORTH and WEST both leave the board.
+    farm["farmer"] = [0, 0]
+    _apply_unit_action(farm, private, 0, ["NORTH"], 10, 0, 24)
+    assert farm["farmer"] == [0, 0]
+    _apply_unit_action(farm, private, 0, ["WEST"], 10, 0, 24)
+    assert farm["farmer"] == [0, 0]
+    # A hand at the SE corner (9, 9) cannot move SOUTH or EAST off the board.
+    farm["hands"].append([9, 9])
+    private["inventories"].append({})
+    _apply_unit_action(farm, private, 1, ["SOUTH"], 10, 0, 24)
+    assert farm["hands"][0] == [9, 9]
+    _apply_unit_action(farm, private, 1, ["EAST"], 10, 0, 24)
+    assert farm["hands"][0] == [9, 9]
 
 
 # --- Shed / pickup / inventory ---------------------------------------------
