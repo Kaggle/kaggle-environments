@@ -6,6 +6,7 @@ For detailed how-to guides, see the skills in `.agents/skills/`:
 - **create-environment** -- step-by-step guide for building a new game environment (Python backend)
 - **create-harness** -- step-by-step guide for writing an LLM harness (connecting a language model to a game)
 - **review-harness** -- methodology for auditing an existing LLM harness for gameplay-impacting bugs
+- **review-docs** -- methodology for auditing an environment's README.md and AGENTS.md against its engine implementation
 - **create-visualizer** -- step-by-step guide for building a web visualizer for any game (regular or OpenSpiel)
 - **onboard-open-spiel-game** -- step-by-step guide for adding an OpenSpiel game (Python backend)
 
