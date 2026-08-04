@@ -51,9 +51,12 @@ describe('applyUnitAction — movement', () => {
     farmerAt(f, 4, 4);
     applyUnitAction(f, p, 0, ['NORTH'], BOARD, 0, TPD, CAP);
     expect(f.farmer).toEqual([4, 3]);
-    // From [4,3] going EAST onto [5,3] is LOCKED (NE quadrant).
+    // From [4,3] going EAST onto [5,3] is LOCKED (NE quadrant) — allowed, so
+    // units are never stranded; tile ops still no-op there.
     applyUnitAction(f, p, 0, ['EAST'], BOARD, 0, TPD, CAP);
-    expect(f.farmer).toEqual([4, 3]); // unchanged
+    expect(f.farmer).toEqual([5, 3]);
+    applyUnitAction(f, p, 0, ['WEST'], BOARD, 0, TPD, CAP);
+    expect(f.farmer).toEqual([4, 3]);
     // From [0,0] going WEST is out of bounds.
     f.farmer = [0, 0];
     applyUnitAction(f, p, 0, ['WEST'], BOARD, 0, TPD, CAP);
@@ -470,6 +473,113 @@ describe('step (top-level)', () => {
     expect(next.farms[0].tiles[2][2]).toBe(null); // blocked
     expect(next.farms[0].tiles[3][3]).toBe(null);
     expect(next.privates[0].seeds.WHEAT).toBe(1); // untouched
+  });
+
+  it('a hand hired into a locked shed-access tile can walk off it', () => {
+    // Hands spawn on the first shed-access tile by occupancy, which is [5,4] in
+    // the locked NE quadrant. If movement off LOCKED were blocked the hand would
+    // be stuck for the rest of the day and could never place an animal.
+    let s = fresh();
+    s = step(s, [{ farmer: ['PASS'], hands: [], market: [['HIRE']] }, ...passActions(1)], cfg);
+    expect(s.farms[0].hands[0]).toEqual([5, 4]);
+    expect(s.farms[0].tiles[4][5]).toBe('LOCKED');
+    s = step(s, [{ farmer: ['PASS'], hands: [['WEST']], market: [] }, ...passActions(1)], cfg);
+    expect(s.farms[0].hands[0]).toEqual([4, 4]);
+  });
+
+  it('full animal journey: buy, build, pick up, walk, place — one op per turn', () => {
+    // Mirrors what a human does in the playable visualizer, where each submitted
+    // turn carries a single farmer op. Guards the whole chain rather than PLACE
+    // alone, so a regression in any link (market, build, pickup, movement) shows up.
+    let s = fresh();
+    const turn = (farmer: PlayerAction['farmer'], market: PlayerAction['market'] = []) => {
+      s = step(
+        s,
+        [
+          { farmer, hands: [], market },
+          { farmer: ['PASS'], hands: [], market: [] },
+        ],
+        cfg
+      );
+    };
+
+    expect(s.farms[0].farmer).toEqual([4, 4]); // only shed-access tile in the unlocked NW quadrant
+
+    turn(['PASS'], [['BUY_ANIMAL', 'GOOSE', 1]]);
+    expect(s.privates[0].shed.GOOSE).toBe(1);
+
+    turn(['WEST']);
+    turn(['BUILD_COOP']);
+    expect(s.farms[0].tiles[4][3]).toEqual({ kind: 'COOP' });
+
+    turn(['EAST']); // back to the shed to collect the goose
+    turn(['PICKUP', 'GOOSE', 1]);
+    expect(s.privates[0].shed.GOOSE).toBe(0);
+    expect(s.privates[0].inventories[0].GOOSE).toBe(1);
+
+    turn(['WEST']);
+    turn(['PLACE', 'GOOSE', 1]);
+    expect(getAnimal(s.farms[0], 3, 4).animal).toBe('GOOSE');
+    expect(s.privates[0].inventories[0].GOOSE).toBeUndefined();
+  });
+
+  it('a hired hand can complete the same pick-up-and-place journey', () => {
+    let s = fresh();
+    const turn = (hand: PlayerAction['farmer'], market: PlayerAction['market'] = []) => {
+      s = step(s, [{ farmer: ['PASS'], hands: [hand], market }, ...passActions(1)], cfg);
+    };
+
+    s = step(
+      s,
+      [{ farmer: ['PASS'], hands: [], market: [['HIRE'], ['BUY_ANIMAL', 'GOOSE', 1]] }, ...passActions(1)],
+      cfg
+    );
+    expect(s.farms[0].hands[0]).toEqual([5, 4]); // locked NE shed-access tile
+
+    turn(['WEST']); // step off the locked tile onto the shed-adjacent NW corner
+    expect(s.farms[0].hands[0]).toEqual([4, 4]);
+
+    turn(['PICKUP', 'GOOSE', 1]);
+    expect(s.privates[0].inventories[1].GOOSE).toBe(1);
+
+    turn(['NORTH']);
+    turn(['BUILD_COOP']);
+    turn(['PLACE', 'GOOSE', 1]);
+    expect(getAnimal(s.farms[0], 4, 3).animal).toBe('GOOSE');
+  });
+
+  it('PLACE on an empty tile is a no-op — the structure must exist first', () => {
+    let s = fresh();
+    s.privates[0].inventories[0].GOOSE = 1;
+    s.farms[0].farmer = [2, 2];
+    s = step(s, [{ farmer: ['PLACE', 'GOOSE', 1], hands: [], market: [] }, ...passActions(1)], cfg);
+    expect(s.farms[0].tiles[2][2]).toBe(null);
+    expect(s.privates[0].inventories[0].GOOSE).toBe(1); // still carried
+  });
+
+  it('PLACE refuses an animal whose structure does not match the tile', () => {
+    let s = fresh();
+    s.privates[0].inventories[0].COW = 1; // COW needs PASTURE
+    s.farms[0].farmer = [2, 2];
+    s.farms[0].tiles[2][2] = { kind: 'COOP' };
+    s = step(s, [{ farmer: ['PLACE', 'COW', 1], hands: [], market: [] }, ...passActions(1)], cfg);
+    expect(s.farms[0].tiles[2][2]).toEqual({ kind: 'COOP' }); // unchanged
+    expect(s.privates[0].inventories[0].COW).toBe(1);
+  });
+
+  it('end-of-day returns a carried animal to the shed and resets the farmer', () => {
+    // A player who picks up an animal late in the day and does not place it
+    // before the boundary finds it back in the shed, with the farmer respawned.
+    let s = fresh();
+    s.privates[0].inventories[0].GOOSE = 1;
+    s.farms[0].farmer = [2, 2];
+    s.farms[0].tiles[2][2] = { kind: 'COOP' };
+    for (let i = 0; i < TPD; i++) s = step(s, passActions(2), cfg);
+    expect(s.day).toBe(1);
+    expect(s.privates[0].inventories[0]).toEqual({});
+    expect(s.privates[0].shed.GOOSE).toBe(1);
+    expect(s.farms[0].farmer).toEqual([4, 4]);
+    expect(s.farms[0].tiles[2][2]).toEqual({ kind: 'COOP' }); // empty structure survives
   });
 
   it('marks done at episodeSteps - 2 and reports final scores', () => {

@@ -143,7 +143,9 @@ export function applyUnitAction(
     const nx = fx + dx;
     const ny = fy + dy;
     if (nx < 0 || nx >= boardSize || ny < 0 || ny >= boardSize) return;
-    if (farm.tiles[ny][nx] === LOCKED) return;
+    // Movement onto LOCKED tiles is allowed: a hand can spawn on a locked
+    // shed-access tile, and blocking movement would strand it there forever.
+    // Tile operations (PLANT, WATER, etc.) still no-op on LOCKED tiles.
     setUnitPosition(farm, idx, [nx, ny]);
     return;
   }

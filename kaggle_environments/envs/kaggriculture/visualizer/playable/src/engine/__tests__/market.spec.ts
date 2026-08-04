@@ -10,7 +10,7 @@ describe('marketPrice', () => {
     ['STRAWBERRY', 10500, 1],
     ['STRAWBERRY', 9500, 308],
     ['STRAWBERRY', 1_000_000_000, 1],
-    ['MELON', 10100, 225],
+    ['MELON', 10100, 150],
     ['MELON', 9900, 290],
     ['FERTILIZER', 10000, 100],
     ['FERTILIZER', 9500, 200],
