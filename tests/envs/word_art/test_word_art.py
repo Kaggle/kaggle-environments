@@ -834,9 +834,11 @@ def test_agent_failure_ends_the_episode_immediately():
     env.run([crash_blue_artist] * 4)
 
     assert env.done
-    assert env.state[0].status == "ERROR"
-    assert env.state[0].reward is None
-    assert [s.status for s in env.state[1:]] == ["DONE", "DONE", "DONE"]
+    # Matching open_spiel_env's non-strict path, one crashed seat voids the
+    # episode for everyone: all four go ERROR and core.py nulls every reward,
+    # so no team is credited with a win it did not play out.
+    assert [s.status for s in env.state] == ["ERROR"] * 4
+    assert [s.reward for s in env.state] == [None] * 4
     # Aborted during round 0's art phase, so no round ever completed.
     assert env.state[0].observation.history == []
     assert env.state[0].observation.current_round == 0
@@ -916,6 +918,38 @@ def test_guesser_timeout_ends_the_episode_keeping_earlier_scores():
     # Round 0 completed before the failure and its result survives.
     assert len(env.state[0].observation.history) == 1
     assert env.state[0].observation.yellow_score > 0
+
+
+def test_schema_invalid_action_ends_the_episode_keeping_points():
+    """An action that violates the action schema (here: an int, where the
+    schema allows only string/object/null) is a bad move, not a broken seat.
+
+    Unlike ERROR/TIMEOUT it does not void the episode -- every seat ends DONE
+    and each team keeps the points it banked in completed rounds. This
+    deliberately departs from open_spiel_env, which overwrites the natural
+    returns with a flat +/-1 forfeit: word_art's reward channel is a running
+    point total, so overwriting it would discard every completed round.
+    """
+
+    def bad_artist_in_round_2(observation, configuration):
+        if observation.role == "artist" and observation.current_round >= 2:
+            return 12345  # not a string/object/null
+        return cheating(observation, configuration)
+
+    env = _make(num_rounds=5, seed=1)
+    env.run([bad_artist_in_round_2] * 4)
+
+    assert env.done
+    assert [s.status for s in env.state] == ["DONE"] * 4
+    # Two rounds completed before the bad action; their points survive.
+    assert len(env.state[0].observation.history) == 2
+    assert env.state[0].observation.blue_score > 0
+    assert env.state[0].observation.yellow_score > 0
+    for seat in range(4):
+        assert env.state[seat].reward is not None
+    # Team rewards mirror the banked per-team scores.
+    assert env.state[0].reward == env.state[1].reward
+    assert env.state[2].reward == env.state[3].reward
 
 
 # --- Singular/plural guess leniency ---------------------------------------
