@@ -29,9 +29,10 @@ PRODUCTS = ["WHEAT", "CARROT", "TOMATO", "STRAWBERRY", "MELON", "EGG", "MILK", "
 #     sign = +1 below I0 (scarcity), -1 above I0 (glut)
 #     amp  = target * base / f(T)            (derived; selling T units moves
 #                                             price by `target` * base)
-#     T    = production capacity of one 5x5 field over a 24-day game at
+#     T    = production capacity of one 5x5 field over a 24-day window at
 #            optimal watering, no fertilizer (animal T pre-discounted 30% for
-#            wheat-feed overhead)
+#            wheat-feed overhead). Shorter than the 30-day season on purpose:
+#            the opening days are setup-heavy and yield little.
 #     f    in {linear, sq, sqrt, log, log10}; log uses ln(1+x) so f(0)=0
 # Floored at PRICE_FLOOR.
 MARKET_I0 = 10000
