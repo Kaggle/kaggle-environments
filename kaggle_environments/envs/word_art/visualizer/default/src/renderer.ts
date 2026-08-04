@@ -122,7 +122,12 @@ export function renderer(options: RendererOptions) {
   const blueAttemptsUsed: number = obs0.blue_attempts_used ?? 0;
   const yellowAttemptsUsed: number = obs0.yellow_attempts_used ?? 0;
 
-  const isDone = currentStep?.every?.((p: any) => p?.status === 'DONE') ?? false;
+  // A crashed or timed-out seat voids the episode: every seat ends ERROR
+  // (a timed-out one keeps TIMEOUT) and all rewards are nulled. Those steps
+  // are terminal too, so fold them into isDone or the final panel never
+  // renders and the view sticks on a half-played round.
+  const isVoided = currentStep?.some?.((p: any) => p?.status === 'ERROR' || p?.status === 'TIMEOUT') ?? false;
+  const isDone = (currentStep?.every?.((p: any) => p?.status === 'DONE') ?? false) || isVoided;
 
   // Detect a round-transition step: on the sub-step where both teams
   // finish their guesses, the env immediately clears the round state and
@@ -422,7 +427,10 @@ export function renderer(options: RendererOptions) {
   statusBar.className = 'wa-status-bar sketched-border';
   if (isDone) {
     let outcome: string;
-    if (blueScore > yellowScore) outcome = `Blue wins ${blueScore}–${yellowScore}!`;
+    if (isVoided) {
+      const failed = currentStep.find((p: any) => p?.status === 'ERROR' || p?.status === 'TIMEOUT');
+      outcome = `Episode voided — an agent ${failed?.status === 'TIMEOUT' ? 'timed out' : 'crashed'}`;
+    } else if (blueScore > yellowScore) outcome = `Blue wins ${blueScore}–${yellowScore}!`;
     else if (yellowScore > blueScore) outcome = `Yellow wins ${yellowScore}–${blueScore}!`;
     else outcome = `Tie ${blueScore}–${yellowScore}`;
     const final = document.createElement('span');

@@ -591,10 +591,26 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
     }
   }, [step]);
 
-  const isGameOver = currentEnvStep[0].status === 'DONE';
+  // A crashed or timed-out seat ends the episode with ERROR/TIMEOUT rather
+  // than DONE, so the terminal check must cover all three or the results
+  // panel silently never renders on a voided episode.
+  const isVoided = currentEnvStep.some((p: any) => p?.status === 'ERROR' || p?.status === 'TIMEOUT');
+  const isGameOver = currentEnvStep[0].status === 'DONE' || isVoided;
   let winnerText: React.ReactNode = null;
 
-  if (isGameOver) {
+  if (isVoided) {
+    // Rewards are nulled on a voided episode, so there is no winner to show.
+    const failedSeat = currentEnvStep.findIndex((p: any) => p?.status === 'ERROR' || p?.status === 'TIMEOUT');
+    const reason = currentEnvStep[failedSeat]?.status === 'TIMEOUT' ? 'timed out' : 'crashed';
+    winnerText = (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.2' }}>
+        <span style={{ color: '#ff6b6b' }}>⚠ EPISODE VOIDED ⚠</span>
+        <span style={{ fontSize: '14px', color: '#aaaaaa', marginTop: '4px', fontWeight: 'normal' }}>
+          (An agent {reason} — no result recorded)
+        </span>
+      </div>
+    );
+  } else if (isGameOver) {
     const trapIndex = renderState.roles.findIndex((role) => role === 'trap');
     const trapRevealed = trapIndex !== -1 && renderState.revealed[trapIndex];
 
