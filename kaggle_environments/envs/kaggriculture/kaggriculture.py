@@ -526,6 +526,7 @@ def _process_market(state, env):
     board_size = int(get(env.configuration, "boardSize", 10))
     max_orders = max(1, int(get(env.configuration, "maxMarketOrdersPerTurn", 10)))
     hire_mult = int(get(env.configuration, "farmHandCostMult", FARM_HAND_COST_MULT))
+    shed_capacity = int(get(env.configuration, "shedCapacity", 100))
 
     queues = []
     for s in state:
@@ -590,7 +591,7 @@ def _process_market(state, env):
                 if q is None:
                     continue
                 op, item, price, ostate = q
-                ok = _commit_unit(op, item, price, farms[player_id], privates[player_id], market)
+                ok = _commit_unit(op, item, price, farms[player_id], privates[player_id], market, shed_capacity)
                 if ok:
                     ostate["remaining"] -= 1
                     committed_any = True
@@ -624,7 +625,7 @@ def _parse_order(order):
     return None
 
 
-def _commit_unit(op, item, price, farm, private, market):
+def _commit_unit(op, item, price, farm, private, market, shed_capacity=100):
     if op == "SELL":
         if private["shed"].get(item, 0) <= 0:
             return False
@@ -636,6 +637,10 @@ def _commit_unit(op, item, price, farm, private, market):
         return True
     if op == "BUY_PRODUCT":
         if farm["money"] < price:
+            return False
+        # Bought goods land in the shed, which obeys shedCapacity like every
+        # other deposit path (pickup, shed-drop, end-of-day drop).
+        if sum(private["shed"].values()) >= shed_capacity:
             return False
         farm["money"] -= price
         private["shed"][item] = private["shed"].get(item, 0) + 1
@@ -649,6 +654,8 @@ def _commit_unit(op, item, price, farm, private, market):
         return True
     if op == "BUY_ANIMAL":
         if farm["money"] < price:
+            return False
+        if sum(private["shed"].values()) >= shed_capacity:
             return False
         farm["money"] -= price
         private["shed"][item] = private["shed"].get(item, 0) + 1

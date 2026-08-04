@@ -413,6 +413,20 @@ def test_place_requires_correct_structure():
     assert private["inventories"][0].get("COW") == 1
 
 
+def test_place_shed_drop_respects_shed_capacity():
+    """PLACE of a non-placeable item while shed-adjacent falls through to a
+    shed-drop, which must obey shedCapacity (partial fill, overflow retained
+    in inventory)."""
+    farm = _new_farm(10, 100)
+    private = _new_private()
+    private["shed"]["WHEAT"] = 98  # 2 slots left
+    # Farmer spawns at (4, 4), which is shed-adjacent.
+    private["inventories"][0] = {"WHEAT": 5}
+    _apply_unit_action(farm, private, 0, ["PLACE", "WHEAT", 5], 10, 0, 24, shed_capacity=100)
+    assert sum(private["shed"].values()) == 100  # filled to capacity, not over
+    assert private["inventories"][0]["WHEAT"] == 3  # unbanked units retained
+
+
 def test_feed_consumes_wheat_from_farmer_inventory():
     farm = _new_farm(10, 1000)
     private = _new_private()
@@ -599,6 +613,31 @@ def test_buy_animal_uses_fixed_cost():
     assert private["shed"]["GOOSE"] == 1
 
 
+def test_buy_product_blocked_when_shed_full():
+    farm = _new_farm(10, 1000)
+    private = _new_private()
+    private["shed"]["WHEAT"] = 100  # shed already at capacity
+    market = _new_market()
+    inv0 = market["inventory"]["WHEAT"]
+    price = market_price("WHEAT", inv0)
+    ok = _commit_unit("BUY_PRODUCT", "FERTILIZER", price, farm, private, market, shed_capacity=100)
+    assert not ok
+    assert farm["money"] == 1000  # no charge
+    assert private["shed"].get("FERTILIZER", 0) == 0  # nothing added
+    assert market["inventory"]["WHEAT"] == inv0  # market untouched
+
+
+def test_buy_animal_blocked_when_shed_full():
+    farm = _new_farm(10, 1000)
+    private = _new_private()
+    private["shed"]["WHEAT"] = 100  # shed already at capacity
+    market = _new_market()
+    ok = _commit_unit("BUY_ANIMAL", "GOOSE", ANIMALS["GOOSE"]["cost"], farm, private, market, shed_capacity=100)
+    assert not ok
+    assert farm["money"] == 1000  # no charge
+    assert private["shed"].get("GOOSE", 0) == 0  # nothing added
+
+
 def test_buy_then_sell_wheat_round_trip_nets_zero():
     """Buying N wheat and immediately selling them back must not change cash
     when nothing else touches the market in between."""
@@ -611,6 +650,25 @@ def test_buy_then_sell_wheat_round_trip_nets_zero():
     ])
     assert env.state[0].observation.farms[0]["money"] == money_before
     assert env.state[0].observation.private["shed"].get("WHEAT", 0) == 0
+
+
+def test_buy_product_partial_fills_up_to_shed_capacity():
+    """With 5 slots left and an order for 10, buy exactly 5 (shed -> 100) and
+    stop; the remaining 5 units of the order are dropped."""
+    env = make("kaggriculture", configuration={"episodeSteps": 5, "startingMoney": 1_000_000})
+    env.reset(num_agents=2)
+    # Leave exactly 5 slots of headroom in the shed.
+    env.state[0].observation.private["shed"]["FERTILIZER"] = 95
+    money_before = env.state[0].observation.farms[0]["money"]
+    env.step([
+        {"farmer": ["PASS"], "hands": [], "market": [["BUY_PRODUCT", "WHEAT", 10]]},
+        {"farmer": ["PASS"], "hands": [], "market": []},
+    ])
+    shed = env.state[0].observation.private["shed"]
+    assert sum(shed.values()) == 100  # filled to capacity, not over
+    assert shed.get("WHEAT", 0) == 5  # only 5 of the 10 requested bought
+    # Charged for exactly the 5 units that landed in the shed.
+    assert env.state[0].observation.farms[0]["money"] < money_before
 
 
 def test_buy_then_sell_fertilizer_round_trip_nets_zero():
