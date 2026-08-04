@@ -1,6 +1,6 @@
 ---
 name: review-docs
-description: Audit a game environment's README.md and AGENTS.md against its engine implementation. Use when the user asks to "review", "audit", "check", or "fact-check" environment docs, when players report doc/engine discrepancies, or before a competition launch. The engine is always the source of truth — docs get fixed, not the engine.
+description: Audit a game environment's README.md and AGENTS.md against its engine implementation. Use when the user asks to "review", "audit", "check", or "fact-check" environment docs, when players report doc/engine discrepancies, or before a competition launch. Also use proactively after changing an environment's engine (`kaggle_environments/envs/<game>/<game>.py`) when a sibling README.md or AGENTS.md exists — rebalances and mechanic changes routinely leave those docs stale. The engine is always the source of truth — docs get fixed, not the engine.
 ---
 
 # Review Environment Docs Against the Engine
