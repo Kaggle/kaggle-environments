@@ -1,99 +1,31 @@
 """Structured JSON observations for Gin Rummy.
 
-OpenSpiel's default observation_string for gin_rummy is multi-line ASCII art
-with header fields, two boxed hand displays, the upcard, and the discard pile.
-This proxy parses that text into a structured JSON object that agents can
-consume directly.
+OpenSpiel's default observation_string for gin_rummy is multi-line ASCII art.
+Rather than parse that text, we delegate to the engine's native
+``to_observation_struct(player)``, which returns a per-player JSON view that
+already implements gin rummy's information-disclosure rules (opponent's hand
+hidden until knock/layoff/game-over, opponent's deadwood revealed once they
+knock, laid melds public, etc.).
 
-Cards use OpenSpiel's two-character notation: rank in {A,2-9,T,J,Q,K} followed
-by suit in {s,c,d,h}. Each player only sees their own hand; the opponent's
-hand appears as an empty list.
+Cards use OpenSpiel's two-character notation: rank in ``{A,2-9,T,J,Q,K}``
+followed by suit in ``{s,c,d,h}``. The opponent's hand appears as the literal
+string ``"XX"`` per card position when it is still hidden.
 """
 
 import json
-import re
 from typing import Any
 
 import pyspiel
 
 from ... import proxy
 
-_CARD_RE = re.compile(r"[A23456789TJQK][scdh]")
-_HEADER_RE = re.compile(r"^(Knock card|Prev upcard|Repeated move|Current player|Phase): ?(.*)$")
-_STOCK_RE = re.compile(r"^Stock size: (\d+)\s+Upcard: (\S+)\s*$")
-_DISCARD_RE = re.compile(r"^Discard pile: ?(.*)$")
-_PLAYER_DEADWOOD_RE = re.compile(r"^Player(\d): Deadwood=(\d+)\s*$")
-_PLAYER_RE = re.compile(r"^Player(\d):\s*$")
-
-
-def _parse_card(token: str) -> str | None:
-    if token == "XX" or not token:
-        return None
-    return token
-
-
-def _parse_observation(text: str) -> dict[str, Any]:
-    """Parse the OpenSpiel gin_rummy observation_string into a dict."""
-    lines = text.split("\n")
-    result: dict[str, Any] = {
-        "knock_card": None,
-        "prev_upcard": None,
-        "repeated_move": 0,
-        "phase": None,
-        "stock_size": 0,
-        "upcard": None,
-        "discard_pile": [],
-        "hands": {"0": [], "1": []},
-        "deadwood": {"0": None, "1": None},
-    }
-    current_hand: int | None = None
-    for line in lines:
-        m = _HEADER_RE.match(line)
-        if m:
-            key = m.group(1).lower().replace(" ", "_")
-            value = m.group(2).strip()
-            if key == "knock_card":
-                result["knock_card"] = int(value) if value.isdigit() else (value or None)
-            elif key == "prev_upcard":
-                result["prev_upcard"] = _parse_card(value)
-            elif key == "repeated_move":
-                result["repeated_move"] = int(value)
-            elif key == "phase":
-                result["phase"] = value
-            # current_player from header is redundant with state.current_player()
-            continue
-        m = _STOCK_RE.match(line)
-        if m:
-            result["stock_size"] = int(m.group(1))
-            result["upcard"] = _parse_card(m.group(2))
-            continue
-        m = _DISCARD_RE.match(line)
-        if m:
-            result["discard_pile"] = _CARD_RE.findall(m.group(1))
-            continue
-        m = _PLAYER_DEADWOOD_RE.match(line)
-        if m:
-            current_hand = int(m.group(1))
-            result["deadwood"][str(current_hand)] = int(m.group(2))
-            continue
-        m = _PLAYER_RE.match(line)
-        if m:
-            current_hand = int(m.group(1))
-            continue
-        if current_hand is not None and line.startswith("|") and line.endswith("|"):
-            result["hands"][str(current_hand)].extend(_CARD_RE.findall(line))
-    return result
-
 
 class GinRummyState(proxy.State):
     """Gin Rummy state proxy with structured JSON observations."""
 
     def state_dict(self, player: int | None = None) -> dict[str, Any]:
-        # Use player 0's view as the source for shared fields; the opponent's
-        # hand is hidden in player 0's observation, and we mask the requesting
-        # player's opponent below.
         observer = player if player is not None else 0
-        parsed = _parse_observation(self.__wrapped__.observation_string(observer))
+        struct_json = json.loads(self.__wrapped__.to_observation_struct(observer).to_json())
 
         winner: int | str | None = None
         returns_list: list[float] = []
@@ -106,22 +38,55 @@ class GinRummyState(proxy.State):
             else:
                 winner = "draw"
 
-        result: dict[str, Any] = {
-            "phase": parsed["phase"],
+        # Hand lists from the struct are length-`hand_size` arrays of "XX" when
+        # hidden. Normalize to {"0": [...], "1": [...]} with hidden hands as []
+        # for compatibility with the harness's existing rendering.
+        hands_raw = struct_json.get("hands") or [[], []]
+        hands = {
+            "0": [c for c in hands_raw[0] if c != "XX"] if hands_raw and hands_raw[0] else [],
+            "1": [c for c in hands_raw[1] if c != "XX"] if len(hands_raw) > 1 and hands_raw[1] else [],
+        }
+        # Track whether each hand is fully hidden so the harness can distinguish
+        # "empty after laying all melds" from "still hidden".
+        hand_hidden = {
+            "0": bool(hands_raw[0]) and all(c == "XX" for c in hands_raw[0]),
+            "1": len(hands_raw) > 1 and bool(hands_raw[1]) and all(c == "XX" for c in hands_raw[1]),
+        }
+
+        deadwood_raw = struct_json.get("deadwood") or [None, None]
+        # Engine encodes hidden deadwood as -1.
+        deadwood = {
+            "0": deadwood_raw[0] if deadwood_raw[0] is not None and deadwood_raw[0] >= 0 else None,
+            "1": deadwood_raw[1] if len(deadwood_raw) > 1 and deadwood_raw[1] is not None and deadwood_raw[1] >= 0 else None,
+        }
+
+        layed_melds_raw = struct_json.get("layed_melds") or [[], []]
+        layed_melds = {
+            "0": layed_melds_raw[0] if layed_melds_raw else [],
+            "1": layed_melds_raw[1] if len(layed_melds_raw) > 1 else [],
+        }
+
+        return {
+            "phase": struct_json.get("phase"),
             "current_player": self.current_player(),
             "is_terminal": self.is_terminal(),
             "winner": winner,
             "returns": returns_list,
-            "knock_card": parsed["knock_card"],
-            "prev_upcard": parsed["prev_upcard"],
-            "upcard": parsed["upcard"],
-            "stock_size": parsed["stock_size"],
-            "discard_pile": parsed["discard_pile"],
-            "hands": parsed["hands"],
-            "deadwood": parsed["deadwood"],
-            "repeated_move": parsed["repeated_move"],
+            "knock_card": struct_json.get("knock_card"),
+            "prev_upcard": struct_json.get("prev_upcard"),
+            "upcard": struct_json.get("upcard"),
+            "stock_size": struct_json.get("stock_size", 0),
+            "discard_pile": struct_json.get("discard_pile") or [],
+            "hands": hands,
+            "hand_hidden": hand_hidden,
+            "deadwood": deadwood,
+            "layed_melds": layed_melds,
+            "layoffs": struct_json.get("layoffs") or [],
+            "knocked": struct_json.get("knocked") or [False, False],
+            "finished_layoffs": bool(struct_json.get("finished_layoffs", False)),
+            "pass_on_first_upcard": struct_json.get("pass_on_first_upcard") or [False, False],
+            "observing_player": observer,
         }
-        return result
 
     def to_json(self, player: int | None = None) -> str:
         return json.dumps(self.state_dict(player))
