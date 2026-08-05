@@ -320,10 +320,6 @@ def _apply_unit_action(farm, private, idx, action, board_size, day, turns_per_da
     if op == "PASS":
         return
 
-    tile = farm["tiles"][fy][fx]
-    if tile == "LOCKED":
-        return
-
     if op == "DROP":
         if not _is_shed_adjacent((fx, fy), board_size):
             return
@@ -356,6 +352,45 @@ def _apply_unit_action(farm, private, idx, action, board_size, day, turns_per_da
             return
         private["shed"][item] -= n
         _inv_add(inv, item, n)
+        return
+
+    if op == "PLACE":
+        if len(action) < 2:
+            return
+        item = action[1]
+        # Animal placement: standing on a matching unoccupied structure.
+        # Implicitly impossible if tile is LOCKED.
+        if (
+            item in ANIMALS
+            and isinstance(tile, dict)
+            and tile.get("kind") == ANIMALS[item]["structure"]
+            and "animal" not in tile
+        ):
+            if _inv_take(inv, item, 1):
+                farm["tiles"][fy][fx] = _new_animal(item, day)
+            return
+        # Shed drop: orthogonally adjacent to the shed; obeys shedCapacity.
+        if _is_shed_adjacent((fx, fy), board_size):
+            n = int(action[2]) if len(action) >= 3 else 1
+            if n <= 0:
+                return
+            n = min(n, inv.get(item, 0))
+            if n <= 0:
+                return
+            current = sum(private["shed"].values())
+            room = max(0, shed_capacity - current)
+            n = min(n, room)
+            if n <= 0:
+                return
+            inv[item] -= n
+            if inv[item] == 0:
+                del inv[item]
+            private["shed"][item] = private["shed"].get(item, 0) + n
+        return
+
+    # All actions below this point don't make sense on LOCKED tiles.
+    tile = farm["tiles"][fy][fx]
+    if tile == "LOCKED":
         return
 
     if op == "PLANT":
@@ -444,39 +479,6 @@ def _apply_unit_action(farm, private, idx, action, board_size, day, turns_per_da
         if tile is not None:
             return
         farm["tiles"][fy][fx] = {"kind": "PASTURE"}
-        return
-
-    if op == "PLACE":
-        if len(action) < 2:
-            return
-        item = action[1]
-        # Animal placement: standing on a matching unoccupied structure.
-        if (
-            item in ANIMALS
-            and isinstance(tile, dict)
-            and tile.get("kind") == ANIMALS[item]["structure"]
-            and "animal" not in tile
-        ):
-            if _inv_take(inv, item, 1):
-                farm["tiles"][fy][fx] = _new_animal(item, day)
-            return
-        # Shed drop: orthogonally adjacent to the shed; obeys shedCapacity.
-        if _is_shed_adjacent((fx, fy), board_size):
-            n = int(action[2]) if len(action) >= 3 else 1
-            if n <= 0:
-                return
-            n = min(n, inv.get(item, 0))
-            if n <= 0:
-                return
-            current = sum(private["shed"].values())
-            room = max(0, shed_capacity - current)
-            n = min(n, room)
-            if n <= 0:
-                return
-            inv[item] -= n
-            if inv[item] == 0:
-                del inv[item]
-            private["shed"][item] = private["shed"].get(item, 0) + n
         return
 
     if op == "FEED":
