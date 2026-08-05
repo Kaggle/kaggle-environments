@@ -360,7 +360,7 @@ def _apply_unit_action(farm, private, idx, action, board_size, day, turns_per_da
             return
         item = action[1]
         # Animal placement: standing on a matching unoccupied structure.
-        # Implicitly impossible if tile is LOCKED.
+        # Implicitly impossible if tile is "LOCKED" (not a dict).
         if (
             item in ANIMALS
             and isinstance(tile, dict)
