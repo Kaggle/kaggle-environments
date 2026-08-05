@@ -13,9 +13,11 @@ from kaggle_environments.envs.open_spiel_env.games.go_fish import (
     go_fish_proxy,
 )
 from kaggle_environments.envs.open_spiel_env.games.go_fish.harness import (
+    _annotate_move_history,
     _format_booked,
     _format_events,
     _format_pool,
+    _own_counts,
     generate_prompt,
     get_legal_moves,
     parse_response,
@@ -59,7 +61,15 @@ def _example_tokens(prompt: str) -> list[str]:
 
 
 def _make_observation(state, game, player_id: int | None = None) -> dict:
-    """Build a harness-style observation dict from a proxy state."""
+    """Build a harness-style observation dict from a proxy state.
+
+    ``serializedGameAndState`` serializes the *proxy* game and state, matching
+    what production does: ``open_spiel_env`` substitutes ``go_fish_proxy`` for
+    ``go_fish`` before serializing (open_spiel_env.py ``interpreter``). Passing
+    the unwrapped objects here would round-trip to a raw ``go_fish`` state whose
+    ``observation_string`` is OpenSpiel text rather than the proxy's JSON --
+    a divergence that previously hid a harness bug from every test in this file.
+    """
     if player_id is None:
         player_id = int(state.current_player())
     legal = list(state.legal_actions())
@@ -70,7 +80,7 @@ def _make_observation(state, game, player_id: int | None = None) -> dict:
         "isTerminal": state.is_terminal(),
         "legalActions": legal,
         "legalActionStrings": [state.action_to_string(a) for a in legal],
-        "serializedGameAndState": pyspiel.serialize_game_and_state(game.__wrapped__, state.__wrapped__),
+        "serializedGameAndState": pyspiel.serialize_game_and_state(game, state),
     }
 
 
@@ -418,6 +428,47 @@ class GeneratePromptTest(absltest.TestCase):
         obs = _make_observation(state, game, player_id=observer)
         prompt = generate_prompt(obs, [first])
         self.assertIn("1a (received 1)", prompt)
+
+    def test_own_ask_outcomes_survive_proxy_serialization(self):
+        # Regression: the outcome reconstruction replays the state recovered
+        # from serializedGameAndState, and production serializes the *proxy*
+        # game -- so the replayed observation_string is the proxy's JSON, not
+        # OpenSpiel's raw text. A text-only reader returned (0, 0) for every
+        # card/book count, making every delta zero and mislabelling every hit
+        # as "go fish". Pin both encodings to the same annotation.
+        rng = random.Random(7)
+        game, state = _make_ask_state(seed=7)
+        observer = 0
+        _advance_chance(state, rng)
+        first = state.action_to_string(state.legal_actions()[0])
+        state.apply_action(state.legal_actions()[0])
+        _advance_chance(state, rng)
+        while not state.is_terminal() and int(state.current_player()) != observer:
+            state.apply_action(state.legal_actions()[0])
+            _advance_chance(state, rng)
+
+        proxy_ser = pyspiel.serialize_game_and_state(game, state)
+        raw_ser = pyspiel.serialize_game_and_state(game.__wrapped__, state.__wrapped__)
+        # Precondition: the two really do round-trip to different observation
+        # encodings, so this test can't pass vacuously.
+        self.assertIn("go_fish_proxy", proxy_ser)
+        self.assertNotIn("go_fish_proxy", raw_ser)
+
+        annotated = {}
+        for name, serialized in (("proxy", proxy_ser), ("raw", raw_ser)):
+            obs = {"serializedGameAndState": serialized, "playerId": observer}
+            annotated[name] = _annotate_move_history(obs, [first], observer, 4)
+        self.assertEqual(annotated["proxy"], [f"{first} (received 1)"])
+        self.assertEqual(annotated["proxy"], annotated["raw"])
+
+    def test_own_counts_reads_both_observation_encodings(self):
+        game, state = _make_ask_state(seed=7)
+        proxy_text = state.observation_string(0)
+        raw_text = state.__wrapped__.observation_string(0)
+        self.assertNotEqual(proxy_text, raw_text)
+        self.assertEqual(_own_counts(proxy_text, 0), _own_counts(raw_text, 0))
+        # Non-zero, so a (0, 0) default can't masquerade as a correct read.
+        self.assertGreater(_own_counts(proxy_text, 0)[0], 0)
 
     def test_example_move_is_static(self):
         # The format example is a fixed "1a", matching RETHINK_UNPARSABLE. It

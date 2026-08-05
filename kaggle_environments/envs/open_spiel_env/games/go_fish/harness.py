@@ -330,11 +330,33 @@ _OWN_COUNTS_RE = re.compile(r"^player (\d+) cards (\d+) books (\d+)", re.MULTILI
 
 
 def _own_counts(obs_text: str, player_id: int) -> tuple[int, int]:
-    """Read ``(total_cards, books)`` for ``player_id`` from a raw observation.
+    """Read ``(total_cards, books)`` for ``player_id`` from an observation string.
 
-    The raw OpenSpiel observation string carries a ``player <id> cards <c> books
-    <b>`` line for every player; this pulls the observer's own totals out of it.
+    Two formats reach this function, and it must handle both:
+
+    * The proxy's JSON payload, which carries a ``players`` list of
+      ``{"player", "cards", "books"}``. This is the production format --
+      ``open_spiel_env`` swaps in ``go_fish_proxy`` before serializing, so a
+      state replayed out of ``serializedGameAndState`` is a proxy state whose
+      ``observation_string`` is JSON, not OpenSpiel's text.
+    * OpenSpiel's raw text, which carries a ``player <id> cards <c> books <b>``
+      line per player. Reachable when the harness is pointed at an unwrapped
+      ``go_fish`` game.
+
+    Reading only the text form silently returned the ``(0, 0)`` default on every
+    production call, which made every own-ask delta zero and mislabelled every
+    hit as "go fish".
     """
+    try:
+        payload = json.loads(obs_text)
+    except json.JSONDecodeError:
+        pass
+    else:
+        if isinstance(payload, dict):
+            for p in payload.get("players") or []:
+                if p.get("player") == player_id:
+                    return int(p.get("cards", 0)), int(p.get("books", 0))
+            return 0, 0
     for m in _OWN_COUNTS_RE.finditer(obs_text):
         if int(m.group(1)) == player_id:
             return int(m.group(2)), int(m.group(3))
