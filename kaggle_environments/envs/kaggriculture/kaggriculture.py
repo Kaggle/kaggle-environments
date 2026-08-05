@@ -305,6 +305,7 @@ def _apply_unit_action(farm, private, idx, action, board_size, day, turns_per_da
         return
     fx, fy = pos[0], pos[1]
     inv = _farmer_inventory(private, idx)
+    tile = farm["tiles"][fy][fx]
 
     if op in FARMER_MOVES:
         dx, dy = FARMER_MOVES[op]
@@ -389,7 +390,6 @@ def _apply_unit_action(farm, private, idx, action, board_size, day, turns_per_da
         return
 
     # All actions below this point don't make sense on LOCKED tiles.
-    tile = farm["tiles"][fy][fx]
     if tile == "LOCKED":
         return
 
