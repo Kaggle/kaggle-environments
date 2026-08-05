@@ -1,6 +1,8 @@
 """Tests for the Go Fish LLM harness."""
 
+import json
 import random
+import re
 from unittest.mock import MagicMock, patch
 
 import pyspiel
@@ -11,6 +13,9 @@ from kaggle_environments.envs.open_spiel_env.games.go_fish import (
     go_fish_proxy,
 )
 from kaggle_environments.envs.open_spiel_env.games.go_fish.harness import (
+    _format_booked,
+    _format_events,
+    _format_pool,
     generate_prompt,
     get_legal_moves,
     parse_response,
@@ -41,6 +46,16 @@ def _make_ask_state(seed: int = 7, plies: int = 0):
         state.apply_action(rng.choice(state.legal_actions()))
         _advance_chance(state, rng)
     return game, state
+
+
+def _example_tokens(prompt: str) -> list[str]:
+    """Concrete move tokens from the prompt's `{"move": "..."}` examples.
+
+    Skips the ``<target><letter>`` placeholders in the output-format blocks,
+    leaving only the real illustrative moves.
+    """
+    tokens = re.findall(r'\{"move": "([^"]+)"\}', prompt)
+    return [t for t in tokens if not t.startswith("<")]
 
 
 def _make_observation(state, game, player_id: int | None = None) -> dict:
@@ -99,35 +114,38 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response('```json\n{"move": "1a"}\n```', self.legal)
         self.assertIsInstance(result, ParseResult)
 
-    def test_human_rank_label_tolerated(self):
-        # Model names the rank by its human label instead of the action
-        # letter: "1K" -> ask Player 1 for Kings -> letter 'm'.
-        result = parse_response('```json\n{"move": "1K"}\n```', self.legal)
-        self.assertEqual(result.legal_action, "1m")
-
-    def test_numeric_rank_label_tolerated(self):
-        # "1, 10" -> ask Player 1 for tens -> letter 'j'.
-        result = parse_response('```json\n{"move": "1, 10"}\n```', self.legal)
-        self.assertEqual(result.legal_action, "1j")
-
-    def test_uppercase_action_letter_is_literal_not_relabeled(self):
-        # CRITICAL: a bare uppercase action letter must resolve to that action
-        # letter, never to the rank whose human label happens to match. Here
-        # BOTH the literal reading and the mistaken label reading are legal, so
-        # only correct precedence prevents a silent wrong-rank substitution:
-        #   "1J" -> action letter j (=rank 10), NOT label J=Jack (letter k)
-        #   "1K" -> action letter k (=Jack),    NOT label K=King (letter m)
+    def test_uppercase_action_letter_matches_that_letter(self):
+        # Matching is case-insensitive over the single action-letter namespace,
+        # so an uppercased action letter resolves to that action letter.
+        #   "1J" -> action letter j     "1K" -> action letter k
+        # NOTE: this fixture deliberately includes BOTH 1j and 1k so the
+        # colliding case is actually exercised (an earlier test dodged it by
+        # omitting 1k). It documents the accepted residual edge: a model that
+        # wrote "1K" meaning the card King (ask-letter 'm') is read as action
+        # letter k (=Jack) here, because 1k is legal. The prompt only ever
+        # teaches action letters, so this is a known trade-off, not a guarantee
+        # of no collision.
         legal = ["1j", "1k", "1m"]
         self.assertEqual(parse_response('{"move": "1J"}', legal).legal_action, "1j")
         self.assertEqual(parse_response('{"move": "1K"}', legal).legal_action, "1k")
 
-    def test_uppercase_label_fallback_when_literal_illegal(self):
-        # When the literal action-letter reading is NOT legal, fall back to the
-        # human-label interpretation so real intent is still recovered:
-        #   "1K" with only 1m legal -> label K=King -> letter m.
-        self.assertEqual(parse_response('{"move": "1K"}', ["1a", "1m"]).legal_action, "1m")
-        # "1Q" -> 'q' is never an action letter -> label Q=Queen -> letter l.
-        self.assertEqual(parse_response('{"move": "1Q"}', ["1a", "1l"]).legal_action, "1l")
+    def test_human_rank_label_not_accepted(self):
+        # The parser accepts ONLY the action-letter namespace shown in the hand
+        # lines. A human rank label that is not also an action letter must NOT
+        # be silently reinterpreted -- it falls through to the rethink loop.
+        #   "1K" with only 1m legal: 'k' is not legal, and King is NOT relabeled.
+        result = parse_response('```json\n{"move": "1K"}\n```', ["1a", "1m"])
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "1K")
+        # "1Q" -> 'q' is never a legal action letter; no label fallback either.
+        result = parse_response('```json\n{"move": "1Q"}\n```', ["1a", "1l"])
+        self.assertIsNone(result.legal_action)
+
+    def test_numeric_rank_label_not_accepted(self):
+        # "1, 10" is a human label ("10"), not an action letter -> no match,
+        # deferred to the rethink loop rather than guessed at.
+        result = parse_response('```json\n{"move": "1, 10"}\n```', self.legal)
+        self.assertIsNone(result.legal_action)
 
     def test_separators_tolerated(self):
         result = parse_response('```json\n{"move": "1-a"}\n```', self.legal)
@@ -190,20 +208,78 @@ class GeneratePromptTest(absltest.TestCase):
     def test_does_not_leak_opponent_hand(self):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [])
-        # Opponent info is a card/book count only, never their cards.
-        self.assertIn("You do NOT see other players' hands", prompt)
+        # Opponent info is a card/book count only, never their cards. Match on
+        # collapsed whitespace so the assertion survives template rewrapping.
+        flat = " ".join(prompt.split())
+        self.assertIn("You do NOT see other players' hands", flat)
+        self.assertIn("you do NOT see which card anyone draws from the pool", flat)
         self.assertIn("Player 1:", prompt)
 
     def test_legal_moves_not_listed(self):
         obs = _make_observation(self.state, self.game)
         prompt = generate_prompt(obs, [])
         # The prompt derives askable ranks from the hand; it should not dump
-        # the raw legal-action list. Allow the concrete example token through.
+        # the raw legal-action list. The static "1a" format example is allowed
+        # through even when it happens to also be legal this turn.
         legal = obs["legalActionStrings"]
-        example_ok = {legal[0]} if legal else set()
-        listed = [s for s in legal if s not in example_ok and f'"{s}"' in prompt]
-        # No verbatim legal-list block: at most the single example may appear.
-        self.assertLessEqual(len(listed), 0)
+        listed = [s for s in legal if s != "1a" and f'"{s}"' in prompt]
+        self.assertEqual(listed, [])
+
+    def test_pool_size_rendered(self):
+        # Pool size is public and strategically central (it decides whether a
+        # miss draws at all), but the raw text observation omits it entirely.
+        obs = _make_observation(self.state, self.game)
+        prompt = generate_prompt(obs, [])
+        # Standard deck, 7 cards dealt to each of 2 players: 52 - 14 = 38.
+        self.assertIn("Pool: 38 card(s) left to draw", prompt)
+
+    def test_empty_pool_spells_out_the_consequence(self):
+        # With an empty pool a miss draws nothing -- state the consequence
+        # rather than leaving the model to infer it from a bare "0".
+        self.assertIn("empty", _format_pool(0))
+        self.assertIn("ends your turn", _format_pool(0))
+
+    def test_pool_unknown_when_absent_from_payload(self):
+        # A payload without pool_size (hand-built, or predating the field) must
+        # render "(unknown)", never "empty" -- claiming an empty pool when the
+        # pool is merely unreported would be an actively wrong game fact.
+        self.assertEqual(_format_pool(None), "(unknown)")
+        obs = _make_observation(self.state, self.game)
+        stripped = dict(json.loads(obs["observationString"]))
+        stripped.pop("pool_size", None)
+        obs["observationString"] = json.dumps(stripped)
+        prompt = generate_prompt(obs, [])
+        self.assertIn("Pool: (unknown)", prompt)
+
+    def test_booked_ranks_rendered(self):
+        # Booked ranks are dead -- nobody can be asked for them.
+        self.assertIn("(none yet)", _format_booked([]))
+        self.assertIn("A, 9", _format_booked(["A", "9"]))
+        obs = _make_observation(self.state, self.game)
+        prompt = generate_prompt(obs, [])
+        self.assertIn("Ranks already booked", prompt)
+
+    def test_pool_size_tracks_the_game(self):
+        # End-to-end: the rendered pool line must match the payload's pool_size
+        # at every turn, including once the pool empties.
+        rng = random.Random(3)
+        game, state = _make_ask_state(seed=3)
+        saw_empty = False
+        for _ in range(80):
+            _advance_chance(state, rng)
+            if state.is_terminal():
+                break
+            cp = int(state.current_player())
+            obs = _make_observation(state, game, player_id=cp)
+            pool = json.loads(obs["observationString"])["pool_size"]
+            prompt = generate_prompt(obs, [])
+            if pool == 0:
+                saw_empty = True
+                self.assertIn("Pool: empty", prompt)
+            else:
+                self.assertIn(f"Pool: {pool} card(s) left to draw", prompt)
+            state.apply_action(rng.choice(state.legal_actions()))
+        self.assertTrue(saw_empty, "never reached an empty pool")
 
     def test_deduction_section_rendered(self):
         # The prompt must surface the game-long public deduction table so the
@@ -236,7 +312,49 @@ class GeneratePromptTest(absltest.TestCase):
         prompt = generate_prompt(obs, [])
         self.assertIn("Events since your last turn", prompt)
 
+    def test_draw_event_does_not_leak_drawn_rank(self):
+        # A card drawn from the pool is HIDDEN information: naming its rank
+        # would leak an opponent's hand, contradicting the prompt's "you do NOT
+        # see other players' hands" and mooting the deduction block. The draw
+        # line must report only that a draw happened, never which rank.
+        events = [{"type": "draw", "player": 1, "rank_label": "K", "booked": False}]
+        rendered = _format_events(events)
+        self.assertIn("Player 1 drew a card from the pool", rendered)
+        self.assertNotIn("K", rendered)
+
+    def test_draw_that_completes_book_names_only_the_book(self):
+        # A laid-down book IS public, so the completed-book clause may name the
+        # rank -- that is the one case where the rank is legitimately revealed.
+        events = [{"type": "draw", "player": 1, "rank_label": "9", "booked": True}]
+        rendered = _format_events(events)
+        self.assertIn("completed a book of 9", rendered)
+
+    def test_full_game_prompts_never_leak_a_drawn_rank(self):
+        # End-to-end guard: across a played-out game, no draw event in any
+        # prompt should ever spell out the drawn rank. This is the assertion
+        # the original leak silently failed -- 41% of rendered events named it.
+        rng = random.Random(3)
+        game, state = _make_ask_state(seed=3)
+        for _ in range(40):
+            _advance_chance(state, rng)
+            if state.is_terminal():
+                break
+            cp = int(state.current_player())
+            obs = _make_observation(state, game, player_id=cp)
+            prompt = generate_prompt(obs, [])
+            for line in prompt.splitlines():
+                if "drew" in line and "book" not in line:
+                    # A pure draw line: must not carry a rank token.
+                    self.assertEqual(
+                        line.strip(),
+                        f"Player {line.split()[1]} drew a card from the pool",
+                        f"draw line leaked a rank: {line!r}",
+                    )
+            state.apply_action(rng.choice(state.legal_actions()))
+
     def test_move_history_rendered(self):
+        # With a fresh state there are no own-asks to reconstruct outcomes for,
+        # so the moves render bare (the annotator falls back gracefully).
         obs = _make_observation(self.state, self.game)
         prompt = generate_prompt(obs, ["1a", "1b"])
         self.assertIn("1a, 1b", prompt)
@@ -244,22 +362,95 @@ class GeneratePromptTest(absltest.TestCase):
     def test_move_history_none_when_empty(self):
         obs = _make_observation(self.state, self.game)
         prompt = generate_prompt(obs, [])
-        self.assertIn("Moves you have played so far: None", prompt)
+        # The move-history section ends in "None" when no moves have been played.
+        self.assertRegex(prompt, r"they had none\): None")
 
-    def test_example_move_is_legal(self):
-        # The concrete example in the format section must itself be a legal
-        # move so the prompt never advises an illegal action.
+    def test_own_ask_outcomes_annotated(self):
+        # The model is never shown the result of its OWN asks (OpenSpiel stops
+        # the event walk at the observer's last action). generate_prompt must
+        # reconstruct each own-ask outcome from the replayed history and attach
+        # it to the move string: "1x (received N)" on a hit, "1x (go fish)" on
+        # a miss.
+        rng = random.Random(7)
+        game, state = _make_ask_state(seed=7)
+        observer = 0
+        own_moves: list[str] = []
+        prompt = ""
+        for _ in range(30):
+            _advance_chance(state, rng)
+            if state.is_terminal():
+                break
+            cp = int(state.current_player())
+            if cp == observer:
+                obs = _make_observation(state, game, player_id=observer)
+                prompt = generate_prompt(obs, list(own_moves))
+                action = state.legal_actions()[0]
+                own_moves.append(state.action_to_string(action))
+                state.apply_action(action)
+            else:
+                state.apply_action(state.legal_actions()[0])
+        # After several own asks, the latest prompt must annotate them with a
+        # concrete outcome -- at least one hit or one "go fish".
+        self.assertTrue(own_moves, "no own moves were played")
+        self.assertTrue(
+            "(received " in prompt or "(go fish)" in prompt,
+            f"own-ask outcomes not annotated in move history:\n{prompt}",
+        )
+
+    def test_own_ask_hit_reports_received_count(self):
+        # A hit annotates with the exact number of cards received. Seed 7,
+        # observer 0's opening ask "1a" is a hit for 1 card (verified against
+        # the engine), so the second prompt must show "1a (received 1)".
+        rng = random.Random(7)
+        game, state = _make_ask_state(seed=7)
+        observer = 0
+        # First own turn: play 1a (Ace ask -> hit for 1 under seed 7).
+        _advance_chance(state, rng)
+        self.assertEqual(int(state.current_player()), observer)
+        first = state.action_to_string(state.legal_actions()[0])
+        self.assertEqual(first, "1a")
+        state.apply_action(state.legal_actions()[0])
+        _advance_chance(state, rng)
+        # Advance to the observer's next decision point.
+        while not state.is_terminal() and int(state.current_player()) != observer:
+            state.apply_action(state.legal_actions()[0])
+            _advance_chance(state, rng)
+        obs = _make_observation(state, game, player_id=observer)
+        prompt = generate_prompt(obs, [first])
+        self.assertIn("1a (received 1)", prompt)
+
+    def test_example_move_is_static(self):
+        # The format example is a fixed "1a", matching RETHINK_UNPARSABLE. It
+        # must NOT be derived from the legal-action list: a per-turn example is
+        # read as a per-turn *suggestion*, and deriving it from legalActions
+        # always surfaced the lowest-index rank in hand, nudging the model
+        # toward that ask every turn.
         obs = _make_observation(self.state, self.game)
         prompt = generate_prompt(obs, [])
-        legal = set(obs["legalActionStrings"])
-        # Example rendered as `{"move": "<tok>"}`.
-        import re as _re
+        concrete = _example_tokens(prompt)
+        self.assertEqual(concrete, ["1a"])
+        self.assertIn("not a suggestion", prompt)
 
-        tokens = _re.findall(r'\{"move": "([^"]+)"\}', prompt)
-        # First is the template placeholder; the concrete example is the last.
-        concrete = [t for t in tokens if not t.startswith("<")]
-        self.assertTrue(concrete)
-        self.assertIn(concrete[-1], legal)
+    def test_example_move_static_across_turns(self):
+        # Same example on every turn regardless of hand or legal actions --
+        # including turns where "1a" is not legal and turns taken by players
+        # other than Player 0.
+        rng = random.Random(5)
+        game, state = _make_ask_state(seed=5)
+        saw_1a_illegal = False
+        for _ in range(40):
+            _advance_chance(state, rng)
+            if state.is_terminal():
+                break
+            cp = int(state.current_player())
+            obs = _make_observation(state, game, player_id=cp)
+            prompt = generate_prompt(obs, [])
+            self.assertEqual(_example_tokens(prompt), ["1a"])
+            if "1a" not in obs["legalActionStrings"]:
+                saw_1a_illegal = True
+            state.apply_action(rng.choice(state.legal_actions()))
+        # The invariant is only meaningful if some turn had "1a" illegal.
+        self.assertTrue(saw_1a_illegal, "never hit a turn where 1a was illegal")
 
     def test_rethink_illegal_suffix(self):
         obs = _make_observation(self.state, self.game)

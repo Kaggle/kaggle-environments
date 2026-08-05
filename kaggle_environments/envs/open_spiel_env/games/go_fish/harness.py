@@ -47,14 +47,20 @@ turn you ASK one other player for a rank -- you may only ask for a rank you
 already hold at least one card of. If that player has any cards of that rank,
 they give you all of them and you take another turn (ask again). If they have
 none, you "go fish": you draw one card from the pool. If the drawn card is the
-very rank you asked for, you take another turn; otherwise your turn ends.
-Collecting all {num_suits} copies of a rank completes a book, which is set
-aside and scored. The game ends when every card is in a book; the player with
-the most books wins.
+very rank you asked for, you take another turn; otherwise your turn ends. If the
+pool is empty when you get a miss, there is no card to draw and your turn simply
+ends. Collecting all {num_suits} copies of a rank completes a book, which is set
+aside and scored. Running out of cards does NOT eliminate you: if it is your turn
+with an empty hand you draw a card from the pool and ask with it, and you rejoin
+normally whenever a card comes your way. But if your hand AND the pool are both
+empty when your turn comes up, there is nothing to draw and no card to ask with,
+so play skips past you to the next player who still holds cards. The game ends
+when every card is in a book; the player with the most books wins.
 
 You only see information revealed to you: your own hand, every player's public
-card count and book count, and the events that happened since your last turn.
-You do NOT see other players' hands.
+card count and book count, the size of the pool, which ranks are already booked,
+and the events that happened since your last turn. You do NOT see other players'
+hands, and you do NOT see which card anyone draws from the pool.
 
 Rank letters: each rank is written as a letter in rank order -- {rank_legend}.
 
@@ -62,6 +68,11 @@ You are Player {player_id}. You currently have {my_books} book(s).
 
 Your hand (rank: count, ask-letter):
 {hand_lines}
+
+Pool: {pool_line}
+
+Ranks already booked (gone from play -- nobody can be asked for these):
+{booked_line}
 
 Other players (public info):
 {other_players}
@@ -74,7 +85,8 @@ holds none of it):
 Events since your last turn (oldest first):
 {events}
 
-Moves you have played so far: {move_history}
+Your own past asks and how each turned out ("received N" = they handed over N
+cards of that rank; "go fish" = they had none): {move_history}
 
 It is your turn to ask. Choose a target player who still has cards and a rank
 you hold, then respond with your reasoning followed by your move in a JSON
@@ -87,8 +99,8 @@ player's number followed by the ask-letter for the rank.
 }}
 ```
 
-For example: `{{"move": "{example_move}"}}` (ask Player {example_target} for the
-rank written "{example_letter}").
+For example: `{{"move": "1a"}}` (ask Player 1 for the rank written "a"). This is
+only a format illustration, not a suggestion -- it is not necessarily legal here.
 
 Failure to output your final answer in the specified format, or selecting an
 illegal move, will result in a loss.
@@ -197,6 +209,28 @@ def _format_hand(hand: Mapping[str, int], label_to_letter: Mapping[str, str]) ->
     return "\n".join(lines)
 
 
+def _format_pool(pool_size: int | None) -> str:
+    """Describe the pool, spelling out what an empty pool means for a miss.
+
+    Pool size drives the two rules the model most often gets wrong: a miss only
+    draws a card while the pool has one, and the game is over when the pool and
+    every hand are exhausted. The consequence is stated inline rather than left
+    for the model to connect back to the rules paragraph.
+    """
+    if pool_size is None:
+        return "(unknown)"
+    if pool_size <= 0:
+        return "empty -- a miss draws nothing and simply ends your turn"
+    return f"{pool_size} card(s) left to draw"
+
+
+def _format_booked(booked: Sequence[str]) -> str:
+    """List ranks already scored into books, which are dead for asking."""
+    if not booked:
+        return "  (none yet)"
+    return "  " + ", ".join(booked)
+
+
 def _format_other_players(players: Sequence[Mapping[str, Any]], player_id: int) -> str:
     """Card and book counts for every player other than us."""
     lines = []
@@ -251,7 +285,13 @@ def _format_events(events: Sequence[Mapping[str, Any]]) -> str:
         label = ev.get("rank_label")
         booked = ev.get("booked")
         if ev.get("type") == "draw":
-            line = f"  Player {player} drew the {label} from the pool"
+            # A drawn card's rank is hidden information -- naming it here would
+            # leak an opponent's hand, contradicting the prompt's "you do NOT
+            # see other players' hands" and mooting the deduction block. The
+            # engine's canonical public encoding (go_fish.cc observation tensor)
+            # likewise records only that a draw happened, never its rank. Only a
+            # completed book is genuinely public, so keep that clause.
+            line = f"  Player {player} drew a card from the pool"
             if booked:
                 line += f" and completed a book of {label}"
         else:
@@ -286,6 +326,97 @@ def get_legal_moves(observation: Mapping[str, Any]) -> dict[int, str]:
     return {a: state.action_to_string(a) for a in actions}
 
 
+_OWN_COUNTS_RE = re.compile(r"^player (\d+) cards (\d+) books (\d+)", re.MULTILINE)
+
+
+def _own_counts(obs_text: str, player_id: int) -> tuple[int, int]:
+    """Read ``(total_cards, books)`` for ``player_id`` from a raw observation.
+
+    The raw OpenSpiel observation string carries a ``player <id> cards <c> books
+    <b>`` line for every player; this pulls the observer's own totals out of it.
+    """
+    for m in _OWN_COUNTS_RE.finditer(obs_text):
+        if int(m.group(1)) == player_id:
+            return int(m.group(2)), int(m.group(3))
+    return 0, 0
+
+
+def _annotate_move_history(
+    observation: Mapping[str, Any],
+    move_history: Sequence[str],
+    player_id: int,
+    num_suits: int,
+) -> list[str] | None:
+    """Attach the outcome of each of the observer's own asks to its move string.
+
+    The model is never shown the result of its OWN asks: OpenSpiel's observation
+    only lists opponent events since your last turn, and it stops the event walk
+    at your own most recent action (go_fish.cc ObservationString), so a player's
+    asks never appear in their own ``recent_events``. Without this the model asks
+    into the void -- it can't tell a hit from a "go fish" after the fact.
+
+    We recover each own-ask outcome deterministically by replaying the game's
+    full action history (recoverable from ``serializedGameAndState``) and reading
+    the observer's own card/book delta across just that ask:
+
+        received = (cards_after - cards_before) + num_suits * (books_after - books_before)
+
+    The ``num_suits`` correction is essential: a hit that completes a book zeroes
+    that rank out of the hand, so a naive card delta would under-count by exactly
+    one book's worth of cards. ``booked`` is simply ``books_after > books_before``.
+
+    Returns an annotated copy of ``move_history`` (bare strings for asks whose
+    outcome could not be reconstructed), or ``None`` if there is no serialized
+    state to replay -- callers fall back to the bare history in that case.
+    """
+    serialized = observation.get("serializedGameAndState", "")
+    if not serialized or not move_history:
+        return None
+    try:
+        game, _ = pyspiel.deserialize_game_and_state(serialized)
+        _, final_state = pyspiel.deserialize_game_and_state(serialized)
+        history = final_state.history()
+        replay = game.new_initial_state()
+    except (RuntimeError, ValueError):
+        return None
+
+    outcomes: list[str | None] = []
+    for action in history:
+        is_chance = replay.is_chance_node()
+        mover = None if is_chance else replay.current_player()
+        if mover == player_id:
+            before = _own_counts(replay.observation_string(player_id), player_id)
+            try:
+                replay.apply_action(action)
+            except (RuntimeError, ValueError):
+                return None
+            after = _own_counts(replay.observation_string(player_id), player_id)
+            received = (after[0] - before[0]) + num_suits * (after[1] - before[1])
+            booked = after[1] > before[1]
+            if received > 0:
+                note = f"received {received}" + (", completed a book" if booked else "")
+            else:
+                note = "go fish"
+            outcomes.append(note)
+        else:
+            try:
+                replay.apply_action(action)
+            except (RuntimeError, ValueError):
+                return None
+
+    # ``move_history`` holds only the observer's own asks, in order, so it lines
+    # up with the outcomes we collected. Guard against any length mismatch (e.g.
+    # a rethink that appended a move the engine never applied) by annotating only
+    # the overlap and leaving any extras bare.
+    annotated: list[str] = []
+    for i, mv in enumerate(move_history):
+        if i < len(outcomes) and outcomes[i] is not None:
+            annotated.append(f"{mv} ({outcomes[i]})")
+        else:
+            annotated.append(mv)
+    return annotated
+
+
 def generate_prompt(
     observation: Mapping[str, Any],
     move_history: list[str],
@@ -303,6 +434,11 @@ def generate_prompt(
     players = state.get("players") or []
     events = state.get("recent_events") or []
     deductions = state.get("deductions") or []
+    # Absent (not 0) when the payload predates these fields or is hand-built in
+    # a test -- _format_pool renders that as "(unknown)" rather than "empty",
+    # which would be an actively wrong claim about the game state.
+    pool_size = state.get("pool_size")
+    booked = state.get("booked") or []
 
     my_books = 0
     for p in players:
@@ -312,30 +448,12 @@ def generate_prompt(
 
     rank_legend = ", ".join(f"{letter}={label}" for label, letter in label_to_letter.items())
 
-    # A concrete example for the format line. Prefer an actual legal action so
-    # the example is never illegal advice (e.g. never names an opponent who is
-    # out of cards); fall back to a hand-derived ask, then a generic one.
-    legal_moves = get_legal_moves(observation)
-    if legal_moves:
-        example_move = next(iter(legal_moves.values()))
-        example_target = example_move[0]
-        example_letter = example_move[1:]
-    else:
-        example_letter = "a"
-        if hand:
-            first_label = next((lbl for lbl in label_to_letter if lbl in hand), next(iter(hand)))
-            example_letter = label_to_letter.get(first_label, "a")
-        # Prefer an opponent who still has cards to ask.
-        example_target = next(
-            (p.get("player") for p in players if p.get("player") != player_id and p.get("cards", 0) > 0),
-            next(
-                (p.get("player") for p in players if p.get("player") != player_id),
-                1,
-            ),
-        )
-        example_move = f"{example_target}{example_letter}"
-
-    move_history_str = ", ".join(move_history) if move_history else "None"
+    # Annotate each of our own past asks with its outcome (received N / go fish),
+    # which the raw observation never reveals for our own moves. Falls back to
+    # bare move strings when the history can't be replayed.
+    annotated_history = _annotate_move_history(observation, move_history, player_id, num_suits)
+    display_history = annotated_history if annotated_history is not None else move_history
+    move_history_str = ", ".join(display_history) if display_history else "None"
 
     prompt = GO_FISH_PROMPT_TEMPLATE.format(
         num_ranks=num_ranks,
@@ -344,13 +462,12 @@ def generate_prompt(
         player_id=player_id,
         my_books=my_books,
         hand_lines=_format_hand(hand, label_to_letter),
+        pool_line=_format_pool(pool_size),
+        booked_line=_format_booked(booked),
         other_players=_format_other_players(players, player_id),
         deductions=_format_deductions(deductions, player_id),
         events=_format_events(events),
         move_history=move_history_str,
-        example_move=example_move,
-        example_target=example_target,
-        example_letter=example_letter,
     )
 
     prompt += render_rethink_suffix(
@@ -366,52 +483,34 @@ def generate_prompt(
 # --- Parsing ----------------------------------------------------------------
 
 
-_STD_LABEL_TO_LETTER = {label: chr(ord("a") + i) for i, label in enumerate(_STANDARD_RANKS)}
 _SEPARATORS_RE = re.compile(r"[\s,:;._\-]")
 
 
 def _match_move_to_legal(raw: str, legal_action_strings: Sequence[str]) -> str | None:
     """Match a model's move to a legal ``<target><letter>`` action string.
 
-    Tolerates common drift: stray separators (``"1, a"``, ``"1-a"``), case
-    (``"1A"``, ``"1K"``), and the model naming the rank by its human label
-    instead of the action letter (``"110"`` / ``"1 10"`` -> ask for tens ->
-    letter ``j``; ``"1Q"`` -> ask for Queens -> letter ``l``).
+    Go Fish uses a SINGLE move namespace: the action letters ``a..m`` shown in
+    the hand lines and rank legend. The parser accepts ONLY that namespace --
+    there is no separate human-rank-label reading. This removes the dual-encoding
+    collision an earlier version had, where accepting labels as a fallback meant
+    ``"1K"`` had two simultaneously-legal readings (action letter ``k`` vs label
+    King=``m``) and the harness silently picked one with no rethink and no log.
 
-    The prompt instructs the model to use action *letters* (a..m), so the
-    literal action-letter reading is authoritative and is tried FIRST,
-    case-insensitively. This is critical: a bare uppercase action letter like
-    ``"1J"`` or ``"1K"`` must resolve to that action letter (``1j``/``1k``),
-    never to the rank whose human label happens to be ``J``/``K`` (which would
-    silently pick a *different* legal move -- Jack=``k``, King=``m``). The
-    human-label interpretation is only a fallback, reached when the literal
-    action-letter reading is not itself legal, so it can never override a valid
-    action-letter move.
+    We tolerate cosmetic drift -- stray separators (``"1, a"``, ``"1-a"``) and
+    case (matching is case-insensitive, so ``"1A"``/``"1J"`` resolve to action
+    letters ``a``/``j``). A human rank label that is NOT also an action letter
+    (``"1Q"``, ``"1, 10"``) finds no match and defers to the rethink loop.
+
+    Residual caveat of case-insensitive matching under a single namespace: an
+    uppercase card label whose glyph coincides with a legal *action letter*
+    still matches that letter. E.g. ``"1K"`` -> ``1k``: if a model wrote it
+    meaning King (label ``K``) but ``1k`` (=Jack) is legal, it asks for Jack.
+    This is an accepted trade-off -- the prompt only ever teaches action letters
+    and shows King as ask-letter ``m`` -- but it is a genuine remaining edge, not
+    an impossibility. Making matching case-sensitive would close it at the cost
+    of rejecting a model that merely uppercased the letter it was told to use.
     """
     compact = _SEPARATORS_RE.sub("", raw.strip())
-    if not compact:
-        return None
-
-    # The engine encodes the target as a single character ('0'+target), so a
-    # legal action string is always <single-digit-target><rank-letter>.
-    m = re.match(r"^(\d)(.+)$", compact)
-    if m:
-        target, tok = m.group(1), m.group(2)
-        # Authoritative: literal action-letter interpretation (case-insensitive).
-        matched = _default_match(compact, legal_action_strings)
-        if matched:
-            return matched
-        # Fallback only: the model named the rank by its human label ("10",
-        # "Q", ...) rather than the action letter. Reached only when the
-        # literal reading above found no legal move, so it cannot silently
-        # rewrite a legal uppercased action letter to a different rank.
-        if tok.isdigit() or tok.isupper() or len(tok) > 1:
-            letter = _STD_LABEL_TO_LETTER.get(tok.upper())
-            if letter is not None:
-                matched = _default_match(f"{target}{letter}", legal_action_strings)
-                if matched:
-                    return matched
-
     return _default_match(compact, legal_action_strings)
 
 
