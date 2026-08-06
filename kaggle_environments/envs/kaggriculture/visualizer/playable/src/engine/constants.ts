@@ -154,12 +154,9 @@ export const SHOP_NAMES: ShopName[] = Object.keys(SHOPS) as ShopName[];
 
 export const TOWN_CENTER_PRODUCTS: ProductId[] = PRODUCTS.filter((p) => p !== 'FERTILIZER');
 
-// Highest threshold first — matches the next-match-wins lookup in Python.
-export const TOWN_CENTER_DEMAND_SCHEDULE: ReadonlyArray<readonly [number, number]> = [
-  [20, 4],
-  [10, 2],
-  [0, 1],
-];
+// Maximum number of shop instances the town will ever unlock. Shops are drawn
+// with replacement, so this caps total count, not variety.
+export const MAX_SHOP_INSTANCES = 8;
 
 // Default configuration — pulled directly from kaggriculture.json so the TS
 // engine stays in sync with the Python source of truth automatically.
