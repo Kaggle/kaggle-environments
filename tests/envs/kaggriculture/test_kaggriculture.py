@@ -162,6 +162,57 @@ def test_movement_blocked_off_map():
     assert farm["hands"][0] == [9, 9]
 
 
+def test_shed_ops_work_from_a_locked_shed_access_tile():
+    """Three of the four shed-access tiles start locked; the shed still works."""
+    farm = _new_farm(10, 100)
+    private = _new_private()
+    private["shed"]["WHEAT"] = 5
+    # (5, 4) is a shed-access tile in the NE quadrant, so it starts locked.
+    farm["farmer"] = [5, 4]
+    assert farm["tiles"][4][5] == "LOCKED"
+
+    _apply_unit_action(farm, private, 0, ["PICKUP", "WHEAT", 2], 10, 0, 24)
+    assert private["inventories"][0]["WHEAT"] == 2
+    assert private["shed"]["WHEAT"] == 3
+
+    _apply_unit_action(farm, private, 0, ["PLACE", "WHEAT", 1], 10, 0, 24)
+    assert private["inventories"][0]["WHEAT"] == 1
+    assert private["shed"]["WHEAT"] == 4
+
+    _apply_unit_action(farm, private, 0, ["DROP"], 10, 0, 24)
+    assert private["inventories"][0].get("WHEAT", 0) == 0
+    assert private["shed"]["WHEAT"] == 5
+
+
+def test_tile_ops_still_noop_on_locked_shed_access_tile():
+    """Resolving shed ops early must not let tile ops run on locked ground."""
+    farm = _new_farm(10, 100)
+    private = _new_private()
+    private["seeds"]["CARROT"] = 3
+    farm["farmer"] = [5, 4]
+    assert farm["tiles"][4][5] == "LOCKED"
+
+    for action in (["PLANT", "CARROT"], ["BUILD_COOP"], ["BUILD_PASTURE"], ["DIG"]):
+        _apply_unit_action(farm, private, 0, action, 10, 0, 24)
+        assert farm["tiles"][4][5] == "LOCKED", action
+    assert private["seeds"]["CARROT"] == 3
+
+
+def test_place_animal_still_noop_on_locked_tile():
+    """PLACE moved above the guard, but animals need an owned structure."""
+    farm = _new_farm(10, 100)
+    private = _new_private()
+    # (5, 4) is locked and shed-adjacent: the animal branch must not match, and
+    # the shed fallback must not silently swallow the animal either.
+    farm["farmer"] = [5, 4]
+    private["inventories"][0]["CHICKEN"] = 1
+    _apply_unit_action(farm, private, 0, ["PLACE", "CHICKEN"], 10, 0, 24)
+    assert farm["tiles"][4][5] == "LOCKED"
+    # It went into the shed as a plain item, not onto the locked tile.
+    assert private["inventories"][0].get("CHICKEN", 0) == 0
+    assert private["shed"]["CHICKEN"] == 1
+
+
 # --- Shed / pickup / inventory ---------------------------------------------
 
 def test_pickup_requires_shed_adjacency():
