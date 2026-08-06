@@ -6,6 +6,7 @@ from kaggle_environments.envs.kaggriculture.kaggriculture import (
     LAND_ORDER,
     LAND_PRICES,
     MARKET_PARAMS,
+    MAX_SHOP_INSTANCES,
     PRODUCTS,
     SHOPS,
     TOWN_CENTER_PRODUCTS,
@@ -17,6 +18,7 @@ from kaggle_environments.envs.kaggriculture.kaggriculture import (
     _do_buy_land,
     _do_hire,
     _drop_inventories_to_shed,
+    _end_of_day,
     _new_animal,
     _new_farm,
     _new_market,
@@ -24,6 +26,7 @@ from kaggle_environments.envs.kaggriculture.kaggriculture import (
     _new_private,
     _quadrant_of,
     _shed_access_tiles,
+    _town_consume,
     market_price,
 )
 
@@ -879,6 +882,84 @@ def test_town_unlocks_a_shop_after_three_days():
     final_town = j["steps"][-1][0]["observation"]["town"]
     assert len(final_town["unlocked_shops"]) >= 1
     assert all(s in SHOPS for s in final_town["unlocked_shops"])
+
+
+def test_town_shops_can_unlock_duplicates():
+    """Shops are drawn with replacement, so over a full season at least one
+    seed should produce a repeated shop. Sample a handful of seeds and assert
+    duplicates occur (the with-replacement draw makes this overwhelmingly likely)."""
+    saw_duplicate = False
+    for seed in range(8):
+        env = make("kaggriculture", configuration={"episodeSteps": 24 * 30, "seed": seed, "turnsPerDay": 24})
+        env.run(["pass", "pass"])
+        shops = env.toJSON()["steps"][-1][0]["observation"]["town"]["unlocked_shops"]
+        assert all(s in SHOPS for s in shops)
+        if len(set(shops)) < len(shops):
+            saw_duplicate = True
+            break
+    assert saw_duplicate, "expected at least one duplicated shop across sampled seeds"
+
+
+def test_shop_unlocks_stop_at_the_instance_cap():
+    """_end_of_day must not push past MAX_SHOP_INSTANCES."""
+    env = make("kaggriculture", configuration={"seed": 3, "turnsPerDay": 24, "townShopUnlockInterval": 1})
+    state = env.reset()
+    town = state[0].observation.town
+    # 40 unlock opportunities against a cap of 8.
+    for day in range(40):
+        _end_of_day(state, env, day)
+    assert len(town["unlocked_shops"]) == MAX_SHOP_INSTANCES
+
+
+def test_duplicate_shops_consume_independently():
+    """Two copies of a shop must drain twice as much as one copy."""
+    def drain(shops):
+        env = make("kaggriculture", configuration={"seed": 5, "townShopSellInterval": 1})
+        state = env.reset()
+        market = state[0].observation.market
+        state[0].observation.town["unlocked_shops"] = list(shops)
+        before = dict(market["inventory"])
+        _town_consume(env, state, 1)  # step 1: shops tick, town center does not
+        return {k: before[k] - v for k, v in market["inventory"].items()}
+
+    one = drain(["BAKERY"])
+    two = drain(["BAKERY", "BAKERY"])
+    assert one["WHEAT"] == 1 and one["EGG"] == 1
+    assert two["WHEAT"] == 2 and two["EGG"] == 2
+
+
+def test_town_center_rate_is_flat_across_the_season():
+    """No ramp: the center pulls exactly 1 of each non-fertilizer product on
+    every center tick, on day 0 and on day 29 alike."""
+    for step in (0, 24 * 29):
+        env = make("kaggriculture", configuration={"seed": 5, "turnsPerDay": 24})
+        state = env.reset()
+        market = state[0].observation.market
+        state[0].observation.town["unlocked_shops"] = []
+        before = dict(market["inventory"])
+        _town_consume(env, state, step)
+        for item in TOWN_CENTER_PRODUCTS:
+            assert before[item] - market["inventory"][item] == 1, f"{item} at step {step}"
+
+
+def test_town_center_buys_once_per_day_by_default():
+    """Default townCenterSellInterval equals turnsPerDay, so exactly one center
+    tick lands in each day."""
+    env = make("kaggriculture", configuration={"turnsPerDay": 24})
+    cfg = env.configuration
+    assert cfg.townCenterSellInterval == 24
+    assert cfg.townCenterSellInterval == cfg.turnsPerDay
+
+    ticks = 0
+    for step in range(24):
+        state = env.reset()
+        market = state[0].observation.market
+        state[0].observation.town["unlocked_shops"] = []
+        before = market["inventory"]["WHEAT"]
+        _town_consume(env, state, step)
+        if market["inventory"]["WHEAT"] < before:
+            ticks += 1
+    assert ticks == 1
 
 
 def test_town_consumes_market_inventory():

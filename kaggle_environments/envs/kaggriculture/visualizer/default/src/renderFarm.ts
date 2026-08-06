@@ -612,28 +612,50 @@ function renderMarket(refs: LayoutRefs, market: MarketPublic, priceHistory: Reco
 }
 
 function renderTown(refs: LayoutRefs, town: TownPublic): void {
-  const active = new Set(town?.unlocked_shops ?? []);
+  // Shops are drawn with replacement, so a name can appear more than once and
+  // each copy consumes independently. There is one slot per shop name, so show
+  // the instance count rather than a second sprite.
+  const counts = new Map<string, number>();
+  for (const shop of town?.unlocked_shops ?? []) {
+    counts.set(shop, (counts.get(shop) ?? 0) + 1);
+  }
   // Look up by interpreter shop key.
   const buildingByShop = new Map<string, { sprite: string; label: string }>();
   for (const b of Object.values(SURROUNDING_BUILDINGS)) buildingByShop.set(b.shop, b);
 
   for (const slot of refs.shopSlots) {
     const shop = slot.dataset.building ?? '';
-    const isActive = active.has(shop);
+    const count = counts.get(shop) ?? 0;
     const meta = buildingByShop.get(shop);
     const existing = slot.querySelector<HTMLImageElement>('.town-sprite');
-    if (isActive && meta) {
+    const existingBadge = slot.querySelector<HTMLElement>('.town-shop-count');
+    if (count > 0 && meta) {
+      const label = count > 1 ? `${meta.label} x${count}` : meta.label;
       if (!existing) {
         const img = document.createElement('img');
         img.className = 'town-sprite';
         img.src = spriteSrc(meta.sprite);
         img.alt = meta.label;
-        img.title = meta.label;
+        img.title = label;
         // Insert before flower overlays so flowers stay on top.
         slot.insertBefore(img, slot.firstChild);
+      } else {
+        existing.title = label;
       }
-    } else if (existing) {
-      existing.remove();
+      if (count > 1) {
+        const badge = existingBadge ?? document.createElement('div');
+        if (!existingBadge) {
+          badge.className = 'town-shop-count';
+          slot.appendChild(badge);
+        }
+        const text = `x${count}`;
+        if (badge.textContent !== text) badge.textContent = text;
+      } else if (existingBadge) {
+        existingBadge.remove();
+      }
+    } else {
+      if (existing) existing.remove();
+      if (existingBadge) existingBadge.remove();
     }
   }
 }

@@ -19,7 +19,7 @@ Kaggriculture is a two-player farming sim. Each player manages a farm and compet
 - **Weeds** — every empty unlocked tile has a `weedSpawnChance` (default 0.005) of spawning a weed at end-of-day; clear with `DIG`
 - **Shed** — non-seed inventory cap of 100 items. Items beyond the cap at end-of-day drop are discarded. Seeds live in their own slot (no cap, never picked up by `PICKUP` — `PLANT` consumes them directly)
 - **Market** — fixed prices for seeds, animals, and `BUY_PRODUCT` orders; sale prices for harvested produce vary dynamically with market inventory. Price is `base` at the shared starting inventory `I0`, rises as inventory falls, and falls as inventory grows, using a per-resource shape function (`linear`, `sq`, `sqrt`, or `log`) that can differ on each side of `I0` — so gluts hit premium goods (strawberry, melon, milk, wool) hard, driving them to the $1 floor, while staples absorb oversupply more gently (see the Price Function table in [README.md](README.md)). Only wheat and fertilizer can be bought back via `BUY_PRODUCT`; every product can be sold via `SELL`. Each turn, at most `maxMarketOrdersPerTurn` (default 10) orders are processed per player; extras are silently dropped
-- **Town** — town center always demands product (1 of each non-fertilizer product every `townCenterSellInterval` turns, default 12, scaling to 2× after day 10 and 4× after day 20). Additional shops unlock every `townShopUnlockInterval` days (default 3, random selection from the remaining pool); each unlocked shop consumes one of every product it demands every `townShopSellInterval` turns (default 4, single-product shops consume 2×) — see the Town Buildings table in [README.md](README.md)
+- **Town** — town center always demands product (1 of each non-fertilizer product every `townCenterSellInterval` turns, default 24 — once per day, flat for the whole season). Additional shops unlock every `townShopUnlockInterval` days (default 3, drawn uniformly at random **with replacement**, so duplicates are possible; capped at 8 instances); each unlocked shop instance consumes one of every product it demands every `townShopSellInterval` turns (default 4, single-product shops consume 2×) — see the Town Buildings table in [README.md](README.md)
 - **Season length** — 24 turns per day × 30 days = 720 turns by default
 - **Win condition** — most coins in the bank at the end of the season; ties are possible
 
@@ -46,7 +46,7 @@ Your agent is a function that receives an observation and returns an action dict
 - `market` — shared:
   - `inventory` — `{product: int}` current market supply
   - `prices` — `{product: int}` current per-unit sale price (rounded, floor 1)
-- `town` — shared: `unlocked_shops` — list of currently-active shop names
+- `town` — shared: `unlocked_shops` — list of currently-active shop names; names may repeat (shops are drawn with replacement) and each entry consumes independently
 
 **Action format:**
 

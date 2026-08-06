@@ -531,6 +531,27 @@ body {
   image-rendering: pixelated;
 }
 
+/* Instance count for a shop unlocked more than once (shops are drawn with
+   replacement). One slot per shop name, so the count stands in for duplicate
+   sprites. */
+.town-shop-count {
+  position: absolute;
+  right: 4%;
+  top: 4%;
+  z-index: 7;
+  min-width: 1.1em;
+  padding: 0 0.25em;
+  border-radius: 0.6em;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.45;
+  text-align: center;
+  image-rendering: auto;
+  pointer-events: none;
+}
+
 /* The sign lives in slot 4 but should visually hang halfway across the
    slot 4/7 boundary, so absolute-position it on the bottom edge and
    translate it down by half its height. */
