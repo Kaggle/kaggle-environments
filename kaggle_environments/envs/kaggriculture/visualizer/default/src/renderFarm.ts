@@ -4,11 +4,12 @@ import {
   MARKET_ITEMS,
   QUADRANT_BY_SEGMENT,
   SEGMENT,
-  SURROUNDING_BUILDINGS,
+  SHOP_BUILDINGS,
   TOWN_CENTER_INDEX,
   TOWN_EMPTY_BRICK_INDICES,
   TOWN_GRID_COLS,
   TOWN_GRID_ROWS,
+  TOWN_SHOP_SLOT_ORDER,
   TOWN_SIGN_INDEX,
   type BoardSize,
   type CellRefs,
@@ -187,10 +188,12 @@ function townPanel(): string {
                       <img class="town-sprite" src="${spriteSrc('town_sign')}" alt="" title="Welcome to Kaggriculture!" />
                     </div>`;
           }
-          const building = SURROUNDING_BUILDINGS[i];
-          if (building) {
-            // renderTown injects the shop sprite once the shop unlocks.
-            return `<div class="town-slot town-slot--shop" data-slot="${i}" data-building="${building.shop}" style="${BG_BRICK_SLOT}"></div>`;
+          const shopOrder = TOWN_SHOP_SLOT_ORDER.indexOf(i);
+          if (shopOrder !== -1) {
+            // Slots are generic: renderTown fills them in unlock order, so the
+            // n-th unlocked shop lands in the n-th slot regardless of which
+            // shop it is.
+            return `<div class="town-slot town-slot--shop" data-slot="${i}" data-shop-order="${shopOrder}" style="${BG_BRICK_SLOT}"></div>`;
           }
           if (TOWN_EMPTY_BRICK_INDICES.has(i)) {
             return `<div class="town-slot" data-slot="${i}" style="${BG_BRICK_SLOT}"></div>`;
@@ -303,7 +306,10 @@ export function collectRefs(root: HTMLElement, board: BoardSize): LayoutRefs {
     dayValues: Array.from(root.querySelectorAll<HTMLElement>('.day-value')),
     turnValues: Array.from(root.querySelectorAll<HTMLElement>('.turn-value')),
     marketItems,
-    shopSlots: Array.from(root.querySelectorAll<HTMLElement>('.town-slot--shop')),
+    // Sorted by fill order so shopSlots[n] is where the n-th unlocked shop goes.
+    shopSlots: Array.from(root.querySelectorAll<HTMLElement>('.town-slot--shop')).sort(
+      (a, b) => Number(a.dataset.shopOrder) - Number(b.dataset.shopOrder)
+    ),
     townGeese: Array.from(root.querySelectorAll<HTMLImageElement>('.town-goose')),
     players: [1, 2].map((p) =>
       collectPlayerRefs(root.querySelector<HTMLElement>(`.farm-panel[data-player="${p}"]`)!, board)
@@ -612,52 +618,35 @@ function renderMarket(refs: LayoutRefs, market: MarketPublic, priceHistory: Reco
 }
 
 function renderTown(refs: LayoutRefs, town: TownPublic): void {
-  // Shops are drawn with replacement, so a name can appear more than once and
-  // each copy consumes independently. There is one slot per shop name, so show
-  // the instance count rather than a second sprite.
-  const counts = new Map<string, number>();
-  for (const shop of town?.unlocked_shops ?? []) {
-    counts.set(shop, (counts.get(shop) ?? 0) + 1);
-  }
-  // Look up by interpreter shop key.
-  const buildingByShop = new Map<string, { sprite: string; label: string }>();
-  for (const b of Object.values(SURROUNDING_BUILDINGS)) buildingByShop.set(b.shop, b);
+  // Shops are drawn with replacement, so unlocked_shops may repeat a name.
+  // Slots are generic and filled in unlock order, so every instance gets its
+  // own building -- three farmers' markets show as three sprites.
+  const unlocked = town?.unlocked_shops ?? [];
 
-  for (const slot of refs.shopSlots) {
-    const shop = slot.dataset.building ?? '';
-    const count = counts.get(shop) ?? 0;
-    const meta = buildingByShop.get(shop);
+  refs.shopSlots.forEach((slot, i) => {
+    const shop = unlocked[i];
+    const meta = shop ? SHOP_BUILDINGS[shop] : undefined;
     const existing = slot.querySelector<HTMLImageElement>('.town-sprite');
-    const existingBadge = slot.querySelector<HTMLElement>('.town-shop-count');
-    if (count > 0 && meta) {
-      const label = count > 1 ? `${meta.label} x${count}` : meta.label;
-      if (!existing) {
-        const img = document.createElement('img');
-        img.className = 'town-sprite';
-        img.src = spriteSrc(meta.sprite);
-        img.alt = meta.label;
-        img.title = label;
-        // Insert before flower overlays so flowers stay on top.
-        slot.insertBefore(img, slot.firstChild);
-      } else {
-        existing.title = label;
-      }
-      if (count > 1) {
-        const badge = existingBadge ?? document.createElement('div');
-        if (!existingBadge) {
-          badge.className = 'town-shop-count';
-          slot.appendChild(badge);
-        }
-        const text = `x${count}`;
-        if (badge.textContent !== text) badge.textContent = text;
-      } else if (existingBadge) {
-        existingBadge.remove();
-      }
-    } else {
+    if (!meta) {
       if (existing) existing.remove();
-      if (existingBadge) existingBadge.remove();
+      return;
     }
-  }
+    const src = spriteSrc(meta.sprite);
+    if (!existing) {
+      const img = document.createElement('img');
+      img.className = 'town-sprite';
+      img.src = src;
+      img.alt = meta.label;
+      img.title = meta.label;
+      // Insert before flower overlays so flowers stay on top.
+      slot.insertBefore(img, slot.firstChild);
+    } else if (existing.getAttribute('src') !== src) {
+      // Scrubbing backwards can leave a different shop in this slot.
+      existing.src = src;
+      existing.alt = meta.label;
+      existing.title = meta.label;
+    }
+  });
 }
 
 function renderGeese(refs: LayoutRefs, day: number, hour: number): void {

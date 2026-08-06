@@ -4,11 +4,11 @@ export const SEGMENT = 5;
 // always empty.
 export const INVENTORY_SLOTS = 18;
 
-// 3x4 grid: top row holds the bakery, town center, and pizza shop. The
-// town sign sits on bare grass at row 2 middle, with a grass-empty slot
-// below it and a brick-empty slot at the bottom of the middle column.
-// The remaining 6 shops line the left and right columns. Shops unlock
-// one per 3 in-game days.
+// 3x4 grid: the town center sits at row 1 middle and the town sign on bare
+// grass at row 2 middle, with a grass-empty slot below it and a brick-empty
+// slot at the bottom of the middle column. The remaining 8 slots hold shops,
+// filled in unlock order (see TOWN_SHOP_SLOT_ORDER). Shops unlock one per 3
+// in-game days.
 export const TOWN_GRID_COLS = 3;
 export const TOWN_GRID_ROWS = 4;
 export const TOWN_CENTER_INDEX = 1;
@@ -26,19 +26,25 @@ export const QUADRANT_BY_SEGMENT: Record<number, string> = {
   3: 'SE',
 };
 
-// Shop slot index in the 3x4 grid (skipping center=1, sign=4, grass-empty
-// cell 7, and brick-empty cell 10) -> { interpreter shop key, sprite name,
-// label }.
-export const SURROUNDING_BUILDINGS: Record<number, { shop: string; sprite: string; label: string }> = {
-  0: { shop: 'BAKERY', sprite: 'bakery', label: 'Bakery' },
-  2: { shop: 'PIZZA_SHOP', sprite: 'pizza', label: 'Pizza Shop' },
-  3: { shop: 'BRUNCH_SPOT', sprite: 'brunch', label: 'Brunch Spot' },
-  5: { shop: 'YARN_STORE', sprite: 'yarn', label: 'Yarn Store' },
-  6: { shop: 'ICE_CREAM_SHOP', sprite: 'icecream', label: 'Ice Cream Shop' },
-  8: { shop: 'PET_CAFE', sprite: 'petcafe', label: 'Pet Cafe' },
-  9: { shop: 'SMOOTHIE_SHOP', sprite: 'smoothie', label: 'Smoothie Shop' },
-  11: { shop: 'FARMERS_MARKET', sprite: 'farmersmarket', label: "Farmers' Market" },
+// Interpreter shop key -> { sprite name, label }. Slot position is not fixed
+// per shop: shops are drawn with replacement, so the same shop can unlock
+// several times and each instance gets its own slot.
+export const SHOP_BUILDINGS: Record<string, { sprite: string; label: string }> = {
+  BAKERY: { sprite: 'bakery', label: 'Bakery' },
+  PIZZA_SHOP: { sprite: 'pizza', label: 'Pizza Shop' },
+  BRUNCH_SPOT: { sprite: 'brunch', label: 'Brunch Spot' },
+  YARN_STORE: { sprite: 'yarn', label: 'Yarn Store' },
+  ICE_CREAM_SHOP: { sprite: 'icecream', label: 'Ice Cream Shop' },
+  PET_CAFE: { sprite: 'petcafe', label: 'Pet Cafe' },
+  SMOOTHIE_SHOP: { sprite: 'smoothie', label: 'Smoothie Shop' },
+  FARMERS_MARKET: { sprite: 'farmersmarket', label: "Farmers' Market" },
 };
+
+// Grid indices that hold shops, in the order they get filled as shops unlock:
+// down the left column and right column together, skipping center=1, sign=4,
+// grass-empty=7, and brick-empty=10. Length must be >= the interpreter's
+// MAX_SHOP_INSTANCES (8) so every unlocked instance has a home.
+export const TOWN_SHOP_SLOT_ORDER: readonly number[] = [0, 2, 3, 5, 6, 8, 9, 11];
 
 // Visible market items. `key` is the interpreter's PRODUCTS key; `sprite` is the asset name.
 export const MARKET_ITEMS: { sprite: string; key: string }[] = [
