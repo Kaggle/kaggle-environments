@@ -100,8 +100,9 @@ SHOPS = {
 
 TOWN_CENTER_PRODUCTS = [p for p in PRODUCTS if p != "FERTILIZER"]
 
-# Town center demand schedule: (day_threshold, multiplier), highest threshold first.
-TOWN_CENTER_DEMAND_SCHEDULE = [(20, 4), (10, 2), (0, 1)]
+# Maximum number of shop instances the town will ever unlock. Shops are drawn
+# with replacement, so this caps total count, not variety.
+MAX_SHOP_INSTANCES = 8
 
 
 def get(d, key, default):
@@ -717,11 +718,11 @@ def _town_consume(env, state, step):
     town = obs0.town
     cfg = env.configuration
     shop_interval = max(1, int(get(cfg, "townShopSellInterval", 4)))
-    center_interval = max(1, int(get(cfg, "townCenterSellInterval", 12)))
-    turns_per_day = max(1, int(get(cfg, "turnsPerDay", 24)))
-    day = step // turns_per_day
+    center_interval = max(1, int(get(cfg, "townCenterSellInterval", 24)))
 
     if step % shop_interval == 0:
+        # unlocked_shops may list the same shop more than once (shops are drawn
+        # with replacement); each instance consumes independently.
         for shop_name in town.get("unlocked_shops", []):
             products = SHOPS[shop_name]
             multiplier = 2 if len(products) == 1 else 1
@@ -729,9 +730,8 @@ def _town_consume(env, state, step):
                 market["inventory"][item] -= multiplier
 
     if step % center_interval == 0:
-        center_mult = next(m for threshold, m in TOWN_CENTER_DEMAND_SCHEDULE if day >= threshold)
         for item in TOWN_CENTER_PRODUCTS:
-            market["inventory"][item] -= center_mult
+            market["inventory"][item] -= 1
 
     _refresh_prices(market)
 
@@ -871,10 +871,11 @@ def _end_of_day(state, env, day):
     next_day = day + 1
     town = obs0.town
     if next_day > 0 and next_day % shop_interval == 0:
-        remaining = [s for s in SHOPS if s not in town["unlocked_shops"]]
-        if remaining:
-            choice = rng.choice(sorted(remaining))
-            town["unlocked_shops"].append(choice)
+        # Drawn with replacement: the same shop can unlock repeatedly, and each
+        # copy consumes independently. Variety is not guaranteed; only the total
+        # instance count is capped.
+        if len(town["unlocked_shops"]) < MAX_SHOP_INSTANCES:
+            town["unlocked_shops"].append(rng.choice(sorted(SHOPS)))
 
 
 def interpreter(state, env):

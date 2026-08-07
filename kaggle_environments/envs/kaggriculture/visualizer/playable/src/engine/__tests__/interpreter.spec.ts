@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ANIMALS, CROPS, MARKET_PARAMS, PRODUCTS } from '../constants';
+import { ANIMALS, CROPS, MARKET_PARAMS, MAX_SHOP_INSTANCES, PRODUCTS, TOWN_CENTER_PRODUCTS } from '../constants';
 import {
   applyUnitAction,
   dailyRefreshAnimals,
@@ -302,6 +302,41 @@ describe('townConsume + decayPlants', () => {
     expect(s.market.inventory.EGG).toBe(eggBefore - 1 - 1);
   });
 
+  it('townConsume charges each duplicate shop instance independently', () => {
+    const s = fresh();
+    s.town.unlocked_shops = ['BAKERY', 'BAKERY'];
+    const wheatBefore = s.market.inventory.WHEAT;
+    const eggBefore = s.market.inventory.EGG;
+    townConsume(s.market, s.town, 1, { ...cfg, townShopSellInterval: 1 }); // step 1: shops only
+    expect(s.market.inventory.WHEAT).toBe(wheatBefore - 2);
+    expect(s.market.inventory.EGG).toBe(eggBefore - 2);
+  });
+
+  it('town center pulls a flat 1 of each non-fertilizer product all season', () => {
+    for (const stepIdx of [0, TPD * 29]) {
+      const s = fresh();
+      s.town.unlocked_shops = [];
+      const before = { ...s.market.inventory };
+      townConsume(s.market, s.town, stepIdx, cfg);
+      for (const item of TOWN_CENTER_PRODUCTS) {
+        expect(before[item] - s.market.inventory[item]).toBe(1);
+      }
+    }
+  });
+
+  it('town center ticks exactly once per day by default', () => {
+    expect(cfg.townCenterSellInterval).toBe(cfg.turnsPerDay);
+    let ticks = 0;
+    for (let stepIdx = 0; stepIdx < TPD; stepIdx++) {
+      const s = fresh();
+      s.town.unlocked_shops = [];
+      const before = s.market.inventory.WHEAT;
+      townConsume(s.market, s.town, stepIdx, cfg);
+      if (s.market.inventory.WHEAT < before) ticks++;
+    }
+    expect(ticks).toBe(1);
+  });
+
   it('decayPlants ticks yield_units down every 2 steps past max_lifespan_step', () => {
     const s = fresh();
     const f = s.farms[0];
@@ -422,6 +457,28 @@ describe('endOfDay', () => {
     // From day=3, nextDay=4 → no unlock.
     endOfDay(s.farms, s.privates, s.town, 3, cfg, s.seed);
     expect(s.town.unlocked_shops).toHaveLength(1);
+  });
+
+  it('stops unlocking at MAX_SHOP_INSTANCES', () => {
+    const s = fresh();
+    const everyDay = { ...cfg, townShopUnlockInterval: 1 };
+    for (let day = 0; day < 40; day++) {
+      endOfDay(s.farms, s.privates, s.town, day, everyDay, s.seed);
+    }
+    expect(s.town.unlocked_shops).toHaveLength(MAX_SHOP_INSTANCES);
+  });
+
+  it('draws shops with replacement, so duplicates can appear', () => {
+    const everyDay = { ...cfg, townShopUnlockInterval: 1 };
+    let sawDuplicate = false;
+    for (let seed = 0; seed < 8 && !sawDuplicate; seed++) {
+      const s = fresh(2, seed);
+      for (let day = 0; day < 40; day++) {
+        endOfDay(s.farms, s.privates, s.town, day, everyDay, s.seed);
+      }
+      sawDuplicate = new Set(s.town.unlocked_shops).size < s.town.unlocked_shops.length;
+    }
+    expect(sawDuplicate).toBe(true);
   });
 });
 

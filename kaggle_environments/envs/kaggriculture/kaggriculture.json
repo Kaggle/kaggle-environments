@@ -44,21 +44,21 @@
       "minimum": 0
     },
     "townShopUnlockInterval": {
-      "description": "Days between successive town shop unlocks. First shop unlocks on day equal to this value.",
+      "description": "Days between successive town shop unlocks. First shop unlocks on day equal to this value. Shops are drawn with replacement, so the same shop can unlock more than once; unlocking stops after 8 instances.",
       "type": "integer",
       "default": 3,
       "minimum": 1
     },
     "townShopSellInterval": {
-      "description": "Number of turns between successive consumption ticks by every unlocked town shop. Each shop pulls one of each of its products per tick (single-product shops pull 2x). Total demand grows monotonically as more shops are unlocked.",
+      "description": "Number of turns between successive consumption ticks by every unlocked town shop instance. Each instance pulls one of each of its products per tick (single-product shops pull 2x), so a duplicated shop consumes once per copy. Total demand grows monotonically as more shops are unlocked.",
       "type": "integer",
       "default": 4,
       "minimum": 1
     },
     "townCenterSellInterval": {
-      "description": "Number of turns between successive consumption ticks by the town center (one of every product per tick).",
+      "description": "Number of turns between successive consumption ticks by the town center (one of every non-fertilizer product per tick). At the default of 24 with turnsPerDay 24, the town center buys once per day at a flat rate for the whole season.",
       "type": "integer",
-      "default": 12,
+      "default": 24,
       "minimum": 1
     },
     "seed": {
