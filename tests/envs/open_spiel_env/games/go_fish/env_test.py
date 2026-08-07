@@ -387,6 +387,83 @@ class GoFishPublicCountsTest(absltest.TestCase):
         self.assertEqual(sd["pool_size"], 7 * 6 - in_hands)
 
 
+class GoFishHandParityTest(absltest.TestCase):
+    """The parsed hand must equal the engine's hand for every deck size.
+
+    OpenSpiel writes a rank as ``chr('a' + rank)``, which leaves a-z once
+    ranks > 26: at ranks=30 the last four ranks are ``{``, ``|``, ``}``, ``~``.
+    The token regex used to be ``([a-z])(\\d+)``, so those cards were dropped
+    from the parsed hand while ``booked``, ``deductions`` and the legal-action
+    set still carried them -- the observer saw a hand that could not justify its
+    own legal moves. ranks=13 alone never exercises this; the tensor-parity test
+    already ran ranks=30 but only compared deductions, never the hand.
+    """
+
+    def _assert_hand_matches_engine(self, params, seeds=6):
+        num_ranks = params["ranks"]
+        num_players = params.get("players", 2)
+        checked = 0
+        for seed in range(seeds):
+            game = go_fish_proxy.GoFishGame(params)
+            state = game.new_initial_state()
+            rng = random.Random(seed)
+            _advance_chance(state, rng)
+            while not state.is_terminal():
+                for pid in range(num_players):
+                    expected = {
+                        go_fish_proxy._rank_label(rank, num_ranks): count
+                        for rank, count in enumerate(state.__wrapped__.player_cards()[pid])
+                        if count
+                    }
+                    self.assertEqual(state.state_dict(pid)["hand"], expected, f"{params} seed={seed} p{pid}")
+                    checked += 1
+                state.apply_action(rng.choice(state.legal_actions()))
+                _advance_chance(state, rng)
+        return checked
+
+    def test_hand_matches_engine_at_default_deck(self):
+        self.assertGreater(self._assert_hand_matches_engine({"ranks": 13, "suits": 4}), 100)
+
+    def test_hand_matches_engine_past_the_alphabet(self):
+        # 26 is the last all-alphabetic deck; 27 and 30 spill into '{|}~'.
+        for ranks in (26, 27, 30):
+            with self.subTest(ranks=ranks):
+                self.assertGreater(self._assert_hand_matches_engine({"ranks": ranks, "suits": 4}), 100)
+
+    def test_non_alphabetic_ranks_actually_occur(self):
+        # Guards the tests above from passing vacuously: if no hand ever holds a
+        # past-'z' rank, they prove nothing about the boundary they target.
+        game = go_fish_proxy.GoFishGame({"ranks": 30, "suits": 4})
+        state = game.new_initial_state()
+        rng = random.Random(2)
+        _advance_chance(state, rng)
+        seen = set()
+        while not state.is_terminal() and len(seen) < 1:
+            for pid in range(2):
+                seen |= {label for label in state.state_dict(pid)["hand"] if not label.isalpha()}
+            state.apply_action(rng.choice(state.legal_actions()))
+            _advance_chance(state, rng)
+        self.assertTrue(seen, "no past-'z' rank ever reached a hand")
+
+    def test_hand_can_justify_every_legal_ask(self):
+        # The concrete failure the drop caused: a legal move whose rank is absent
+        # from the rendered hand. Asks are only generated for ranks you hold, so
+        # every legal action's letter must appear in the hand.
+        game = go_fish_proxy.GoFishGame({"ranks": 30, "suits": 4})
+        state = game.new_initial_state()
+        rng = random.Random(2)
+        _advance_chance(state, rng)
+        letters = [go_fish_proxy._rank_label(i, 30) for i in range(30)]
+        while not state.is_terminal():
+            pid = int(state.current_player())
+            hand = state.state_dict(pid)["hand"]
+            for action in state.legal_actions():
+                label = letters[action % 30]
+                self.assertIn(label, hand, f"legal ask {state.action_to_string(action)!r} not in hand {hand}")
+            state.apply_action(rng.choice(state.legal_actions()))
+            _advance_chance(state, rng)
+
+
 class GoFishEnvTest(absltest.TestCase):
     def test_go_fish_agent_playthrough(self):
         env = make(

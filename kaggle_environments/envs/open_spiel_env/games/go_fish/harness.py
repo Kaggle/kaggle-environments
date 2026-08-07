@@ -45,17 +45,19 @@ GO_FISH_PROMPT_TEMPLATE = """Let's play Go Fish.
 Rules: The deck has {num_ranks} ranks with {num_suits} copies of each. On your
 turn you ASK one other player for a rank -- you may only ask for a rank you
 already hold at least one card of. If that player has any cards of that rank,
-they give you all of them and you take another turn (ask again). If they have
-none, you "go fish": you draw one card from the pool. If the drawn card is the
-very rank you asked for, you take another turn; otherwise your turn ends. If the
-pool is empty when you get a miss, there is no card to draw and your turn simply
-ends. Collecting all {num_suits} copies of a rank completes a book, which is set
-aside and scored. Running out of cards does NOT eliminate you: if it is your turn
-with an empty hand you draw a card from the pool and ask with it, and you rejoin
-normally whenever a card comes your way. But if your hand AND the pool are both
-empty when your turn comes up, there is nothing to draw and no card to ask with,
-so play skips past you to the next player who still holds cards. The game ends
-when every card is in a book; the player with the most books wins.
+they give you all of them and you take another turn (ask again) -- unless that
+leaves every other player with no cards, in which case there is nobody left to
+ask and play passes on. If they have none, you "go fish": you draw one card from
+the pool. If the drawn card is the rank you asked for, you take another turn;
+otherwise your turn ends. If the pool is empty when you get a miss, there is no
+card to draw and your turn simply ends. Collecting all {num_suits} copies of a
+rank completes a book, which is set aside and scored. Running out of cards does
+NOT eliminate you: if it is your turn with an empty hand you draw a card from
+the pool and ask with it, and you rejoin normally whenever a card comes your
+way. But if your hand AND the pool are both empty when your turn comes up, there
+is nothing to draw and no card to ask with, so play skips past you to the next
+player who still holds cards. The game ends when every card is in a book; the
+player with the most books wins.
 
 You only see information revealed to you: your own hand, every player's public
 card count and book count, the size of the pool, which ranks are already booked,
@@ -78,8 +80,8 @@ Other players (public info):
 {other_players}
 
 What you know about opponents' cards (deduced from every ask so far -- asks are
-public: asking reveals the asker holds that rank, and a miss reveals the target
-holds none of it):
+public: asking reveals the asker holds that rank, and after any ask the target
+holds none of it, whether they handed cards over or had none to give):
 {deductions}
 
 Events since your last turn (oldest first):
@@ -99,8 +101,9 @@ player's number followed by the ask-letter for the rank.
 }}
 ```
 
-For example: `{{"move": "1a"}}` (ask Player 1 for the rank written "a"). This is
-only a format illustration, not a suggestion -- it is not necessarily legal here.
+For example: `{{"move": "{example_move}"}}` (ask Player {example_target} for the
+rank written "a"). This is only a format illustration, not a suggestion -- it is
+not necessarily legal here.
 
 Failure to output your final answer in the specified format, or selecting an
 illegal move, will result in a loss.
@@ -130,7 +133,8 @@ required:
 {{"move": "<target><letter>"}}
 ```
 
-For example: `{{"move": "1a"}}` (ask Player 1 for the rank written "a").
+For example: `{{"move": "{example_move}"}}` (ask Player {example_target} for the
+rank written "a").
 
 The move you choose must also be legal: the target must be a player with cards,
 and the letter must be a rank you hold.
@@ -209,6 +213,26 @@ def _format_hand(hand: Mapping[str, int], label_to_letter: Mapping[str, str]) ->
     return "\n".join(lines)
 
 
+def _example_move(player_id: int) -> tuple[str, int]:
+    """Return ``(example_move, example_target)`` for the prompt's format example.
+
+    The target must not be the observer: ``GenerateAsks`` skips
+    ``target == player_id`` (go_fish.cc), so a self-ask is never legal. A single
+    hardcoded ``"1a"`` was therefore structurally impossible for Player 1 --
+    about half of all turns in a 2-player game -- which teaches the format with
+    a move the model could never legally make.
+
+    Only the *target* varies; the rank letter stays a fixed ``"a"``. Deriving the
+    letter from the hand would turn the example back into a per-turn suggestion
+    (the bug that motivated making it static in the first place) and would leak
+    hand contents into a section that is meant to be pure format illustration.
+    ``"a"`` is a valid letter for any deck with at least one rank, so the example
+    is always well-formed even when the observer happens not to hold that rank.
+    """
+    target = 0 if player_id != 0 else 1
+    return f"{target}a", target
+
+
 def _format_pool(pool_size: int | None) -> str:
     """Describe the pool, spelling out what an empty pool means for a miss.
 
@@ -254,6 +278,31 @@ def _format_deductions(deductions: Sequence[Mapping[str, Any]], player_id: int) 
     the target holds none of it. ``recent_events`` alone would drop everything
     older than the current observation window, so we surface the distilled
     standing facts here.
+
+    ``wanted`` is filtered against the ranks already in ``known_has``. The proxy
+    emits both, and ~93% of ``wanted`` entries name a rank the same row already
+    reports a count for -- "known to hold 9>=3; has asked for 9" says nothing
+    the first clause did not say more precisely. This is the densest line in the
+    prompt, so the duplication is most of what the model reads there.
+
+    What survives the filter is a distinct fact, not a weaker restatement: a
+    rank the player was asked for and emptied of, but has drawn since, so they
+    may hold it again. ``known_has`` cannot express that -- its floor is 0 -- and
+    the ask is what makes the maybe worth acting on.
+
+    That reading is structural, not just observed, which is why it is safe to
+    state as a gloss: asking for a rank publicly sets ``player_min`` to >=1, so
+    a surviving entry (``did_ask > 0`` with no ``known_has``) can only mean the
+    floor fell back to 0, i.e. they were emptied of it. Being emptied requires
+    having been asked, and the proxy already drops the entry as ``known_void``
+    unless they have drawn since. Booking the rank themselves is the other way
+    the floor drops, and the proxy retires booked ranks first. Confirmed with
+    zero exceptions across the default and three off-default configs.
+
+    Filtering here rather than in the proxy: these entries are true, merely
+    redundant, so dropping them is presentation. The proxy's two filters retire
+    facts the public record has *invalidated*, and its output is pinned to the
+    observation tensor by a parity test.
     """
     lines = []
     for d in deductions:
@@ -263,13 +312,15 @@ def _format_deductions(deductions: Sequence[Mapping[str, Any]], player_id: int) 
         parts = []
         known_has = d.get("known_has") or []
         known_void = d.get("known_void") or []
-        wanted = d.get("wanted") or []
+        # known_has entries are "<label>>=<n>"; compare on the label alone.
+        has_labels = {str(h).split(">=", 1)[0] for h in known_has}
+        wanted = [w for w in (d.get("wanted") or []) if w not in has_labels]
         if known_has:
             parts.append(f"known to hold {', '.join(known_has)}")
         if known_void:
             parts.append(f"known to have none of {', '.join(known_void)}")
         if wanted:
-            parts.append(f"has asked for {', '.join(wanted)}")
+            parts.append(f"has asked for {', '.join(wanted)} (emptied of it, but has drawn since)")
         detail = "; ".join(parts) if parts else "nothing deduced yet"
         lines.append(f"  Player {pid}: {detail}")
     return "\n".join(lines) if lines else "(none)"
@@ -387,9 +438,14 @@ def _annotate_move_history(
     that rank out of the hand, so a naive card delta would under-count by exactly
     one book's worth of cards. ``booked`` is simply ``books_after > books_before``.
 
+    ``move_history`` is treated as a SUFFIX of the observer's asks -- it ends at
+    the most recent one but need not start at the first -- so outcomes are
+    matched from the end.
+
     Returns an annotated copy of ``move_history`` (bare strings for asks whose
     outcome could not be reconstructed), or ``None`` if there is no serialized
-    state to replay -- callers fall back to the bare history in that case.
+    state to replay or the two sequences cannot be aligned -- callers fall back
+    to the bare history in that case.
     """
     serialized = observation.get("serializedGameAndState", "")
     if not serialized or not move_history:
@@ -426,17 +482,24 @@ def _annotate_move_history(
             except (RuntimeError, ValueError):
                 return None
 
-    # ``move_history`` holds only the observer's own asks, in order, so it lines
-    # up with the outcomes we collected. Guard against any length mismatch (e.g.
-    # a rethink that appended a move the engine never applied) by annotating only
-    # the overlap and leaving any extras bare.
-    annotated: list[str] = []
-    for i, mv in enumerate(move_history):
-        if i < len(outcomes) and outcomes[i] is not None:
-            annotated.append(f"{mv} ({outcomes[i]})")
-        else:
-            annotated.append(mv)
-    return annotated
+    # ``move_history`` holds only the observer's own asks, in order, and ends at
+    # the most recent one -- so it is a SUFFIX of ``outcomes``, not necessarily
+    # the whole thing. Anchor from the end: a positional zip from index 0 would
+    # pair move_history[0] with the observer's first ask of the game, silently
+    # attributing every entry to the wrong ask. That is worse than showing
+    # nothing, because the model builds its opponent model on inverted data with
+    # no signal that anything is off. A short move_history is reachable whenever
+    # the agent process restarts mid-episode (create_agent_fn's move_history
+    # closure starts empty while the engine state is mid-game), or if a caller
+    # ever windows the history to bound prompt length.
+    if len(move_history) > len(outcomes):
+        # More moves than the replay accounts for (e.g. a rethink appended a
+        # move the engine never applied). The two sequences cannot be anchored
+        # at either end, so there is no alignment to trust -- fall back to the
+        # bare history rather than guess.
+        return None
+    offset = len(outcomes) - len(move_history)
+    return [f"{mv} ({outcomes[offset + i]})" if outcomes[offset + i] else mv for i, mv in enumerate(move_history)]
 
 
 def generate_prompt(
@@ -469,6 +532,7 @@ def generate_prompt(
             break
 
     rank_legend = ", ".join(f"{letter}={label}" for label, letter in label_to_letter.items())
+    example_move, example_target = _example_move(player_id)
 
     # Annotate each of our own past asks with its outcome (received N / go fish),
     # which the raw observation never reveals for our own moves. Falls back to
@@ -481,6 +545,8 @@ def generate_prompt(
         num_ranks=num_ranks,
         num_suits=num_suits,
         rank_legend=rank_legend,
+        example_move=example_move,
+        example_target=example_target,
         player_id=player_id,
         my_books=my_books,
         hand_lines=_format_hand(hand, label_to_letter),
@@ -492,9 +558,18 @@ def generate_prompt(
         move_history=move_history_str,
     )
 
+    # render_rethink_suffix substitutes only {previous_response}, so the example
+    # placeholders are filled in beforehand. Use replace() rather than format():
+    # the template's JSON block is literal output with doubled braces awaiting
+    # that single later format() pass, and a pre-pass with format() would consume
+    # the escaping and then have to re-add it.
+    unparsable = RETHINK_UNPARSABLE.replace("{example_move}", example_move).replace(
+        "{example_target}", str(example_target)
+    )
+
     prompt += render_rethink_suffix(
         RETHINK_ILLEGAL,
-        RETHINK_UNPARSABLE,
+        unparsable,
         previous_response,
         previous_action,
     )

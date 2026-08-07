@@ -34,7 +34,15 @@ _STANDARD_RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", 
 
 _PHASE_RE = re.compile(r"^Phase (\S+)$")
 _YOUR_CARDS_RE = re.compile(r"^Your cards:\s*(.*)$")
-_CARD_TOKEN_RE = re.compile(r"([a-z])(\d+)")
+# A hand token is "<rank letter><count>", e.g. "a3". The rank letter is whatever
+# OpenSpiel's RankString produces: chr('a' + rank). That only stays inside a-z
+# while ranks <= 26 -- at ranks=30 the last four ranks are written '{', '|', '}'
+# and '~'. An "[a-z]" class silently dropped those cards from the parsed hand
+# while booked/deductions/legal-actions still carried them, so the observer was
+# shown a hand missing up to 13% of its cards (78% of turns at ranks=30) and, in
+# the worst case, "no cards" while holding several. Match the token's shape --
+# one non-space non-digit followed by digits -- instead of assuming an alphabet.
+_CARD_TOKEN_RE = re.compile(r"([^\s\d])(\d+)")
 _PLAYER_RE = re.compile(r"^player (\d+) cards (\d+) books (\d+)$")
 _EVENT_RE = re.compile(r"^(\d+) asked (-?\d+) for (\d+)(?: recieved (\d+))?(?: booked (\d+))?$")
 

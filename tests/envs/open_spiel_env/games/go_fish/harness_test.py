@@ -15,6 +15,7 @@ from kaggle_environments.envs.open_spiel_env.games.go_fish import (
 from kaggle_environments.envs.open_spiel_env.games.go_fish.harness import (
     _annotate_move_history,
     _format_booked,
+    _format_deductions,
     _format_events,
     _format_pool,
     _own_counts,
@@ -58,6 +59,31 @@ def _example_tokens(prompt: str) -> list[str]:
     """
     tokens = re.findall(r'\{"move": "([^"]+)"\}', prompt)
     return [t for t in tokens if not t.startswith("<")]
+
+
+def _play_own_asks(seed: int, plies: int, player_id: int = 0):
+    """Play ``plies`` random moves, returning (game, state, player_id's own asks).
+
+    The returned move list is what a harness accumulates across an episode: only
+    the observer's own asks, in order, ending at the most recent one.
+    """
+    game = go_fish_proxy.GoFishGame()
+    state = game.new_initial_state()
+    rng = random.Random(seed)
+    _advance_chance(state, rng)
+    own_asks: list[str] = []
+    num_ranks = 13
+    for _ in range(plies):
+        if state.is_terminal():
+            break
+        mover = int(state.current_player())
+        action = rng.choice(state.legal_actions())
+        if mover == player_id:
+            target, rank = action // num_ranks, action % num_ranks
+            own_asks.append(f"{target}{chr(ord('a') + rank)}")
+        state.apply_action(action)
+        _advance_chance(state, rng)
+    return game, state, own_asks
 
 
 def _make_observation(state, game, player_id: int | None = None) -> dict:
@@ -193,7 +219,57 @@ class GeneratePromptTest(absltest.TestCase):
         # not claim the turn simply ends.
         obs = _make_observation(self.state, self.game)
         prompt = generate_prompt(obs, [])
-        self.assertIn("very rank you asked for, you take another turn", prompt)
+        self.assertIn("rank you asked for, you take another turn", prompt)
+
+    def test_hit_does_not_always_grant_another_turn(self):
+        # Engine (go_fish.cc CheckEmptyAsk :296-307): CheckEmptyAsk runs after
+        # EVERY ask. On the !askee branch -- the asker still holds cards but the
+        # hit stripped the last cards off every other player -- there is nobody
+        # left to ask, so the engine sets kEmptyDraw and calls AdvancePlayer.
+        # The turn passes on despite the hit. Distinct from the
+        # PlayerCounts(current_player_) == 0 branch (the asker's own hand is
+        # empty), which is already covered by the empty-hand rules.
+        obs = _make_observation(self.state, self.game)
+        prompt = generate_prompt(obs, [])
+        flat = " ".join(prompt.split())
+        self.assertIn("unless that leaves every other player with no cards", flat)
+
+    def test_hit_turn_passes_matches_engine(self):
+        # Drive the claim from the engine rather than trusting the sentence:
+        # find a real hit that hands the turn away and assert the preconditions
+        # the prompt describes (asker still holds cards, everyone else is empty).
+        found = None
+        for seed in range(80):
+            game = go_fish_proxy.GoFishGame()
+            state = game.new_initial_state()
+            rng = random.Random(seed)
+            while not state.is_terminal() and found is None:
+                _advance_chance(state, rng)
+                if state.is_terminal():
+                    break
+                asker = int(state.current_player())
+                action = rng.choice(state.legal_actions())
+                num_ranks = 13
+                target, rank = action // num_ranks, action % num_ranks
+                received = state.__wrapped__.player_cards()[target][rank]
+                state.apply_action(action)
+                if received <= 0 or state.is_terminal():
+                    continue
+                cards = [sum(row) for row in state.__wrapped__.player_cards()]
+                probe = state.clone()
+                _advance_chance(probe, random.Random(1))
+                if probe.is_terminal() or int(probe.current_player()) == asker:
+                    continue
+                found = (asker, cards)
+                break
+            if found is not None:
+                break
+        self.assertIsNotNone(found, "no hit that passed the turn found in 80 games")
+        asker, cards = found
+        # The prompt's stated precondition: asker keeps cards, everyone else is
+        # emptied. If this ever fails, the sentence describes the wrong branch.
+        self.assertGreater(cards[asker], 0)
+        self.assertTrue(all(n == 0 for p, n in enumerate(cards) if p != asker))
 
     def test_rank_legend_present(self):
         obs = _make_observation(self.state, self.game)
@@ -314,6 +390,107 @@ class GeneratePromptTest(absltest.TestCase):
             "known to hold" in section or "known to have none of" in section or "has asked for" in section,
             f"no standing deduction rendered:\n{section}",
         )
+
+    def test_deduction_header_covers_hit_created_voids(self):
+        # go_fish.cc:234 sets player_min_[target][rank] = 0 on EVERY ask, so a
+        # HIT empties the target of that rank just as a miss reveals they were
+        # already empty. The header used to teach only the miss case ("a miss
+        # reveals the target holds none of it"), leaving 84% of rendered
+        # known_void entries unexplained -- a model reading it literally would
+        # conclude its own successful asks create no void and re-ask the rank.
+        obs = _make_observation(self.state, self.game)
+        flat = " ".join(generate_prompt(obs, []).split())
+        self.assertIn("after any ask the target holds none of it", flat)
+        self.assertIn("whether they handed cards over or had none to give", flat)
+
+    def test_hit_creates_known_void_matches_prompt_claim(self):
+        # Drive the claim from the engine: find an ask that RECEIVED cards and
+        # confirm the target is then rendered "known to have none of" that rank.
+        # If this stops holding, the header sentence is the thing that is wrong.
+        num_ranks = 13
+        labels = [go_fish_proxy._rank_label(i, num_ranks) for i in range(num_ranks)]
+        found = 0
+        for seed in range(40):
+            game = go_fish_proxy.GoFishGame()
+            state = game.new_initial_state()
+            rng = random.Random(seed)
+            _advance_chance(state, rng)
+            while not state.is_terminal() and found < 3:
+                action = rng.choice(state.legal_actions())
+                target, rank = action // num_ranks, action % num_ranks
+                received = state.__wrapped__.player_cards()[target][rank]
+                state.apply_action(action)
+                _advance_chance(state, rng)
+                if state.is_terminal() or received <= 0:
+                    continue
+                observer = int(state.current_player())
+                if observer == target:
+                    continue  # a player never gets a deduction row for themselves
+                row = [d for d in state.state_dict(observer)["deductions"] if d["player"] == target][0]
+                if labels[rank] in row["known_void"]:
+                    found += 1
+            if found >= 3:
+                break
+        self.assertGreaterEqual(found, 3, "no hit ever produced a known_void entry")
+
+    def test_wanted_filtered_against_known_has(self):
+        # "known to hold 9>=3; has asked for 9" repeats the rank the first
+        # clause already gave a count for. ~93% of emitted wanted entries are
+        # this, on the densest line in the prompt.
+        rendered = _format_deductions(
+            [
+                {
+                    "player": 1,
+                    "known_has": ["4>=1", "7>=2", "9>=3", "J>=2", "Q>=2"],
+                    "known_void": [],
+                    "wanted": ["A", "4", "5", "7", "9", "J", "Q"],
+                }
+            ],
+            player_id=0,
+        )
+        # Only the two ranks that known_has does not already cover survive.
+        self.assertIn("has asked for A, 5", rendered)
+        self.assertIn("known to hold 4>=1, 7>=2, 9>=3, J>=2, Q>=2", rendered)
+
+    def test_wanted_clause_dropped_when_fully_redundant(self):
+        # If every wanted rank is already in known_has the clause carries no
+        # information at all and must not be rendered.
+        rendered = _format_deductions(
+            [{"player": 1, "known_has": ["9>=3"], "known_void": [], "wanted": ["9"]}],
+            player_id=0,
+        )
+        self.assertNotIn("has asked for", rendered)
+        self.assertIn("known to hold 9>=3", rendered)
+
+    def test_surviving_wanted_entries_mean_emptied_but_drew_since(self):
+        # The rendered gloss asserts a specific meaning, so pin it to the
+        # engine: a wanted rank absent from known_has can only be one the player
+        # was asked for and emptied of, then drew after. Asking sets player_min
+        # >= 1, so a zero floor alongside a past ask implies they were emptied;
+        # the proxy drops the entry as known_void unless drawn_since > 0.
+        checked = 0
+        for params in ({"ranks": 13, "suits": 4}, {"ranks": 13, "suits": 4, "players": 3}):
+            num_ranks = params["ranks"]
+            labels = [go_fish_proxy._rank_label(i, num_ranks) for i in range(num_ranks)]
+            game = go_fish_proxy.GoFishGame(params)
+            state = game.new_initial_state()
+            rng = random.Random(4)
+            while not state.is_terminal():
+                _advance_chance(state, rng)
+                if state.is_terminal():
+                    break
+                raw = state.__wrapped__
+                was_asked, drawn_since = raw.player_was_asked(), raw.drawn_since_was_asked()
+                for d in state.state_dict(0)["deductions"]:
+                    pid = d["player"]
+                    has = {h.split(">=", 1)[0] for h in d["known_has"]}
+                    for label in (w for w in d["wanted"] if w not in has):
+                        rank = labels.index(label)
+                        self.assertTrue(was_asked[pid][rank], f"P{pid} {label}: never asked back")
+                        self.assertGreater(drawn_since[pid][rank], 0, f"P{pid} {label}: no draw since")
+                        checked += 1
+                state.apply_action(rng.choice(state.legal_actions()))
+        self.assertGreater(checked, 50, "too few residual entries to be meaningful")
 
     def test_events_rendered_after_play(self):
         # A mid-game state produces opponent events since the last turn.
@@ -470,25 +647,83 @@ class GeneratePromptTest(absltest.TestCase):
         # Non-zero, so a (0, 0) default can't masquerade as a correct read.
         self.assertGreater(_own_counts(proxy_text, 0)[0], 0)
 
+    def test_annotations_anchor_from_the_end(self):
+        # move_history is a SUFFIX of the observer's asks, not necessarily the
+        # whole run: create_agent_fn's move_history closure starts empty, so an
+        # agent process that restarts mid-episode passes only its own asks while
+        # the engine state is mid-game. A positional zip from index 0 would pair
+        # move_history[0] with the observer's FIRST ask of the game, inverting
+        # every annotation with no signal that anything is off.
+        game, state, own_asks = _play_own_asks(seed=3, plies=40)
+        self.assertGreaterEqual(len(own_asks), 4)
+        obs = _make_observation(state, game)
+
+        full = _annotate_move_history(obs, own_asks, 0, 4)
+        self.assertIsNotNone(full)
+        for tail_len in (1, 2, 3):
+            suffix = _annotate_move_history(obs, own_asks[-tail_len:], 0, 4)
+            self.assertEqual(suffix, full[-tail_len:], f"tail of {tail_len} misaligned")
+
+        # Guard against passing vacuously: seed 3 must actually be a case where
+        # the naive index-0 zip disagrees, otherwise this test proves nothing.
+        naive = [f"{mv} ({full[i].split(' (', 1)[1][:-1]})" for i, mv in enumerate(own_asks[-2:])]
+        self.assertNotEqual(naive, full[-2:])
+
+    def test_unalignable_history_falls_back_to_bare(self):
+        # More moves than the replay accounts for (e.g. a rethink appended a
+        # move the engine never applied): the sequences can't be anchored at
+        # either end, so return None and let the caller show the bare history
+        # rather than emit a guess.
+        game, state, own_asks = _play_own_asks(seed=3, plies=40)
+        obs = _make_observation(state, game)
+        too_many = list(own_asks) + ["1a", "1b"]
+        self.assertIsNone(_annotate_move_history(obs, too_many, 0, 4))
+        # And generate_prompt degrades to the bare moves, not a wrong annotation.
+        prompt = generate_prompt(obs, too_many)
+        self.assertIn(", ".join(too_many), prompt)
+
     def test_example_move_is_static(self):
-        # The format example is a fixed "1a", matching RETHINK_UNPARSABLE. It
-        # must NOT be derived from the legal-action list: a per-turn example is
-        # read as a per-turn *suggestion*, and deriving it from legalActions
-        # always surfaced the lowest-index rank in hand, nudging the model
-        # toward that ask every turn.
+        # The format example uses a fixed rank letter "a". It must NOT be
+        # derived from the legal-action list: a per-turn example is read as a
+        # per-turn *suggestion*, and deriving it from legalActions always
+        # surfaced the lowest-index rank in hand, nudging the model toward that
+        # ask every turn.
         obs = _make_observation(self.state, self.game)
         prompt = generate_prompt(obs, [])
         concrete = _example_tokens(prompt)
         self.assertEqual(concrete, ["1a"])
         self.assertIn("not a suggestion", prompt)
 
+    def test_example_move_never_a_self_ask(self):
+        # Only the example's TARGET varies, and it must never be the observer:
+        # GenerateAsks skips target == player_id (go_fish.cc), so a self-ask can
+        # never be legal. A hardcoded "1a" was structurally impossible for
+        # Player 1 -- roughly half of all turns in a 2-player game.
+        for players in (2, 3, 4):
+            game = go_fish_proxy.GoFishGame({"players": players})
+            state = game.new_initial_state()
+            _advance_chance(state, random.Random(4))
+            for pid in range(players):
+                obs = _make_observation(state, game, player_id=pid)
+                for prompt in (
+                    generate_prompt(obs, []),
+                    # The rethink template carries its own copy of the example.
+                    generate_prompt(obs, [], previous_response="junk", previous_action=None),
+                ):
+                    for token in _example_tokens(prompt):
+                        self.assertNotEqual(
+                            token[0],
+                            str(pid),
+                            f"{players}p player {pid}: example {token!r} is a self-ask",
+                        )
+                        self.assertEqual(token[1:], "a", f"example letter drifted: {token!r}")
+
     def test_example_move_static_across_turns(self):
-        # Same example on every turn regardless of hand or legal actions --
-        # including turns where "1a" is not legal and turns taken by players
-        # other than Player 0.
+        # Same example on every turn for a given player, regardless of hand or
+        # legal actions -- including turns where the example is not legal.
         rng = random.Random(5)
         game, state = _make_ask_state(seed=5)
-        saw_1a_illegal = False
+        saw_example_illegal = False
         for _ in range(40):
             _advance_chance(state, rng)
             if state.is_terminal():
@@ -496,12 +731,13 @@ class GeneratePromptTest(absltest.TestCase):
             cp = int(state.current_player())
             obs = _make_observation(state, game, player_id=cp)
             prompt = generate_prompt(obs, [])
-            self.assertEqual(_example_tokens(prompt), ["1a"])
-            if "1a" not in obs["legalActionStrings"]:
-                saw_1a_illegal = True
+            expected = "1a" if cp != 1 else "0a"
+            self.assertEqual(_example_tokens(prompt), [expected])
+            if expected not in obs["legalActionStrings"]:
+                saw_example_illegal = True
             state.apply_action(rng.choice(state.legal_actions()))
-        # The invariant is only meaningful if some turn had "1a" illegal.
-        self.assertTrue(saw_1a_illegal, "never hit a turn where 1a was illegal")
+        # The invariant is only meaningful if some turn had the example illegal.
+        self.assertTrue(saw_example_illegal, "never hit a turn where the example was illegal")
 
     def test_rethink_illegal_suffix(self):
         obs = _make_observation(self.state, self.game)
