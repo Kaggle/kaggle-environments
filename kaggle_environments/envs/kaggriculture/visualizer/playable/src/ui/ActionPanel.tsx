@@ -19,6 +19,7 @@ const SIMPLE_UNIT_OPS = [
   'HARVEST',
   'FERTILIZE',
   'DIG',
+  'DROP',
   'BUILD_COOP',
   'BUILD_PASTURE',
   'FEED',

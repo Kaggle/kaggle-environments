@@ -143,7 +143,9 @@ export function applyUnitAction(
     const nx = fx + dx;
     const ny = fy + dy;
     if (nx < 0 || nx >= boardSize || ny < 0 || ny >= boardSize) return;
-    if (farm.tiles[ny][nx] === LOCKED) return;
+    // Movement onto LOCKED tiles is allowed: a hand can spawn on a locked
+    // shed-access tile, and blocking movement would strand it there forever.
+    // Tile operations (PLANT, WATER, etc.) still no-op on LOCKED tiles.
     setUnitPosition(farm, idx, [nx, ny]);
     return;
   }
@@ -152,6 +154,22 @@ export function applyUnitAction(
 
   const tile = farm.tiles[fy][fx];
   if (tile === LOCKED) return;
+
+  if (op === 'DROP') {
+    if (!isShedAdjacent([fx, fy], boardSize)) return;
+    const shed = priv.shed;
+    for (const [item, n] of Object.entries(inv) as Array<[ShedItemId, number]>) {
+      if (n <= 0) {
+        delete inv[item];
+        continue;
+      }
+      const room = Math.max(0, shedCapacity - shedTotal(shed));
+      const take = Math.min(n, room);
+      if (take > 0) shed[item] = (shed[item] ?? 0) + take;
+      delete inv[item];
+    }
+    return;
+  }
 
   if (op === 'PICKUP') {
     if (!isShedAdjacent([fx, fy], boardSize)) return;
@@ -397,7 +415,8 @@ function commitUnit(
   price: number,
   farm: Farm,
   priv: Private,
-  market: Market
+  market: Market,
+  shedCapacity: number
 ): boolean {
   if (op === 'SELL') {
     const have = priv.shed[item as ShedItemId] ?? 0;
@@ -409,6 +428,9 @@ function commitUnit(
   }
   if (op === 'BUY_PRODUCT') {
     if (farm.money < price) return false;
+    // Bought goods land in the shed, which obeys shedCapacity like every
+    // other deposit path (pickup, shed-drop, end-of-day drop).
+    if (shedTotal(priv.shed) >= shedCapacity) return false;
     farm.money -= price;
     priv.shed[item as ShedItemId] = (priv.shed[item as ShedItemId] ?? 0) + 1;
     market.inventory[item as ProductId] -= 1;
@@ -422,6 +444,7 @@ function commitUnit(
   }
   if (op === 'BUY_ANIMAL') {
     if (farm.money < price) return false;
+    if (shedTotal(priv.shed) >= shedCapacity) return false;
     farm.money -= price;
     priv.shed[item as ShedItemId] = (priv.shed[item as ShedItemId] ?? 0) + 1;
     return true;
@@ -439,6 +462,7 @@ export function processMarket(
   const maxOrders = Math.max(1, config.maxMarketOrdersPerTurn);
   const hireMult = config.farmHandCostMult;
   const boardSize = config.boardSize;
+  const shedCapacity = config.shedCapacity;
 
   const queues: MarketOrder[][] = farms.map((_, pid) => {
     const m = actions[pid]?.market ?? [];
@@ -509,7 +533,7 @@ export function processMarket(
         const q = quoted[pid];
         if (q === null) continue;
         const [op, item, price, os] = q;
-        const ok = commitUnit(op, item, price, farms[pid], privates[pid], market);
+        const ok = commitUnit(op, item, price, farms[pid], privates[pid], market, shedCapacity);
         if (ok) {
           os.remaining -= 1;
           committedAny = true;

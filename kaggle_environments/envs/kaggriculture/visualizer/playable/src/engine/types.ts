@@ -134,6 +134,7 @@ export interface Town {
 /** Per-unit action: a single op for the farmer or one hand. */
 export type UnitAction =
   | ['NORTH' | 'SOUTH' | 'EAST' | 'WEST' | 'PASS']
+  | ['DROP']
   | ['PICKUP', ShedItemId]
   | ['PICKUP', ShedItemId, number]
   | ['PLACE', ShedItemId]
