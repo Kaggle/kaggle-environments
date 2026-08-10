@@ -583,9 +583,10 @@ def initialize_game(state, env):
     env.word_art_state = _WordArtState(sampled)
 
 
-# Statuses the kaggle framework sets when an agent crashes or times out.
-# These end the episode -- see _abort_on_agent_failure.
-_TERMINAL_FAILURE_STATUSES = ("TIMEOUT", "ERROR", "INVALID")
+# Statuses core.py sets when an agent crashes or times out, as opposed to
+# submitting a well-formed-but-illegal action. These void the episode --
+# see _abort_on_agent_failure.
+_FRAMEWORK_FAILURE_STATUSES = ("TIMEOUT", "ERROR")
 
 
 def _abort_on_agent_failure(state):
@@ -596,20 +597,36 @@ def _abort_on_agent_failure(state):
     making a bad move, and word_art cannot score a 2v2 game around one. The
     alternative -- skipping that seat and playing on -- yields an episode
     where one model contributes no art and no guesses for the rest of the
-    game while the scoreboard still reports a winner. Ending here keeps the
-    failure loud: the offending seat retains its status, so core.py nulls its
-    reward and the replay shows an errored episode rather than a lopsided one.
+    game while the scoreboard still reports a winner.
+
+    Two distinct outcomes, matching open_spiel_env's non-strict path:
+
+    * TIMEOUT/ERROR voids the episode. Every seat is forced to ERROR (a
+      TIMEOUT seat keeps TIMEOUT, which voids it the same way) so core.py
+      nulls all four rewards and the replay reads as an errored episode
+      rather than a decided one.
+    * INVALID -- a well-formed action that broke the action schema -- ends
+      the episode as a normal completion: all seats DONE, keeping whatever
+      round points each team had already banked. Unlike open_spiel, the
+      accumulated score is preserved rather than overwritten with a flat
+      +/-1, because word_art's reward channel is a running point total and
+      discarding it would throw away every completed round.
 
     Note this is deliberately NOT the illegalMoveForfeit path. A model that
     answers unparseably forfeits the turn and plays on; a model whose agent
     raised has no working turn to fall back to.
     """
-    if not any(s.status in _TERMINAL_FAILURE_STATUSES for s in state):
-        return False
-    for s in state:
-        if s.status not in _TERMINAL_FAILURE_STATUSES:
+    if any(s.status in _FRAMEWORK_FAILURE_STATUSES for s in state):
+        for s in state:
+            if s.status != "TIMEOUT":
+                s.status = "ERROR"
+        return True
+    if any(s.status == "INVALID" for s in state):
+        for s in state:
             s.status = "DONE"
-    return True
+            s.reward = s.reward or 0
+        return True
+    return False
 
 
 def _set_art_statuses(state, round_idx):

@@ -17,7 +17,7 @@ import {
   LAND_PRICES,
   SHOPS,
   SHOP_NAMES,
-  TOWN_CENTER_DEMAND_SCHEDULE,
+  MAX_SHOP_INSTANCES,
   TOWN_CENTER_PRODUCTS,
 } from './constants';
 import { marketPrice, refreshPrices } from './market';
@@ -554,10 +554,10 @@ export function processMarket(
 export function townConsume(market: Market, town: Town, step: number, config: Config): void {
   const shopInterval = Math.max(1, config.townShopSellInterval);
   const centerInterval = Math.max(1, config.townCenterSellInterval);
-  const turnsPerDay = Math.max(1, config.turnsPerDay);
-  const day = Math.floor(step / turnsPerDay);
 
   if (step % shopInterval === 0) {
+    // unlocked_shops may list the same shop more than once (shops are drawn
+    // with replacement); each instance consumes independently.
     for (const shop of town.unlocked_shops) {
       const products = SHOPS[shop];
       const mult = products.length === 1 ? 2 : 1;
@@ -568,15 +568,8 @@ export function townConsume(market: Market, town: Town, step: number, config: Co
   }
 
   if (step % centerInterval === 0) {
-    let centerMult = 1;
-    for (const [threshold, m] of TOWN_CENTER_DEMAND_SCHEDULE) {
-      if (day >= threshold) {
-        centerMult = m;
-        break;
-      }
-    }
     for (const item of TOWN_CENTER_PRODUCTS) {
-      market.inventory[item] -= centerMult;
+      market.inventory[item] -= 1;
     }
   }
 
@@ -725,10 +718,10 @@ export function endOfDay(
 
   const nextDay = day + 1;
   if (nextDay > 0 && nextDay % shopInterval === 0) {
-    const remaining = SHOP_NAMES.filter((s) => !town.unlocked_shops.includes(s));
-    if (remaining.length > 0) {
-      const choice = rng.choice([...remaining].sort());
-      town.unlocked_shops.push(choice);
+    // Drawn with replacement: the same shop can unlock repeatedly, and each
+    // copy consumes independently. Only the total instance count is capped.
+    if (town.unlocked_shops.length < MAX_SHOP_INSTANCES) {
+      town.unlocked_shops.push(rng.choice([...SHOP_NAMES].sort()));
     }
   }
 }

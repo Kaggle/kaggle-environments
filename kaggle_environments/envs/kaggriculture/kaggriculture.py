@@ -100,8 +100,9 @@ SHOPS = {
 
 TOWN_CENTER_PRODUCTS = [p for p in PRODUCTS if p != "FERTILIZER"]
 
-# Town center demand schedule: (day_threshold, multiplier), highest threshold first.
-TOWN_CENTER_DEMAND_SCHEDULE = [(20, 4), (10, 2), (0, 1)]
+# Maximum number of shop instances the town will ever unlock. Shops are drawn
+# with replacement, so this caps total count, not variety.
+MAX_SHOP_INSTANCES = 8
 
 
 def get(d, key, default):
@@ -321,9 +322,11 @@ def _apply_unit_action(farm, private, idx, action, board_size, day, turns_per_da
         return
 
     tile = farm["tiles"][fy][fx]
-    if tile == "LOCKED":
-        return
 
+    # Shed operations resolve before the LOCKED guard. They use the tile only as
+    # a standing position -- the shed itself is always owned -- and three of the
+    # four shed-access tiles start LOCKED, so guarding them first would make the
+    # shed unreachable from those tiles.
     if op == "DROP":
         if not _is_shed_adjacent((fx, fy), board_size):
             return
@@ -356,6 +359,46 @@ def _apply_unit_action(farm, private, idx, action, board_size, day, turns_per_da
             return
         private["shed"][item] -= n
         _inv_add(inv, item, n)
+        return
+
+    if op == "PLACE":
+        if len(action) < 2:
+            return
+        item = action[1]
+        # Animal placement: standing on a matching unoccupied structure. A LOCKED
+        # tile is the string "LOCKED", never a dict, so this branch cannot match
+        # there and PLACE falls through to the shed path below.
+        if (
+            item in ANIMALS
+            and isinstance(tile, dict)
+            and tile.get("kind") == ANIMALS[item]["structure"]
+            and "animal" not in tile
+        ):
+            if _inv_take(inv, item, 1):
+                farm["tiles"][fy][fx] = _new_animal(item, day)
+            return
+        # Shed drop: orthogonally adjacent to the shed; obeys shedCapacity.
+        if _is_shed_adjacent((fx, fy), board_size):
+            n = int(action[2]) if len(action) >= 3 else 1
+            if n <= 0:
+                return
+            n = min(n, inv.get(item, 0))
+            if n <= 0:
+                return
+            current = sum(private["shed"].values())
+            room = max(0, shed_capacity - current)
+            n = min(n, room)
+            if n <= 0:
+                return
+            inv[item] -= n
+            if inv[item] == 0:
+                del inv[item]
+            private["shed"][item] = private["shed"].get(item, 0) + n
+        return
+
+    # Everything below mutates the tile the unit stands on, so it requires that
+    # tile to be owned.
+    if tile == "LOCKED":
         return
 
     if op == "PLANT":
@@ -444,39 +487,6 @@ def _apply_unit_action(farm, private, idx, action, board_size, day, turns_per_da
         if tile is not None:
             return
         farm["tiles"][fy][fx] = {"kind": "PASTURE"}
-        return
-
-    if op == "PLACE":
-        if len(action) < 2:
-            return
-        item = action[1]
-        # Animal placement: standing on a matching unoccupied structure.
-        if (
-            item in ANIMALS
-            and isinstance(tile, dict)
-            and tile.get("kind") == ANIMALS[item]["structure"]
-            and "animal" not in tile
-        ):
-            if _inv_take(inv, item, 1):
-                farm["tiles"][fy][fx] = _new_animal(item, day)
-            return
-        # Shed drop: orthogonally adjacent to the shed; obeys shedCapacity.
-        if _is_shed_adjacent((fx, fy), board_size):
-            n = int(action[2]) if len(action) >= 3 else 1
-            if n <= 0:
-                return
-            n = min(n, inv.get(item, 0))
-            if n <= 0:
-                return
-            current = sum(private["shed"].values())
-            room = max(0, shed_capacity - current)
-            n = min(n, room)
-            if n <= 0:
-                return
-            inv[item] -= n
-            if inv[item] == 0:
-                del inv[item]
-            private["shed"][item] = private["shed"].get(item, 0) + n
         return
 
     if op == "FEED":
@@ -708,11 +718,11 @@ def _town_consume(env, state, step):
     town = obs0.town
     cfg = env.configuration
     shop_interval = max(1, int(get(cfg, "townShopSellInterval", 4)))
-    center_interval = max(1, int(get(cfg, "townCenterSellInterval", 12)))
-    turns_per_day = max(1, int(get(cfg, "turnsPerDay", 24)))
-    day = step // turns_per_day
+    center_interval = max(1, int(get(cfg, "townCenterSellInterval", 24)))
 
     if step % shop_interval == 0:
+        # unlocked_shops may list the same shop more than once (shops are drawn
+        # with replacement); each instance consumes independently.
         for shop_name in town.get("unlocked_shops", []):
             products = SHOPS[shop_name]
             multiplier = 2 if len(products) == 1 else 1
@@ -720,9 +730,8 @@ def _town_consume(env, state, step):
                 market["inventory"][item] -= multiplier
 
     if step % center_interval == 0:
-        center_mult = next(m for threshold, m in TOWN_CENTER_DEMAND_SCHEDULE if day >= threshold)
         for item in TOWN_CENTER_PRODUCTS:
-            market["inventory"][item] -= center_mult
+            market["inventory"][item] -= 1
 
     _refresh_prices(market)
 
@@ -862,10 +871,11 @@ def _end_of_day(state, env, day):
     next_day = day + 1
     town = obs0.town
     if next_day > 0 and next_day % shop_interval == 0:
-        remaining = [s for s in SHOPS if s not in town["unlocked_shops"]]
-        if remaining:
-            choice = rng.choice(sorted(remaining))
-            town["unlocked_shops"].append(choice)
+        # Drawn with replacement: the same shop can unlock repeatedly, and each
+        # copy consumes independently. Variety is not guaranteed; only the total
+        # instance count is capped.
+        if len(town["unlocked_shops"]) < MAX_SHOP_INSTANCES:
+            town["unlocked_shops"].append(rng.choice(sorted(SHOPS)))
 
 
 def interpreter(state, env):

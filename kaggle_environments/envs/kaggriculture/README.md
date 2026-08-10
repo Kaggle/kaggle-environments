@@ -40,7 +40,7 @@ Each Farmer / Farm Hand can be given an action every turn. Farmer/Farm Hand CAN 
 
 #### Movement
 
-- NORTH, SOUTH, EAST, WEST — Move one cell in that direction. Moves off the edge of the board are no-ops. Locked tiles are passable: a unit may move onto and across unbought quadrants, but tile actions (`PLANT`, `WATER`, `BUILD_*`, etc.) all no-op on a locked tile and consume nothing.
+- NORTH, SOUTH, EAST, WEST — Move one cell in that direction. Moves off the edge of the board are no-ops. Locked tiles are passable: a unit may move onto and across unbought quadrants, but tile actions (`PLANT`, `WATER`, `BUILD_*`, etc.) all no-op on a locked tile and consume nothing. The exception is the shed actions `PICKUP`, `DROP`, and `PLACE`-into-shed, which work from any shed-access tile even while that tile is locked — they use the tile only as a standing position and never change it.
 
 #### Shed
 
@@ -146,7 +146,7 @@ Each player has their own farm with a set number of squares. Players are unable 
 - Farmer and hired farm hands drop their inventory at the end of the day in the shed (if there is room)  
 - Limited to 100 items, excluding seeds. Once the shed is full, any further items added (via `PLACE` mid-day or end-of-day inventory drop) are discarded — there is no overflow holding area, so stockpiling on farmer/hand inventories does not bypass the cap.
 
-The shed sits at the center of the board and is not a tile — it never appears in the `tiles` array, whose only values are `None`, `"LOCKED"`, and structure dicts. "Orthogonally adjacent to the shed" means standing on one of the four center tiles, `(half-1, half-1)`, `(half, half-1)`, `(half-1, half)`, `(half, half)` for `half = boardSize // 2`. At the default `boardSize = 10` those are `(4,4)`, `(5,4)`, `(4,5)`, and `(5,5)`, one in each quadrant.
+The shed sits at the center of the board and is not a tile — it never appears in the `tiles` array, whose only values are `None`, `"LOCKED"`, and structure dicts. "Orthogonally adjacent to the shed" means standing on one of the four center tiles, `(half-1, half-1)`, `(half, half-1)`, `(half-1, half)`, `(half, half)` for `half = boardSize // 2`. At the default `boardSize = 10` those are `(4,4)`, `(5,4)`, `(4,5)`, and `(5,5)`, one in each quadrant. Since only NW starts unlocked, three of those four tiles begin locked; the shed is reachable from all of them regardless, because the shed itself is never locked.
 
 ### Farmer/Farm Hand
 
@@ -166,11 +166,11 @@ The shed sits at the center of the board and is not a tile — it never appears 
 
 ### Town Buildings
 
-As the season progresses, new shops unlock at regular intervals (every `townShopUnlockInterval` days, default 3). Each unlock is randomly selected from the shops that have not yet been added; once unlocked, a shop stays active for the rest of the game. Total demand grows monotonically as more shops unlock.
+As the season progresses, new shops unlock at regular intervals (every `townShopUnlockInterval` days, default 3). Each unlock is drawn uniformly at random **with replacement** from the full shop table, so the same shop can unlock more than once — a season might end up with three bakeries and no yarn store. Once unlocked, a shop stays active for the rest of the game, and unlocking stops after 8 total instances. Total demand grows monotonically as more shops unlock.
 
-Each unlocked shop consumes one of every product it demands every `townShopSellInterval` turns (default 4). So with the default interval, a shop demanding wheat removes 6 wheat from the market per day. Single-product shops consume 2x.
+Each unlocked shop *instance* consumes one of every product it demands every `townShopSellInterval` turns (default 4). So with the default interval, a shop demanding wheat removes 6 wheat from the market per day, and two copies of that shop remove 12. Single-product shops consume 2x.
 
-In addition, the town center consumes one of every product (excluding fertilizer) every `townCenterSellInterval` turns (default 12). After day 10 this is increased to 2 of each, and after day 20 it is increased to 4 of each.
+In addition, the town center consumes one of every product (excluding fertilizer) every `townCenterSellInterval` turns (default 24, i.e. once per day). This rate is flat for the whole season — it does not ramp.
 
 | Shop Type | Increases Demand For |
 | :---- | :---- |
@@ -268,7 +268,7 @@ The top-level observation passed to each agent:
     "prices":    { "WHEAT": int, "CARROT": int, ... },
   },
   "town": {                # shared
-    "unlocked_shops": ["BAKERY", ...],
+    "unlocked_shops": ["BAKERY", "BAKERY", ...],   # may repeat; each entry consumes independently
   },
   "private": {             # this player only; opponent's private state is not visible
     "shed":        { "WHEAT": int, "GOOSE": int, "FERTILIZER": int, ... },
@@ -355,8 +355,8 @@ Per-crop seed costs and per-product base prices are not configurable; they are d
 | turnsPerDay | 24 | Number of turns that make up one in-game day |
 | shedCapacity | 100 | Max non-seed items the shed can hold; overflow at end-of-day drop is discarded |
 | weedSpawnChance | 0.005 | Per-tile probability of a weed spawning on an empty unlocked tile during end-of-day refresh |
-| townShopUnlockInterval | 3 | Days between successive town shop unlocks |
-| townShopSellInterval | 4 | Turns between consumption ticks by every unlocked town shop |
-| townCenterSellInterval | 12 | Turns between consumption ticks by the town center |
+| townShopUnlockInterval | 3 | Days between successive town shop unlocks (drawn with replacement, capped at 8 instances) |
+| townShopSellInterval | 4 | Turns between consumption ticks by every unlocked town shop instance |
+| townCenterSellInterval | 24 | Turns between consumption ticks by the town center (flat rate, once per day) |
 | seed | null | Optional input seed for deterministic episode generation; cleared from config after read so it stays out of agent observations |
 

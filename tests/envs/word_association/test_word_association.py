@@ -1,4 +1,49 @@
+import pytest
+
 from kaggle_environments import make
+from kaggle_environments.envs.word_association.word_association import (
+    DEFAULT_INVALID_ACTION_REWARD,
+)
+from kaggle_environments.errors import DeadlineExceeded
+
+
+def _legal_action(env, seat):
+    """A clue for cluemasters, the first still-unrevealed index for guessers.
+
+    Guessing a fixed index would forfeit the moment that square is revealed,
+    which ends the whole episode -- so multi-game tests must pick a legal
+    square each turn to actually reach a game transition.
+    """
+    if seat in (0, 2):
+        return {"clue": "ANIMAL", "number": 1}
+    revealed = env.state[0].observation.revealed
+    return next((i for i, r in enumerate(revealed) if not r), -1)
+
+
+def _step_legally(env):
+    env.step([
+        None if env.state[i].status != "ACTIVE" else _legal_action(env, i)
+        for i in range(4)
+    ])
+
+
+def _assert_forfeited(state, offending_seat):
+    """An illegal action ends the episode as a team-aware forfeit: every seat
+    goes DONE, the offender's team takes DEFAULT_INVALID_ACTION_REWARD and the
+    opposing team its negation. Mirrors open_spiel_env's non-strict INVALID
+    path, except the loss is scoped to the team rather than the lone seat --
+    crediting the offender's partner would reward a team for its own foul.
+    """
+    assert [s.status for s in state] == ["DONE"] * 4
+    offending_team = [0, 1] if offending_seat in (0, 1) else [2, 3]
+    for i, s in enumerate(state):
+        expected = (
+            DEFAULT_INVALID_ACTION_REWARD
+            if i in offending_team
+            else -DEFAULT_INVALID_ACTION_REWARD
+        )
+        assert s.reward == expected, f"seat {i}: expected {expected}, got {s.reward}"
+
 
 def test_word_association_completes():
     env = make("word_association")
@@ -54,7 +99,7 @@ def test_minimum_one_guess():
     env.step([-1 if i == guesser_turn else None for i in range(4)])
     state = env.state
     
-    assert state[guesser_turn].status == "INVALID"
+    _assert_forfeited(state, guesser_turn)
     assert env.done
 
 def test_unlimited_clues_require_one_guess():
@@ -69,7 +114,7 @@ def test_unlimited_clues_require_one_guess():
     
     guesser_turn = state[0].observation.current_turn
     env.step([-1 if i == guesser_turn else None for i in range(4)])
-    assert env.state[guesser_turn].status == "INVALID"
+    _assert_forfeited(env.state, guesser_turn)
 
 def test_infinity_clues_require_one_guess():
     env = make("word_association")
@@ -83,7 +128,7 @@ def test_infinity_clues_require_one_guess():
     
     guesser_turn = state[0].observation.current_turn
     env.step([-1 if i == guesser_turn else None for i in range(4)])
-    assert env.state[guesser_turn].status == "INVALID"
+    _assert_forfeited(env.state, guesser_turn)
 
 def test_clue_validation():
     env = make("word_association")
@@ -205,11 +250,7 @@ def test_subsequent_game_prompt_has_status_block():
     env = make("word_association", configuration={"games_per_episode": 5, "seed": 0})
     env.reset()
     while env.state[0].observation.current_game == 0 and not env.done:
-        env.step([
-            None if env.state[i].status != "ACTIVE"
-            else ({"clue": "ANIMAL", "number": 1} if i in (0, 2) else 0)
-            for i in range(4)
-        ])
+        _step_legally(env)
     assert env.state[0].observation.current_game >= 1
 
     obs = env.state[0].observation
@@ -231,9 +272,7 @@ def test_multi_game_guessers_dont_see_unmasked_roles_at_transition():
     prev_cg = env.state[0].observation.current_game
     saw_transition = False
     while not env.done:
-        env.step([None if env.state[i].status != "ACTIVE"
-                  else ({"clue": "ANIMAL", "number": 1} if i in (0, 2) else 0)
-                  for i in range(4)])
+        _step_legally(env)
         cg = env.state[0].observation.current_game
         if cg != prev_cg:
             saw_transition = True
@@ -267,6 +306,103 @@ def test_multi_game_per_game_seed_uniqueness():
     env2 = make("word_association", configuration={"games_per_episode": 2, "seed": 7})
     env2.run(["random", "random", "random", "random"])
     assert list(env2.state[0].observation.words) == words_game2
+
+
+# --- Framework failure vs. illegal move -------------------------------------
+#
+# A seat that crashed or timed out is a broken participant, not a model making
+# an illegal move, so the two must not collapse into the same outcome. Matching
+# open_spiel_env's non-strict path: ERROR/TIMEOUT voids the episode (all seats
+# ERROR, all rewards nulled), while an illegal action is a scored forfeit.
+
+
+def _legal_agent(observation, configuration):
+    if observation.current_turn in (0, 2):
+        return {"clue": "ANIMAL", "number": 1}
+    return next((i for i, r in enumerate(observation.revealed) if not r), -1)
+
+
+@pytest.mark.parametrize("crash_seat", [0, 1, 2, 3])
+def test_agent_crash_voids_the_episode(crash_seat):
+    """A raising agent must not be laundered into an INVALID forfeit that
+    credits the opposing team with a win it did not earn."""
+
+    def crash(observation, configuration):
+        raise RuntimeError("provider exploded")
+
+    agents = [_legal_agent] * 4
+    agents[crash_seat] = crash
+    env = make("word_association", configuration={"seed": 3})
+    env.run(agents)
+
+    assert env.done
+    assert [s.status for s in env.state] == ["ERROR"] * 4
+    assert [s.reward for s in env.state] == [None] * 4
+
+
+@pytest.mark.parametrize("timeout_seat", [0, 1, 2, 3])
+def test_agent_timeout_voids_the_episode(timeout_seat):
+    """A timed-out seat keeps TIMEOUT (which voids the episode the same way as
+    ERROR) rather than being relabeled INVALID."""
+    env = make("word_association", configuration={"seed": 3})
+    env.reset()
+    while True:
+        turn = env.state[0].observation.current_turn
+        actions = [None] * 4
+        if turn == timeout_seat:
+            actions[turn] = DeadlineExceeded()
+            env.step(actions)
+            break
+        actions[turn] = _legal_agent(env.state[turn].observation, None)
+        env.step(actions)
+
+    assert env.done
+    assert env.state[timeout_seat].status == "TIMEOUT"
+    assert all(s.status in ("ERROR", "TIMEOUT") for s in env.state)
+    assert [s.reward for s in env.state] == [None] * 4
+
+
+def test_illegal_move_is_a_scored_forfeit_not_an_error():
+    """The counterpart to the tests above: a well-formed but rule-breaking
+    action still ends the episode with a real result."""
+
+    def bad_guesser(observation, configuration):
+        if observation.current_turn in (0, 2):
+            return {"clue": "ANIMAL", "number": 1}
+        return 999  # out of range
+
+    env = make("word_association", configuration={"seed": 3})
+    env.reset()
+    # Whichever team leads, its guesser is the first seat to offend.
+    offending_seat = env.state[0].observation.current_turn + 1
+    env.run([_legal_agent, bad_guesser, _legal_agent, bad_guesser])
+
+    assert env.done
+    _assert_forfeited(env.state, offending_seat)
+
+
+def test_forfeit_ends_a_multi_game_episode_immediately():
+    """A forfeit is terminal: the next game must not start and relaunder the
+    forfeiting seats back to ACTIVE."""
+
+    def bad_guesser(observation, configuration):
+        if observation.current_turn in (0, 2):
+            return {"clue": "ANIMAL", "number": 1}
+        return 999
+
+    env = make(
+        "word_association",
+        configuration={"games_per_episode": 5, "seed": 0},
+    )
+    # Whichever team leads, its guesser is the first seat to submit the
+    # out-of-range guess.
+    env.reset()
+    offending_seat = env.state[0].observation.current_turn + 1
+    env.run([_legal_agent, bad_guesser, _legal_agent, bad_guesser])
+
+    assert env.done
+    assert env.state[0].observation.current_game == 0
+    _assert_forfeited(env.state, offending_seat)
 
 
 if __name__ == "__main__":

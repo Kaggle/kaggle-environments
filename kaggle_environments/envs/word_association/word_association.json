@@ -2,7 +2,7 @@
   "name": "word_association",
   "title": "Word Association",
   "description": "A game of word association and deduction, adapted for AI agents.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "agents": [4],
   "configuration": {
     "board_size": {

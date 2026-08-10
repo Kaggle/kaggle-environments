@@ -76,7 +76,43 @@ def update_visibility(state):
         else:
             state[i].observation.roles = roles[:]
 
+# Statuses core.py assigns when an agent crashes or times out, as opposed to
+# returning a well-formed-but-illegal action. See _abort_on_agent_failure.
+_FRAMEWORK_FAILURE_STATUSES = ("ERROR", "TIMEOUT")
+
+# Reward applied to the forfeiting team when a seat submits an illegal action.
+# The opposing team receives the negation. Mirrors open_spiel_env's
+# DEFAULT_INVALID_ACTION_REWARD so forfeits score identically across envs.
+DEFAULT_INVALID_ACTION_REWARD = -1
+
+
+def _abort_on_agent_failure(state):
+    """Void the episode if the framework marked any seat ERROR or TIMEOUT.
+    Returns True if the episode was ended.
+
+    A seat that crashed or timed out is a broken participant, not a model
+    making an illegal move, and a 2v2 game cannot be scored around one.
+    Matching open_spiel_env's non-strict path, every seat is forced to ERROR
+    (a TIMEOUT seat keeps TIMEOUT, which voids the episode the same way) so
+    core.py nulls all four rewards and the replay reads as an errored episode
+    rather than a decided one.
+
+    This is deliberately NOT the illegal-move path: a model that returns an
+    unparseable or rule-breaking action forfeits and its opponents are
+    credited, because that is gameplay. A crash is not.
+    """
+    if not any(s.status in _FRAMEWORK_FAILURE_STATUSES for s in state):
+        return False
+    for s in state:
+        if s.status != "TIMEOUT":
+            s.status = "ERROR"
+    return True
+
+
 def process_action(state, config):
+    """Apply the active seat's action. Returns True if the action forfeited
+    the episode, which ends play immediately even when games_per_episode > 1.
+    """
     current_turn = state[0].observation.current_turn
     active_agent = state[current_turn]
     action = active_agent.action
@@ -85,12 +121,11 @@ def process_action(state, config):
     # Extract it so the rest of the interpreter sees the unwrapped value.
     if isinstance(action, dict) and "submission" in action:
         action = action["submission"]
-    
+
     # helper to end game
     def end_game(winner=None):
         for i in range(4):
-            if state[i].status != "INVALID":
-                state[i].status = "DONE"
+            state[i].status = "DONE"
             if winner == "blue":
                 if i in [0, 1]:
                     state[i].reward = (state[i].reward or 0) + 1
@@ -104,18 +139,44 @@ def process_action(state, config):
             else:
                 state[i].reward = state[i].reward or 0
 
-    # Handle Agent Failure / Invalid Action
+    def forfeit():
+        """End the episode because the seat at `current_turn` submitted an
+        illegal action. The offending team takes
+        DEFAULT_INVALID_ACTION_REWARD and the opposing team its negation,
+        matching open_spiel_env's non-strict INVALID path. Every seat ends
+        DONE -- including the offender -- so the episode scores normally.
+
+        The offender's team, not just the offender, absorbs the loss: this is
+        a 2v2 game and a forfeit ends it for both teammates, so crediting the
+        partner of the offending seat would reward a team for its own
+        illegal move.
+
+        Rewards are assigned absolutely rather than accumulated, so under
+        games_per_episode > 1 a forfeit discards prior game wins and ends the
+        episode immediately. That mirrors open_spiel, where a forfeit
+        overrides the game's natural returns; the per-game tally is still
+        readable from observation.blue_wins / yellow_wins.
+        """
+        offending_team = [0, 1] if current_turn in [0, 1] else [2, 3]
+        for i in range(4):
+            state[i].status = "DONE"
+            if i in offending_team:
+                state[i].reward = DEFAULT_INVALID_ACTION_REWARD
+            else:
+                state[i].reward = -DEFAULT_INVALID_ACTION_REWARD
+
+    # Handle Invalid Action. Crashes and timeouts never reach here -- the
+    # interpreter routes them to _abort_on_agent_failure first -- so a None
+    # action at this point means the harness produced no usable move.
     if action is None:
-        active_agent.status = "INVALID"
-        end_game(winner="yellow" if current_turn in [0, 1] else "blue")
-        return
+        forfeit()
+        return True
 
     # CLUEMASTER TURN
     if current_turn in [0, 2]:
         if not isinstance(action, dict) or "clue" not in action or "number" not in action:
-            active_agent.status = "INVALID"
-            end_game(winner="yellow" if current_turn == 0 else "blue")
-            return
+            forfeit()
+            return True
             
         # Clue validation
         normalized_clue = str(action["clue"]).strip().upper()
@@ -180,9 +241,8 @@ def process_action(state, config):
         guess_val = action.get("guess") if isinstance(action, dict) else action
         
         if not isinstance(guess_val, int) or guess_val < -1 or guess_val > BOARD_SIZE - 1:
-            active_agent.status = "INVALID"
-            end_game(winner="yellow" if current_turn == 1 else "blue")
-            return
+            forfeit()
+            return True
             
         # Pass
         if guess_val == -1:
@@ -190,9 +250,8 @@ def process_action(state, config):
             expected_remaining = BOARD_SIZE if clue_num <= 0 else clue_num + 1
             # 0 ("zero") and -1 ("infinity") clues both give unlimited guesses but STILL require at least 1 guess
             if state[0].observation.guesses_remaining == expected_remaining:
-                active_agent.status = "INVALID"
-                end_game(winner="yellow" if current_turn == 1 else "blue")
-                return
+                forfeit()
+                return True
                 
             for s in state:
                 s.observation.clue = ""
@@ -201,9 +260,8 @@ def process_action(state, config):
         else:
             # Check if already revealed
             if state[0].observation.revealed[guess_val]:
-                active_agent.status = "INVALID"
-                end_game(winner="yellow" if current_turn == 1 else "blue")
-                return
+                forfeit()
+                return True
                 
             # Reveal
             for s in state:
@@ -266,6 +324,12 @@ def interpreter(state, env):
     if env.done:
         return state
 
+    # A crashed or timed-out seat is a broken participant, not a player making
+    # an illegal move. Void the episode before process_action can launder the
+    # framework's ERROR/TIMEOUT into a scored forfeit.
+    if _abort_on_agent_failure(state):
+        return state
+
     prev_blue_reward = state[0].reward or 0
     prev_yellow_reward = state[2].reward or 0
 
@@ -277,7 +341,7 @@ def interpreter(state, env):
     acting_action = state[acting_turn].action
     pre_revealed = list(state[0].observation.revealed)
 
-    process_action(state, env.configuration)
+    forfeited = process_action(state, env.configuration)
     update_visibility(state)
 
     # Custom Memory Logic
@@ -290,8 +354,11 @@ def interpreter(state, env):
     for s in state:
         track_turn(s.observation, state, acting_turn, acting_action, pre_revealed)
     
-    if games_per_episode > 1:
-        is_done = all(s.status in ["DONE", "INVALID"] for s in state)
+    # A forfeit ends the whole episode, so never roll into the next game --
+    # doing so would relaunder the forfeiting seats back to ACTIVE and
+    # overwrite the forfeit rewards.
+    if games_per_episode > 1 and not forfeited:
+        is_done = all(s.status == "DONE" for s in state)
         if is_done:
             winner = None
             if (state[0].reward or 0) > prev_blue_reward: winner = "blue"
