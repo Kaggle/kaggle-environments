@@ -36,9 +36,15 @@ MANCALA_PROMPT_TEMPLATE = """Let's play Mancala (Kalah ruleset).
 
 Rules: 14-cell board with two players. Each player owns a row of 6 pits
 and one store. Player 0 owns pits 1-6 and store 7. Player 1 owns pits
-8-13 and store 0. Seeds are sown counter-clockwise -- after pit 6, the
-next cell is store 7, then pit 8; after pit 13, the next cell is store 0,
-then pit 1. A player ALWAYS skips the opponent's store while sowing.
+8-13 and store 0. Seeds are sown counter-clockwise, which always means
+moving to the NEXT HIGHER cell index, wrapping from 13 back to 0:
+
+    1 -> 2 -> 3 -> 4 -> 5 -> 6 -> [store 7] -> 8 -> 9 -> 10 -> 11
+      -> 12 -> 13 -> [store 0] -> 1 -> ...
+
+This direction is the same for both players. You ALWAYS skip the
+opponent's store: Player 0 goes pit 13 -> pit 1 (skipping store 0), and
+Player 1 goes pit 6 -> pit 8 (skipping store 7).
 
 On your turn, pick one of YOUR pits that contains seeds. Pick them all
 up and sow them one-at-a-time counter-clockwise into the following cells.
@@ -63,7 +69,10 @@ side of the board: their store PLUS any seeds remaining in their 6 pits.
 to that side's owner.) The player with the higher final score wins; equal
 scores is a draw.
 
-Board layout (fixed orientation, indices labeled):
+Board layout (fixed orientation, indices labeled). Note that Player 1's
+row is printed with the HIGHEST index on the left, so sowing runs
+right-to-left along that row; Player 0's row is printed lowest-first, so
+sowing runs left-to-right. Both are the same counter-clockwise direction:
 
     Player 1's pits:   [13] [12] [11] [10] [ 9] [ 8]
     Stores:        [0]                              [7]
