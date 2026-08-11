@@ -6,6 +6,7 @@ from kaggle_environments.envs.kaggriculture.kaggriculture import (
     LAND_ORDER,
     LAND_PRICES,
     MARKET_PARAMS,
+    MAX_SHOP_INSTANCES,
     PRODUCTS,
     SHOPS,
     TOWN_CENTER_PRODUCTS,
@@ -17,6 +18,7 @@ from kaggle_environments.envs.kaggriculture.kaggriculture import (
     _do_buy_land,
     _do_hire,
     _drop_inventories_to_shed,
+    _end_of_day,
     _new_animal,
     _new_farm,
     _new_market,
@@ -24,6 +26,7 @@ from kaggle_environments.envs.kaggriculture.kaggriculture import (
     _new_private,
     _quadrant_of,
     _shed_access_tiles,
+    _town_consume,
     market_price,
 )
 
@@ -160,6 +163,57 @@ def test_movement_blocked_off_map():
     assert farm["hands"][0] == [9, 9]
     _apply_unit_action(farm, private, 1, ["EAST"], 10, 0, 24)
     assert farm["hands"][0] == [9, 9]
+
+
+def test_shed_ops_work_from_a_locked_shed_access_tile():
+    """Three of the four shed-access tiles start locked; the shed still works."""
+    farm = _new_farm(10, 100)
+    private = _new_private()
+    private["shed"]["WHEAT"] = 5
+    # (5, 4) is a shed-access tile in the NE quadrant, so it starts locked.
+    farm["farmer"] = [5, 4]
+    assert farm["tiles"][4][5] == "LOCKED"
+
+    _apply_unit_action(farm, private, 0, ["PICKUP", "WHEAT", 2], 10, 0, 24)
+    assert private["inventories"][0]["WHEAT"] == 2
+    assert private["shed"]["WHEAT"] == 3
+
+    _apply_unit_action(farm, private, 0, ["PLACE", "WHEAT", 1], 10, 0, 24)
+    assert private["inventories"][0]["WHEAT"] == 1
+    assert private["shed"]["WHEAT"] == 4
+
+    _apply_unit_action(farm, private, 0, ["DROP"], 10, 0, 24)
+    assert private["inventories"][0].get("WHEAT", 0) == 0
+    assert private["shed"]["WHEAT"] == 5
+
+
+def test_tile_ops_still_noop_on_locked_shed_access_tile():
+    """Resolving shed ops early must not let tile ops run on locked ground."""
+    farm = _new_farm(10, 100)
+    private = _new_private()
+    private["seeds"]["CARROT"] = 3
+    farm["farmer"] = [5, 4]
+    assert farm["tiles"][4][5] == "LOCKED"
+
+    for action in (["PLANT", "CARROT"], ["BUILD_COOP"], ["BUILD_PASTURE"], ["DIG"]):
+        _apply_unit_action(farm, private, 0, action, 10, 0, 24)
+        assert farm["tiles"][4][5] == "LOCKED", action
+    assert private["seeds"]["CARROT"] == 3
+
+
+def test_place_animal_still_noop_on_locked_tile():
+    """PLACE moved above the guard, but animals need an owned structure."""
+    farm = _new_farm(10, 100)
+    private = _new_private()
+    # (5, 4) is locked and shed-adjacent: the animal branch must not match, and
+    # the shed fallback must not silently swallow the animal either.
+    farm["farmer"] = [5, 4]
+    private["inventories"][0]["CHICKEN"] = 1
+    _apply_unit_action(farm, private, 0, ["PLACE", "CHICKEN"], 10, 0, 24)
+    assert farm["tiles"][4][5] == "LOCKED"
+    # It went into the shed as a plain item, not onto the locked tile.
+    assert private["inventories"][0].get("CHICKEN", 0) == 0
+    assert private["shed"]["CHICKEN"] == 1
 
 
 # --- Shed / pickup / inventory ---------------------------------------------
@@ -828,6 +882,84 @@ def test_town_unlocks_a_shop_after_three_days():
     final_town = j["steps"][-1][0]["observation"]["town"]
     assert len(final_town["unlocked_shops"]) >= 1
     assert all(s in SHOPS for s in final_town["unlocked_shops"])
+
+
+def test_town_shops_can_unlock_duplicates():
+    """Shops are drawn with replacement, so over a full season at least one
+    seed should produce a repeated shop. Sample a handful of seeds and assert
+    duplicates occur (the with-replacement draw makes this overwhelmingly likely)."""
+    saw_duplicate = False
+    for seed in range(8):
+        env = make("kaggriculture", configuration={"episodeSteps": 24 * 30, "seed": seed, "turnsPerDay": 24})
+        env.run(["pass", "pass"])
+        shops = env.toJSON()["steps"][-1][0]["observation"]["town"]["unlocked_shops"]
+        assert all(s in SHOPS for s in shops)
+        if len(set(shops)) < len(shops):
+            saw_duplicate = True
+            break
+    assert saw_duplicate, "expected at least one duplicated shop across sampled seeds"
+
+
+def test_shop_unlocks_stop_at_the_instance_cap():
+    """_end_of_day must not push past MAX_SHOP_INSTANCES."""
+    env = make("kaggriculture", configuration={"seed": 3, "turnsPerDay": 24, "townShopUnlockInterval": 1})
+    state = env.reset()
+    town = state[0].observation.town
+    # 40 unlock opportunities against a cap of 8.
+    for day in range(40):
+        _end_of_day(state, env, day)
+    assert len(town["unlocked_shops"]) == MAX_SHOP_INSTANCES
+
+
+def test_duplicate_shops_consume_independently():
+    """Two copies of a shop must drain twice as much as one copy."""
+    def drain(shops):
+        env = make("kaggriculture", configuration={"seed": 5, "townShopSellInterval": 1})
+        state = env.reset()
+        market = state[0].observation.market
+        state[0].observation.town["unlocked_shops"] = list(shops)
+        before = dict(market["inventory"])
+        _town_consume(env, state, 1)  # step 1: shops tick, town center does not
+        return {k: before[k] - v for k, v in market["inventory"].items()}
+
+    one = drain(["BAKERY"])
+    two = drain(["BAKERY", "BAKERY"])
+    assert one["WHEAT"] == 1 and one["EGG"] == 1
+    assert two["WHEAT"] == 2 and two["EGG"] == 2
+
+
+def test_town_center_rate_is_flat_across_the_season():
+    """No ramp: the center pulls exactly 1 of each non-fertilizer product on
+    every center tick, on day 0 and on day 29 alike."""
+    for step in (0, 24 * 29):
+        env = make("kaggriculture", configuration={"seed": 5, "turnsPerDay": 24})
+        state = env.reset()
+        market = state[0].observation.market
+        state[0].observation.town["unlocked_shops"] = []
+        before = dict(market["inventory"])
+        _town_consume(env, state, step)
+        for item in TOWN_CENTER_PRODUCTS:
+            assert before[item] - market["inventory"][item] == 1, f"{item} at step {step}"
+
+
+def test_town_center_buys_once_per_day_by_default():
+    """Default townCenterSellInterval equals turnsPerDay, so exactly one center
+    tick lands in each day."""
+    env = make("kaggriculture", configuration={"turnsPerDay": 24})
+    cfg = env.configuration
+    assert cfg.townCenterSellInterval == 24
+    assert cfg.townCenterSellInterval == cfg.turnsPerDay
+
+    ticks = 0
+    for step in range(24):
+        state = env.reset()
+        market = state[0].observation.market
+        state[0].observation.town["unlocked_shops"] = []
+        before = market["inventory"]["WHEAT"]
+        _town_consume(env, state, step)
+        if market["inventory"]["WHEAT"] < before:
+            ticks += 1
+    assert ticks == 1
 
 
 def test_town_consumes_market_inventory():
