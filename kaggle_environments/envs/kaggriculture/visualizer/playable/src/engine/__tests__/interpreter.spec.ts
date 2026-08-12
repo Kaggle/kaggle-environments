@@ -16,7 +16,8 @@ import {
 } from '../interpreter';
 import { PyRandom } from '../rng';
 import { initGameState, newAnimal, newPlant, resolveConfig } from '../state';
-import type { AnimalTile, Farm, GameState, PlantTile, PlayerAction, Private, Tile } from '../types';
+import type { AnimalTile, Farm, GameState, PlantTile, PlayerAction, Private, Tile, UnitAction } from '../types';
+import { LOCKED } from '../types';
 
 const cfg = resolveConfig();
 const BOARD = cfg.boardSize;
@@ -44,20 +45,124 @@ function getAnimal(farm: Farm, x: number, y: number): AnimalTile {
 }
 
 describe('applyUnitAction — movement', () => {
-  it('moves the main farmer onto an unlocked tile and refuses LOCKED/out-of-bounds', () => {
+  it('moves the main farmer freely, including onto LOCKED tiles, but refuses out-of-bounds', () => {
     const s = fresh();
     const f = s.farms[0];
     const p = s.privates[0];
     farmerAt(f, 4, 4);
     applyUnitAction(f, p, 0, ['NORTH'], BOARD, 0, TPD, CAP);
     expect(f.farmer).toEqual([4, 3]);
-    // From [4,3] going EAST onto [5,3] is LOCKED (NE quadrant).
+    // From [4,3] going EAST onto [5,3] is LOCKED (NE quadrant) — allowed, so a
+    // hand spawned on a locked shed-access tile is never stranded.
     applyUnitAction(f, p, 0, ['EAST'], BOARD, 0, TPD, CAP);
-    expect(f.farmer).toEqual([4, 3]); // unchanged
+    expect(f.farmer).toEqual([5, 3]);
+    // ...and it can step back off the locked tile.
+    applyUnitAction(f, p, 0, ['WEST'], BOARD, 0, TPD, CAP);
+    expect(f.farmer).toEqual([4, 3]);
     // From [0,0] going WEST is out of bounds.
     f.farmer = [0, 0];
     applyUnitAction(f, p, 0, ['WEST'], BOARD, 0, TPD, CAP);
     expect(f.farmer).toEqual([0, 0]);
+  });
+
+  it('tile ops still no-op while standing on a LOCKED tile', () => {
+    const s = fresh();
+    const f = s.farms[0];
+    const p = s.privates[0];
+    p.seeds.WHEAT = 1;
+    farmerAt(f, 5, 3); // NE quadrant — locked
+    applyUnitAction(f, p, 0, ['PLANT', 'WHEAT'], BOARD, 0, TPD, CAP);
+    expect(f.tiles[3][5]).toBe(LOCKED);
+    expect(p.seeds.WHEAT).toBe(1);
+  });
+});
+
+describe('applyUnitAction — DROP', () => {
+  it('dumps the whole inventory into the shed when shed-adjacent', () => {
+    const s = fresh();
+    const f = s.farms[0];
+    const p = s.privates[0];
+    // The farmer spawns on (4,4), which is shed-adjacent.
+    p.inventories[0] = { WHEAT: 3, CARROT: 2 };
+    applyUnitAction(f, p, 0, ['DROP'], BOARD, 0, TPD, CAP);
+    expect(p.shed.WHEAT).toBe(3);
+    expect(p.shed.CARROT).toBe(2);
+    expect(p.inventories[0]).toEqual({});
+  });
+
+  it('is a no-op when not shed-adjacent', () => {
+    const s = fresh();
+    const f = s.farms[0];
+    const p = s.privates[0];
+    p.inventories[0] = { WHEAT: 3 };
+    applyUnitAction(f, p, 0, ['WEST'], BOARD, 0, TPD, CAP); // step off the shed tile
+    applyUnitAction(f, p, 0, ['DROP'], BOARD, 0, TPD, CAP);
+    expect(p.inventories[0]).toEqual({ WHEAT: 3 });
+    expect(p.shed.WHEAT).toBe(0);
+  });
+
+  it('discards overflow past shedCapacity', () => {
+    const s = fresh();
+    const f = s.farms[0];
+    const p = s.privates[0];
+    p.shed.WHEAT = CAP - 2;
+    p.inventories[0] = { WHEAT: 5, CARROT: 4 };
+    applyUnitAction(f, p, 0, ['DROP'], BOARD, 0, TPD, CAP);
+    expect(Object.values(p.shed).reduce((a, v) => a + (v ?? 0), 0)).toBe(CAP);
+    expect(p.inventories[0]).toEqual({});
+  });
+});
+
+describe('applyUnitAction — locked shed-access tile', () => {
+  it('shed ops work from a locked shed-access tile', () => {
+    const s = fresh();
+    const f = s.farms[0];
+    const p = s.privates[0];
+    p.shed.WHEAT = 5;
+    // (5,4) is a shed-access tile in the NE quadrant, so it starts locked.
+    farmerAt(f, 5, 4);
+    expect(f.tiles[4][5]).toBe(LOCKED);
+
+    applyUnitAction(f, p, 0, ['PICKUP', 'WHEAT', 2], BOARD, 0, TPD, CAP);
+    expect(p.inventories[0].WHEAT).toBe(2);
+    expect(p.shed.WHEAT).toBe(3);
+
+    applyUnitAction(f, p, 0, ['PLACE', 'WHEAT', 1], BOARD, 0, TPD, CAP);
+    expect(p.inventories[0].WHEAT).toBe(1);
+    expect(p.shed.WHEAT).toBe(4);
+
+    applyUnitAction(f, p, 0, ['DROP'], BOARD, 0, TPD, CAP);
+    expect(p.inventories[0].WHEAT ?? 0).toBe(0);
+    expect(p.shed.WHEAT).toBe(5);
+  });
+
+  // Resolving shed ops before the guard must not let tile ops through on the
+  // same tile: (5,4) is both locked and shed-adjacent.
+  it('tile ops still no-op there, consuming nothing', () => {
+    const s = fresh();
+    const f = s.farms[0];
+    const p = s.privates[0];
+    p.seeds.CARROT = 3;
+    farmerAt(f, 5, 4);
+
+    const actions: UnitAction[] = [['PLANT', 'CARROT'], ['BUILD_COOP'], ['BUILD_PASTURE'], ['DIG']];
+    for (const action of actions) {
+      applyUnitAction(f, p, 0, action, BOARD, 0, TPD, CAP);
+      expect(f.tiles[4][5], action[0]).toBe(LOCKED);
+    }
+    expect(p.seeds.CARROT).toBe(3);
+  });
+
+  it('PLACE of an animal falls through to the shed on a locked tile', () => {
+    const s = fresh();
+    const f = s.farms[0];
+    const p = s.privates[0];
+    farmerAt(f, 5, 4);
+    p.inventories[0] = { GOOSE: 1 };
+    applyUnitAction(f, p, 0, ['PLACE', 'GOOSE'], BOARD, 0, TPD, CAP);
+    expect(f.tiles[4][5]).toBe(LOCKED);
+    expect(p.inventories[0].GOOSE ?? 0).toBe(0);
+    expect(p.shed.GOOSE).toBe(1);
   });
 });
 
@@ -275,6 +380,53 @@ describe('processMarket', () => {
     processMarket(s.farms, s.privates, s.market, actions, cfg);
     expect(f.unlocked_quadrants).toContain('NE');
     expect(f.tiles[0][9]).toBe(null);
+  });
+
+  it('BUY_PRODUCT partially fills up to shedCapacity and stops', () => {
+    const s = fresh();
+    const f = s.farms[0];
+    const p = s.privates[0];
+    f.money = 1_000_000;
+    p.shed.FERTILIZER = CAP - 5; // exactly 5 slots of headroom
+    const moneyBefore = f.money;
+    const actions: PlayerAction[] = [
+      { farmer: ['PASS'], hands: [], market: [['BUY_PRODUCT', 'WHEAT', 10]] },
+      { farmer: ['PASS'], hands: [], market: [] },
+    ];
+    processMarket(s.farms, s.privates, s.market, actions, cfg);
+    expect(Object.values(p.shed).reduce((a, v) => a + (v ?? 0), 0)).toBe(CAP);
+    expect(p.shed.WHEAT).toBe(5); // only 5 of the 10 requested
+    expect(f.money).toBeLessThan(moneyBefore);
+  });
+
+  it('BUY_ANIMAL is refused outright when the shed is already full', () => {
+    const s = fresh();
+    const f = s.farms[0];
+    const p = s.privates[0];
+    f.money = 10_000;
+    p.shed.WHEAT = CAP;
+    const actions: PlayerAction[] = [
+      { farmer: ['PASS'], hands: [], market: [['BUY_ANIMAL', 'GOOSE', 1]] },
+      { farmer: ['PASS'], hands: [], market: [] },
+    ];
+    processMarket(s.farms, s.privates, s.market, actions, cfg);
+    expect(f.money).toBe(10_000); // no charge
+    expect(p.shed.GOOSE).toBe(0);
+  });
+
+  it('BUY_SEED is unaffected by a full shed (seeds live outside it)', () => {
+    const s = fresh();
+    const f = s.farms[0];
+    const p = s.privates[0];
+    f.money = 10_000;
+    p.shed.WHEAT = CAP;
+    const actions: PlayerAction[] = [
+      { farmer: ['PASS'], hands: [], market: [['BUY_SEED', 'CARROT', 2]] },
+      { farmer: ['PASS'], hands: [], market: [] },
+    ];
+    processMarket(s.farms, s.privates, s.market, actions, cfg);
+    expect(p.seeds.CARROT).toBe(2);
+    expect(f.money).toBe(10_000 - 2 * CROPS.CARROT.seed);
   });
 
   it('rejects BUY_PRODUCT for non-wheat/fertilizer items (e.g. EGG)', () => {

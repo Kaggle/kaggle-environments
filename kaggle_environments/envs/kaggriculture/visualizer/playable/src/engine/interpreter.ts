@@ -143,7 +143,9 @@ export function applyUnitAction(
     const nx = fx + dx;
     const ny = fy + dy;
     if (nx < 0 || nx >= boardSize || ny < 0 || ny >= boardSize) return;
-    if (farm.tiles[ny][nx] === LOCKED) return;
+    // Movement onto LOCKED tiles is allowed: a hand can spawn on a locked
+    // shed-access tile, and blocking movement would strand it there forever.
+    // Tile operations (PLANT, WATER, etc.) still no-op on LOCKED tiles.
     setUnitPosition(farm, idx, [nx, ny]);
     return;
   }
@@ -151,7 +153,26 @@ export function applyUnitAction(
   if (op === 'PASS') return;
 
   const tile = farm.tiles[fy][fx];
-  if (tile === LOCKED) return;
+
+  // Shed operations resolve before the LOCKED guard. They use the tile only as
+  // a standing position — the shed itself is always owned — and three of the
+  // four shed-access tiles start LOCKED, so guarding them first would make the
+  // shed unreachable from those tiles.
+  if (op === 'DROP') {
+    if (!isShedAdjacent([fx, fy], boardSize)) return;
+    const shed = priv.shed;
+    for (const [item, n] of Object.entries(inv) as Array<[ShedItemId, number]>) {
+      if (n <= 0) {
+        delete inv[item];
+        continue;
+      }
+      const room = Math.max(0, shedCapacity - shedTotal(shed));
+      const take = Math.min(n, room);
+      if (take > 0) shed[item] = (shed[item] ?? 0) + take;
+      delete inv[item];
+    }
+    return;
+  }
 
   if (op === 'PICKUP') {
     if (!isShedAdjacent([fx, fy], boardSize)) return;
@@ -166,6 +187,42 @@ export function applyUnitAction(
     invAdd(inv, item, n);
     return;
   }
+
+  if (op === 'PLACE') {
+    if (action.length < 2) return;
+    const item = action[1] as ShedItemId;
+    // Animal placement: standing on a matching unoccupied structure. A LOCKED
+    // tile is the string 'LOCKED', never an object, so this branch cannot match
+    // there and PLACE falls through to the shed path below.
+    if (item in ANIMALS && isObjectTile(tile)) {
+      const t = tile as { kind: string; animal?: AnimalId };
+      if (t.kind === ANIMALS[item as AnimalId].structure && !('animal' in t)) {
+        if (invTake(inv, item, 1)) {
+          farm.tiles[fy][fx] = newAnimal(item as AnimalId, day);
+        }
+        return;
+      }
+    }
+    // Shed drop: adjacent to the shed; obeys shedCapacity.
+    if (isShedAdjacent([fx, fy], boardSize)) {
+      const requested = action.length >= 3 ? (action[2] as number) : 1;
+      if (requested <= 0) return;
+      let n = Math.min(requested, inv[item] ?? 0);
+      if (n <= 0) return;
+      const current = shedTotal(priv.shed);
+      const room = Math.max(0, shedCapacity - current);
+      n = Math.min(n, room);
+      if (n <= 0) return;
+      inv[item] = (inv[item] as number) - n;
+      if (inv[item] === 0) delete inv[item];
+      priv.shed[item] = (priv.shed[item] ?? 0) + n;
+    }
+    return;
+  }
+
+  // Everything below mutates the tile the unit stands on, so it requires that
+  // tile to be owned.
+  if (tile === LOCKED) return;
 
   if (op === 'PLANT') {
     if (action.length < 2) return;
@@ -234,36 +291,6 @@ export function applyUnitAction(
   if (op === 'BUILD_PASTURE') {
     if (tile !== null) return;
     farm.tiles[fy][fx] = { kind: 'PASTURE' };
-    return;
-  }
-
-  if (op === 'PLACE') {
-    if (action.length < 2) return;
-    const item = action[1] as ShedItemId;
-    // Animal placement: standing on a matching unoccupied structure.
-    if (item in ANIMALS && isObjectTile(tile)) {
-      const t = tile as { kind: string; animal?: AnimalId };
-      if (t.kind === ANIMALS[item as AnimalId].structure && !('animal' in t)) {
-        if (invTake(inv, item, 1)) {
-          farm.tiles[fy][fx] = newAnimal(item as AnimalId, day);
-        }
-        return;
-      }
-    }
-    // Shed drop: adjacent to the shed; obeys shedCapacity.
-    if (isShedAdjacent([fx, fy], boardSize)) {
-      const requested = action.length >= 3 ? (action[2] as number) : 1;
-      if (requested <= 0) return;
-      let n = Math.min(requested, inv[item] ?? 0);
-      if (n <= 0) return;
-      const current = shedTotal(priv.shed);
-      const room = Math.max(0, shedCapacity - current);
-      n = Math.min(n, room);
-      if (n <= 0) return;
-      inv[item] = (inv[item] as number) - n;
-      if (inv[item] === 0) delete inv[item];
-      priv.shed[item] = (priv.shed[item] ?? 0) + n;
-    }
     return;
   }
 
@@ -397,7 +424,8 @@ function commitUnit(
   price: number,
   farm: Farm,
   priv: Private,
-  market: Market
+  market: Market,
+  shedCapacity: number
 ): boolean {
   if (op === 'SELL') {
     const have = priv.shed[item as ShedItemId] ?? 0;
@@ -409,6 +437,9 @@ function commitUnit(
   }
   if (op === 'BUY_PRODUCT') {
     if (farm.money < price) return false;
+    // Bought goods land in the shed, which obeys shedCapacity like every
+    // other deposit path (pickup, shed-drop, end-of-day drop).
+    if (shedTotal(priv.shed) >= shedCapacity) return false;
     farm.money -= price;
     priv.shed[item as ShedItemId] = (priv.shed[item as ShedItemId] ?? 0) + 1;
     market.inventory[item as ProductId] -= 1;
@@ -422,6 +453,7 @@ function commitUnit(
   }
   if (op === 'BUY_ANIMAL') {
     if (farm.money < price) return false;
+    if (shedTotal(priv.shed) >= shedCapacity) return false;
     farm.money -= price;
     priv.shed[item as ShedItemId] = (priv.shed[item as ShedItemId] ?? 0) + 1;
     return true;
@@ -439,6 +471,7 @@ export function processMarket(
   const maxOrders = Math.max(1, config.maxMarketOrdersPerTurn);
   const hireMult = config.farmHandCostMult;
   const boardSize = config.boardSize;
+  const shedCapacity = config.shedCapacity;
 
   const queues: MarketOrder[][] = farms.map((_, pid) => {
     const m = actions[pid]?.market ?? [];
@@ -509,7 +542,7 @@ export function processMarket(
         const q = quoted[pid];
         if (q === null) continue;
         const [op, item, price, os] = q;
-        const ok = commitUnit(op, item, price, farms[pid], privates[pid], market);
+        const ok = commitUnit(op, item, price, farms[pid], privates[pid], market, shedCapacity);
         if (ok) {
           os.remaining -= 1;
           committedAny = true;
