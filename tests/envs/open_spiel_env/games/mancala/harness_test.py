@@ -165,6 +165,18 @@ class GeneratePromptTest(absltest.TestCase):
         prompt = generate_prompt(obs, [])
         self.assertIn("Last action played: (none yet)", prompt)
 
+    def test_sow_direction_stated_without_per_player_contradiction(self):
+        # The engine sows to the next higher index for BOTH players, skipping
+        # only the opponent's store. Stating the wrap points per-cell instead
+        # ("after pit 6 the next cell is store 7") is false for player 1, who
+        # skips store 7 -- so assert the index-order phrasing is what ships.
+        obs = _make_observation(self.state, self.game, player_id=1)
+        prompt = generate_prompt(obs, [])
+        self.assertIn("NEXT HIGHER cell index", prompt)
+        self.assertIn("pit 6 -> pit 8", prompt)
+        self.assertIn("pit 13 -> pit 1", prompt)
+        self.assertNotIn("after pit 6, the", prompt)
+
     def test_endgame_sweep_rule_disclosed(self):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [])
