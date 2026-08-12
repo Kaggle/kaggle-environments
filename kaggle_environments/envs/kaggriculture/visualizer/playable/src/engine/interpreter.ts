@@ -154,8 +154,6 @@ export function applyUnitAction(
 
   const tile = farm.tiles[fy][fx];
 
-  if (tile === LOCKED) return;
-
   // Shed operations resolve before the LOCKED guard. They use the tile only as
   // a standing position -- the shed itself is always owned -- and three of the
   // four shed-access tiles start LOCKED, so guarding them first would make the
@@ -221,6 +219,10 @@ export function applyUnitAction(
     }
     return;
   }
+
+  // Everything below mutates the tile the unit stands on, so it requires that
+  // tile to be owned.
+  if (tile === LOCKED) return;
 
   if (op === 'PLANT') {
     if (action.length < 2) return;
