@@ -39,8 +39,8 @@ and one store. Player 0 owns pits 1-6 and store 7. Player 1 owns pits
 8-13 and store 0. Seeds are sown counter-clockwise, which always means
 moving to the NEXT HIGHER cell index, wrapping from 13 back to 0:
 
-    1 -> 2 -> 3 -> 4 -> 5 -> 6 -> [store 7] -> 8 -> 9 -> 10 -> 11
-      -> 12 -> 13 -> [store 0] -> 1 -> ...
+    1 -> 2 -> 3 -> 4 -> 5 -> 6 -> [store 7: P0 only] -> 8 -> 9 -> 10
+      -> 11 -> 12 -> 13 -> [store 0: P1 only] -> 1 -> ...
 
 This direction is the same for both players. You ALWAYS skip the
 opponent's store: Player 0 goes pit 13 -> pit 1 (skipping store 0), and
