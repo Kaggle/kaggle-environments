@@ -153,8 +153,13 @@ export function applyUnitAction(
   if (op === 'PASS') return;
 
   const tile = farm.tiles[fy][fx];
+
   if (tile === LOCKED) return;
 
+  // Shed operations resolve before the LOCKED guard. They use the tile only as
+  // a standing position -- the shed itself is always owned -- and three of the
+  // four shed-access tiles start LOCKED, so guarding them first would make the
+  // shed unreachable from those tiles.
   if (op === 'DROP') {
     if (!isShedAdjacent([fx, fy], boardSize)) return;
     const shed = priv.shed;
@@ -182,6 +187,38 @@ export function applyUnitAction(
     if (n <= 0) return;
     priv.shed[item] = available - n;
     invAdd(inv, item, n);
+    return;
+  }
+
+  if (op === 'PLACE') {
+    if (action.length < 2) return;
+    const item = action[1] as ShedItemId;
+    // Animal placement: standing on a matching unoccupied structure. A LOCKED
+    // tile is the string 'LOCKED', never an object, so this branch cannot match
+    // there and PLACE falls through to the shed path below.
+    if (item in ANIMALS && isObjectTile(tile)) {
+      const t = tile as { kind: string; animal?: AnimalId };
+      if (t.kind === ANIMALS[item as AnimalId].structure && !('animal' in t)) {
+        if (invTake(inv, item, 1)) {
+          farm.tiles[fy][fx] = newAnimal(item as AnimalId, day);
+        }
+        return;
+      }
+    }
+    // Shed drop: adjacent to the shed; obeys shedCapacity.
+    if (isShedAdjacent([fx, fy], boardSize)) {
+      const requested = action.length >= 3 ? (action[2] as number) : 1;
+      if (requested <= 0) return;
+      let n = Math.min(requested, inv[item] ?? 0);
+      if (n <= 0) return;
+      const current = shedTotal(priv.shed);
+      const room = Math.max(0, shedCapacity - current);
+      n = Math.min(n, room);
+      if (n <= 0) return;
+      inv[item] = (inv[item] as number) - n;
+      if (inv[item] === 0) delete inv[item];
+      priv.shed[item] = (priv.shed[item] ?? 0) + n;
+    }
     return;
   }
 
@@ -252,36 +289,6 @@ export function applyUnitAction(
   if (op === 'BUILD_PASTURE') {
     if (tile !== null) return;
     farm.tiles[fy][fx] = { kind: 'PASTURE' };
-    return;
-  }
-
-  if (op === 'PLACE') {
-    if (action.length < 2) return;
-    const item = action[1] as ShedItemId;
-    // Animal placement: standing on a matching unoccupied structure.
-    if (item in ANIMALS && isObjectTile(tile)) {
-      const t = tile as { kind: string; animal?: AnimalId };
-      if (t.kind === ANIMALS[item as AnimalId].structure && !('animal' in t)) {
-        if (invTake(inv, item, 1)) {
-          farm.tiles[fy][fx] = newAnimal(item as AnimalId, day);
-        }
-        return;
-      }
-    }
-    // Shed drop: adjacent to the shed; obeys shedCapacity.
-    if (isShedAdjacent([fx, fy], boardSize)) {
-      const requested = action.length >= 3 ? (action[2] as number) : 1;
-      if (requested <= 0) return;
-      let n = Math.min(requested, inv[item] ?? 0);
-      if (n <= 0) return;
-      const current = shedTotal(priv.shed);
-      const room = Math.max(0, shedCapacity - current);
-      n = Math.min(n, room);
-      if (n <= 0) return;
-      inv[item] = (inv[item] as number) - n;
-      if (inv[item] === 0) delete inv[item];
-      priv.shed[item] = (priv.shed[item] ?? 0) + n;
-    }
     return;
   }
 

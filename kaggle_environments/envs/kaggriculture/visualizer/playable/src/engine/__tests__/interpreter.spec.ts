@@ -16,7 +16,7 @@ import {
 } from '../interpreter';
 import { PyRandom } from '../rng';
 import { initGameState, newAnimal, newPlant, resolveConfig } from '../state';
-import type { AnimalTile, Farm, GameState, PlantTile, PlayerAction, Private, Tile } from '../types';
+import type { AnimalTile, Farm, GameState, PlantTile, PlayerAction, Private, Tile, UnitAction } from '../types';
 import { LOCKED } from '../types';
 
 const cfg = resolveConfig();
@@ -110,6 +110,57 @@ describe('applyUnitAction — DROP', () => {
     applyUnitAction(f, p, 0, ['DROP'], BOARD, 0, TPD, CAP);
     expect(Object.values(p.shed).reduce((a, v) => a + (v ?? 0), 0)).toBe(CAP);
     expect(p.inventories[0]).toEqual({});
+  });
+});
+
+describe('applyUnitAction — locked shed-access tile', () => {
+  it('shed ops work from a locked shed-access tile', () => {
+    const s = fresh();
+    const f = s.farms[0];
+    const p = s.privates[0];
+    p.shed.WHEAT = 5;
+    // (5,4) is a shed-access tile in the NE quadrant, so it starts locked.
+    farmerAt(f, 5, 4);
+    expect(f.tiles[4][5]).toBe(LOCKED);
+
+    applyUnitAction(f, p, 0, ['PICKUP', 'WHEAT', 2], BOARD, 0, TPD, CAP);
+    expect(p.inventories[0].WHEAT).toBe(2);
+    expect(p.shed.WHEAT).toBe(3);
+
+    applyUnitAction(f, p, 0, ['PLACE', 'WHEAT', 1], BOARD, 0, TPD, CAP);
+    expect(p.inventories[0].WHEAT).toBe(1);
+    expect(p.shed.WHEAT).toBe(4);
+
+    applyUnitAction(f, p, 0, ['DROP'], BOARD, 0, TPD, CAP);
+    expect(p.inventories[0].WHEAT ?? 0).toBe(0);
+    expect(p.shed.WHEAT).toBe(5);
+  });
+
+  it('tile ops still no-op on a locked shed-access tile', () => {
+    const s = fresh();
+    const f = s.farms[0];
+    const p = s.privates[0];
+    p.seeds.CARROT = 3;
+    farmerAt(f, 5, 4);
+
+    const actions: UnitAction[] = [['PLANT', 'CARROT'], ['BUILD_COOP'], ['BUILD_PASTURE'], ['DIG']];
+    for (const action of actions) {
+      applyUnitAction(f, p, 0, action, BOARD, 0, TPD, CAP);
+      expect(f.tiles[4][5], action[0]).toBe(LOCKED);
+    }
+    expect(p.seeds.CARROT).toBe(3);
+  });
+
+  it('PLACE of an animal falls through to the shed on a locked tile', () => {
+    const s = fresh();
+    const f = s.farms[0];
+    const p = s.privates[0];
+    farmerAt(f, 5, 4);
+    p.inventories[0] = { GOOSE: 1 };
+    applyUnitAction(f, p, 0, ['PLACE', 'GOOSE'], BOARD, 0, TPD, CAP);
+    expect(f.tiles[4][5]).toBe(LOCKED);
+    expect(p.inventories[0].GOOSE ?? 0).toBe(0);
+    expect(p.shed.GOOSE).toBe(1);
   });
 });
 
