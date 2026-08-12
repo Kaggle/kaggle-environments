@@ -136,7 +136,9 @@ describe('applyUnitAction — locked shed-access tile', () => {
     expect(p.shed.WHEAT).toBe(5);
   });
 
-  it('tile ops still no-op on a locked shed-access tile', () => {
+  // Resolving shed ops before the guard must not let tile ops through on the
+  // same tile: (5,4) is both locked and shed-adjacent.
+  it('tile ops still no-op there, consuming nothing', () => {
     const s = fresh();
     const f = s.farms[0];
     const p = s.privates[0];
