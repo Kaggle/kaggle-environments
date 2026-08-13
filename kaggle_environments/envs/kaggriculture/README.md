@@ -210,19 +210,25 @@ price(inv) = base + sign · amp · f(|inv − I0|)
   sign = +1  if inv < I0   (scarcity → price up)
   sign = −1  if inv > I0   (glut    → price down)
   amp  = target · base / f(T)        (derived; not stored)
-  f    ∈ { linear, sq, sqrt, log, log10 }   (log uses ln(1+x), so f(0)=0)
+  f    ∈ { linear, sq, sqrt, log, log10, hinge }   (log uses ln(1+x), so f(0)=0)
 ```
 
 Floored at `$1` and rounded to the nearest dollar.
 
+`hinge` is the one shape that depends on `T` rather than on `x` alone: with `u = x / T` it evaluates to `u + 8 · max(0, u − 1)²`. Below `T` it is plain linear; above `T` the quadratic term takes over and the price climbs steeply. It is meant for resources that should stay cheap under ordinary demand and spike only when the town is genuinely starved. Since `f(T) = 1` by construction, `target` keeps its usual meaning.
+
 `T` is the production capacity of a single 5×5 field over a 24-day window at optimal watering with no fertilizer (animal totals are pre-discounted by 30% to account for wheat-feed overhead, and allow one day to build the coop or pasture). The 24-day window is a calibration horizon, not the 30-day season length. It is shorter on purpose: the opening days are setup-heavy and yield little.
 
-`target` says "moving `T` units past `I0` shifts the price by `target × base`." Picking different `f` and `target` on each side lets resources with similar production profiles play very differently strategically — wheat panics on scarcity but absorbs gluts, carrot is the opposite; melon barely reacts to scarcity but crashes hard on overproduction; wool mirrors melon at a smaller scale. Premium resources (base > $100: strawberry, melon, milk, wool) use `above_target > 1`, so even modest gluts drive them straight to the $1 floor — bundling and timing sales matters more for these than for staples.
+`target` says "moving `T` units past `I0` shifts the price by `target × base`." Picking different `f` and `target` on each side lets resources with similar production profiles play very differently strategically — wheat panics on scarcity but absorbs gluts; melon barely reacts to scarcity but crashes hard on overproduction; wool mirrors melon at a smaller scale. Premium resources (base > $100: strawberry, melon, milk, wool) use `above_target > 1`, so even modest gluts drive them straight to the $1 floor — bundling and timing sales matters more for these than for staples.
+
+Carrot uses `hinge` on the scarcity side, so its price stays near base under ordinary demand and rises sharply once demand runs past `T`. The town shops that consume them are listed in `unlocked_shops`.
+
+- **Carrot** — `hinge` at `below_target` 1.00. Consumed by pet cafes (single-product, so each consumes double) and farmers markets.
 
 | Resource | Base | I0 | T | Below func | Below target | Above func | Above target | P(I0−T) | P(I0+T) | P(I0+2T) |
 | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- |
 | **Wheat** | 25 | 10,000 | 400 | sqrt | 0.80 | log | 0.20 | $45 | $20 | $19 |
-| **Carrot** | 35 | 10,000 | 450 | log | 0.20 | sqrt | 0.70 | $42 | $10 | $1 |
+| **Carrot** | 35 | 10,000 | 450 | hinge | 1.00 | sqrt | 0.70 | $70 | $10 | $1 |
 | **Tomato** | 60 | 10,000 | 200 | linear | 0.40 | sqrt | 0.60 | $84 | $24 | $9 |
 | **Strawberry** | 120 | 10,000 | 100 | sqrt | 0.70 | linear | 1.60 | $204 | $1 | $1 |
 | **Melon** | 250 | 10,000 | 300 | log | 0.20 | sq | 3.60 | $300 | $1 | $1 |

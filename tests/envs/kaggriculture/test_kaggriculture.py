@@ -1,3 +1,5 @@
+import pytest
+
 from kaggle_environments import make
 from kaggle_environments.envs.kaggriculture.kaggriculture import (
     ANIMALS,
@@ -25,6 +27,7 @@ from kaggle_environments.envs.kaggriculture.kaggriculture import (
     _new_plant,
     _new_private,
     _quadrant_of,
+    _shape,
     _shed_access_tiles,
     _town_consume,
     market_price,
@@ -595,6 +598,37 @@ def test_market_price_rises_with_low_inventory():
     p_base = market_price("WHEAT", MARKET_PARAMS["WHEAT"]["I0"])
     p_zero = market_price("WHEAT", 0)
     assert p_zero > p_base
+
+
+def test_hinge_shape_is_calibrated_so_f_of_T_is_one():
+    # amp = target * base / f(T), so f(T) == 1 makes `target` mean the same
+    # thing for hinge as it does for every other shape.
+    assert _shape("hinge", 450, 450) == pytest.approx(1.0)
+
+
+def test_hinge_degenerates_to_linear_without_T():
+    for x in (0, 1, 50, 1000):
+        assert _shape("hinge", x, None) == x
+        assert _shape("hinge", x, 0) == x
+
+
+def test_hinge_is_flat_below_the_knee_then_spikes_above_it():
+    T = MARKET_PARAMS["CARROT"]["T"]
+    base = MARKET_PARAMS["CARROT"]["base"]
+    I0 = MARKET_PARAMS["CARROT"]["I0"]
+    at_knee = market_price("CARROT", I0 - T)
+    # Below the knee the curve is linear: half the depletion, half the rise.
+    half = market_price("CARROT", I0 - T // 2)
+    assert half - base == pytest.approx((at_knee - base) / 2, abs=1)
+    # Past the knee it accelerates well beyond the linear continuation.
+    beyond = market_price("CARROT", I0 - 2 * T)
+    assert beyond > base + 4 * (at_knee - base)
+
+
+def test_carrot_price_at_I0_minus_T_is_base_times_one_plus_target():
+    p = MARKET_PARAMS["CARROT"]
+    expected = p["base"] * (1 + p["below_target"])
+    assert market_price("CARROT", p["I0"] - p["T"]) == expected
 
 
 def test_market_price_floored_at_one_dollar():

@@ -73,7 +73,7 @@
       "minimum": 0
     },
     "marketParams": {
-      "description": "Per-resource market price-curve overrides. Sparse: keyed by product name; each entry may set any subset of {base, I0, T, below_func, below_target, above_func, above_target}. Missing keys (and missing products) inherit from MARKET_PARAMS defaults in kaggriculture.py. Functions: linear, sq, sqrt, log, log10. amp is derived as target * base / f(T).",
+      "description": "Per-resource market price-curve overrides. Sparse: keyed by product name; each entry may set any subset of {base, I0, T, below_func, below_target, above_func, above_target}. Missing keys (and missing products) inherit from MARKET_PARAMS defaults in kaggriculture.py. Functions: linear, sq, sqrt, log, log10, hinge. amp is derived as target * base / f(T). The hinge function is flat-ish below T and spikes above it, and unlike the others it is scaled by T so that f(T) = 1.",
       "type": "object",
       "default": {}
     }
