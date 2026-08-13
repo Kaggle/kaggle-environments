@@ -20,6 +20,13 @@ describe('marketPrice', () => {
     ['CARROT', 9550, 70],
     ['CARROT', 9400, 113],
     ['CARROT', 9100, 385],
+    // TOMATO is hinge too, but with below_target left at linear's 0.40, so
+    // everything down to I0-T (=9800) is unchanged from the old linear curve.
+    ['TOMATO', 10000, 60],
+    ['TOMATO', 9900, 72],
+    ['TOMATO', 9800, 84],
+    ['TOMATO', 9700, 144],
+    ['TOMATO', 9500, 552],
   ];
   for (const [item, inv, expected] of cases) {
     it(`${item} @ ${inv} -> ${expected}`, () => {
