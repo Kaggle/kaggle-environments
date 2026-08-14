@@ -631,25 +631,28 @@ def test_carrot_price_at_I0_minus_T_is_base_times_one_plus_target():
     assert market_price("CARROT", p["I0"] - p["T"]) == expected
 
 
-def test_tomato_hinge_matches_the_old_linear_curve_below_the_knee():
-    # Tomato switched linear -> hinge with below_target unchanged at 0.40. That
-    # is deliberately a no-op for ordinary demand: linear's amp normalises to
-    # x/T, which is exactly hinge's below-knee branch, so every price from I0
-    # down to I0-T is untouched. Only past the knee do the curves diverge.
-    p = MARKET_PARAMS["TOMATO"]
+@pytest.mark.parametrize("item", ["TOMATO", "EGG"])
+def test_hinge_matches_the_old_linear_curve_below_the_knee(item):
+    # Tomato and egg switched linear -> hinge with below_target unchanged at
+    # 0.40. That is deliberately a no-op for ordinary demand: linear's amp
+    # normalises to x/T, which is exactly hinge's below-knee branch, so every
+    # price from I0 down to I0-T is untouched. Only past the knee do the curves
+    # diverge.
+    p = MARKET_PARAMS[item]
     base, I0, T, target = p["base"], p["I0"], p["T"], p["below_target"]
-    assert p["below_func"] == "hinge"
+    assert p["below_func"] == "hinge" and target == 0.40
     for depletion in range(0, T + 1):
         linear = base + target * base * depletion / T
-        assert market_price("TOMATO", I0 - depletion) == max(1, round(linear))
+        assert market_price(item, I0 - depletion) == max(1, round(linear))
 
 
-def test_tomato_price_spikes_once_demand_passes_T():
-    p = MARKET_PARAMS["TOMATO"]
+@pytest.mark.parametrize("item", ["TOMATO", "EGG"])
+def test_price_spikes_once_demand_passes_T(item):
+    p = MARKET_PARAMS[item]
     I0, T = p["I0"], p["T"]
-    at_knee = market_price("TOMATO", I0 - T)
+    at_knee = market_price(item, I0 - T)
     # The observed high-demand tail (~2.5x T) has to be worth chasing.
-    assert market_price("TOMATO", I0 - 5 * T // 2) > 3 * at_knee
+    assert market_price(item, I0 - 5 * T // 2) > 3 * at_knee
 
 
 def test_market_price_floored_at_one_dollar():

@@ -96,7 +96,7 @@ export const MARKET_PARAMS: Record<ProductId, MarketParam> = {
     base: 50,
     I0: MARKET_I0,
     T: 332,
-    below_func: 'linear',
+    below_func: 'hinge',
     below_target: 0.4,
     above_func: 'log',
     above_target: 0.2,

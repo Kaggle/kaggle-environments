@@ -27,6 +27,12 @@ describe('marketPrice', () => {
     ['TOMATO', 9800, 84],
     ['TOMATO', 9700, 144],
     ['TOMATO', 9500, 552],
+    // EGG likewise: hinge with linear's old below_target of 0.40, knee at 9668.
+    ['EGG', 10000, 50],
+    ['EGG', 9834, 60],
+    ['EGG', 9668, 70],
+    ['EGG', 9502, 120],
+    ['EGG', 9170, 460],
   ];
   for (const [item, inv, expected] of cases) {
     it(`${item} @ ${inv} -> ${expected}`, () => {
