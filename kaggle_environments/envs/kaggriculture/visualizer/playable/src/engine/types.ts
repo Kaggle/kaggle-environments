@@ -49,7 +49,7 @@ export interface AnimalSpec {
   product: AnimalProductId;
 }
 
-export type ShapeFunc = 'linear' | 'sq' | 'sqrt' | 'log' | 'log10';
+export type ShapeFunc = 'linear' | 'sq' | 'sqrt' | 'log' | 'log10' | 'hinge';
 
 export interface MarketParam {
   base: number;

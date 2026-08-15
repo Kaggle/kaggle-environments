@@ -1,15 +1,21 @@
 /**
  * Market pricing math: `_shape` + `market_price` ported from kaggriculture.py.
- * The pricing curves are pure functions of (item, inventory) — no rounding
- * surprises across JS/Python because both languages use IEEE-754 doubles and
- * the math here uses only +, -, *, /, sqrt, log, log10, and Math.pow(2,2) is
- * just multiplication.
+ * The pricing curves are pure functions of (item, inventory), and both
+ * languages use IEEE-754 doubles for the +, -, *, /, sqrt, log, log10 here.
+ *
+ * Caveat: the final rounding can differ by $1 when the unrounded price lands
+ * exactly on .5, because Python's round() is banker's rounding while
+ * Math.round() is half-up. With the default MARKET_PARAMS this happens at a
+ * handful of carrot inventory levels (e.g. I0+450).
  */
 
 import { MARKET_PARAMS, PRICE_FLOOR, PRODUCTS } from './constants';
 import type { Market, MarketParam, ProductId, ShapeFunc } from './types';
 
-export function shape(func: ShapeFunc, xIn: number): number {
+/** Matches HINGE_GAIN in kaggriculture.py. */
+const HINGE_GAIN = 8;
+
+export function shape(func: ShapeFunc, xIn: number, T?: number): number {
   const x = Math.max(0, xIn);
   switch (func) {
     case 'linear':
@@ -22,6 +28,13 @@ export function shape(func: ShapeFunc, xIn: number): number {
       return Math.log(1 + x);
     case 'log10':
       return Math.log10(1 + x);
+    case 'hinge': {
+      // Degenerates to linear if T is missing or non-positive.
+      if (!T || T <= 0) return x;
+      const u = x / T;
+      const over = Math.max(0, u - 1);
+      return u + HINGE_GAIN * over * over;
+    }
   }
 }
 
@@ -31,12 +44,12 @@ export function marketPrice(item: ProductId, inventory: number, params?: Record<
   let price: number;
   if (inventory < I0) {
     const f = p.below_func;
-    const amp = (p.below_target * base) / shape(f, T);
-    price = base + amp * shape(f, I0 - inventory);
+    const amp = (p.below_target * base) / shape(f, T, T);
+    price = base + amp * shape(f, I0 - inventory, T);
   } else {
     const f = p.above_func;
-    const amp = (p.above_target * base) / shape(f, T);
-    price = base - amp * shape(f, inventory - I0);
+    const amp = (p.above_target * base) / shape(f, T, T);
+    price = base - amp * shape(f, inventory - I0, T);
   }
   return Math.max(PRICE_FLOOR, Math.round(price));
 }
