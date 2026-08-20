@@ -21,7 +21,7 @@ export function FlagEnd() {
 
 export function Ribbon({ children }: Props) {
   return (
-    <div className={`grid-pile ${styles.ribbon}`}>
+    <div className={`grid-pile ${styles.ribbon}`} data-testid="ribbon">
       <FlagEnd />
       <FlagEnd />
       <div className={styles.text}>{children}</div>
