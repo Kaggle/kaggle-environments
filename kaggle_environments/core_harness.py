@@ -578,7 +578,7 @@ def _call_llm(
     heartbeat while queued, so a dead connection is indistinguishable from
     a live-but-waiting one):
 
-    - ``LLM_READ_TIMEOUT`` (180s): per-read idle-gap. Bounded above by MP's
+    - ``LLM_READ_TIMEOUT`` (600s): per-read idle-gap. Bounded above by MP's
       1-min keepalive cadence during active streaming, below by "how long
       before we call a silent socket dead."
     - ``LLM_CALL_TIMEOUT`` (3600s): total wall-clock across ALL retries.
@@ -594,7 +594,7 @@ def _call_llm(
     _TELEMETRY(calling_llm=True)
     total_start = time.perf_counter()
     total_deadline = int(os.environ.get("LLM_CALL_TIMEOUT", "3600"))
-    read_timeout = int(os.environ.get("LLM_READ_TIMEOUT", "180"))
+    read_timeout = int(os.environ.get("LLM_READ_TIMEOUT", "600"))
     max_transport_retries = int(
         os.environ.get("LLM_CALL_MAX_TRANSPORT_RETRIES", "4")
     )
