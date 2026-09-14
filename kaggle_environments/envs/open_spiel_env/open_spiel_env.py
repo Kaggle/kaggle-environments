@@ -1116,6 +1116,7 @@ GAMES_LIST = [
     "go(board_size=9)",
     "go_fish",
     "goofspiel(num_cards=4,points_order=descending,returns_type=total_points)",
+    "hanabi(players=2,colors=5,ranks=5,hand_size=5,max_life_tokens=3,max_information_tokens=8)",
     "havannah(board_size=8)",
     "hearts",
     "hex",
