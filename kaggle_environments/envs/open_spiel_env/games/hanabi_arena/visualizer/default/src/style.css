@@ -1,0 +1,580 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+
+/* ---------------------------------------------------------------------------
+ * Layout
+ * ------------------------------------------------------------------------- */
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.renderer-container,
+.renderer-container.renderer-container {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background-color: #f5f1e2;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+  color: #050001;
+  container-type: inline-size;
+  box-sizing: border-box;
+  padding: 8px 12px 12px;
+}
+
+.sketched-border {
+  border: 1px dashed #3c3b37;
+}
+
+.header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  padding: 6px 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* Doubled `.team-pill.team-pill` raises specificity above the kaggle core's
+   `.game-renderer-isolation` reset, which would otherwise stretch the pill. */
+.header .team-pill.team-pill {
+  display: inline-flex;
+  flex: none;
+  width: max-content;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background-color: white;
+  border-style: solid;
+  border-width: 1px;
+  white-space: nowrap;
+}
+
+.header .team-label {
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+}
+
+.header .seat-name {
+  font-weight: 600;
+}
+
+.header .amp,
+.header .vs {
+  color: #444343;
+  font-weight: 500;
+}
+
+.header .vs {
+  font-style: italic;
+}
+
+/* The two tables sit side by side: the whole point is comparing the same deal
+   played two ways.
+
+   A grid rather than a flex row, so the subgrid below can line the two tables'
+   rows up with each other. Flex would let one column's gauges wrap and push
+   everything below them out of step with the other table, which is exactly the
+   comparison this layout exists to make. */
+.boards-row,
+.boards-row.boards-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  grid-template-rows: auto auto auto auto auto auto;
+  align-content: center;
+  justify-items: center;
+  box-sizing: border-box;
+  gap: 8px 12px;
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+/* Subgrid keeps banner/score/gauges/fireworks/hands/discards on shared rows
+   across both tables. Where it is unsupported the column falls back to a plain
+   grid: still correct, just not row-aligned. */
+.table-column,
+.table-column.table-column {
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: span 6;
+  justify-items: center;
+  align-content: start;
+  box-sizing: border-box;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  padding: 6px 8px 10px;
+  transition: opacity 300ms;
+}
+
+/* A finished table stays on screen -- the comparison is the point -- but
+   recedes so the live table reads as the one still moving. */
+.table-column.finished {
+  opacity: 0.82;
+}
+
+.team-banner {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 14px;
+  border-style: solid;
+  border-width: 1.5px;
+  border-radius: 3px;
+  background-color: white;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.table-score,
+.table-score.table-score {
+  display: inline-flex;
+  align-items: baseline;
+  box-sizing: border-box;
+  gap: 5px;
+  padding: 3px 12px;
+  background-color: white;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.table-score .gauge-value {
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.table-score .outcome-note {
+  font-family: 'Mynerve', cursive;
+  font-weight: 400;
+  font-size: 0.76rem;
+  color: #8d5a2b;
+}
+
+/* ---------------------------------------------------------------------------
+ * Gauges: lives, info tokens, deck
+ * ------------------------------------------------------------------------- */
+
+.gauges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.gauge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 7px;
+  background-color: white;
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.gauge .gauge-label,
+.table-score .gauge-label {
+  color: #444343;
+  margin-right: 2px;
+}
+
+.gauge .gauge-value {
+  font-weight: 700;
+}
+
+.gauge .token {
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.gauge .token.life {
+  color: #c8384f;
+}
+
+.gauge .token.info {
+  color: #2b6cb0;
+}
+
+.gauge .token.spent {
+  color: #d5d2c6;
+}
+
+.delta {
+  margin-left: 4px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.delta.up {
+  color: #3f8f4f;
+}
+
+.delta.down {
+  color: #c8384f;
+}
+
+/* ---------------------------------------------------------------------------
+ * Fireworks: one column per color, lit rungs stack upward
+ * ------------------------------------------------------------------------- */
+
+.fireworks {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 7px;
+  flex-shrink: 0;
+  padding: 2px 0;
+}
+
+.firework {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.firework .rungs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.firework .rung {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 22px;
+  height: 12px;
+  border: 1px dashed #cfcbbb;
+  border-radius: 2px;
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: #cfcbbb;
+  background: transparent;
+}
+
+.firework .rung.lit {
+  border-color: #3c3b37;
+  border-style: solid;
+  color: white;
+}
+
+.firework.advanced {
+  outline: 2px solid #f5b400;
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.firework .firework-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+/* ---------------------------------------------------------------------------
+ * Hands: face + knowledge strip per card
+ * ------------------------------------------------------------------------- */
+
+.hands {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+/* Doubled selector defeats the core's `.game-renderer-isolation *`
+   content-box reset, which would otherwise push the padding past the
+   container's right edge. */
+.hand-panel,
+.hand-panel.hand-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  gap: 4px;
+  padding: 5px 6px;
+  background-color: white;
+  transition: background-color 300ms;
+}
+
+.hand-panel.active {
+  background-color: #bdeeff;
+}
+
+.hand-panel .hand-header {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.hand-panel .turn-arrow {
+  font-size: 0.68rem;
+}
+
+.hb-hand {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 5px;
+}
+
+/* The kaggle core forces `box-sizing: content-box` via
+   `.game-renderer-isolation *`; the doubled selector keeps border-box. */
+.hb-card,
+.hb-card.hb-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+  width: 46px;
+  padding: 3px;
+  gap: 3px;
+  border: 1px dashed #3c3b37;
+  border-radius: 6px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.hb-card .card-face {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 2px;
+  line-height: 1;
+}
+
+.hb-card .card-rank {
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.hb-card .card-rank.unknown {
+  color: #a5a192;
+}
+
+.hb-card .card-color {
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.hb-card.hinted {
+  outline: 2.5px solid #f5b400;
+  outline-offset: 2px;
+  z-index: 2;
+}
+
+.hb-card.drawn {
+  outline: 2px dashed #3f8f4f;
+  outline-offset: 2px;
+}
+
+/* The knowledge strip: a dim pip per color and a dim digit per rank. "open"
+   means still plausible; "told" means the holder was hinted it directly. */
+.knowledge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  padding-top: 2px;
+  border-top: 1px dashed #dcd8c8;
+}
+
+.knowledge .pips,
+.knowledge .rank-marks {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.knowledge .pip {
+  box-sizing: border-box;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1px solid #e0dccc;
+  background: transparent;
+}
+
+.knowledge .pip.open {
+  background-color: var(--ink);
+  border-color: var(--ink);
+  opacity: 0.45;
+}
+
+.knowledge .pip.told {
+  opacity: 1;
+  outline: 1px solid #050001;
+  outline-offset: 1px;
+}
+
+.knowledge .rank-mark {
+  font-size: 0.5rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #e0dccc;
+}
+
+.knowledge .rank-mark.open {
+  color: #7d7a6e;
+}
+
+.knowledge .rank-mark.told {
+  color: #050001;
+  text-decoration: underline;
+}
+
+.hb-empty {
+  font-family: 'Mynerve', cursive;
+  color: #8d8a7d;
+  font-size: 0.85rem;
+  padding: 4px 12px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Discard pile
+ * ------------------------------------------------------------------------- */
+
+.discards,
+.discards.discards {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  gap: 3px;
+  width: 100%;
+  flex-shrink: 0;
+  padding: 2px 0;
+}
+
+.discards .discards-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #444343;
+  margin-right: 4px;
+}
+
+.discard-chip {
+  box-sizing: border-box;
+  padding: 1px 4px;
+  border: 1px dashed;
+  border-radius: 4px;
+  background-color: white;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.discard-chip.fresh {
+  outline: 2px solid #f5b400;
+  outline-offset: 1px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Status bar
+ * ------------------------------------------------------------------------- */
+
+.status-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  padding: 5px 16px;
+  background-color: white;
+  font-size: 0.88rem;
+  font-weight: 600;
+  min-height: 18px;
+  min-width: 240px;
+  margin: 4px auto 0;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.status-container .result {
+  margin: 0;
+  font-weight: 800;
+}
+
+.status-container .annotation {
+  font-family: 'Mynerve', cursive;
+  font-weight: 400;
+  color: #444343;
+}
+
+.status-container .annotation.forfeit-reason {
+  color: #a03030;
+  font-style: italic;
+}
+
+/* ---------------------------------------------------------------------------
+ * Narrow-container fallback
+ *
+ * Below ~760px two full-size tables no longer fit side by side, so the cards
+ * shrink first; below ~520px the tables stack instead.
+ * ------------------------------------------------------------------------- */
+
+@container (max-width: 760px) {
+  .hb-card,
+  .hb-card.hb-card {
+    width: 38px;
+  }
+
+  .hb-card .card-rank {
+    font-size: 0.95rem;
+  }
+
+  .firework .rung {
+    width: 17px;
+    height: 10px;
+  }
+}
+
+@container (max-width: 520px) {
+  .boards-row,
+  .boards-row.boards-row {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+
+  /* Stacked, the tables no longer sit beside each other, so row alignment is
+     moot and the subgrid comes off. */
+  .table-column,
+  .table-column.table-column {
+    grid-template-rows: none;
+    grid-row: auto;
+  }
+
+  .hb-card,
+  .hb-card.hb-card {
+    width: 42px;
+  }
+
+  .firework .rung {
+    width: 20px;
+    height: 11px;
+  }
+}

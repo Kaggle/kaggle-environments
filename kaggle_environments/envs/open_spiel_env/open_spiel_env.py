@@ -18,6 +18,7 @@ from kaggle_environments import core, utils
 from kaggle_environments.envs.open_spiel_env.games.ant_foraging_arena import ant_foraging_arena_game  # noqa: F401
 from kaggle_environments.envs.open_spiel_env.games.bridge_arena import bridge_arena_game  # noqa: F401
 from kaggle_environments.envs.open_spiel_env.games.coin_game_arena import coin_game_arena_game  # noqa: F401
+from kaggle_environments.envs.open_spiel_env.games.hanabi_arena import hanabi_arena_game  # noqa: F401
 from kaggle_environments.envs.open_spiel_env.games.snake import snake_game  # noqa: F401
 
 # open_spiel.python.games.{ant_foraging, pokerkit_wrapper} register their
@@ -126,6 +127,65 @@ for game_file in GAMES_DIR.glob("**/*_game.py"):
 # contribution to the pot.
 DEFAULT_INVALID_ACTION_REWARD = -1
 
+
+def _forfeiting_players(os_state, offender: int, num_players: int) -> set[int]:
+    """Seats that share the forfeit penalty with ``offender``.
+
+    In a free-for-all this is the offender alone. In a team game it is the
+    offender's whole team: an illegal move ends the episode for the partner
+    too, so crediting the partner would reward a team for its own forfeit --
+    and in the arena games, whose whole purpose is to produce a head-to-head
+    result, that hands the offending team a seat's worth of winning reward.
+
+    Team membership is read off the state's ``team_of`` hook, which a game
+    implements only if it has teams. Anything unexpected from it (a
+    non-integer, a seat out of range) is treated as "no teams" rather than
+    trusted, since a wrong grouping silently misprices every forfeit.
+    """
+    team_of = getattr(os_state, "team_of", None)
+    if not callable(team_of):
+        return {offender}
+    try:
+        offending_team = team_of(offender)
+        if offending_team is None:
+            return {offender}
+        return {pid for pid in range(num_players) if team_of(pid) == offending_team}
+    except Exception:  # pylint: disable=broad-exception-caught
+        _log.warning("team_of() raised while scoping a forfeit; falling back to the offender alone.")
+        return {offender}
+
+
+def _hides_state_from_agents(os_state) -> bool:
+    """Whether this game withholds ``serializedGameAndState`` from agents.
+
+    The serialized blob reconstructs the whole State, so any agent holding it
+    can call ``observation_dict(None)`` and read every hidden hand, including
+    its own and its opponents'. For a perfect-information game that costs
+    nothing -- everything in the blob is already on the board -- and harnesses
+    use it freely, so it stays on by default.
+
+    For a game whose substance IS the hidden information, shipping it hands
+    every agent an oracle and makes the per-player observation's careful
+    redaction decorative. Such a game opts out by defining
+    ``hides_state_from_agents()``, and must then publish everything its
+    harness legitimately needs (public move history and the like) through the
+    per-player observation instead.
+
+    Anything unexpected from the hook is treated as "does not hide": the
+    conservative reading for a leak check would be to withhold, but a hook
+    that raises is a broken game rather than a private one, and silently
+    dropping the blob would break its harness with no diagnostic.
+    """
+    hook = getattr(os_state, "hides_state_from_agents", None)
+    if not callable(hook):
+        return False
+    try:
+        return bool(hook())
+    except Exception:  # pylint: disable=broad-exception-caught
+        _log.warning("hides_state_from_agents() raised; shipping serializedGameAndState as usual.")
+        return False
+
+
 # Can be used by agents to signal an internal error to the environement.
 AGENT_ERROR_ACTION = -2
 
@@ -184,8 +244,11 @@ CONFIGURATION_SPEC_TEMPLATE = {
     },
     "seed": {
         "description": (
-            "Integer used to select a starting position (when useOpenings is true)"
-            " and to seed chance-node sampling so episodes are reproducible."
+            "Integer used to select a starting position (when useOpenings is true),"
+            " to seed chance-node sampling, and -- for games that deal themselves"
+            " from a 'seed' game parameter rather than from chance nodes -- to set"
+            " that parameter, so episodes are reproducible. An explicit"
+            " openSpielGameParameters['seed'] takes precedence."
         ),
         "type": "number",
     },
@@ -291,7 +354,11 @@ OBSERVATION_SPEC_TEMPLATE = {
         "playerId": {"description": "ID of the agent receiving this observation.", "type": "integer"},
         "isTerminal": {"description": "Boolean indicating game end.", "type": "boolean"},
         "serializedGameAndState": {
-            "description": "Enables reconstructing the Game and State objects.",
+            "description": (
+                "Enables reconstructing the Game and State objects. Omitted for games whose"
+                " state carries hidden information an agent must not see -- see"
+                " _hides_state_from_agents."
+            ),
             "type": "string",
         },
         "remainingOverageTime": 60,
@@ -499,6 +566,27 @@ def interpreter(
         # Merge: base params from string, then user params override
         merged_params = {**base_params, **user_params}
 
+        # Games that deal themselves take their randomness from a `seed` game
+        # parameter rather than from chance nodes, so env.chance_rng -- which
+        # is all configuration["seed"] otherwise feeds -- never reaches them.
+        # Without this, every episode of such a game runs the same deal at the
+        # parameter's default, which for a head-to-head arena means the whole
+        # tournament is one board. An explicit openSpielGameParameters seed
+        # still wins, so a caller pinning a specific deal keeps it.
+        # "Did not set it" means "left it at the spec default", the same test
+        # every other parameter here gets: the configuration is merged with
+        # the defaults before we see it, so an explicit default-valued seed is
+        # indistinguishable from an absent one.
+        #
+        # With no configuration seed either, the parameter keeps its default
+        # and EVERY episode is the same deal -- so a tournament scores every
+        # pairing on one board, and the ranking partly measures who drew the
+        # lucky side of that single shuffle. An unseeded run is asking for an
+        # arbitrary deal, not for deal zero, so draw one.
+        config_seed = env.configuration.get("seed", None)
+        if "seed" in base_params and "seed" not in user_params:
+            merged_params["seed"] = int(config_seed) if config_seed is not None else random.randrange(2**31)
+
         # Load the game with merged parameters
         env.os_game = pyspiel.load_game(game_name, merged_params)
 
@@ -690,6 +778,16 @@ def interpreter(
     if invalid_action:
         _log.info("INVALID ACTION DETECTED")
 
+    # Seats that lose because of a forfeit: the offenders plus, in a team
+    # game, their teammates. A forfeit ends the episode for the whole team, so
+    # paying the offender's partner the winning reward would let a team profit
+    # from its own illegal move -- and in the 2v2 arena games that is half the
+    # head-to-head result the episode exists to produce.
+    penalized_players: set[int] = set()
+    for offender in range(num_players):
+        if kaggle_state[offender]["status"] in ("INVALID", "TIMEOUT", "ERROR"):
+            penalized_players |= _forfeiting_players(os_state, offender, num_players)
+
     status: str | None = None
     for player_id, agent_state in enumerate(kaggle_state):
         reward = None
@@ -702,7 +800,11 @@ def interpreter(
             if agent_state["status"] in ("TIMEOUT", "ERROR"):
                 status = agent_state["status"]
             else:
-                reward = -DEFAULT_INVALID_ACTION_REWARD
+                # A teammate of the offender is DONE (it did nothing wrong, so
+                # its reward is not nulled) but still loses with its team.
+                reward = (
+                    DEFAULT_INVALID_ACTION_REWARD if player_id in penalized_players else -DEFAULT_INVALID_ACTION_REWARD
+                )
                 status = "DONE"
         elif agent_error:
             # Set all agent statuses to ERROR in order not to score episode. Preserve
@@ -712,7 +814,7 @@ def interpreter(
             else:
                 status = "ERROR"
         elif invalid_action:
-            if agent_state["status"] == "INVALID":
+            if player_id in penalized_players:
                 reward = DEFAULT_INVALID_ACTION_REWARD
             else:
                 reward = -DEFAULT_INVALID_ACTION_REWARD
@@ -764,8 +866,9 @@ def interpreter(
             "currentPlayer": os_state.current_player(),
             "playerId": player_id,
             "isTerminal": os_state.is_terminal(),
-            "serializedGameAndState": pyspiel.serialize_game_and_state(os_game, os_state),
         }
+        if not _hides_state_from_agents(os_state):
+            obs_update_dict["serializedGameAndState"] = pyspiel.serialize_game_and_state(os_game, os_state)
         if env.configuration.get("includeLegalActions", False):
             obs_update_dict["legalActions"] = os_state.legal_actions(player_id)
             obs_update_dict["legalActionStrings"] = [
@@ -1117,6 +1220,7 @@ GAMES_LIST = [
     "go_fish",
     "goofspiel(num_cards=4,points_order=descending,returns_type=total_points)",
     "hanabi(players=2,colors=5,ranks=5,hand_size=5,max_life_tokens=3,max_information_tokens=8)",
+    "hanabi_arena",
     "havannah(board_size=8)",
     "hearts",
     "hex",

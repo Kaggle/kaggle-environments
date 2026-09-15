@@ -7,6 +7,8 @@ mode, agent error / invalid action handling, game-parameter configuration,
 ``includeLegalActions``, simultaneous-game dispatch, and serialized state.
 """
 
+import json
+
 import pyspiel
 from absl.testing import absltest
 
@@ -16,6 +18,19 @@ from kaggle_environments.envs.open_spiel_env import open_spiel_env
 # Expected that not all pyspiel registered games can be registered as Kaggle
 # envs, but should register at least this many
 _REGISTERED_GAMES_THRESHOLD = 50
+
+
+def _started_arena(configuration):
+    """A hanabi_arena env stepped once, so the game is built and readable.
+
+    The interpreter builds ``env.os_game`` on its first step, not at reset,
+    so the merged parameters only exist once a step has run.
+    """
+    open_spiel_env._register_game_envs(["hanabi_arena"])
+    env = make("open_spiel_hanabi_arena", configuration, debug=True)
+    env.reset()
+    env.step([{"submission": -1}] * 4)
+    return env
 
 
 class OpenSpielEnvTest(absltest.TestCase):
@@ -100,6 +115,37 @@ class OpenSpielEnvTest(absltest.TestCase):
                 -open_spiel_env.DEFAULT_INVALID_ACTION_REWARD,
             ],
         )
+
+    def test_forfeiting_players_without_teams(self):
+        # Most games have no teams, so a forfeit stays with the offender and
+        # every opponent keeps the winning reward -- the behavior the
+        # tic-tac-toe invalid-action test above pins end to end.
+        class _NoTeams:
+            pass
+
+        self.assertEqual(open_spiel_env._forfeiting_players(_NoTeams(), 0, 4), {0})
+
+    def test_forfeiting_players_with_teams(self):
+        class _Teams:
+            def team_of(self, player):
+                return player // 2
+
+        self.assertEqual(open_spiel_env._forfeiting_players(_Teams(), 3, 4), {2, 3})
+
+    def test_forfeiting_players_falls_back_when_team_of_misbehaves(self):
+        # A broken hook must not take the whole episode down with it; scoping
+        # the loss too narrowly is the same as the old behavior, which is a
+        # safe place to land.
+        class _Raises:
+            def team_of(self, player):
+                raise RuntimeError("boom")
+
+        class _ReturnsNone:
+            def team_of(self, player):
+                return None
+
+        self.assertEqual(open_spiel_env._forfeiting_players(_Raises(), 1, 4), {1})
+        self.assertEqual(open_spiel_env._forfeiting_players(_ReturnsNone(), 1, 4), {1})
 
     def test_serialized_game_and_state(self):
         env = make("open_spiel_tic_tac_toe", debug=True)
@@ -222,6 +268,80 @@ class OpenSpielEnvTest(absltest.TestCase):
         env.step([{"submission": -1}, {"submission": -1}])
         # params should win over string
         self.assertEqual(env.os_game.get_parameters()["board_size"], 19)
+
+    def test_config_seed_reaches_a_self_dealing_game(self):
+        """configuration.seed must set a `seed` game parameter, not just chance_rng.
+
+        A game that deals itself (the 2v2 arenas) exposes no chance nodes, so
+        env.chance_rng -- all configuration["seed"] otherwise feeds -- never
+        touches it. Without this the parameter sits at its default and every
+        episode of the tournament runs the identical board.
+        """
+        env = _started_arena({"seed": 7})
+        self.assertEqual(env.os_game.get_parameters()["seed"], 7)
+        self.assertIn("seed=7", env.info["openSpielGameStringResolved"])
+
+    def test_config_seed_does_not_invent_a_param(self):
+        """Games without a `seed` parameter must be left alone."""
+        open_spiel_env._register_game_envs(["go"])
+        env = make("open_spiel_go", {"seed": 7}, debug=True)
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])
+        self.assertNotIn("seed", env.os_game.get_parameters())
+
+    def test_explicit_game_param_seed_beats_config_seed(self):
+        """A caller pinning a specific deal keeps it."""
+        env = _started_arena({"seed": 7, "openSpielGameParameters": {"seed": 3}})
+        self.assertEqual(env.os_game.get_parameters()["seed"], 3)
+
+    def test_config_seed_varies_the_arena_deal(self):
+        """The point of the plumbing: different seeds must deal differently."""
+
+        def teammate_hand(seed):
+            env = _started_arena({"seed": seed})
+            observation = json.loads(env.os_state.observation_string(0))
+            return json.dumps(observation["table"]["hands"][1]["cards"])
+
+        self.assertLen({teammate_hand(seed) for seed in (1, 2, 3)}, 3)
+        self.assertEqual(teammate_hand(1), teammate_hand(1))
+
+    def test_an_unseeded_run_still_varies_the_deal(self):
+        """No configuration seed means an ARBITRARY deal, not deal zero.
+
+        A self-dealing game whose `seed` parameter is left at its default runs
+        the identical board every episode, so a tournament would score every
+        pairing on one deal -- and whichever side that single board happens to
+        favour is baked into the Elo. Draw one instead.
+        """
+
+        def teammate_hand():
+            env = _started_arena({})
+            observation = json.loads(env.os_state.observation_string(0))
+            return json.dumps(observation["table"]["hands"][1]["cards"])
+
+        self.assertGreater(len({teammate_hand() for _ in range(6)}), 1)
+
+    def test_a_hiding_game_withholds_the_serialized_state(self):
+        """hanabi_arena's blob rebuilds every hidden hand, so agents lose it.
+
+        Every other game keeps shipping it (see
+        test_serialized_game_and_state), so the hook is an opt-out, not a
+        change of default.
+        """
+        env = _started_arena({})
+        for agent in env.state:
+            self.assertNotIn("serializedGameAndState", agent["observation"])
+            self.assertIn("observationString", agent["observation"])
+
+    def test_a_raising_hook_is_treated_as_no_opt_out(self):
+        """A broken hook must cost the blob, not the episode."""
+
+        class _Boom:
+            def hides_state_from_agents(self):
+                raise RuntimeError("boom")
+
+        self.assertFalse(open_spiel_env._hides_state_from_agents(_Boom()))
+        self.assertFalse(open_spiel_env._hides_state_from_agents(object()))
 
     def test_resolved_game_string(self):
         """Test that openSpielGameStringResolved shows the actual game config."""

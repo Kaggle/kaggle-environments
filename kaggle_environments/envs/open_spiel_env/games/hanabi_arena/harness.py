@@ -1,21 +1,26 @@
-"""LLM harness for OpenSpiel Hanabi.
+"""LLM harness for Hanabi Arena (2v2 team variant of OpenSpiel Hanabi).
 
 Drop the body of this file into the notebook attached to the competition via
 HarnessKernelId. The auto-generated ``main.py`` calls these three module-level
 functions: ``get_legal_moves``, ``generate_prompt``, ``parse_response``.
 
-Hanabi is fully cooperative -- every seat receives the same return -- and
-imperfect-information in an unusual shape: a player sees every hand *except*
-their own. The proxy in ``hanabi_proxy.py`` emits one JSON observation per
-player reflecting exactly that, so the prompt renders other players' cards
-face-up and the agent's own hand as knowledge only (what it has been told, and
-what remains plausible after every hint's negative information).
+Base Hanabi is fully cooperative, so it has no winner to rank by. The arena
+manufactures a head-to-head: two teams of two each play their own private
+Hanabi table, both dealt from the *same shuffled deck*, and the higher final
+score wins. A player sees their own table only -- their teammate's hand
+face-up, their own as hint knowledge, and nothing at all of the opposing
+table.
 
-Hint knowledge is public -- every player hears every hint -- so the whole move
-history can be shown to the model without leaking anything. The proxy does not
-expose a history field, so it is reconstructed by replaying
-``serializedGameAndState`` and annotating each decision with the card it
-touched (all of which becomes public the moment the action resolves).
+The arena observation carries a per-table ``move_history`` in which the env
+has already annotated each decision with the facts it made public -- the card
+a play or discard removed, whether that play advanced a firework, and which
+slots a hint pointed at. Only this player's own table appears there, so the
+opposing table is never rendered.
+
+That annotation is deliberately done env-side rather than by deserializing
+``serializedGameAndState`` here: the serialized state reconstructs every
+hidden hand, so ``hanabi_arena`` withholds it from agent observations
+entirely. This harness therefore has no serialized-state path at all.
 """
 
 from __future__ import annotations
@@ -24,22 +29,43 @@ import json
 import re
 from typing import Any, Mapping, Sequence
 
-import pyspiel
-
 from kaggle_environments.core_harness import ParseResult, parse_json_action, render_rethink_suffix
+
+# The engine's own defaults, mirrored from ``hanabi_arena_game``'s parameter
+# specification. They are the fallbacks the prompt renders when a value is
+# missing from the observation: every rule line the prompt states is an
+# assertion about the game being played, and a wrong constant is worse than a
+# missing one because the model cannot tell it was misinformed.
+_DEFAULT_COLORS = 5
+_DEFAULT_RANKS = 5
+_DEFAULT_HAND_SIZE = 5
+_DEFAULT_MAX_LIFE_TOKENS = 3
+_DEFAULT_MAX_INFO_TOKENS = 8
+# "RYGWB" -- OpenSpiel's ColorIndexToChar order (hanabi_lib/util.cc).
+_DEFAULT_COLOR_LETTERS = ["R", "Y", "G", "W", "B"]
 
 # --- Prompt -----------------------------------------------------------------
 
 
-HANABI_PROMPT_TEMPLATE = """Let's play Hanabi, a fully cooperative card game. All \
-{num_players} players share one score; you all win or lose together.
+HANABI_ARENA_PROMPT_TEMPLATE = """Let's play Hanabi Arena, a 2v2 team version of \
+the cooperative card game Hanabi.
+
+Two teams of {players_per_team} each play their own private Hanabi table. Both \
+tables are dealt from the same shuffled deck -- identical starting hands, \
+identical draw order -- so the two teams face the same puzzle. The team with \
+the higher final score wins; equal scores are a draw. You never see the \
+opposing table.
+
+Your teammate is playing the same way you are, so you can expect them to read \
+the table as you would. Hints are the only communication there is, and they \
+only reach your own table.
 
 Rules:
 - The deck has {num_colors} colors ({color_list}) and ranks 1-{num_ranks}, \
 {deck_total} cards in total: per color, {deck_composition}.
-- Each player holds up to {hand_size} cards{visibility_rule}. Once the deck is \
-empty there are no replacements, so hands shrink as cards are played or \
-discarded.
+- Each player holds up to {hand_size} cards and can see every other player's \
+cards at their table but not their own. Once the deck is empty there are no \
+replacements, so hands shrink as cards are played or discarded.
 - The team builds one firework stack per color in ascending order 1 to \
 {num_ranks}. The score is the sum of the stack heights, at most {max_score}.
 - On your turn you take exactly one action:
@@ -48,32 +74,42 @@ color's current stack height it joins that stack; otherwise it is discarded \
 and the team loses a life token.
   * Discard a card from one of your slots. It is lost and the team regains one \
 info token. Illegal while info tokens are at the maximum of {max_info_tokens}.
-  * Hint another player one color or one rank. Every card of that color/rank in \
-their hand is pointed out; the rest are thereby excluded from it. Costs one \
-info token, so it is illegal at 0 info tokens, and the color or rank you name \
-must match at least one card in that player's hand.
-- Every hint is public: all players hear who was told what.
+  * Hint another player at your table one color or one rank. Every card of that \
+color/rank in their hand is pointed out; the rest are thereby excluded from it. \
+Costs one info token, so it is illegal at 0 info tokens, and the color or rank \
+you name must match at least one card in that player's hand.
+- Every hint is public at your table: all your team hears who was told what. \
+The opposing team hears nothing.
 - After you play or discard, your remaining cards shift down one slot and, if \
 the deck is not empty, a replacement is drawn into your highest slot. Slot 0 is \
 therefore always your oldest card.
 - Completing a color's stack at rank {num_ranks} regains one info token. Info \
 tokens never exceed {max_info_tokens}.
-- The game ends when the team loses its last life token (the score becomes 0 \
+- Your table ends when your team loses its last life token (the score becomes 0 \
 no matter how many fireworks were played), when every stack is complete \
 ({max_score} points), or when the deck runs out -- after the deck empties each \
 player takes exactly one more turn.
-- Turns pass in seat order, wrapping from Player {last_seat} back to Player 0.
+- The two tables take turns one move at a time. Once a table finishes, the \
+other keeps playing alone until it finishes too. Within your table, turns pass \
+in seat order, wrapping from Player {last_player_id} back to Player \
+{first_player_id}.
 
-Fireworks:
+You are Player {player_id} on Team {team_id}, seat {seat} at your team's table. \
+Your teammate is Player {teammate_id}.
+
+Your team's fireworks:
 {fireworks_block}
+Score: {score}/{max_score}
 Tokens: {life_tokens}/{max_life_tokens} life, {info_tokens}/{max_info_tokens} info
-Deck: {deck_size} card(s) left{final_turns}
+Deck: {deck_size}{final_turns}
 Discarded: {discards}
 
-You are Player {player_id}. Your own hand{own_hand_caveat}
+Your own hand, which you cannot see ("told" is what hints have said about the \
+card out loud; "possible" is what is still consistent with every hint, \
+including hints that skipped this card):
 {own_hand_block}
 {other_hands_block}
-Moves played so far (all players, oldest first):
+Moves played at your table so far (all seats, oldest first):
 {move_history}
 
 Action notation -- your answer must be exactly one of these forms:
@@ -84,9 +120,9 @@ Action notation -- your answer must be exactly one of these forms:
 Slots are numbered from 0. Colors are the single letters {color_list}. Hint \
 targets are written as an offset from your own seat: {offset_map}.
 
-It is your turn. Reason step by step about what your teammates know, what your \
-own cards could be, and which action helps the team most, then give your final \
-answer in a JSON block:
+It is your turn. Reason step by step about what your teammate knows, what your \
+own cards could be, and which action scores your team the most, then give your \
+final answer in a JSON block:
 
 ```json
 {{
@@ -147,7 +183,7 @@ The move you choose must also be legal in the current state.
 
 
 def _parse_observation(observation: Mapping[str, Any]) -> dict[str, Any]:
-    """Pull the JSON state emitted by ``HanabiState.observation_string``."""
+    """Pull the JSON arena view emitted by ``HanabiArenaObserver``."""
     raw = observation.get("observationString")
     if not raw:
         return {}
@@ -174,9 +210,22 @@ def _deck_composition(num_ranks: int) -> str:
     return f"three 1s, {middle}, and one {num_ranks}"
 
 
-def _color_letters(state: Mapping[str, Any]) -> list[str]:
+def _deck_total(num_colors: int, num_ranks: int) -> int:
+    """Deck size implied by ``_deck_composition`` -- NOT ``colors * ranks``.
+
+    Three copies of rank 1, one of the top rank, two of each rank between, so
+    a standard 5x5 deck holds 50 cards rather than 25. Only used as a fallback
+    when the observation does not carry ``deck_total``; it must agree with the
+    composition line the prompt prints beside it.
+    """
+    if num_ranks <= 1:
+        return 3 * num_colors
+    return num_colors * (3 + 2 * (num_ranks - 2) + 1)
+
+
+def _color_letters(table: Mapping[str, Any]) -> list[str]:
     """Color letters in engine order, from the fireworks the engine reported."""
-    fireworks = state.get("fireworks") or {}
+    fireworks = table.get("fireworks") or {}
     return list(fireworks.keys())
 
 
@@ -203,31 +252,43 @@ def _possible_text(card: Mapping[str, Any]) -> str:
     return f"colors {colors}, ranks {ranks}"
 
 
-def _render_own_hand(cards: Sequence[Mapping[str, Any]]) -> str:
-    """Own slots as knowledge only -- unless the engine has revealed them.
+def _hand_of_seat(table: Mapping[str, Any], seat: int) -> dict[str, Any] | None:
+    for hand in table.get("hands") or []:
+        if hand.get("player") == seat:
+            return hand
+    return None
 
-    Under ``observation_type=seer`` the engine shows the observer their own
-    cards face-up, and the proxy passes that through. Dropping the face then
-    would hide from the model information the game gave it.
+
+def _render_own_hand(cards: Sequence[Mapping[str, Any]]) -> str:
+    """Own slots as hint knowledge -- never the faces.
+
+    ``hanabi_arena`` exposes no ``observation_type`` parameter, so unlike base
+    Hanabi there is no "seer" variant here and a seat never sees its own
+    cards mid-game. The faces DO appear in the terminal observation, which is
+    not a turn the prompt is ever built for.
     """
     if not cards:
         return "  (no cards)"
-    lines = []
-    for i, card in enumerate(cards):
-        face = card.get("card")
-        prefix = f"  slot {i}: " + (f"{_card_text(face)} -- " if face else "")
-        lines.append(f"{prefix}told {_told_text(card)}; possible {_possible_text(card)}")
-    return "\n".join(lines)
+    return "\n".join(
+        f"  slot {i}: told {_told_text(card)}; possible {_possible_text(card)}" for i, card in enumerate(cards)
+    )
 
 
-def _render_other_hands(state: Mapping[str, Any], player_id: int, num_players: int) -> str:
-    """Every other seat's cards face-up, labelled with its hint offset."""
+def _render_other_hands(table: Mapping[str, Any], seat: int, players_per_team: int, team_base: int) -> str:
+    """Every other seat at this table face-up, labelled with its hint offset.
+
+    Seats are relabelled with their arena-wide player ids so the model can
+    talk about "Player 3" rather than "the other seat", while the hint
+    offsets stay table-relative because that is what the engine's action
+    strings use.
+    """
     blocks = []
-    for offset in range(1, num_players):
-        seat = (player_id + offset) % num_players
-        hand = next((h for h in state.get("hands") or [] if h.get("player") == seat), None)
+    for offset in range(1, players_per_team):
+        other_seat = (seat + offset) % players_per_team
+        hand = _hand_of_seat(table, other_seat)
+        player_id = (hand or {}).get("player_id", team_base + other_seat)
         cards = (hand or {}).get("cards") or []
-        header = f"Player {seat}'s hand (hint target +{offset}):"
+        header = f"Player {player_id}'s hand (hint target +{offset}):"
         if not cards:
             blocks.append(f"{header}\n  (no cards)")
             continue
@@ -239,9 +300,11 @@ def _render_other_hands(state: Mapping[str, Any], player_id: int, num_players: i
     return "\n".join(blocks)
 
 
-def _render_fireworks(state: Mapping[str, Any]) -> str:
-    fireworks = state.get("fireworks") or {}
-    num_ranks = int(state.get("ranks", 5) or 5)
+def _render_fireworks(table: Mapping[str, Any]) -> str:
+    fireworks = table.get("fireworks")
+    num_ranks = int(table.get("ranks", 5) or 5)
+    if fireworks is None:
+        return "  (unavailable -- the board could not be read this turn)"
     if not fireworks:
         return "  (none started)"
     lines = []
@@ -255,21 +318,30 @@ def _render_fireworks(state: Mapping[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _render_discards(state: Mapping[str, Any]) -> str:
-    """Discards grouped as ``R1 x2`` so duplicate-tracking is readable."""
-    discards = state.get("discards") or []
+def _render_discards(table: Mapping[str, Any]) -> str:
+    """Discards grouped as ``R1 x2`` so duplicate-tracking is readable.
+
+    "(none)" is reserved for a genuinely empty pile. Counting discards is how
+    a Hanabi player knows a card is dead, so an unreadable pile rendered as
+    empty would have the model treat every 5 as still saveable.
+    """
+    discards = table.get("discards")
+    if discards is None:
+        return "(unavailable)"
     if not discards:
         return "(none)"
     counts: dict[str, int] = {}
     for card in discards:
         counts[_card_text(card)] = counts.get(_card_text(card), 0) + 1
-    order = {letter: i for i, letter in enumerate(_color_letters(state))}
+    order = {letter: i for i, letter in enumerate(_color_letters(table))}
     tokens = sorted(counts.items(), key=lambda kv: (order.get(kv[0][0], 99), kv[0][1:]))
     return ", ".join(name if n == 1 else f"{name} x{n}" for name, n in tokens)
 
 
-def _offset_map(player_id: int, num_players: int) -> str:
-    return ", ".join(f"+{offset} = Player {(player_id + offset) % num_players}" for offset in range(1, num_players))
+def _offset_map(seat: int, players_per_team: int, team_base: int) -> str:
+    return ", ".join(
+        f"+{offset} = Player {team_base + (seat + offset) % players_per_team}" for offset in range(1, players_per_team)
+    )
 
 
 # --- Move history -----------------------------------------------------------
@@ -281,124 +353,123 @@ _REVEAL_COLOR_ACTION_RE = re.compile(r"^\(Reveal player \+(\d+) color (\w)\)$")
 _REVEAL_RANK_ACTION_RE = re.compile(r"^\(Reveal player \+(\d+) rank (\d+)\)$")
 
 
-def _hand_of(state: Any, owner: int, num_players: int) -> list[dict[str, Any]] | None:
-    """Face-up cards in ``owner``'s hand, read from a teammate's view.
+def _render_hint_slots(entry: Mapping[str, Any]) -> str:
+    """Where a hint's cards are NOW, and where they were when it was given.
 
-    A player's own view hides their own cards, so the hand is read through the
-    next seat -- which sees it in full. Returns ``None`` when the hand cannot
-    be read at all (the state is not a proxy state, so it has no
-    ``state_dict``), as distinct from ``[]`` for a genuinely empty hand. The
-    two must not collapse: an unreadable hand means "we do not know which
-    slots a hint touched", while an empty one means "none", and rendering the
-    first as the second states a falsehood about a public fact.
+    Slot numbers are positions, not identities: every play or discard slides
+    the cards above it down one, so the slots a hint pointed at stop naming
+    those cards almost immediately. The env keeps both readings -- ``slots``
+    walked forward to the present, ``slots_when_given`` as the public record
+    -- and both belong in the prompt, because they answer different
+    questions. Rendering only the original is the bug this replaced: the
+    holder cannot see the faces, so a history line saying "rank 2 -- slot 4"
+    beside an own-hand block showing nothing known about slot 4 is a
+    contradiction they have no way to resolve.
+
+    The two are printed together only when they differ; a hint whose cards
+    have not moved reads as plainly as it ever did.
     """
-    state_dict = getattr(state, "state_dict", None)
-    if state_dict is None:
-        return None
-    for hand in state_dict((owner + 1) % num_players).get("hands") or []:
-        if hand.get("player") == owner:
-            return list(hand.get("cards") or [])
-    return None
+    given = entry.get("slots_when_given")
+    if given is None:
+        # Which slots a hint pointed at is the substance of the hint. A guess
+        # is worse than an omission, and "no slots" would be a lie -- the
+        # engine only allows hints that match at least one card.
+        return ""
+    current = entry.get("slots", given)
+    noun = "slot" if len(given) == 1 else "slots"
+    if not given:
+        return " -- no slots"
+    rendered = f" -- {noun} {', '.join(str(s) for s in given)}"
+    if list(current) == list(given):
+        return rendered
+    if not current:
+        return f"{rendered} at the time, all since played or discarded"
+    moved = "slot" if len(current) == 1 else "slots"
+    suffix = "" if len(current) == len(given) else " (the rest since played or discarded)"
+    return f"{rendered} at the time, now {moved} {', '.join(str(s) for s in current)}{suffix}"
 
 
-def _describe_decision(before: Any, after: Any, player: int, label: str, num_players: int) -> str:
-    """One history line: the action plus the public facts it revealed."""
+def _describe_decision(entry: Mapping[str, Any], team_base: int) -> str:
+    """One history line: the action plus the public facts it revealed.
+
+    Every fact read here was recorded by the env at the moment the action
+    resolved, when it became common knowledge at this table (see
+    ``_public_facts`` in ``hanabi_arena_game``). Nothing still face-down is
+    read, and the opposing table never appears in this list at all.
+    """
+    player_id = entry.get("player_id", team_base)
+    label = entry.get("label", "?")
+
     match = _PLAY_ACTION_RE.match(label) or _DISCARD_ACTION_RE.match(label)
     if match:
         slot = int(match.group(1))
-        hand = _hand_of(before, player, num_players) or []
-        card = _card_text(hand[slot].get("card")) if slot < len(hand) else "??"
+        card = _card_text(entry.get("card"))
         if label.startswith("(Discard"):
-            return f"P{player} discarded slot {slot} ({card})"
-        before_dict = getattr(before, "state_dict", None)
-        after_dict = getattr(after, "state_dict", None)
-        if before_dict is None or after_dict is None:
-            return f"P{player} played slot {slot} ({card})"
-        # Stack heights, not the banked score: score is zeroed by a bomb-out,
-        # which would read as "no firework advanced" on the very play that
-        # caused it. Same field the visualizer uses for this question.
-        if after_dict(0).get("fireworks_total", 0) > before_dict(0).get("fireworks_total", 0):
-            return f"P{player} played slot {slot} ({card}) -- firework advanced"
-        return f"P{player} played slot {slot} ({card}) -- misplay, life lost"
+            return f"P{player_id} discarded slot {slot} ({card})"
+        advanced = entry.get("advanced")
+        if advanced is None:
+            return f"P{player_id} played slot {slot} ({card})"
+        outcome = "firework advanced" if advanced else "misplay, life lost"
+        return f"P{player_id} played slot {slot} ({card}) -- {outcome}"
 
-    match = _REVEAL_COLOR_ACTION_RE.match(label)
-    kind, value = None, None
-    if match:
-        kind, value = "color", match.group(2)
-    else:
-        match = _REVEAL_RANK_ACTION_RE.match(label)
-        if match:
-            kind, value = "rank", int(match.group(2))
-    if match and kind is not None:
-        target = (player + int(match.group(1))) % num_players
-        hand = _hand_of(before, target, num_players)
-        if hand is None:
-            # Which slots a hint pointed at is the substance of the hint; a
-            # guess is worse than an omission. "no slots" would also be a lie
-            # -- the engine only allows hints that match at least one card.
-            return f"P{player} hinted P{target} {kind} {value}"
-        touched = [str(i) for i, c in enumerate(hand) if (c.get("card") or {}).get(kind) == value]
-        noun = "slot" if len(touched) == 1 else "slots"
-        slots = f"{noun} {', '.join(touched)}" if touched else "no slots"
-        return f"P{player} hinted P{target} {kind} {value} -- {slots}"
+    if entry.get("hint_kind") is not None:
+        target_id = entry.get("target_player_id", team_base)
+        kind, value = entry["hint_kind"], entry.get("hint_value")
+        return f"P{player_id} hinted P{target_id} {kind} {value}{_render_hint_slots(entry)}"
 
-    return f"P{player} {label}"
+    return f"P{player_id} {label}"
 
 
-def _build_move_history(observation: Mapping[str, Any], num_players: int) -> list[str] | None:
-    """Reconstruct every player's moves by replaying the serialized state.
+def _move_history_lines(table: Mapping[str, Any], team_base: int) -> list[str] | None:
+    """This table's moves, annotated with what each one made public.
 
-    The proxy exposes no history field, so the full game is replayed from the
-    root. Chance nodes (the deal and each draw) are applied but not reported --
-    they are not decisions any player made, and their outcomes are already
-    visible in the rendered hands.
-
-    Returns ``None`` if the replay is unavailable (no serialized state, or a
-    deserialize the local pyspiel cannot do). That is distinct from ``[]``,
-    which means the game genuinely has no moves yet: rendering a failed
-    replay as "this is the first turn" would tell a model forty moves deep
-    that nothing had happened, and it has no way to detect the lie.
+    ``None`` when the observation carries no history at all, so the caller
+    can say so rather than render an empty log as "nothing has happened".
     """
-    serialized = observation.get("serializedGameAndState")
-    if not serialized:
+    history = table.get("move_history")
+    if history is None:
         return None
-    try:
-        game, final = pyspiel.deserialize_game_and_state(serialized)
-    except (pyspiel.SpielError, RuntimeError, ValueError):
-        return None
-    replay = game.new_initial_state()
-    lines: list[str] = []
-    for item in final.full_history():
-        if item.player < 0:
-            replay.apply_action(item.action)
-            continue
-        label = replay.action_to_string(item.player, item.action)
-        before = replay.clone()
-        replay.apply_action(item.action)
-        lines.append(_describe_decision(before, replay, item.player, label, num_players))
-    return lines
+    return [_describe_decision(entry, team_base) for entry in history]
+
+
+def _readable(table: Mapping[str, Any], key: str) -> str:
+    """A live counter, or ``unavailable`` when the view could not be read.
+
+    Zero is a real and dangerous reading for every one of these -- 0 lives is
+    one misplay from a bomb-out, 0 info tokens forbids hinting, 0 cards left
+    means the final round is running -- so a missing field must never render
+    as one. The move log already draws this distinction; the state block
+    stating a confident falsehood beside it was the gap.
+    """
+    value = table.get(key)
+    return "unavailable" if value is None else str(value)
+
+
+def _render_deck_size(table: Mapping[str, Any]) -> str:
+    deck_size = table.get("deck_size")
+    return "unavailable" if deck_size is None else f"{deck_size} card(s) left"
 
 
 def _render_final_turns(remaining: int | None) -> str:
     if remaining is None:
         return ""
     if remaining == 1:
-        return " -- final round: this is the last turn of the game"
-    return f" -- final round: {remaining} turns remain, including yours"
+        return " -- final round: this is the last turn at your table"
+    return f" -- final round: {remaining} turns remain at your table, including yours"
 
 
 def _format_move_history(lines: Sequence[str] | None) -> str:
-    """Render the replayed history, or say plainly that it is unavailable.
+    """Render the history, or say plainly that it is unavailable.
 
-    ``None`` (the replay failed) and ``[]`` (nobody has moved yet) must render
-    differently: a model told "this is the first turn" forty moves in has no
-    way to notice, whereas one told the log is missing knows to fall back on
-    the hint knowledge rendered above.
+    ``None`` (no history could be read at all) and ``[]`` (nobody has moved
+    yet) must render differently: a model told "this is the first turn"
+    forty moves in has no way to notice, whereas one told the log is missing
+    knows to fall back on the hint knowledge rendered above.
     """
     if lines is None:
         return "  (unavailable -- the move log could not be reconstructed this turn)"
     if not lines:
-        return "(none yet -- this is the first turn)"
+        return "(none yet -- this is the first turn at your table)"
     return "\n".join(f"  {i + 1}. {line}" for i, line in enumerate(lines))
 
 
@@ -418,9 +489,12 @@ def _format_move_history(lines: Sequence[str] | None) -> str:
 #   whitelist, not "any non-digit". The prompt renders teammates' cards as
 #   `R1`/`B3` tokens, so a model naming the *card* rather than the *slot* is
 #   the single most likely notation slip -- and a permissive gap silently
-#   turns "Play B3" into slot 3, an action the model never chose.
-# - A hint target written without a "+" is ambiguous between an offset and an
-#   absolute seat. It is only resolved when the legal set leaves exactly one
+#   turns "Play B3" into slot 3, an action the model never chose. Spelled-out
+#   ranks are held back from the slot reading for the same reason: "play the
+#   one" names a card in Hanabi prose at least as readily as it names a slot.
+# - A hint target written without a "+" is ambiguous between an offset and a
+#   player id. It is resolved against the arena player ids this seat's prompt
+#   actually printed, and otherwise only when the legal set leaves exactly one
 #   possible target, so the two readings cannot disagree.
 
 _VERB_ALIASES = {"hint": "reveal", "tell": "reveal", "clue": "reveal", "reveal": "reveal"}
@@ -741,32 +815,83 @@ def _reveal_offsets(legal_moves: Sequence[str]) -> set[int]:
     return {int(m.group(1)) for m in matches if m}
 
 
-def _resolve_offset(sign: str, number: int, legal_moves: Sequence[str]) -> int | None:
+def _player_id_offsets(observation: Mapping[str, Any] | None) -> dict[int, int]:
+    """``{arena player id: hint offset}`` for the other seats at this table.
+
+    The arena prompt names teammates by their arena-wide player id -- "Your
+    teammate is Player 3", "+1 = Player 3" -- because that is how the rest of
+    the observation labels them. A model that writes the id the prompt taught
+    it is spelling the engine's offset in the arena's own vocabulary, so this
+    is the mapping needed to read it back.
+
+    Deriving it per seat is what keeps the two teams symmetric. Team 0 seat 0
+    is the one seat whose teammate id (1) happens to equal the offset (+1);
+    without this map that seat parses "Reveal player 1 ..." and the other
+    three seats do not, which is a handicap on one side of a head-to-head
+    matchup rather than a uniform tolerance gap.
+    """
+    if not observation:
+        return {}
+    state = _parse_observation(observation)
+    if not state:
+        return {}
+    table = state.get("table") or {}
+    try:
+        players_per_team = int(state.get("players_per_team", table.get("num_players", 2)) or 2)
+        player_id = int(observation.get("playerId", state.get("your_player_id", 0)) or 0)
+        team_id = int(state.get("your_team_id", player_id // players_per_team))
+        seat = int(state.get("your_seat", player_id % players_per_team))
+    except (TypeError, ValueError):
+        return {}
+    if players_per_team < 2:
+        return {}
+    team_base = team_id * players_per_team
+    return {team_base + (seat + offset) % players_per_team: offset for offset in range(1, players_per_team)}
+
+
+def _resolve_offset(
+    sign: str,
+    number: int,
+    legal_moves: Sequence[str],
+    player_id_offsets: Mapping[int, int] | None = None,
+) -> int | None:
     """Turn a written hint target into an offset, or ``None`` if ambiguous.
 
-    An explicit "+K" is an offset by construction. A bare "K" could be either
-    an offset or an absolute seat -- different teammates from three players
-    up, where guessing wrong hints the wrong one. It is accepted only when
-    exactly one target is hintable at all and "K" is that offset.
+    An explicit "+K" is an offset by construction. A bare "K" has two possible
+    readings, and both are things the prompt actually shows the model:
 
-    The two readings still name the same seat only when the writer sits at
-    seat 0. What that guard actually buys is weaker but sufficient: whenever
-    they diverge, the absolute reading needs an offset that is *not* in the
-    legal set, so it was never an available move. (Proof by exhaustion over
-    every seat and target for 2-5 players: divergence requires
-    ``(K - me) % n != K``, and the legal set is ``{K}``, so the offset the
-    absolute reading needs is illegal.) Resolving to the one hintable target
-    is therefore a charitable reading of an otherwise-illegal move, not a
-    coin-flip between two valid ones -- and when two targets *are* hintable
-    the ambiguity is real and this returns ``None``.
+    - an arena player id, which is how the prompt names every seat; or
+    - a table-relative offset, which is what the engine's action strings use.
+
+    Each reading is resolved independently and they must not disagree. The
+    player-id reading is only taken when that id is a seat at this table and
+    the offset it implies is legal right now. The offset reading keeps its
+    original guard -- accepted only when exactly one target is hintable at all
+    -- so a bare number can never pick between two legal targets.
+
+    At this game's two-seat tables the readings never both resolve to
+    different offsets, since offset 2 is not legal there. The disagreement
+    check is kept general so a wider table cannot quietly break it.
     """
     if sign == "+":
         return number
     offsets = _reveal_offsets(legal_moves)
-    return number if offsets == {number} else None
+
+    as_player_id = (player_id_offsets or {}).get(number)
+    if as_player_id is not None and as_player_id not in offsets:
+        as_player_id = None
+    as_offset = number if offsets == {number} else None
+
+    if as_player_id is not None and as_offset is not None and as_player_id != as_offset:
+        return None
+    return as_player_id if as_player_id is not None else as_offset
 
 
-def _canonical_forms(raw: str, legal_moves: Sequence[str]) -> list[str]:
+def _canonical_forms(
+    raw: str,
+    legal_moves: Sequence[str],
+    player_id_offsets: Mapping[int, int] | None = None,
+) -> list[str]:
     """Engine-shaped action strings the model's text could mean."""
     # _split_annotation already decided whether the tail names a second move,
     # judging it on the RAW text. Honour that verdict instead of re-deriving
@@ -794,7 +919,7 @@ def _canonical_forms(raw: str, legal_moves: Sequence[str]) -> list[str]:
         rank, color, sign, number, rest = match.groups()
     if not _is_annotation(rest):
         return []
-    offset = _resolve_offset(sign, int(number), legal_moves)
+    offset = _resolve_offset(sign, int(number), legal_moves, player_id_offsets)
     if offset is None:
         return []
     # Rank words survive to here because _normalize no longer expands them;
@@ -803,7 +928,11 @@ def _canonical_forms(raw: str, legal_moves: Sequence[str]) -> list[str]:
     return [f"(Reveal player +{offset} {value})"]
 
 
-def _match_move_to_legal(raw: str, legal_moves: Sequence[str]) -> str | None:
+def _match_move_to_legal(
+    raw: str,
+    legal_moves: Sequence[str],
+    player_id_offsets: Mapping[int, int] | None = None,
+) -> str | None:
     if not raw:
         return None
     if raw in legal_moves:
@@ -817,7 +946,7 @@ def _match_move_to_legal(raw: str, legal_moves: Sequence[str]) -> str | None:
         if _normalize(legal) == target:
             return legal
     legal_set = set(legal_moves)
-    for candidate in _canonical_forms(raw, legal_moves):
+    for candidate in _canonical_forms(raw, legal_moves, player_id_offsets):
         if candidate in legal_set:
             return candidate
     return None
@@ -833,32 +962,23 @@ def get_legal_moves(observation: Mapping[str, Any]) -> dict[int, str]:
     if legal_actions and legal_action_strings:
         return dict(zip(legal_actions, legal_action_strings))
 
-    # The proxy already publishes id + label pairs; prefer them over paying for
-    # a full deserialize.
+    # The arena view publishes id + label pairs for the seat on the clock, and
+    # only for that seat -- the legal hints against a hand are exactly the
+    # colors and ranks IN it, so another seat's move list would spell out cards
+    # the reader must not see.
+    #
+    # There is deliberately no serialized-state fallback below this. Every
+    # other OpenSpiel harness deserializes `serializedGameAndState` when the
+    # observation is thin, but `hanabi_arena` withholds that blob from agents
+    # precisely because it reconstructs every hidden hand; reaching for it here
+    # would be asking for the thing the env refused to send. If neither source
+    # above has a move list, {} costs the turn -- which is the same cost the
+    # fallback carried when the blob was unreadable.
     state = _parse_observation(observation)
-    proxy_legals = state.get("legal_actions")
-    if proxy_legals:
-        return {entry["action"]: entry["label"] for entry in proxy_legals}
-
-    serialized = observation.get("serializedGameAndState", "")
-    if not serialized:
-        return {}
-    try:
-        _, os_state = pyspiel.deserialize_game_and_state(serialized)
-    except (pyspiel.SpielError, RuntimeError, ValueError):
-        # The serialized blob names the proxy game ("hanabi_proxy"), so this
-        # raises wherever that game is not registered. Returning {} lets the
-        # framework report "no legal actions" for the turn; letting the
-        # SpielError escape would void the whole episode.
-        return {}
-    if os_state.is_terminal() or os_state.is_chance_node():
-        return {}
-    player_id = observation.get("playerId", os_state.current_player())
-    # Per observer, not the bare call: the legal hints against a hand are
-    # exactly the colors and ranks IN it, so the actor's move list handed to a
-    # non-actor spells out that non-actor's own cards. The engine returns []
-    # for a non-actor, which is what we want here too.
-    return {a: os_state.action_to_string(player_id, a) for a in os_state.legal_actions(player_id)}
+    table_legals = (state.get("table") or {}).get("legal_actions")
+    if table_legals:
+        return {entry["action"]: entry["label"] for entry in table_legals}
+    return {}
 
 
 def generate_prompt(
@@ -868,66 +988,76 @@ def generate_prompt(
     previous_action: str | None = None,
 ) -> str:
     """Build the LLM prompt from this player's own (partial) view."""
-    del move_history  # Per-agent only; the full history is rebuilt below.
+    del move_history  # Per-agent only; the table's full history is built below.
     state = _parse_observation(observation)
-    player_id = int(observation.get("playerId", state.get("observer", 0)) or 0)
-    num_players = int(state.get("num_players", 2) or 2)
-    num_colors = int(state.get("colors", 5) or 5)
-    num_ranks = int(state.get("ranks", 5) or 5)
+    table = state.get("table") or {}
+    players_per_team = int(state.get("players_per_team", table.get("num_players", 2)) or 2)
+    player_id = int(observation.get("playerId", state.get("your_player_id", 0)) or 0)
+    team_id = int(state.get("your_team_id", player_id // players_per_team))
+    seat = int(state.get("your_seat", player_id % players_per_team))
+    team_base = team_id * players_per_team
+    teammate_id = state.get("teammate_player_id")
+    if teammate_id is None:
+        teammate_id = team_base + (seat + 1) % players_per_team
 
-    own_hand = next((h for h in state.get("hands") or [] if h.get("player") == player_id), None)
+    # Defaults matter here: with a malformed or absent observation the prompt
+    # still renders, and every rule line it states must stay true of the game
+    # actually being played. The engine's own defaults are therefore the only
+    # safe fallbacks -- deck_total is the deck the composition line describes
+    # (3 + 2*(ranks-2) + 1 per color, not colors*ranks), and hand_size falls
+    # back to the engine's 5 rather than to however many cards happen to be
+    # readable this turn. A wrong constant is worse than a missing one: the
+    # model has no way to tell it was told the wrong deck.
+    num_colors = int(table.get("colors", _DEFAULT_COLORS) or _DEFAULT_COLORS)
+    num_ranks = int(table.get("ranks", _DEFAULT_RANKS) or _DEFAULT_RANKS)
+
+    own_hand = _hand_of_seat(table, seat)
     own_cards = (own_hand or {}).get("cards") or []
 
     # The example action has to be legal notation at any hand size, and slot 0
     # exists whenever the player holds a card at all.
     example_move = "(Play 0)" if own_cards else "(Reveal player +1 rank 1)"
 
-    # Under observation_type=seer the engine hands the observer their own
-    # cards face-up. That is a different game -- claiming otherwise would be
-    # telling the model it is blind while showing it the answer.
-    sees_own_hand = any(card.get("card") for card in own_cards)
-    knowledge_gloss = (
-        '("told" is what hints have said about the card out loud; "possible" is what is still '
-        "consistent with every hint, including hints that skipped this card)"
-    )
-    if sees_own_hand:
-        visibility_rule = " and can see every player's cards, including their own"
-        own_hand_caveat = ", which you can see face-up in this variant:"
-    else:
-        visibility_rule = " and can see every other player's cards but not their own"
-        own_hand_caveat = f", which you cannot see {knowledge_gloss}:"
+    history = _move_history_lines(table, team_base)
 
-    prompt = HANABI_PROMPT_TEMPLATE.format(
-        num_players=num_players,
-        visibility_rule=visibility_rule,
-        own_hand_caveat=own_hand_caveat,
+    max_score = num_colors * num_ranks
+    prompt = HANABI_ARENA_PROMPT_TEMPLATE.format(
+        players_per_team=players_per_team,
         num_colors=num_colors,
-        color_list="/".join(_color_letters(state)) or "?",
+        color_list="/".join(_color_letters(table)) or "/".join(_DEFAULT_COLOR_LETTERS[:num_colors]),
         num_ranks=num_ranks,
-        deck_total=state.get("deck_total", num_colors * num_ranks),
+        deck_total=table.get("deck_total", _deck_total(num_colors, num_ranks)),
         deck_composition=_deck_composition(num_ranks),
-        hand_size=state.get("hand_size", len(own_cards)),
-        max_score=state.get("max_score", num_colors * num_ranks),
-        max_info_tokens=state.get("max_info_tokens", 8),
-        max_life_tokens=state.get("max_life_tokens", 3),
-        last_seat=num_players - 1,
-        fireworks_block=_render_fireworks(state),
-        life_tokens=state.get("life_tokens", 0),
-        info_tokens=state.get("info_tokens", 0),
-        deck_size=state.get("deck_size", 0),
-        final_turns=_render_final_turns(state.get("final_turns_remaining")),
-        discards=_render_discards(state),
+        hand_size=table.get("hand_size", _DEFAULT_HAND_SIZE),
+        max_score=state.get("max_score", table.get("max_score", max_score)),
+        max_info_tokens=table.get("max_info_tokens", _DEFAULT_MAX_INFO_TOKENS),
+        max_life_tokens=table.get("max_life_tokens", _DEFAULT_MAX_LIFE_TOKENS),
+        first_player_id=team_base,
+        last_player_id=team_base + players_per_team - 1,
         player_id=player_id,
+        team_id=team_id,
+        seat=seat,
+        teammate_id=teammate_id,
+        fireworks_block=_render_fireworks(table),
+        score=_readable(table, "score"),
+        life_tokens=_readable(table, "life_tokens"),
+        info_tokens=_readable(table, "info_tokens"),
+        deck_size=_render_deck_size(table),
+        final_turns=_render_final_turns(table.get("final_turns_remaining")),
+        discards=_render_discards(table),
         own_hand_block=_render_own_hand(own_cards),
-        other_hands_block=_render_other_hands(state, player_id, num_players),
-        move_history=_format_move_history(_build_move_history(observation, num_players)),
-        offset_map=_offset_map(player_id, num_players),
+        other_hands_block=_render_other_hands(table, seat, players_per_team, team_base),
+        move_history=_format_move_history(history),
+        offset_map=_offset_map(seat, players_per_team, team_base),
         example_move=example_move,
     )
 
-    # render_rethink_suffix splits on whether a move was parsed at all, which
-    # leaves the third case -- parsed, but naming two moves -- wearing the
-    # ILLEGAL text. Route that one first; the helper still covers the other two.
+    # Three failure modes, not two. render_rethink_suffix partitions on
+    # "was an action string extracted", which lumps "named an illegal move"
+    # together with "named a legal move and then talked about another one" --
+    # and the second is the common one for a model reasoning well about
+    # conventions. Telling it the move was illegal sends it to re-examine the
+    # board instead of its phrasing.
     if previous_action and _is_undecided_answer(previous_action):
         prompt += RETHINK_UNDECIDED.format(previous_action=previous_action)
     else:
@@ -941,6 +1071,22 @@ def generate_prompt(
     return prompt
 
 
-def parse_response(response: str, legal_action_strings: Sequence[str]) -> ParseResult:
-    """Trust the model's JSON answer; let the rethink loop fix anything else."""
-    return parse_json_action(response, legal_action_strings, matcher=_match_move_to_legal)
+def parse_response(
+    response: str,
+    legal_action_strings: Sequence[str],
+    *,
+    observation: Mapping[str, Any] | None = None,
+) -> ParseResult:
+    """Trust the model's JSON answer; let the rethink loop fix anything else.
+
+    ``observation`` is optional and only sharpens one case: it supplies the
+    arena player ids this seat's prompt printed, so a hint written as "Player
+    3" resolves to the offset the engine wants. Without it the parser falls
+    back to the offset-only reading, which is correct but stricter.
+    """
+    player_id_offsets = _player_id_offsets(observation)
+
+    def matcher(raw: str, legals: Sequence[str]) -> str | None:
+        return _match_move_to_legal(raw, legals, player_id_offsets)
+
+    return parse_json_action(response, legal_action_strings, matcher=matcher)
