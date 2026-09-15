@@ -39,7 +39,8 @@ class SnakeEnvTest(absltest.TestCase):
         self.assertTrue(obs["snakes"][0]["alive"])
         self.assertTrue(obs["snakes"][1]["alive"])
         self.assertEqual(obs["scores"], [0.0, 0.0])
-        self.assertEqual(obs["current_player"], 0)
+        # Simultaneous game: every step is a simultaneous node.
+        self.assertEqual(obs["current_player"], "simultaneous")
         self.assertFalse(obs["is_terminal"])
         self.assertIsNone(obs["winner"])
         self.assertEqual(obs["turn"], 0)
@@ -49,22 +50,16 @@ class SnakeEnvTest(absltest.TestCase):
         self.assertEqual(obs["board"][fr][fc], "*")
 
     def test_snake_manual_playthrough(self):
-        # Sequential implementation of simultaneous play: each player submits
-        # in turn, then the buffered moves are applied together. Drive both
-        # snakes off the board on the first round so both die and the game
-        # terminates immediately.
+        # Simultaneous-move play: both players submit each step and their
+        # moves are applied together. Drive both snakes off the board so
+        # both die and the game terminates.
         env = make("open_spiel_snake", debug=True)
         env.reset()
         env.step([{"submission": -1}, {"submission": -1}])  # Setup step.
-        # P0 at (1,1): UP -> (0,1)? still on board. Send LEFT (2) twice to die.
-        # First round: both submit a move; resolution moves snakes and may kill.
-        # P0 LEFT from (1,1) -> (1,0) (alive). P1 RIGHT from (8,8) -> (8,9) (alive).
-        # Second round: P0 LEFT from (1,0) -> (1,-1) (wall, dies).
-        # P1 RIGHT from (8,9) -> (8,10) (wall, dies).
-        env.step([{"submission": 2}, {"submission": -1}])  # P0 LEFT
-        env.step([{"submission": -1}, {"submission": 3}])  # P1 RIGHT
-        env.step([{"submission": 2}, {"submission": -1}])  # P0 LEFT (off board)
-        env.step([{"submission": -1}, {"submission": 3}])  # P1 RIGHT (off board)
+        # Turn 1: P0 LEFT from (1,1) -> (1,0). P1 RIGHT from (8,8) -> (8,9).
+        env.step([{"submission": 2}, {"submission": 3}])
+        # Turn 2: P0 LEFT from (1,0) -> (1,-1) wall. P1 RIGHT from (8,9) -> (8,10) wall.
+        env.step([{"submission": 2}, {"submission": 3}])
         self.assertTrue(env.done)
         obs = json.loads(env.state[0]["observation"]["observationString"])
         self.assertTrue(obs["is_terminal"])
@@ -75,7 +70,8 @@ class SnakeEnvTest(absltest.TestCase):
         env = make("open_spiel_snake", debug=True)
         env.reset()
         env.step([{"submission": -1}, {"submission": -1}])  # Setup step.
-        env.step([{"submission": 999}, {"submission": -1}])  # Invalid action.
+        # P0 submits an illegal action; P1's submission is a legal move.
+        env.step([{"submission": 999}, {"submission": 0}])
         self.assertTrue(env.done)
         json_out = env.toJSON()
         self.assertEqual(

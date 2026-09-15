@@ -39,8 +39,7 @@ export interface SnakeBoardState {
   }[];
   scores: number[];
   is_alive: boolean[];
-  current_player: number;
-  pending_this_turn: number[];
+  current_player: number | string;
   turn: number;
   is_terminal: boolean;
   winner: number | string | null;
