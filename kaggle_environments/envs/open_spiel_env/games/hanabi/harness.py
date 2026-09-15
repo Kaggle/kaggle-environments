@@ -618,7 +618,12 @@ _UNDECIDED_RE = re.compile(
     r"^(?=.*(?:\d|\bor\b))(?:\W|\d|\bor\b)+$"
     rf"|^\W*(?:or\b|/)(?:[^\d]*\d|\W*(?:{_COLOR_VALUE}|maybe\b|possibly\b|perhaps\b|even\b|nothing\b))"
     r"|^\W*(?:instead\b(?!\s+of\b)|alternatively\b)",
-    re.IGNORECASE,
+    # DOTALL to match _ANNOTATION_RE, which already spans newlines. Without it
+    # the leading lookahead's "." stops at a line break, so "Play 0, 1" was
+    # refused and "Play 0,\n1" -- the same indecision, and the shape a model
+    # reaches for when it lists its candidate moves -- was accepted as slot 0.
+    # Two regexes reading the same tail must agree on what a tail is.
+    re.IGNORECASE | re.DOTALL,
 )
 
 # A slot written as a negative index -- "Play -1". _normalize drops the hyphen
@@ -628,7 +633,13 @@ _UNDECIDED_RE = re.compile(
 # slot 1 -- the engine would take a move the model did not choose and no
 # rethink would fire. Anchored at the verb so only the operand position counts:
 # "Discard slot-2" and a trailing "Play 0 - 2 lives left" are untouched.
-_NEGATIVE_SLOT_RE = re.compile(r"^\W*(?:play|discard)\s+-\s*\d", re.IGNORECASE)
+#
+# The guard walks the same _FILLER run _RAW_SLOT_RE does, and must: that regex
+# absorbs "slot"/"the"/"my" between the verb and the operand, so a guard that
+# demanded the sign sit flush against the verb caught "Play -1" and waved
+# "Play slot -1" through to slot 1 -- the exact wrong card, by the exact route
+# this guard exists to close. A guard is only as wide as the matcher it guards.
+_NEGATIVE_SLOT_RE = re.compile(rf"^\W*(?:play|discard)(?:\s+{_FILLER})*\s+-\s*\d", re.IGNORECASE)
 
 
 def _normalize(text: str) -> str:

@@ -302,7 +302,7 @@ def _render_other_hands(table: Mapping[str, Any], seat: int, players_per_team: i
 
 def _render_fireworks(table: Mapping[str, Any]) -> str:
     fireworks = table.get("fireworks")
-    num_ranks = int(table.get("ranks", 5) or 5)
+    num_ranks = int(table.get("ranks", _DEFAULT_RANKS) or _DEFAULT_RANKS)
     if fireworks is None:
         return "  (unavailable -- the board could not be read this turn)"
     if not fireworks:
@@ -376,9 +376,13 @@ def _render_hint_slots(entry: Mapping[str, Any]) -> str:
         # engine only allows hints that match at least one card.
         return ""
     current = entry.get("slots", given)
-    noun = "slot" if len(given) == 1 else "slots"
     if not given:
-        return " -- no slots"
+        # Unreachable today -- _public_facts never writes an empty list -- and
+        # it says nothing rather than "no slots" for the same reason the branch
+        # above does: the engine only allows hints matching at least one card,
+        # so "no slots" would be a statement about this table that is false.
+        return ""
+    noun = "slot" if len(given) == 1 else "slots"
     rendered = f" -- {noun} {', '.join(str(s) for s in given)}"
     if list(current) == list(given):
         return rendered
@@ -389,7 +393,21 @@ def _render_hint_slots(entry: Mapping[str, Any]) -> str:
     return f"{rendered} at the time, now {moved} {', '.join(str(s) for s in current)}{suffix}"
 
 
-def _describe_decision(entry: Mapping[str, Any], team_base: int) -> str:
+def _seat_label(entry: Mapping[str, Any], key: str) -> str:
+    """``P<id>`` for a recorded seat, or an admission that it was not recorded.
+
+    ``_public_facts`` always writes both seat keys, so this is unreachable
+    today. It degrades the way every other renderer in this file does anyway:
+    defaulting a missing id to the team's first seat would attribute a move to
+    a named player the harness cannot actually identify, and a confident wrong
+    attribution is the one thing a move log must never print -- the model has
+    no way to tell it from a fact.
+    """
+    value = entry.get(key)
+    return "an unavailable player" if value is None else f"P{value}"
+
+
+def _describe_decision(entry: Mapping[str, Any]) -> str:
     """One history line: the action plus the public facts it revealed.
 
     Every fact read here was recorded by the env at the moment the action
@@ -397,7 +415,7 @@ def _describe_decision(entry: Mapping[str, Any], team_base: int) -> str:
     ``_public_facts`` in ``hanabi_arena_game``). Nothing still face-down is
     read, and the opposing table never appears in this list at all.
     """
-    player_id = entry.get("player_id", team_base)
+    player_id = _seat_label(entry, "player_id")
     label = entry.get("label", "?")
 
     match = _PLAY_ACTION_RE.match(label) or _DISCARD_ACTION_RE.match(label)
@@ -405,22 +423,22 @@ def _describe_decision(entry: Mapping[str, Any], team_base: int) -> str:
         slot = int(match.group(1))
         card = _card_text(entry.get("card"))
         if label.startswith("(Discard"):
-            return f"P{player_id} discarded slot {slot} ({card})"
+            return f"{player_id} discarded slot {slot} ({card})"
         advanced = entry.get("advanced")
         if advanced is None:
-            return f"P{player_id} played slot {slot} ({card})"
+            return f"{player_id} played slot {slot} ({card})"
         outcome = "firework advanced" if advanced else "misplay, life lost"
-        return f"P{player_id} played slot {slot} ({card}) -- {outcome}"
+        return f"{player_id} played slot {slot} ({card}) -- {outcome}"
 
     if entry.get("hint_kind") is not None:
-        target_id = entry.get("target_player_id", team_base)
+        target_id = _seat_label(entry, "target_player_id")
         kind, value = entry["hint_kind"], entry.get("hint_value")
-        return f"P{player_id} hinted P{target_id} {kind} {value}{_render_hint_slots(entry)}"
+        return f"{player_id} hinted {target_id} {kind} {value}{_render_hint_slots(entry)}"
 
-    return f"P{player_id} {label}"
+    return f"{player_id} {label}"
 
 
-def _move_history_lines(table: Mapping[str, Any], team_base: int) -> list[str] | None:
+def _move_history_lines(table: Mapping[str, Any]) -> list[str] | None:
     """This table's moves, annotated with what each one made public.
 
     ``None`` when the observation carries no history at all, so the caller
@@ -429,7 +447,7 @@ def _move_history_lines(table: Mapping[str, Any], team_base: int) -> list[str] |
     history = table.get("move_history")
     if history is None:
         return None
-    return [_describe_decision(entry, team_base) for entry in history]
+    return [_describe_decision(entry) for entry in history]
 
 
 def _readable(table: Mapping[str, Any], key: str) -> str:
@@ -692,7 +710,12 @@ _UNDECIDED_RE = re.compile(
     r"^(?=.*(?:\d|\bor\b))(?:\W|\d|\bor\b)+$"
     rf"|^\W*(?:or\b|/)(?:[^\d]*\d|\W*(?:{_COLOR_VALUE}|maybe\b|possibly\b|perhaps\b|even\b|nothing\b))"
     r"|^\W*(?:instead\b(?!\s+of\b)|alternatively\b)",
-    re.IGNORECASE,
+    # DOTALL to match _ANNOTATION_RE, which already spans newlines. Without it
+    # the leading lookahead's "." stops at a line break, so "Play 0, 1" was
+    # refused and "Play 0,\n1" -- the same indecision, and the shape a model
+    # reaches for when it lists its candidate moves -- was accepted as slot 0.
+    # Two regexes reading the same tail must agree on what a tail is.
+    re.IGNORECASE | re.DOTALL,
 )
 
 # A slot written as a negative index -- "Play -1". _normalize drops the hyphen
@@ -702,7 +725,13 @@ _UNDECIDED_RE = re.compile(
 # slot 1 -- the engine would take a move the model did not choose and no
 # rethink would fire. Anchored at the verb so only the operand position counts:
 # "Discard slot-2" and a trailing "Play 0 - 2 lives left" are untouched.
-_NEGATIVE_SLOT_RE = re.compile(r"^\W*(?:play|discard)\s+-\s*\d", re.IGNORECASE)
+#
+# The guard walks the same _FILLER run _RAW_SLOT_RE does, and must: that regex
+# absorbs "slot"/"the"/"my" between the verb and the operand, so a guard that
+# demanded the sign sit flush against the verb caught "Play -1" and waved
+# "Play slot -1" through to slot 1 -- the exact wrong card, by the exact route
+# this guard exists to close. A guard is only as wide as the matcher it guards.
+_NEGATIVE_SLOT_RE = re.compile(rf"^\W*(?:play|discard)(?:\s+{_FILLER})*\s+-\s*\d", re.IGNORECASE)
 
 
 def _normalize(text: str) -> str:
@@ -815,8 +844,8 @@ def _reveal_offsets(legal_moves: Sequence[str]) -> set[int]:
     return {int(m.group(1)) for m in matches if m}
 
 
-def _player_id_offsets(observation: Mapping[str, Any] | None) -> dict[int, int]:
-    """``{arena player id: hint offset}`` for the other seats at this table.
+def _player_id_offsets(observation: Mapping[str, Any] | None) -> dict[int, int | None]:
+    """``{arena player id: hint offset}`` over EVERY seat in the arena.
 
     The arena prompt names teammates by their arena-wide player id -- "Your
     teammate is Player 3", "+1 = Player 3" -- because that is how the rest of
@@ -829,6 +858,13 @@ def _player_id_offsets(observation: Mapping[str, Any] | None) -> dict[int, int]:
     without this map that seat parses "Reveal player 1 ..." and the other
     three seats do not, which is a handicap on one side of a head-to-head
     matchup rather than a uniform tolerance gap.
+
+    The seats that are NOT hintable -- the opposing table, and the reader
+    itself -- are mapped to ``None`` rather than left out. Absence and
+    "present but unhintable" have to be distinguishable downstream: an id this
+    map has never heard of may still be a relative offset, while an id that
+    names a real seat at the other table is a misread the model should be told
+    about, not silently redirected at its teammate.
     """
     if not observation:
         return {}
@@ -838,22 +874,26 @@ def _player_id_offsets(observation: Mapping[str, Any] | None) -> dict[int, int]:
     table = state.get("table") or {}
     try:
         players_per_team = int(state.get("players_per_team", table.get("num_players", 2)) or 2)
+        num_teams = int(state.get("num_teams", 2) or 2)
         player_id = int(observation.get("playerId", state.get("your_player_id", 0)) or 0)
         team_id = int(state.get("your_team_id", player_id // players_per_team))
         seat = int(state.get("your_seat", player_id % players_per_team))
     except (TypeError, ValueError):
         return {}
-    if players_per_team < 2:
+    if players_per_team < 2 or num_teams < 1:
         return {}
     team_base = team_id * players_per_team
-    return {team_base + (seat + offset) % players_per_team: offset for offset in range(1, players_per_team)}
+    mapping: dict[int, int | None] = {pid: None for pid in range(players_per_team * num_teams)}
+    for offset in range(1, players_per_team):
+        mapping[team_base + (seat + offset) % players_per_team] = offset
+    return mapping
 
 
 def _resolve_offset(
     sign: str,
     number: int,
     legal_moves: Sequence[str],
-    player_id_offsets: Mapping[int, int] | None = None,
+    player_id_offsets: Mapping[int, int | None] | None = None,
 ) -> int | None:
     """Turn a written hint target into an offset, or ``None`` if ambiguous.
 
@@ -872,14 +912,26 @@ def _resolve_offset(
     At this game's two-seat tables the readings never both resolve to
     different offsets, since offset 2 is not legal there. The disagreement
     check is kept general so a wider table cannot quietly break it.
+
+    The offset reading is additionally refused when the number names a real
+    arena seat that is NOT hintable -- the opposing table, or the reader
+    itself. Naming an opposing seat is the one mistake this variant newly
+    makes possible (the other table is invisible, so the model cannot check
+    itself), and with two seats per team the sole legal offset is always +1 --
+    so "player 1" from P3 read as an offset and fired a hint at the teammate
+    instead of asking for a rethink. When there is no observation the map is
+    empty and the original offset-only behaviour stands.
     """
     if sign == "+":
         return number
     offsets = _reveal_offsets(legal_moves)
 
-    as_player_id = (player_id_offsets or {}).get(number)
+    known_ids = player_id_offsets or {}
+    as_player_id = known_ids.get(number)
     if as_player_id is not None and as_player_id not in offsets:
         as_player_id = None
+    if as_player_id is None and number in known_ids:
+        return None
     as_offset = number if offsets == {number} else None
 
     if as_player_id is not None and as_offset is not None and as_player_id != as_offset:
@@ -890,7 +942,7 @@ def _resolve_offset(
 def _canonical_forms(
     raw: str,
     legal_moves: Sequence[str],
-    player_id_offsets: Mapping[int, int] | None = None,
+    player_id_offsets: Mapping[int, int | None] | None = None,
 ) -> list[str]:
     """Engine-shaped action strings the model's text could mean."""
     # _split_annotation already decided whether the tail names a second move,
@@ -931,7 +983,7 @@ def _canonical_forms(
 def _match_move_to_legal(
     raw: str,
     legal_moves: Sequence[str],
-    player_id_offsets: Mapping[int, int] | None = None,
+    player_id_offsets: Mapping[int, int | None] | None = None,
 ) -> str | None:
     if not raw:
         return None
@@ -971,9 +1023,14 @@ def get_legal_moves(observation: Mapping[str, Any]) -> dict[int, str]:
     # other OpenSpiel harness deserializes `serializedGameAndState` when the
     # observation is thin, but `hanabi_arena` withholds that blob from agents
     # precisely because it reconstructs every hidden hand; reaching for it here
-    # would be asking for the thing the env refused to send. If neither source
-    # above has a move list, {} costs the turn -- which is the same cost the
-    # fallback carried when the blob was unreadable.
+    # would be asking for the thing the env refused to send.
+    #
+    # If neither source above has a move list, {} is not a lost turn: an empty
+    # result with playerId/currentPlayer set -- always true for an acting seat
+    # -- makes core_harness.create_agent_fn raise "No legal actions available",
+    # which in a team game forfeits via team_of() and takes the teammate down
+    # with it. That is the right outcome for a state this harness cannot read,
+    # but it is a loud failure, not a soft one.
     state = _parse_observation(observation)
     table_legals = (state.get("table") or {}).get("legal_actions")
     if table_legals:
@@ -1018,7 +1075,7 @@ def generate_prompt(
     # exists whenever the player holds a card at all.
     example_move = "(Play 0)" if own_cards else "(Reveal player +1 rank 1)"
 
-    history = _move_history_lines(table, team_base)
+    history = _move_history_lines(table)
 
     max_score = num_colors * num_ranks
     prompt = HANABI_ARENA_PROMPT_TEMPLATE.format(

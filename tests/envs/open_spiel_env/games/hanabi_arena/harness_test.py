@@ -277,12 +277,60 @@ class ParseResponseTest(absltest.TestCase):
             self.assertIsNone(result.legal_action, move)
             self.assertEqual(result.raw_action, move)
 
+    def test_a_negative_slot_behind_a_filler_word_is_refused(self):
+        # The guard has to walk the same filler run the slot matcher does.
+        # _RAW_SLOT_RE absorbs "slot"/"the"/"my" between verb and operand, so a
+        # guard demanding the sign sit flush against the verb caught "Play -1"
+        # and waved "Play slot -1" through to slot 1 -- the opposite card, by
+        # the exact route the guard exists to close, with no rethink.
+        for move in (
+            "Play slot -1",
+            "Play the -1",
+            "Play card -1",
+            "Play my -1",
+            "Play number -1",
+            "Play from -1",
+            "Play in -1",
+            "Discard slot -1",
+            "Discard the -2",
+            "Play slot - 1",
+        ):
+            result = parse_response(f'```json\n{{"move": "{move}"}}\n```', self.legal)
+            self.assertIsNone(result.legal_action, move)
+            self.assertEqual(result.raw_action, move)
+
     def test_a_hyphen_that_is_not_a_sign_still_parses(self):
         # The negative-slot guard is anchored at the verb's operand, so a
         # hyphen anywhere else keeps its old meaning.
         cases = {
             "Discard slot-2": "(Discard 2)",
             "Play 0 - my best guess": "(Play 0)",
+            "Play slot 1": "(Play 1)",
+            "Discard the 2": "(Discard 2)",
+            "Play 0 - 2 lives left": "(Play 0)",
+        }
+        for move, expected in cases.items():
+            result = parse_response(f'```json\n{{"move": "{move}"}}\n```', self.legal)
+            self.assertEqual(result.legal_action, expected, move)
+
+    def test_a_second_action_on_the_next_line_is_refused(self):
+        # The annotation splitter spans newlines; the undecided check has to
+        # agree with it or the same indecision gets two verdicts depending on
+        # whether the model wrote a space or a line break. A numbered list of
+        # candidate moves is the shape a model reaches for when it has not
+        # committed, and it is multi-line by construction.
+        for move in ("Play 0,\n1", "Play 0\n1", "Play 0 or\nDiscard 2", "Play 0\nor 1"):
+            result = parse_response(f'```json\n{{"move": "{move}"}}\n```', self.legal)
+            self.assertIsNone(result.legal_action, move)
+            self.assertEqual(result.raw_action, move)
+
+    def test_a_multi_line_annotation_still_parses(self):
+        # Making the undecided check newline-aware must not start refusing a
+        # settled answer whose rationale happens to wrap.
+        cases = {
+            "Play 0\n(likely W1)": "(Play 0)",
+            "Play 0 -- my reasoning:\nR is dead": "(Play 0)",
+            "Play 0\n-- safest play": "(Play 0)",
         }
         for move, expected in cases.items():
             result = parse_response(f'```json\n{{"move": "{move}"}}\n```', self.legal)
@@ -536,16 +584,26 @@ class ArenaPlayerIdHintTest(absltest.TestCase):
         # Hints cross seats at a table, never tables. Reading an opposing
         # player's id as "my partner" would submit a hint the model never
         # intended at the only seat it could legally land on.
-        state, legal = self._turn_of(0)
-        observation = _make_observation(state, self.game, player_id=0)
-        _, letter = self._a_legal_color_hint(legal)
-        for opponent in (2, 3):
-            result = parse_response(
-                f'```json\n{{"move": "Reveal player {opponent} color {letter}"}}\n```',
-                legal,
-                observation=observation,
-            )
-            self.assertIsNone(result.legal_action, opponent)
+        #
+        # Every seat against every id that is not its teammate, because the
+        # failure is seat-specific: with two players per team the only legal
+        # offset is always +1, so the bare number 1 reads as a valid offset at
+        # the same time as it names a real seat at the other table. Checking
+        # from seat 0 alone (whose opponents are 2 and 3) never presents that
+        # collision, and the leak -- P3 writing "player 1" and hitting P2 --
+        # hides behind a passing test.
+        teammate_of = {0: 1, 1: 0, 2: 3, 3: 2}
+        for player_id, teammate in teammate_of.items():
+            state, legal = self._turn_of(player_id)
+            observation = _make_observation(state, self.game, player_id=player_id)
+            _, letter = self._a_legal_color_hint(legal)
+            for other in (pid for pid in range(4) if pid != teammate):
+                result = parse_response(
+                    f'```json\n{{"move": "Reveal player {other} color {letter}"}}\n```',
+                    legal,
+                    observation=observation,
+                )
+                self.assertIsNone(result.legal_action, (player_id, other))
 
     def test_the_observation_is_optional(self):
         # ``parse_response`` is called without the kwarg by any caller that
@@ -554,6 +612,30 @@ class ArenaPlayerIdHintTest(absltest.TestCase):
         expected, letter = self._a_legal_color_hint(legal)
         result = parse_response(f'```json\n{{"move": "Reveal player +1 color {letter}"}}\n```', legal)
         self.assertEqual(result.legal_action, expected)
+
+    def test_without_an_observation_a_bare_number_is_still_an_offset(self):
+        # The cross-table refusal is driven by the id map, which only exists
+        # when an observation was passed. With no map there is no way to know
+        # a number names another table, and the old offset-only reading -- a
+        # bare number when exactly one target is hintable -- has to survive.
+        _, legal = self._turn_of(0)
+        expected, letter = self._a_legal_color_hint(legal)
+        result = parse_response(f'```json\n{{"move": "Reveal player 1 color {letter}"}}\n```', legal)
+        self.assertEqual(result.legal_action, expected)
+
+    def test_an_explicit_offset_resolves_at_every_seat(self):
+        # The id map must not shadow "+1", which is offset notation by
+        # construction and never an arena id.
+        for player_id in range(4):
+            state, legal = self._turn_of(player_id)
+            observation = _make_observation(state, self.game, player_id=player_id)
+            expected, letter = self._a_legal_color_hint(legal)
+            result = parse_response(
+                f'```json\n{{"move": "Reveal player +1 color {letter}"}}\n```',
+                legal,
+                observation=observation,
+            )
+            self.assertEqual(result.legal_action, expected, player_id)
 
 
 # ---------------------------------------------------------------------------
