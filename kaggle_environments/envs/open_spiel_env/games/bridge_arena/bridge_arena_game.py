@@ -123,6 +123,17 @@ class BridgeArenaState(proxy.State):
             return self.__wrapped__.action_to_string(player, action)
         return self.__wrapped__.action_to_string(_ext_to_int(player), action)
 
+    def team_of(self, player: int) -> int | None:
+        """Which team an external seat belongs to, for forfeit scoping.
+
+        A forfeit ends the episode for the offender's partner too, so the
+        interpreter reads this to charge the loss to the whole team rather
+        than paying the partner the winning reward.
+        """
+        if player < 0 or player >= _NUM_PLAYERS:
+            return None
+        return _team_of(player)
+
     def returns(self) -> list[float]:
         wrapped_returns = self.__wrapped__.returns()
         return [wrapped_returns[_ext_to_int(ext)] for ext in range(_NUM_PLAYERS)]

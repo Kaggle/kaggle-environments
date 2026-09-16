@@ -321,6 +321,17 @@ class AntForagingArenaState(pyspiel.State):
     def _action_to_string(self, player: int, action: int) -> str:
         return _ACTION_NAMES[Action(action)]
 
+    def team_of(self, player: int) -> int | None:
+        """Which team a seat belongs to, for the interpreter's forfeit scoping.
+
+        A forfeit ends the episode for the offender's teammates too, so the
+        interpreter reads this to charge the loss to the whole team rather
+        than paying the partners the winning reward.
+        """
+        if player < 0 or player >= self._num_players:
+            return None
+        return _team_of(player, self._players_per_team)
+
     def is_terminal(self) -> bool:
         return self._is_terminal
 

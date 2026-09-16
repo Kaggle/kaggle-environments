@@ -288,6 +288,17 @@ class CoinGameArenaState(pyspiel.State):
     def _action_to_string(self, player: int, action: int) -> str:
         return _ACTION_NAMES[Action(action)]
 
+    def team_of(self, player: int) -> int | None:
+        """Which team a seat belongs to, for the interpreter's forfeit scoping.
+
+        A forfeit ends the episode for the offender's teammate too, so the
+        interpreter reads this to charge the loss to the whole team rather
+        than paying the partner the winning reward.
+        """
+        if player < 0 or player >= _NUM_PLAYERS:
+            return None
+        return _team_of(player)
+
     def is_terminal(self) -> bool:
         return self._is_terminal
 
