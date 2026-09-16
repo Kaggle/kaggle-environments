@@ -20,6 +20,7 @@ Sente's back rank).
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Mapping, Sequence
 
 import pyspiel
@@ -70,11 +71,18 @@ toward rank i (downward).
 Promotion: the promotion zone is the opponent's three back ranks -- ranks
 a, b, c for Sente; ranks g, h, i for Gote. When a piece moves into,
 within, or out of the promotion zone you may choose to promote it (append
-``+`` to the move). Promotion is compulsory when a non-promoted piece
+``+`` to the move). Promotion is OPTIONAL: for such a move both ``7c7b``
+and ``7c7b+`` are legal and they are different moves, so choose
+deliberately. Promotion is compulsory only when a non-promoted piece
 would otherwise have no legal move next turn (a pawn or lance on the
 opponent's back rank; a knight on either of the opponent's last two
-ranks). Promoted pieces are shown with a
-``+`` prefix on the board (e.g. ``+P`` is a promoted pawn). Promoted
+ranks).
+
+Watch the two meanings of ``+``: as a *prefix* on the board it marks a
+piece that is ALREADY promoted (e.g. ``+P`` is a promoted pawn); as a
+*suffix* on a move it requests promotion now. Never append ``+`` when
+moving a piece already shown with a ``+`` prefix -- promotions do not
+stack. Drops never promote. Promoted
 pawn, lance, knight, and silver all move like a gold general. Promoted
 bishop ("horse") moves like a bishop and also one square in any
 orthogonal direction. Promoted rook ("dragon") moves like a rook and also
@@ -94,6 +102,14 @@ restrictions:
 - You may not deliver immediate checkmate by dropping a pawn
   ("uchifuzume"). Delivering mate by dropping any other piece, or by a
   regular pawn move, is allowed.
+
+King safety: a move is ILLEGAL if it leaves your own king attacked --
+including moving a piece that is currently blocking an attack on your
+king (a pinned piece), and including a king move to a square the
+opponent still attacks. When you are in check your move MUST resolve it:
+capture the checking piece, block the line of attack, or move the king
+to safety. Any move that does not is rejected. Before answering, verify
+your king is safe after the move you chose.
 
 Game end (there are five terminal conditions the engine enforces; the
 king is never actually captured, because any move that would leave your
@@ -132,14 +148,7 @@ Board (files 9-1 across the top, ranks a-i down the left side; '.' =
 empty, uppercase = Sente, lowercase = Gote, '+X'/'+x' = promoted):
 {board_ascii}
 
-SFEN (Shogi Forsyth-Edwards Notation) for the same position: {sfen}
-The four SFEN fields are: board (nine ``/``-separated ranks a..i, each
-rank run-length-encoded where digits count empty squares, letters are
-pieces, and a ``+`` prefix marks a promoted piece), side to move (``b``
-= Sente, ``w`` = Gote), pieces in hand (``-`` if both empty; otherwise
-concatenated ``<count><PIECE>`` entries, uppercase for Sente and
-lowercase for Gote, count omitted when it is 1), and the SFEN full-move
-counter (Sente + Gote reply = 1 full move).
+SFEN (board / side to move / pieces in hand / full-move counter): {sfen}
 
 Pieces in hand (rendered with uppercase piece letters for both sides
 because USI drop notation uses ``<UPPERCASE_PIECE>*<square>``
@@ -156,13 +165,10 @@ letters, ``+`` prefix marks promoted): {own_roster}
 Move number: {move_number}
 Last move played: {last_move}
 Moves played so far this game (both players, oldest first): {full_history}
-
-Action notation reminder: a board move is ``<from><to>``, e.g. ``7g7f``
-means "the piece on 7g moves to 7f". Append ``+`` to promote when the
-move enters, stays within, or leaves the promotion zone: e.g. ``8h2b+``
-means "the piece on 8h moves to 2b and promotes". A drop is
-``<PIECE>*<square>`` using the uppercase piece letter, e.g. ``P*5e``
-drops a pawn from hand onto 5e.
+{check_status}
+Action notation reminder: ``7g7f`` moves the piece on 7g to 7f;
+``8h2b+`` moves 8h to 2b AND promotes; ``P*5e`` drops a pawn from hand
+onto 5e.
 
 It is your turn. Choose a legal move.
 
@@ -221,6 +227,9 @@ _RANK_LABELS = "abcdefghi"  # row 0 is rank a, row 8 is rank i
 
 # Iteration order for hand / roster displays (major -> minor).
 _PIECE_ORDER = ["K", "R", "B", "G", "S", "N", "L", "P"]
+
+# Lowercase piece letters, for stripping a SAN-style prefix in the matcher.
+_PIECE_LETTERS = "krbgsnlp"
 
 EMPTY_CELL = "."
 
@@ -321,6 +330,8 @@ def _diagnose_illegal_move(
     board: Sequence[Sequence[str]],
     captured: Mapping[str, Mapping[str, int]],
     player_id: int,
+    legal_action_strings: Sequence[str] | None = None,
+    in_check: bool = False,
 ) -> str:
     """Explain WHY ``move`` is illegal from the given position.
 
@@ -329,6 +340,11 @@ def _diagnose_illegal_move(
     it, so this only needs to help common cases (empty source,
     opponent-source, out-of-hand drop, occupied-drop, own-square
     capture, non-promotable geometry).
+
+    ``legal_action_strings`` (the engine's own legal moves for this position)
+    and ``in_check`` are optional: when supplied they let the board-move path
+    tell "that piece cannot reach that square" apart from "that move leaves
+    your king in check", which the board alone cannot distinguish.
     """
     if not move:
         return ""
@@ -417,7 +433,131 @@ def _diagnose_illegal_move(
                 f"Reason: promotion requires the move to start in, end in, or leave "
                 f"your promotion zone (ranks {zone}); {core[:2]}->{core[2:4]} touches neither."
             )
+
+    # Everything above is a rule the board alone can settle. What remains is
+    # either bad geometry (the piece cannot reach that square) or king safety
+    # (the move is geometrically fine but leaves the king attacked) -- between
+    # them the largest slice of illegal moves in the replay archive, and both
+    # previously fell through to no diagnosis at all. Distinguish them from the
+    # engine's own legal list rather than re-deriving movement rules here: if
+    # the piece has some other legal destination, geometry is the problem; if
+    # it has none, the piece is pinned or the king is under attack.
+    if legal_action_strings is not None:
+        same_source = [
+            legal
+            for legal in legal_action_strings
+            if "*" not in legal and legal[:2] == core[:2]
+        ]
+        if same_source:
+            destinations = sorted({legal[2:4] for legal in same_source})
+            return (
+                f"Reason: the {piece!r} on {core[:2]} cannot legally move to "
+                f"{core[2:4]}. From {core[:2]} your legal destinations are: "
+                f"{', '.join(destinations)}."
+            )
+        if in_check:
+            return (
+                f"Reason: you are in check, and moving the {piece!r} on "
+                f"{core[:2]} does not resolve it. You must capture the checking "
+                f"piece, block the line of attack, or move your king to safety."
+            )
+        return (
+            f"Reason: the {piece!r} on {core[:2]} has no legal move at all -- "
+            f"moving it would leave your own king under attack (it is pinned). "
+            f"Choose a different piece."
+        )
     return ""
+
+
+def _is_player_to_move(state: Mapping[str, Any], player_id: int) -> bool:
+    """Is ``player_id`` the side to move? Defaults to True when unknown.
+
+    The proxy reports ``current_player`` as ``"b"`` (Sente / player 0) or
+    ``"w"`` (Gote / player 1); on a terminal state it is a player-id name
+    instead, which matches neither and correctly suppresses the warning.
+    """
+    current = state.get("current_player")
+    if current not in ("b", "w"):
+        return "current_player" not in state
+    return (current == "b") == (player_id == 0)
+
+
+def _find_king_square(board: Sequence[Sequence[str]], player_id: int) -> str | None:
+    """USI square of ``player_id``'s king, or ``None`` if it is not on the board."""
+    want = "K" if player_id == 0 else "k"
+    for row_idx, row in enumerate(board):
+        for col_idx, cell in enumerate(row):
+            if cell == want:
+                return _square_label(row_idx, col_idx)
+    return None
+
+
+def _format_check_status(
+    board: Sequence[Sequence[str]], player_id: int, in_check: bool
+) -> str:
+    """Render the in-check warning block, or ``""`` when the king is safe.
+
+    Whether the side to move is in check comes from the engine
+    (``ShogiState::InCheck`` via the proxy's ``state_dict``), not from any
+    move generation here. The checking piece is deliberately not named: that
+    would need an attack scan, and the prompt intentionally withholds the
+    legal-move list so the model still has to do the work.
+    """
+    if not in_check:
+        return ""
+    king_square = _find_king_square(board, player_id)
+    where = f" Your king is on {king_square}." if king_square else ""
+    return (
+        "\n>>> YOU ARE IN CHECK." + where + " Your move MUST leave your king"
+        "\nsafe -- capture the checking piece, block the line of attack, or"
+        "\nmove the king to a square the opponent does not attack. Any other"
+        "\nmove is illegal and will be rejected.\n"
+    )
+
+
+def _match_shogi_move(raw: str, legals: Sequence[str]) -> str | None:
+    """Match a model's move against the legal set, tolerating notation slips.
+
+    Exact forms always win. Shogi promotion is *optional*, so most from-to
+    pairs that touch the promotion zone appear in the legal set twice --
+    ``7c7b`` and ``7c7b+`` are different, both-legal moves. Exact matching
+    therefore runs first and promotion-suffix tolerance runs LAST, so a model
+    that deliberately promotes (or deliberately declines) always gets the move
+    it asked for. The tolerant pass only ever fires when the requested form is
+    not legal at all, where the alternative is a forfeit.
+
+    The slips it recovers, in descending order of frequency in the replay
+    archive: a ``+`` appended to a move that touches no promotion zone; a
+    ``+`` copied from the board's promoted-piece *prefix* (``+R`` on the board
+    is already promoted, but models echo it as a promote suffix); a compulsory
+    ``+`` omitted; and a SAN-style leading piece letter (``S3i2h``).
+    """
+    by_norm = {"".join(legal.split()).lower(): legal for legal in legals}
+    squashed = "".join(str(raw).split()).lower()
+
+    candidates: list[str] = []
+    for base in (squashed, re.sub(r"[^0-9a-z*+]", "", squashed)):
+        if not base:
+            continue
+        candidates.append(base)
+        # SAN habit leaking into USI: "S3i2h" -> "3i2h". Only strip a leading
+        # letter when a file digit follows it, so drops ("P*5e") are untouched.
+        if len(base) >= 5 and base[0] in _PIECE_LETTERS and base[1].isdigit():
+            candidates.append(base[1:])
+    # Promotion-suffix tolerance is appended last: every exact-form candidate
+    # above is tried before any '+'-flipped one.
+    candidates += [
+        cand[:-1] if cand.endswith("+") else cand + "+" for cand in list(candidates)
+    ]
+
+    seen: set[str] = set()
+    for cand in candidates:
+        if cand in seen:
+            continue
+        seen.add(cand)
+        if cand in by_norm:
+            return by_norm[cand]
+    return None
 
 
 def _format_hand(hand: Mapping[str, int]) -> str:
@@ -489,6 +629,10 @@ def generate_prompt(
     side_label = "Sente" if player_id == 0 else "Gote"
     piece_case = "uppercase" if player_id == 0 else "lowercase"
 
+    # Only warn the side actually to move: `in_check` describes the current
+    # player, so it says nothing about a player_id who is merely observing.
+    in_check = bool(state.get("in_check")) and _is_player_to_move(state, player_id)
+
     prompt = SHOGI_PROMPT_TEMPLATE.format(
         board_ascii=_format_board_ascii(board),
         sfen=sfen,
@@ -501,6 +645,7 @@ def generate_prompt(
         move_number=move_number,
         last_move=last_move,
         full_history=full_history,
+        check_status=_format_check_status(board, player_id, in_check),
     )
 
     # Pre-fill {diagnosis} on the ILLEGAL template so render_rethink_suffix
@@ -513,7 +658,12 @@ def generate_prompt(
     diagnosis = ""
     if previous_action:
         diagnosis = _diagnose_illegal_move(
-            previous_action, board, captured, player_id
+            previous_action,
+            board,
+            captured,
+            player_id,
+            legal_action_strings=sorted(get_legal_moves(observation).values()) or None,
+            in_check=in_check,
         )
     escaped_diagnosis = diagnosis.replace("{", "{{").replace("}", "}}")
     illegal_template = RETHINK_ILLEGAL.replace(
@@ -534,5 +684,11 @@ def parse_response(
     response: str,
     legal_action_strings: Sequence[str],
 ) -> ParseResult:
-    """Trust the model's JSON answer; let the rethink loop fix anything else."""
-    return parse_json_action(response, legal_action_strings)
+    """Trust the model's JSON answer; let the rethink loop fix anything else.
+
+    The custom matcher only relaxes *notation*, never intent: an exactly-legal
+    move string is always taken as written (see ``_match_shogi_move``).
+    """
+    return parse_json_action(
+        response, legal_action_strings, matcher=_match_shogi_move
+    )
