@@ -62,8 +62,10 @@ _VISUALIZER_ONLY_ENVS = {"chess", "codenames", "llm_20_questions", "lux_ai_s2"}
 # pulls in ~250ms of pydantic schema construction (game/actions.py,
 # game/records.py, harness/base.py) that would otherwise be paid on every
 # `import kaggle_environments` — the env itself is rarely invoked, so
-# defer it. See core.register_lazy.
-_LAZY_ENVS = {"werewolf"}
+# defer it. Pyxis drags in stable-baselines3 / omegaconf and the whole
+# investment-game package, which is far too heavy to import eagerly. See
+# core.register_lazy.
+_LAZY_ENVS = {"werewolf", "pyxis"}
 
 
 def _make_lazy_loader(env_name):
