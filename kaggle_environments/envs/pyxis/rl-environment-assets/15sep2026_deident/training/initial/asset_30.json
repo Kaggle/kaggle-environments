@@ -1,0 +1,29 @@
+{
+    "name": "Kallior",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "An oral antagonist of a key complement system receptor, developed for autoimmune conditions affecting the kidneys. It aims to reduce organ-specific inflammation and control systemic disease activity.",
+    "max_revenue": 1500000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 16,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.7
+        },
+        "phase_2": {
+            "cost_remaining": 35000000,
+            "time_remaining": 3,
+            "ptrs": 0.46
+        },
+        "phase_3": {
+            "cost_remaining": 170000000,
+            "time_remaining": 3,
+            "ptrs": 0.69
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

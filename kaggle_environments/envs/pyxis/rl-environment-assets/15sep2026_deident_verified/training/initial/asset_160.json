@@ -1,0 +1,29 @@
+{
+    "name": "Zafentor",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "A targeted small-molecule agent that disrupts a key node in a growth-promoting signalling network exploited by cancer cells. Developed for oral administration, it is positioned to complement existing agents and counter adaptive resistance.",
+    "max_revenue": 4100000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 20000000,
+            "time_remaining": 2,
+            "ptrs": 0.65
+        },
+        "phase_2": {
+            "cost_remaining": 52000000,
+            "time_remaining": 3,
+            "ptrs": 0.41
+        },
+        "phase_3": {
+            "cost_remaining": 250000000,
+            "time_remaining": 4,
+            "ptrs": 0.64
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

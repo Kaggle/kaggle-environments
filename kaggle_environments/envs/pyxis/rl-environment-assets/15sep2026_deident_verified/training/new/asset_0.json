@@ -1,0 +1,29 @@
+{
+    "name": "Quildoran",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "An oral small-molecule inhibitor of an oncogenic signaling pathway implicated in tumor growth and survival. Developed for use in combination regimens, it is intended to counter treatment resistance while maintaining a manageable safety profile.",
+    "max_revenue": 4200000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 20000000,
+            "time_remaining": 2,
+            "ptrs": 0.66
+        },
+        "phase_2": {
+            "cost_remaining": 52000000,
+            "time_remaining": 3,
+            "ptrs": 0.42
+        },
+        "phase_3": {
+            "cost_remaining": 250000000,
+            "time_remaining": 4,
+            "ptrs": 0.65
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

@@ -1,0 +1,29 @@
+{
+    "name": "Halvoren",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "A vaccine candidate that presents antigens on a self-assembling nanoparticle scaffold to promote strong, cross-reactive neutralising responses. Engineered for standard cold-chain stability, it is intended to deliver durable immunity through a straightforward multi-dose schedule.",
+    "max_revenue": 2100000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 14500000,
+            "time_remaining": 2,
+            "ptrs": 0.77
+        },
+        "phase_2": {
+            "cost_remaining": 50000000,
+            "time_remaining": 3,
+            "ptrs": 0.47
+        },
+        "phase_3": {
+            "cost_remaining": 270000000,
+            "time_remaining": 4,
+            "ptrs": 0.75
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

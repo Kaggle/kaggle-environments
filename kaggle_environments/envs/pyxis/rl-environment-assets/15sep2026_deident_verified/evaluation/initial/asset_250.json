@@ -1,0 +1,29 @@
+{
+    "name": "Zorvantis",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "An oral small-molecule inhibitor designed to block an oncogenic signalling pathway that drives tumour growth. Engineered for selective target engagement and once-daily dosing, it is being evaluated within rational combination regimens.",
+    "max_revenue": 3300000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 16,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.65
+        },
+        "phase_2": {
+            "cost_remaining": 58000000,
+            "time_remaining": 3,
+            "ptrs": 0.41
+        },
+        "phase_3": {
+            "cost_remaining": 250000000,
+            "time_remaining": 4,
+            "ptrs": 0.63
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

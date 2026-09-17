@@ -1,0 +1,29 @@
+{
+    "name": "Proventis",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "A conjugate vaccine targeting a common cause of enteric fever, developed for inclusion in early childhood immunization programs in at-risk countries. The vaccine is engineered to confer long-term immunity, with the potential for a later booster dose.",
+    "max_revenue": 2400000000,
+    "time_until_max_revenue": 7,
+    "time_until_patent_expiry": 17,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 14000000,
+            "time_remaining": 2,
+            "ptrs": 0.76
+        },
+        "phase_2": {
+            "cost_remaining": 55000000,
+            "time_remaining": 3,
+            "ptrs": 0.48
+        },
+        "phase_3": {
+            "cost_remaining": 300000000,
+            "time_remaining": 4,
+            "ptrs": 0.76
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

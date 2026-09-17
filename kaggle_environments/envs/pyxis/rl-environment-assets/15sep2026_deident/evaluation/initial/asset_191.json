@@ -1,0 +1,29 @@
+{
+    "name": "Serelium",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "A topical cream for atopic dermatitis that works through a novel, non-steroidal mechanism to reduce skin inflammation. The formulation is designed to be absorbed into the skin to calm immune overactivity locally, thereby improving skin appearance and reducing itch.",
+    "max_revenue": 1200000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 14,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.69
+        },
+        "phase_2": {
+            "cost_remaining": 26000000,
+            "time_remaining": 2,
+            "ptrs": 0.46
+        },
+        "phase_3": {
+            "cost_remaining": 155000000,
+            "time_remaining": 3,
+            "ptrs": 0.68
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

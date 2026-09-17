@@ -1,0 +1,29 @@
+{
+    "name": "Yaltrevin",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "A selective oral kinase inhibitor designed to interrupt aberrant immune-cell signalling that drives chronic inflammation. Its profile is tuned for high pathway selectivity, seeking robust efficacy with fewer off-target effects and simplified routine monitoring.",
+    "max_revenue": 1600000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 16,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.73
+        },
+        "phase_2": {
+            "cost_remaining": 39000000,
+            "time_remaining": 2,
+            "ptrs": 0.51
+        },
+        "phase_3": {
+            "cost_remaining": 190000000,
+            "time_remaining": 3,
+            "ptrs": 0.72
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

@@ -1,0 +1,29 @@
+{
+    "name": "Baxelira",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "A monoclonal antibody designed to neutralise a key mediator of immune-driven inflammation. Delivered systemically on a schedule intended to sustain symptom control between doses.",
+    "max_revenue": 2100000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 17,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.71
+        },
+        "phase_2": {
+            "cost_remaining": 42000000,
+            "time_remaining": 3,
+            "ptrs": 0.51
+        },
+        "phase_3": {
+            "cost_remaining": 205000000,
+            "time_remaining": 4,
+            "ptrs": 0.71
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

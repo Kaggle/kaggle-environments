@@ -1,0 +1,29 @@
+{
+    "name": "Trevalquin",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "An antibody-drug conjugate pairing a selective targeting antibody with a potent payload through a stabilised linker to broaden the therapeutic window. It is being evaluated in adults with advanced disease and limited remaining options, with linker design intended to reduce off-target exposure.",
+    "max_revenue": 3200000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 16,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 20000000,
+            "time_remaining": 2,
+            "ptrs": 0.64
+        },
+        "phase_2": {
+            "cost_remaining": 50000000,
+            "time_remaining": 3,
+            "ptrs": 0.39
+        },
+        "phase_3": {
+            "cost_remaining": 230000000,
+            "time_remaining": 4,
+            "ptrs": 0.62
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

@@ -1,0 +1,29 @@
+{
+    "name": "Ostravyn",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "A selective oral inhibitor of an intracellular kinase that governs inflammatory cytokine responses in immune-mediated disease. It is developed to balance strong efficacy with a manageable safety and monitoring burden.",
+    "max_revenue": 1200000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 18,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.7
+        },
+        "phase_2": {
+            "cost_remaining": 30000000,
+            "time_remaining": 2,
+            "ptrs": 0.47
+        },
+        "phase_3": {
+            "cost_remaining": 160000000,
+            "time_remaining": 3,
+            "ptrs": 0.69
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

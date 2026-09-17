@@ -1,0 +1,29 @@
+{
+    "name": "Cindralux",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "An oral small-molecule modulator of a central inflammatory signaling cascade, developed to dampen chronic immune activation. It is being evaluated as a once-daily systemic therapy intended to control disease activity while preserving a favorable tolerability profile.",
+    "max_revenue": 1600000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 17,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.71
+        },
+        "phase_2": {
+            "cost_remaining": 35000000,
+            "time_remaining": 3,
+            "ptrs": 0.46
+        },
+        "phase_3": {
+            "cost_remaining": 175000000,
+            "time_remaining": 3,
+            "ptrs": 0.69
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

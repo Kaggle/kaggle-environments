@@ -1,0 +1,29 @@
+{
+    "name": "Faltrevon",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "An oral small-molecule inhibitor that dampens a central intracellular signalling node driving chronic immune-mediated inflammation. Once-daily dosing is intended to deliver sustained disease control with a manageable safety profile.",
+    "max_revenue": 1500000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 16,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.7
+        },
+        "phase_2": {
+            "cost_remaining": 37000000,
+            "time_remaining": 2,
+            "ptrs": 0.5
+        },
+        "phase_3": {
+            "cost_remaining": 180000000,
+            "time_remaining": 3,
+            "ptrs": 0.7
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

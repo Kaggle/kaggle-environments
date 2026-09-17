@@ -1,0 +1,29 @@
+{
+    "name": "Krevalind",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "Krevalind is a bispecific antibody designed to redirect a patient's own immune effector cells toward tumour cells that display a defined surface antigen. The molecule aims to drive robust anti-tumour activity while incorporating features intended to keep cytokine-related effects manageable across treatment cycles.",
+    "max_revenue": 4200000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 22000000,
+            "time_remaining": 2,
+            "ptrs": 0.65
+        },
+        "phase_2": {
+            "cost_remaining": 58000000,
+            "time_remaining": 3,
+            "ptrs": 0.4
+        },
+        "phase_3": {
+            "cost_remaining": 260000000,
+            "time_remaining": 4,
+            "ptrs": 0.62
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

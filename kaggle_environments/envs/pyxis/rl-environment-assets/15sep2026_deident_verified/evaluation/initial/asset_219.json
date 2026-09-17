@@ -1,0 +1,29 @@
+{
+    "name": "Velquoran",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "An antibody-based conjugate designed to deliver a cytotoxic payload with high selectivity for malignant cells. It is being explored in advanced, treatment-refractory settings, with engineering aimed at widening the therapeutic window.",
+    "max_revenue": 3900000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 9,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.64
+        },
+        "phase_2": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.39
+        },
+        "phase_3": {
+            "cost_remaining": 240000000,
+            "time_remaining": 4,
+            "ptrs": 0.63
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 3",
+    "time_on_market": 0
+}

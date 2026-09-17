@@ -1,0 +1,29 @@
+{
+    "name": "Camveris",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "Camveris is a virus-like-particle vaccine formulated for thermostability and streamlined distribution. Its single-dose regimen is intended to generate rapid, durable protection suitable for large-scale immunization efforts.",
+    "max_revenue": 1850000000,
+    "time_until_max_revenue": 4,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 15000000,
+            "time_remaining": 2,
+            "ptrs": 0.76
+        },
+        "phase_2": {
+            "cost_remaining": 45000000,
+            "time_remaining": 3,
+            "ptrs": 0.47
+        },
+        "phase_3": {
+            "cost_remaining": 210000000,
+            "time_remaining": 3,
+            "ptrs": 0.73
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

@@ -1,0 +1,29 @@
+{
+    "name": "Remitor",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "An oral complement pathway inhibitor developed for severe autoimmune conditions affecting the kidneys. By targeting a key driver of inflammation, it aims to prevent long-term organ damage and reduce overall disease activity.",
+    "max_revenue": 1600000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 17,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.71
+        },
+        "phase_2": {
+            "cost_remaining": 35000000,
+            "time_remaining": 3,
+            "ptrs": 0.46
+        },
+        "phase_3": {
+            "cost_remaining": 175000000,
+            "time_remaining": 3,
+            "ptrs": 0.69
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

@@ -1,0 +1,29 @@
+{
+    "name": "Vexaguard",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "A tetravalent subunit vaccine for a widespread mosquito-borne viral illness, formulated with a novel adjuvant. It is designed to provide balanced and durable immunity against all major serotypes for both residents of endemic areas and travelers.",
+    "max_revenue": 2600000000,
+    "time_until_max_revenue": 7,
+    "time_until_patent_expiry": 14,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.77
+        },
+        "phase_2": {
+            "cost_remaining": 55000000,
+            "time_remaining": 3,
+            "ptrs": 0.48
+        },
+        "phase_3": {
+            "cost_remaining": 320000000,
+            "time_remaining": 4,
+            "ptrs": 0.76
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

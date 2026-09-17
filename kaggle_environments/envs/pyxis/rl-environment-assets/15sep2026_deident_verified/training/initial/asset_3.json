@@ -1,0 +1,29 @@
+{
+    "name": "Xelorvan",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "An antibody-drug conjugate pairing a tumour-directed antibody with a potent cytotoxic payload through a stabilised linker to limit off-target exposure. It is being developed for patients with limited remaining treatment options.",
+    "max_revenue": 4200000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 20000000,
+            "time_remaining": 2,
+            "ptrs": 0.66
+        },
+        "phase_2": {
+            "cost_remaining": 45000000,
+            "time_remaining": 3,
+            "ptrs": 0.4
+        },
+        "phase_3": {
+            "cost_remaining": 220000000,
+            "time_remaining": 4,
+            "ptrs": 0.63
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

@@ -1,0 +1,29 @@
+{
+    "name": "Vantoreth",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "A next-generation vaccine that uses a nanoparticle display approach to focus the immune response on conserved antigenic sites. It is formulated for reliable potency under routine cold-chain conditions and efficient large-scale supply.",
+    "max_revenue": 2600000000,
+    "time_until_max_revenue": 7,
+    "time_until_patent_expiry": 16,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.76
+        },
+        "phase_2": {
+            "cost_remaining": 55000000,
+            "time_remaining": 3,
+            "ptrs": 0.48
+        },
+        "phase_3": {
+            "cost_remaining": 300000000,
+            "time_remaining": 4,
+            "ptrs": 0.76
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

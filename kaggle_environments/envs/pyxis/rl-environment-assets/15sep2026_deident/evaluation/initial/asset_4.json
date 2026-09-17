@@ -1,0 +1,29 @@
+{
+    "name": "Zeltavis",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "A highly selective kinase inhibitor being developed as an oral treatment for moderate-to-severe inflammatory skin conditions. Its design aims to deliver potent efficacy by targeting a specific intracellular signaling pathway while offering a favorable safety profile.",
+    "max_revenue": 1100000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 16,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 10000000,
+            "time_remaining": 1,
+            "ptrs": 0.7
+        },
+        "phase_2": {
+            "cost_remaining": 30000000,
+            "time_remaining": 2,
+            "ptrs": 0.47
+        },
+        "phase_3": {
+            "cost_remaining": 150000000,
+            "time_remaining": 3,
+            "ptrs": 0.68
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

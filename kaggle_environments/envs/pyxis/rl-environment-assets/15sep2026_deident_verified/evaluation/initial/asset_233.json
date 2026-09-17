@@ -1,0 +1,29 @@
+{
+    "name": "Nordravyn",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "A recombinant protein-subunit vaccine formulated to elicit durable, high-titre protective immune responses. Built on scalable bioprocessing, it is designed to support broad immunization programmes.",
+    "max_revenue": 2300000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 17,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.77
+        },
+        "phase_2": {
+            "cost_remaining": 55000000,
+            "time_remaining": 3,
+            "ptrs": 0.48
+        },
+        "phase_3": {
+            "cost_remaining": 300000000,
+            "time_remaining": 4,
+            "ptrs": 0.76
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

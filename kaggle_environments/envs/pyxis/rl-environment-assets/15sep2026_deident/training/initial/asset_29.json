@@ -1,0 +1,29 @@
+{
+    "name": "Verellia",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "A biologic agent designed to block two key cytokine pathways associated with type 2 inflammation in severe asthma. It aims to improve lung function and reduce exacerbations with a convenient subcutaneous dosing schedule.",
+    "max_revenue": 1900000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 17,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.73
+        },
+        "phase_2": {
+            "cost_remaining": 38000000,
+            "time_remaining": 2,
+            "ptrs": 0.53
+        },
+        "phase_3": {
+            "cost_remaining": 190000000,
+            "time_remaining": 4,
+            "ptrs": 0.72
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

@@ -1,0 +1,29 @@
+{
+    "name": "Maldoquen",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "Maldoquen is an oral small-molecule therapy that recalibrates dysregulated immune signaling underlying inflammatory conditions. Once-daily dosing supports adherence, and the programme prioritizes a tolerability profile suited to long-term management.",
+    "max_revenue": 1500000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 16,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.7
+        },
+        "phase_2": {
+            "cost_remaining": 35000000,
+            "time_remaining": 3,
+            "ptrs": 0.46
+        },
+        "phase_3": {
+            "cost_remaining": 170000000,
+            "time_remaining": 3,
+            "ptrs": 0.69
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

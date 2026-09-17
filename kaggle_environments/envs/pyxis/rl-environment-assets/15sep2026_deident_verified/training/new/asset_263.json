@@ -1,0 +1,29 @@
+{
+    "name": "Kesvanor",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "An orally bioavailable inhibitor of a node within a proliferative signalling network implicated across multiple malignancies. Designed for combination use, it seeks to counter adaptive resistance while maintaining a once-daily tolerability profile.",
+    "max_revenue": 4200000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 20000000,
+            "time_remaining": 2,
+            "ptrs": 0.66
+        },
+        "phase_2": {
+            "cost_remaining": 55000000,
+            "time_remaining": 3,
+            "ptrs": 0.41
+        },
+        "phase_3": {
+            "cost_remaining": 255000000,
+            "time_remaining": 4,
+            "ptrs": 0.64
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

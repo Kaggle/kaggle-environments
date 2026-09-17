@@ -1,0 +1,29 @@
+{
+    "name": "Trevalio",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "A prophylactic vaccine developed to build durable, broad protective immunity against an infectious pathogen. Formulated for a straightforward dosing schedule and stable distribution across diverse healthcare settings.",
+    "max_revenue": 1800000000,
+    "time_until_max_revenue": 4,
+    "time_until_patent_expiry": 18,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 15000000,
+            "time_remaining": 2,
+            "ptrs": 0.76
+        },
+        "phase_2": {
+            "cost_remaining": 45000000,
+            "time_remaining": 3,
+            "ptrs": 0.47
+        },
+        "phase_3": {
+            "cost_remaining": 210000000,
+            "time_remaining": 3,
+            "ptrs": 0.73
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

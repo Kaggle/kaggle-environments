@@ -1,0 +1,29 @@
+{
+    "name": "Corvenna",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "An adjuvanted recombinant protein vaccine designed to broaden and deepen neutralising antibody responses. A scalable production process underpins its suitability for large global immunisation efforts.",
+    "max_revenue": 2000000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 16,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 14000000,
+            "time_remaining": 2,
+            "ptrs": 0.78
+        },
+        "phase_2": {
+            "cost_remaining": 48000000,
+            "time_remaining": 3,
+            "ptrs": 0.46
+        },
+        "phase_3": {
+            "cost_remaining": 260000000,
+            "time_remaining": 4,
+            "ptrs": 0.74
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

@@ -1,0 +1,29 @@
+{
+    "name": "Rovethil",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "An antibody-based therapeutic directed at a tumour-associated target, engineered to deliver a cytotoxic effect within a favourable therapeutic window. Development includes combination studies with standard regimens and a process built for consistent large-scale manufacture.",
+    "max_revenue": 3300000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 15,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.65
+        },
+        "phase_2": {
+            "cost_remaining": 58000000,
+            "time_remaining": 3,
+            "ptrs": 0.39
+        },
+        "phase_3": {
+            "cost_remaining": 240000000,
+            "time_remaining": 4,
+            "ptrs": 0.62
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

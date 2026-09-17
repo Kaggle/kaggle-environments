@@ -1,0 +1,29 @@
+{
+    "name": "Cendravor",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "A bispecific antibody that redirects and activates immune effector cells against malignant cells. It is administered intravenously on a step-up schedule intended to manage cytokine-related effects.",
+    "max_revenue": 3800000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 18,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.66
+        },
+        "phase_2": {
+            "cost_remaining": 52000000,
+            "time_remaining": 3,
+            "ptrs": 0.42
+        },
+        "phase_3": {
+            "cost_remaining": 260000000,
+            "time_remaining": 4,
+            "ptrs": 0.64
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

@@ -1,0 +1,29 @@
+{
+    "name": "Woventa",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "An oral small-molecule agent designed to interrupt an oncogenic dependency that drives malignant cell growth. Its once-daily regimen is intended to combine readily with established treatment backbones while preserving a manageable tolerability profile.",
+    "max_revenue": 2400000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 18,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 18000000,
+            "time_remaining": 2,
+            "ptrs": 0.64
+        },
+        "phase_2": {
+            "cost_remaining": 33000000,
+            "time_remaining": 3,
+            "ptrs": 0.38
+        },
+        "phase_3": {
+            "cost_remaining": 200000000,
+            "time_remaining": 4,
+            "ptrs": 0.63
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

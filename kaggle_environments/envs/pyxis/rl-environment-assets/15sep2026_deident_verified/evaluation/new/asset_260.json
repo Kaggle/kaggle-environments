@@ -1,0 +1,29 @@
+{
+    "name": "Ostavella",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "A recombinant protein-subunit vaccine designed to generate strong, long-lasting neutralising responses. Scalable bioprocessing underpins reliable supply for large immunisation programmes.",
+    "max_revenue": 2300000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 15000000,
+            "time_remaining": 2,
+            "ptrs": 0.77
+        },
+        "phase_2": {
+            "cost_remaining": 50000000,
+            "time_remaining": 3,
+            "ptrs": 0.47
+        },
+        "phase_3": {
+            "cost_remaining": 290000000,
+            "time_remaining": 4,
+            "ptrs": 0.75
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

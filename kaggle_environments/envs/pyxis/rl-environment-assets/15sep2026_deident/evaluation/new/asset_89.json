@@ -1,0 +1,29 @@
+{
+    "name": "Exaltor",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "A small-molecule inhibitor of a key DNA damage repair pathway, being developed as a radiosensitizing agent. Administered with radiotherapy, it is intended to increase tumor cell death and improve local tumor control in various solid cancers.",
+    "max_revenue": 4100000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 20000000,
+            "time_remaining": 2,
+            "ptrs": 0.64
+        },
+        "phase_2": {
+            "cost_remaining": 52000000,
+            "time_remaining": 3,
+            "ptrs": 0.41
+        },
+        "phase_3": {
+            "cost_remaining": 255000000,
+            "time_remaining": 4,
+            "ptrs": 0.64
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

@@ -1,0 +1,29 @@
+{
+    "name": "Halvoreth",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "A biologic engineered to selectively neutralise a key mediator of chronic inflammatory disease. Given by intravenous infusion in specialist settings, it seeks to lower disease activity and reduce the frequency of flares.",
+    "max_revenue": 2000000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 12,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.72
+        },
+        "phase_2": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.49
+        },
+        "phase_3": {
+            "cost_remaining": 185000000,
+            "time_remaining": 3,
+            "ptrs": 0.69
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 3",
+    "time_on_market": 0
+}

@@ -1,0 +1,29 @@
+{
+    "name": "Kynetra",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "A next-generation targeted agent designed to overcome resistance in cancers driven by a common oncogenic signaling pathway. As an oral therapy, it is being studied in combination with other pathway inhibitors to deepen responses in patients with advanced solid tumors.",
+    "max_revenue": 4500000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 17,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.66
+        },
+        "phase_2": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.41
+        },
+        "phase_3": {
+            "cost_remaining": 260000000,
+            "time_remaining": 4,
+            "ptrs": 0.64
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 3",
+    "time_on_market": 0
+}

@@ -1,0 +1,29 @@
+{
+    "name": "Maquenta",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "Maquenta is an oral small-molecule therapy directed at a signaling dependency that drives malignant cell growth. It is being evaluated as monotherapy and within rational combination regimens, with a dosing schedule chosen to balance activity and tolerability.",
+    "max_revenue": 4300000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 18,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 19000000,
+            "time_remaining": 2,
+            "ptrs": 0.64
+        },
+        "phase_2": {
+            "cost_remaining": 53000000,
+            "time_remaining": 3,
+            "ptrs": 0.42
+        },
+        "phase_3": {
+            "cost_remaining": 270000000,
+            "time_remaining": 4,
+            "ptrs": 0.63
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

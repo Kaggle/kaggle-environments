@@ -1,0 +1,29 @@
+{
+    "name": "Korvelis",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "A selective oral agent targeting a key enzyme in tumors with a specific genetic deletion. The program leverages a biomarker-driven approach for patient selection and has been designed for potential central nervous system activity to address metastatic disease.",
+    "max_revenue": 4000000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 22000000,
+            "time_remaining": 2,
+            "ptrs": 0.64
+        },
+        "phase_2": {
+            "cost_remaining": 57000000,
+            "time_remaining": 3,
+            "ptrs": 0.41
+        },
+        "phase_3": {
+            "cost_remaining": 250000000,
+            "time_remaining": 4,
+            "ptrs": 0.63
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

@@ -1,0 +1,29 @@
+{
+    "name": "Virentis",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "An oral vaccine candidate based on a virus-like particle (VLP) platform, designed to prevent acute gastroenteritis. Engineered for room-temperature stability, it is intended for rapid response to outbreaks and for prophylactic use.",
+    "max_revenue": 1800000000,
+    "time_until_max_revenue": 4,
+    "time_until_patent_expiry": 10,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.76
+        },
+        "phase_2": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.47
+        },
+        "phase_3": {
+            "cost_remaining": 210000000,
+            "time_remaining": 3,
+            "ptrs": 0.73
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 3",
+    "time_on_market": 0
+}

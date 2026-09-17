@@ -1,0 +1,29 @@
+{
+    "name": "Kinoxis",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "A covalent inhibitor that selectively targets a common driver mutation found in certain solid tumors. It is designed to be administered orally and is being studied in combination with other signal transduction inhibitors to achieve deeper clinical responses.",
+    "max_revenue": 4500000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 17,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.67
+        },
+        "phase_2": {
+            "cost_remaining": 57000000,
+            "time_remaining": 3,
+            "ptrs": 0.4
+        },
+        "phase_3": {
+            "cost_remaining": 260000000,
+            "time_remaining": 4,
+            "ptrs": 0.64
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

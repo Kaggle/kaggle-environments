@@ -1,0 +1,29 @@
+{
+    "name": "Havorlen",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "A recombinant protein-subunit vaccine built on structure-based antigen design to generate strong, cross-reactive neutralising responses. Its stability under standard cold-chain conditions is intended to widen global access.",
+    "max_revenue": 2100000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 14000000,
+            "time_remaining": 2,
+            "ptrs": 0.77
+        },
+        "phase_2": {
+            "cost_remaining": 48000000,
+            "time_remaining": 3,
+            "ptrs": 0.47
+        },
+        "phase_3": {
+            "cost_remaining": 265000000,
+            "time_remaining": 4,
+            "ptrs": 0.75
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

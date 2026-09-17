@@ -1,0 +1,29 @@
+{
+    "name": "Fendaros",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "An oral small-molecule immunomodulator that regulates lymphocyte trafficking to control chronic immune-mediated inflammation. It is developed with a titrated dosing regimen to optimise tolerability during long-term treatment.",
+    "max_revenue": 1800000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 15,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.71
+        },
+        "phase_2": {
+            "cost_remaining": 48000000,
+            "time_remaining": 3,
+            "ptrs": 0.5
+        },
+        "phase_3": {
+            "cost_remaining": 210000000,
+            "time_remaining": 4,
+            "ptrs": 0.7
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

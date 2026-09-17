@@ -1,0 +1,29 @@
+{
+    "name": "Threnavil",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "An oral small-molecule inhibitor designed to interrupt a dysregulated signalling pathway that drives malignant cell proliferation. It is being advanced as a once-daily systemic therapy, suitable for evaluation alone or within combination regimens.",
+    "max_revenue": 3800000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 15,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.65
+        },
+        "phase_2": {
+            "cost_remaining": 49000000,
+            "time_remaining": 3,
+            "ptrs": 0.38
+        },
+        "phase_3": {
+            "cost_remaining": 260000000,
+            "time_remaining": 4,
+            "ptrs": 0.63
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

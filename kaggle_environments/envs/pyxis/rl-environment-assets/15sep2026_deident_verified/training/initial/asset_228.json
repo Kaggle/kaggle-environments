@@ -1,0 +1,29 @@
+{
+    "name": "Obrenta",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "An investigational vaccine that uses a self-assembling particle platform to display conserved antigenic targets. Optimised for thermostability, it aims to deliver reliable protective immunity through a simplified regimen.",
+    "max_revenue": 2000000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 17,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.76
+        },
+        "phase_2": {
+            "cost_remaining": 52000000,
+            "time_remaining": 3,
+            "ptrs": 0.47
+        },
+        "phase_3": {
+            "cost_remaining": 280000000,
+            "time_remaining": 4,
+            "ptrs": 0.75
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

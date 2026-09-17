@@ -1,0 +1,29 @@
+{
+    "name": "Lynavis",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "An oral covalent inhibitor that targets a frequently mutated oncogene previously considered difficult to drug. This agent is designed for high selectivity to improve tolerability and is being studied in multiple tumor types driven by this specific mutation.",
+    "max_revenue": 3400000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 18000000,
+            "time_remaining": 2,
+            "ptrs": 0.65
+        },
+        "phase_2": {
+            "cost_remaining": 55000000,
+            "time_remaining": 3,
+            "ptrs": 0.41
+        },
+        "phase_3": {
+            "cost_remaining": 240000000,
+            "time_remaining": 4,
+            "ptrs": 0.64
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

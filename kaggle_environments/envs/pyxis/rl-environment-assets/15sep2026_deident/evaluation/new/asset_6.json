@@ -1,0 +1,29 @@
+{
+    "name": "Telovan",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "A small-molecule agent designed to act as a radiosensitizer for the treatment of solid tumors. It is intended to be used with standard radiotherapy to improve local tumor control by blocking a key DNA repair mechanism.",
+    "max_revenue": 4000000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 20000000,
+            "time_remaining": 2,
+            "ptrs": 0.64
+        },
+        "phase_2": {
+            "cost_remaining": 52000000,
+            "time_remaining": 3,
+            "ptrs": 0.4
+        },
+        "phase_3": {
+            "cost_remaining": 255000000,
+            "time_remaining": 4,
+            "ptrs": 0.64
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

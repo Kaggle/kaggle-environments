@@ -1,0 +1,29 @@
+{
+    "name": "Librenza",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "A monoclonal antibody that neutralizes a key alarmin cytokine involved in severe asthma. Administered subcutaneously every quarter, it is intended to reduce exacerbations in patients with a specific inflammatory signature, allowing for a lower steroid burden.",
+    "max_revenue": 1650000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 11500000,
+            "time_remaining": 1,
+            "ptrs": 0.73
+        },
+        "phase_2": {
+            "cost_remaining": 36000000,
+            "time_remaining": 3,
+            "ptrs": 0.52
+        },
+        "phase_3": {
+            "cost_remaining": 190000000,
+            "time_remaining": 4,
+            "ptrs": 0.71
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

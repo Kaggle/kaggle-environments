@@ -1,0 +1,29 @@
+{
+    "name": "Nuvexta",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "A structure-based recombinant vaccine that displays stabilized antigens on a self-assembling nanoparticle scaffold to drive high-titer neutralizing responses. Formulated for standard cold-chain handling to simplify distribution across health systems.",
+    "max_revenue": 2100000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 18,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 14000000,
+            "time_remaining": 2,
+            "ptrs": 0.77
+        },
+        "phase_2": {
+            "cost_remaining": 48000000,
+            "time_remaining": 3,
+            "ptrs": 0.47
+        },
+        "phase_3": {
+            "cost_remaining": 260000000,
+            "time_remaining": 4,
+            "ptrs": 0.75
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

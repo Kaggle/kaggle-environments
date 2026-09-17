@@ -1,0 +1,29 @@
+{
+    "name": "Cadwyre",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "A monoclonal antibody engineered to recognise a tumour-associated antigen and marshal immune effector mechanisms against cancer cells. Delivered systemically, it is designed for durable target engagement with a favourable tolerability profile. It is being evaluated both as a single agent and within combination strategies.",
+    "max_revenue": 3700000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 16,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.66
+        },
+        "phase_2": {
+            "cost_remaining": 52000000,
+            "time_remaining": 3,
+            "ptrs": 0.42
+        },
+        "phase_3": {
+            "cost_remaining": 260000000,
+            "time_remaining": 4,
+            "ptrs": 0.64
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

@@ -1,0 +1,29 @@
+{
+    "name": "Clarivium",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "A topical peptide therapy designed to modulate key inflammatory pathways implicated in chronic skin conditions. By delivering the agent directly to the skin, it aims to achieve high local efficacy while minimizing systemic exposure.",
+    "max_revenue": 1200000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 14,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.68
+        },
+        "phase_2": {
+            "cost_remaining": 26000000,
+            "time_remaining": 2,
+            "ptrs": 0.45
+        },
+        "phase_3": {
+            "cost_remaining": 160000000,
+            "time_remaining": 3,
+            "ptrs": 0.69
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

@@ -1,0 +1,29 @@
+{
+    "name": "Bravixar",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "An orally administered molecule designed to block a key oncogenic signaling cascade in certain solid malignancies. Its mechanism is intended to avoid the paradoxical activation seen with earlier inhibitors, making it a strong candidate for combination therapies.",
+    "max_revenue": 3800000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 17,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.66
+        },
+        "phase_2": {
+            "cost_remaining": 52000000,
+            "time_remaining": 3,
+            "ptrs": 0.42
+        },
+        "phase_3": {
+            "cost_remaining": 260000000,
+            "time_remaining": 4,
+            "ptrs": 0.64
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

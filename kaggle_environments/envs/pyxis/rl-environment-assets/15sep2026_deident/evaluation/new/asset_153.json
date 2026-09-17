@@ -1,0 +1,29 @@
+{
+    "name": "Luvalia",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "An inhaled therapy designed to improve lung function in patients with chronic bronchitis. By modulating ion channel activity in the airway lining, it aims to enhance mucus clearance and reduce the frequency of symptom flare-ups.",
+    "max_revenue": 2050000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 13000000,
+            "time_remaining": 2,
+            "ptrs": 0.71
+        },
+        "phase_2": {
+            "cost_remaining": 42000000,
+            "time_remaining": 3,
+            "ptrs": 0.5
+        },
+        "phase_3": {
+            "cost_remaining": 205000000,
+            "time_remaining": 4,
+            "ptrs": 0.7
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

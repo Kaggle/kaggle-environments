@@ -1,0 +1,29 @@
+{
+    "name": "Ostravon",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "A targeted anticancer agent engineered for sustained engagement of a molecular driver of tumour growth. It is intended for systemic administration with biomarker-informed patient selection to focus benefit on likely responders.",
+    "max_revenue": 3700000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 22000000,
+            "time_remaining": 2,
+            "ptrs": 0.63
+        },
+        "phase_2": {
+            "cost_remaining": 50000000,
+            "time_remaining": 3,
+            "ptrs": 0.4
+        },
+        "phase_3": {
+            "cost_remaining": 235000000,
+            "time_remaining": 4,
+            "ptrs": 0.62
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

@@ -1,0 +1,29 @@
+{
+    "name": "Quorventa",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "A conjugate vaccine built on a modular carrier platform intended to generate strong, long-lasting immunity. The candidate emphasises scalable manufacturing and flexible dosing to enable wide deployment.",
+    "max_revenue": 2000000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 17,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.76
+        },
+        "phase_2": {
+            "cost_remaining": 52000000,
+            "time_remaining": 3,
+            "ptrs": 0.47
+        },
+        "phase_3": {
+            "cost_remaining": 280000000,
+            "time_remaining": 4,
+            "ptrs": 0.75
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

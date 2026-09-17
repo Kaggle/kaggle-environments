@@ -1,0 +1,29 @@
+{
+    "name": "Pelantis",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "A replication-defective viral-vector vaccine engineered to deliver a target antigen and generate strong, long-lasting immunity. It is designed for a streamlined manufacturing footprint and a straightforward prime-boost schedule.",
+    "max_revenue": 2700000000,
+    "time_until_max_revenue": 4,
+    "time_until_patent_expiry": 9,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.78
+        },
+        "phase_2": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.46
+        },
+        "phase_3": {
+            "cost_remaining": 310000000,
+            "time_remaining": 4,
+            "ptrs": 0.74
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 3",
+    "time_on_market": 0
+}

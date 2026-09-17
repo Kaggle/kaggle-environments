@@ -18,7 +18,7 @@ dependencies = [
     "litellm >= 1.86.1, < 1.94.0",
     "numpy >= 2.0",
     "open_spiel == 2.0.1",
-    "pettingzoo == 1.24.0",
+    "pettingzoo >= 1.26.1",
     "pokerkit==0.6.3",
     "pydantic >= 2.11.4",
     "pygame",
@@ -28,7 +28,17 @@ dependencies = [
     "shimmy >= 1.2.1",
     "transformers >= 4.33.1",
     "tenacity",
-    "google-auth >= 2.35.0"
+    "google-auth >= 2.35.0",
+    # pyxis env (envs/pyxis) runtime dependencies
+    "click >= 8.3.0",
+    "omegaconf >= 2.3.0",
+    "protobuf >= 6.33.5",
+    "PyYAML >= 6.0.3",
+    "sb3-contrib == 2.7.0",
+    "scipy >= 1.11.0",
+    "stable-baselines3 == 2.7.0",
+    "tqdm >= 4.67.1",
+    "universal-pathlib >= 0.3.5"
 ]
 
 requires-python = ">=3.11"

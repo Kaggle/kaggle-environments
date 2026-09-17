@@ -1,0 +1,29 @@
+{
+    "name": "Brevalor",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "An orally administered small molecule designed to block an upstream pathway of allergic inflammation for the treatment of severe asthma. By targeting epithelial-derived signals, this therapy aims to reduce exacerbation rates in patients with persistent airway inflammation.",
+    "max_revenue": 1400000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 8,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.7
+        },
+        "phase_2": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.5
+        },
+        "phase_3": {
+            "cost_remaining": 190000000,
+            "time_remaining": 3,
+            "ptrs": 0.7
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 3",
+    "time_on_market": 0
+}

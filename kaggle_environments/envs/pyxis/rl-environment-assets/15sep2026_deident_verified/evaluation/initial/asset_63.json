@@ -1,0 +1,29 @@
+{
+    "name": "Zephantor",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "Zephantor is an antibody-drug conjugate that couples a tumour-selective monoclonal antibody to a potent cytotoxic payload through a stabilised linker. It is engineered to concentrate cell-killing activity within malignant tissue while limiting exposure to healthy cells, and is being evaluated both as monotherapy and within combination regimens.",
+    "max_revenue": 3400000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 17,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 18000000,
+            "time_remaining": 2,
+            "ptrs": 0.64
+        },
+        "phase_2": {
+            "cost_remaining": 54000000,
+            "time_remaining": 3,
+            "ptrs": 0.41
+        },
+        "phase_3": {
+            "cost_remaining": 260000000,
+            "time_remaining": 4,
+            "ptrs": 0.63
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

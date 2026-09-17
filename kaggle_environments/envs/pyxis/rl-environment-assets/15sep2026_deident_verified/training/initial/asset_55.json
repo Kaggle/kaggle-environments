@@ -1,0 +1,29 @@
+{
+    "name": "Pelquora",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "A recombinant subunit vaccine engineered to generate a robust and durable protective immune response. Its formulation prioritizes supply-chain stability so that immunization can be scaled reliably across programs.",
+    "max_revenue": 3000000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 15,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.78
+        },
+        "phase_2": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.48
+        },
+        "phase_3": {
+            "cost_remaining": 330000000,
+            "time_remaining": 4,
+            "ptrs": 0.75
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 3",
+    "time_on_market": 0
+}

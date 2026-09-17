@@ -1,0 +1,29 @@
+{
+    "name": "Nendaris",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "An orally administered small-molecule modulator that targets a pathway central to chronic inflammatory and immune-mediated disease. It is designed for convenient once-daily systemic dosing with a favourable long-term tolerability profile.",
+    "max_revenue": 2000000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 17,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.71
+        },
+        "phase_2": {
+            "cost_remaining": 43000000,
+            "time_remaining": 3,
+            "ptrs": 0.51
+        },
+        "phase_3": {
+            "cost_remaining": 200000000,
+            "time_remaining": 4,
+            "ptrs": 0.71
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

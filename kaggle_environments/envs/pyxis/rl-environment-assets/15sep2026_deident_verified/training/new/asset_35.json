@@ -1,0 +1,29 @@
+{
+    "name": "Delarquen",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "An antibody-drug conjugate that pairs a highly specific targeting antibody with a potent cytotoxic warhead via a cleavable, stabilised linker. The design seeks to maximise payload delivery to antigen-bearing tumour cells while sparing healthy tissue.",
+    "max_revenue": 3600000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 18,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 19000000,
+            "time_remaining": 2,
+            "ptrs": 0.65
+        },
+        "phase_2": {
+            "cost_remaining": 53000000,
+            "time_remaining": 3,
+            "ptrs": 0.43
+        },
+        "phase_3": {
+            "cost_remaining": 260000000,
+            "time_remaining": 4,
+            "ptrs": 0.64
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

@@ -1,0 +1,29 @@
+{
+    "name": "Corvethyn",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "An orally administered small-molecule inhibitor that interrupts an oncogenic signalling cascade. Intended for use within combination regimens, it aims to counter adaptive resistance while preserving day-to-day tolerability.",
+    "max_revenue": 4000000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 20000000,
+            "time_remaining": 2,
+            "ptrs": 0.64
+        },
+        "phase_2": {
+            "cost_remaining": 55000000,
+            "time_remaining": 3,
+            "ptrs": 0.41
+        },
+        "phase_3": {
+            "cost_remaining": 260000000,
+            "time_remaining": 4,
+            "ptrs": 0.64
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

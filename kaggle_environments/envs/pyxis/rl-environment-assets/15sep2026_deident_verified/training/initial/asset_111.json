@@ -1,0 +1,29 @@
+{
+    "name": "Fendolyra",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "An oral small-molecule modulator of an immune-regulatory transcription factor that recalibrates overactive inflammatory signalling. Developed for systemic once-daily dosing, it aims to steer immune responses back toward balance while maintaining a favourable tolerability profile.",
+    "max_revenue": 1200000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 14,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.7
+        },
+        "phase_2": {
+            "cost_remaining": 28000000,
+            "time_remaining": 2,
+            "ptrs": 0.46
+        },
+        "phase_3": {
+            "cost_remaining": 155000000,
+            "time_remaining": 3,
+            "ptrs": 0.68
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}
