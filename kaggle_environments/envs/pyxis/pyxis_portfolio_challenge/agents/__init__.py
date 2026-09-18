@@ -1,7 +1,5 @@
 from pathlib import Path
 
-from sb3_contrib import MaskablePPO
-
 from pyxis_portfolio_challenge.agents.knapsack import KnapsackAgent
 from pyxis_portfolio_challenge.agents.multi_agent_do_nothing import (
     MultiAgentDoNothingAgent as MultiAgentDoNothingAgent,
@@ -9,11 +7,9 @@ from pyxis_portfolio_challenge.agents.multi_agent_do_nothing import (
 from pyxis_portfolio_challenge.agents.multi_agent_knapsack import (
     MultiAgentKnapsackAgent,
 )
-from pyxis_portfolio_challenge.agents.multi_agent_pyxie import MultiAgentPyxieAgent
 from pyxis_portfolio_challenge.agents.multi_agent_random import (
     MultiAgentRandomAgent as MultiAgentRandomAgent,
 )
-from pyxis_portfolio_challenge.agents.pyxie import PyxieAgent
 
 _SAVED_MULTI_AGENT_MODEL_DIR = Path(__file__).parent / "saved_multi_agent_model"
 
@@ -31,6 +27,12 @@ def get_agent(name: str, **kwargs) -> object:
     if name == "Knapsack":
         agent = KnapsackAgent()
     elif name == "Pyxie":
+        # Pyxie is the only agent needing stable-baselines3 (and so torch);
+        # import it here to keep it off the engine's import path.
+        from sb3_contrib import MaskablePPO
+
+        from pyxis_portfolio_challenge.agents.pyxie import PyxieAgent
+
         if "model_path" not in kwargs or "vecnorm_path" not in kwargs:
             raise ValueError(
                 "model_path and vecnorm_path must be provided for Pyxie agent."
@@ -49,6 +51,10 @@ def get_agent(name: str, **kwargs) -> object:
             enable_bd_bidding=kwargs.get("enable_bd_bidding", True),
         )
     elif name == "MultiAgentPyxie":
+        from pyxis_portfolio_challenge.agents.multi_agent_pyxie import (
+            MultiAgentPyxieAgent,
+        )
+
         if "agent_name" not in kwargs:
             raise ValueError("agent_name must be provided for MultiAgentPyxie.")
         model_path = kwargs.get(

@@ -5,8 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 import upath
-from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
-from stable_baselines3.common.vec_env.vec_monitor import VecMonitor
 
 from pyxis_portfolio_challenge.config import (
     config,
@@ -19,10 +17,7 @@ from pyxis_portfolio_challenge.environment.warmup_wrapper import (
     MultiAgentWarmupOnResetWrapper,
     WarmupOnResetWrapper,
 )
-from pyxis_portfolio_challenge.environment.wrappers import (
-    AutoCenterWrapper,
-    VecAutoCenterWrapper,
-)
+from pyxis_portfolio_challenge.environment.wrappers import AutoCenterWrapper
 
 
 def _prepare_envs(
@@ -50,6 +45,15 @@ def _prepare_envs(
         Path to the monitor directory.
 
     """
+    # Imported here rather than at module scope: stable-baselines3 pulls in
+    # torch/matplotlib, and only this training path needs them.
+    from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
+    from stable_baselines3.common.vec_env.vec_monitor import VecMonitor
+
+    from pyxis_portfolio_challenge.environment.vec_wrappers import (
+        VecAutoCenterWrapper,
+    )
+
     cfg = config
 
     reward_fn = instantiate_from_config(cfg.reward_fn)
