@@ -46,6 +46,11 @@ def _to_jsonable(value):
 
 def _build_pyxis_env():
     """Build the live engine on evaluation assets, as ``competition.evaluate`` does."""
+    # Import the stable-baselines3 top-level package before the engine pulls in
+    # its submodules: a submodule-first import order trips a circular import
+    # (stable_baselines3.common.utils.get_device) in some sb3 builds.
+    import stable_baselines3  # noqa: F401
+
     from pyxis_portfolio_challenge.config import config
     from pyxis_portfolio_challenge.environment.env_factory import (
         _build_multi_agent_env_kwargs,
