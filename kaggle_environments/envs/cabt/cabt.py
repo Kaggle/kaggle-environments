@@ -85,31 +85,43 @@ def first_agent(obs: dict) -> list[int]:
 agents = {"random": random_agent, "first": first_agent}
 
 
-def finish(state, env):
-    if len(env.steps) > 0:
+def round_finish(state, env):
+    steps = env.steps[Battle.last_step:]
+    if len(steps) > 0:
         vis = json.loads(visualize_data())
         for i in range(len(vis)):
             obs = ""
             action = None
-            if len(env.steps) > i:
+            if len(steps) > i:
                 index = 1
-                if env.steps[i][0].status == 'ACTIVE':
+                if steps[i][0].status == 'ACTIVE':
                     index = 0
-                obs = copy.copy(env.steps[i][index].observation)
+                obs = copy.copy(steps[i][index].observation)
                 obs.pop("search_begin_input")
-                if len(env.steps) > i + 1:
-                    action = [env.steps[i + 1][0].action, env.steps[i + 1][1].action]
+                if len(steps) > i + 1:
+                    action = [steps[i + 1][0].action, steps[i + 1][1].action]
                 else:
                     action = [state[0].action, state[1].action]
             vis[i]["obs"] = obs
             vis[i]["action"] = action
-        env.steps[0][0]["visualize"] = vis
+            for j in range(2):
+                vis[i]["current"]["players"][j]["remainingTime"] = steps[i][j]["observation"]["remainingOverageTime"]
+        Battle.vis += vis
     battle_finish()
+
+
+def finish(state, env):
+    round_finish(state, env)
+    env.steps[0][0]["visualize"] = Battle.vis
 
 
 def interpreter(state, env):
     if env.done:
         Battle.battle_ptr = None
+        Battle.decks = None
+        Battle.result = [0, 0, 0]
+        Battle.vis = []
+        Battle.last_step = 0
         for i in range(2):
             state[i].status = "ACTIVE"
             o = state[i].observation
@@ -120,6 +132,7 @@ def interpreter(state, env):
         return state
     elif Battle.battle_ptr == None:
         decks = [state[0].action, state[1].action]
+        Battle.decks = decks
         error = False
         for i in range(2):
             if state[i].status == "TIMEOUT" or state[i].status == "ERROR":
@@ -164,27 +177,60 @@ def interpreter(state, env):
     obs = Battle.obs
     s = obs["current"]
     if s["result"] >= 0:
-        state[0].status = "DONE"
-        state[1].status = "DONE"
         if s["result"] == 0:
-            state[0].reward = 1
-            state[1].reward = -1
+            Battle.result[0] += 1
         elif s["result"] == 1:
-            state[0].reward = -1
-            state[1].reward = 1
+            Battle.result[1] += 1
         else:
-            state[0].reward = 0
-            state[1].reward = 0
-        finish(state, env)
-    else:
-        index = s["yourIndex"]
-        state[index].status = "ACTIVE"
-        state[1 - index].status = "INACTIVE"
-        o = state[index].observation
-        o["select"] = obs["select"]
-        o["logs"] = obs["logs"]
-        o["current"] = obs["current"]
-        o["search_begin_input"] = obs["search_begin_input"]
+            Battle.result[2] += 1
+
+        count = Battle.result[0] + Battle.result[1] + Battle.result[2]
+        result = -1
+        if Battle.result[0] >= 2:
+            result = 0
+        elif Battle.result[1] >= 2:
+            result = 1
+        elif count >= 3:
+            if Battle.result[0] > Battle.result[1]:
+                result = 0
+            elif Battle.result[0] < Battle.result[1]:
+                result = 1
+            else:
+                result = 2
+
+        env.result = Battle.result
+        if result >= 0:
+            state[0].status = "DONE"
+            state[1].status = "DONE"
+            if result == 0:
+                state[0].reward = 1
+                state[1].reward = -1
+            elif result == 1:
+                state[0].reward = -1
+                state[1].reward = 1
+            else:
+                state[0].reward = 0
+                state[1].reward = 0
+            finish(state, env)
+            return state
+        else:
+            round_finish(state, env)
+            Battle.last_step = len(env.steps) - 1
+            battle_start(Battle.decks[0], Battle.decks[1], count % 2 != 0)
+            obs = Battle.obs
+            s = obs["current"]
+    index = s["yourIndex"]
+    state[index].status = "ACTIVE"
+    state[1 - index].status = "INACTIVE"
+    o = state[index].observation
+    o["select"] = obs["select"]
+    o["logs"] = obs["logs"]
+    o["current"] = obs["current"]
+    o["search_begin_input"] = obs["search_begin_input"]
+    s["players"][0]["win"] = Battle.result[0]
+    s["players"][1]["win"] = Battle.result[1]
+    s["draw"] = Battle.result[2]
+    s["round"] = Battle.result[0] + Battle.result[1] + Battle.result[2] + 1
     return state
 
 

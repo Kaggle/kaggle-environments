@@ -66,11 +66,6 @@ export function renderer(options: RendererOptions) {
         button.style.zIndex = '1';
         button.innerHTML = 'Open Visualizer<br>' + players[k];
         button.addEventListener('click', () => {
-          for (let i = 0; i < visList.length; i++) {
-            for (let j = 0; j < 2; j++) {
-              visList[i].current.players[j].ramainingTime = (steps as any)[i][j].observation.remainingOverageTime;
-            }
-          }
           visList[0].ps = players;
 
           const input = document.createElement('input');
