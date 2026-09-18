@@ -254,8 +254,7 @@ class Trainer(gym.Env):
 
     Handles opponent actions automatically so the trainee sees a standard
     ``reset() → step() → action_masks()`` loop. Used for evaluation/competition
-    with dict-action agents; RL self-play training uses
-    :class:`~pyxis_portfolio_challenge.environment.self_play.SelfPlayWrapper`.
+    with dict-action agents.
 
     The action space is a ``Dict`` matching the multi-agent env:
     ``{"investments": MultiDiscrete/MultiBinary, "bd_bids": Box}``, where BD

@@ -58,9 +58,6 @@ evaluation_metrics:
   - _target_: pyxis_portfolio_challenge.environment.multi_agent_metrics.PerEpisodeAssetLifecycle
 
 
-# Pyxie agent parameters
-pyxie_model_root_path: az://saved-gym-agent
-
 # Per-drug pricing — agents set price levels for on-market drugs
 # Higher prices increase per-unit revenue but reduce market share via demand elasticity
 pricing:
