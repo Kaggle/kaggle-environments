@@ -6,7 +6,7 @@ The Pyxis Portfolio Challenge is a multi-agent reinforcement learning environmen
 
 The environment is highly stochastic, reflecting the reality of R&D pipeline investment where the majority of assets fail and individual outcomes carry outsized financial consequences. Agents face ~80% asset attrition rates, long development timelines where investment outcomes are delayed by multiple phases, and coupled investment decisions where capital committed to one asset constrains all future options. In the multi-agent setting, agents share indication markets, compete for business development acquisitions, and receive noisy intelligence about rival pipelines. Agents must balance exploration (investing in uncertain early-stage assets) against exploitation (scaling proven late-stage assets), while adapting to opponents' strategies in a high-variance environment where robust decision-making under uncertainty is essential.
 
-The repository provides a standardised environment with multiple baseline agents spanning different algorithmic paradigms: a budget-optimising heuristic (knapsack), a reinforcement learning agent trained via MaskablePPO self-play (Pyxie), and stochastic baselines (random, do-nothing). The environment exposes a PettingZoo `ParallelEnv` API, a gym-compatible single-agent training wrapper, and evaluation utilities for head-to-head matchups.
+The repository provides a standardised environment with multiple baseline agents spanning different algorithmic paradigms: a budget-optimising heuristic (knapsack) and stochastic baselines (random, do-nothing). The environment exposes a PettingZoo `ParallelEnv` API, a gym-compatible single-agent training wrapper, and evaluation utilities for head-to-head matchups.
 
 ## Play the Game
 
@@ -353,32 +353,3 @@ Key metrics for competition scoring:
 | `PerEpisodeCumulativeReward` | PerEpisode | Total reward per episode |
 
 Additional metrics cover BD deal activity (`PerEpisodeBDDealsWon`), first-mover advantage (`PerEpisodeFirstMoverRate`), revenue lost to competition (`PerEpisodeRevenueLostToCompetition`), per-drug profitability (`PerEpisodeInvestmentPnL`), pipeline efficiency (`PerEpisodeAssetLifecycle`), and market share dynamics (`PerStepMeanMarketShare`, `PerStepDrugsOnMarket`). See `config.yaml` for the full list of enabled metrics, or define your own by adding entries to the `evaluation_metrics` list.
-
-## Training Extras
-
-### Self-Play Training
-
-We provide optional self-play wrappers built on Stable-Baselines3 and MaskablePPO — this is how we trained the Pyxie agent. `SelfPlayWrapper` converts the PettingZoo env into a single-agent `gym.Env` where opponents use frozen policy copies, and `OpponentSyncCallback` keeps those copies in sync during training.
-
-```python
-from pyxis_portfolio_challenge.environment import make_multi_agent_train_env, SelfPlayWrapper
-from pyxis_portfolio_challenge.environment.self_play import OpponentSyncCallback
-
-policy_kwargs = {"net_arch": [256, 256]}
-
-env = make_multi_agent_train_env()
-wrapped = SelfPlayWrapper(env, policy_kwargs=policy_kwargs)
-
-# wrapped is a gym.Env with a MultiDiscrete action space and action_masks()
-# OpponentSyncCallback keeps opponent policy copies in sync during training
-```
-
-See [`self_play.py`](pyxis_portfolio_challenge/environment/self_play.py) for full details.
-
-### How We Trained Pyxie
-
-The [`notebooks/train_pyxie.ipynb`](notebooks/train_pyxie.ipynb) notebook walks through the full training setup we used to produce the shipped Pyxie agent, including hyperparameters, weighted entropy across action dimensions, opponent sync callbacks, and VecNormalize persistence.
-
-## Development
-
-See [README_FOR_DEVS.md](README_FOR_DEVS.md) for developer setup, API server instructions, and contributing guidelines.

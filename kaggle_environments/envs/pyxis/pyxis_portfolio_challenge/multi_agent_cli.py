@@ -184,7 +184,6 @@ def main(agents, output, horizon, seed, agent_kwargs_list, names, log_level):
         agents_dict[aid] = resolve_agent(spec, aid, **per_agent_kwargs[i])
 
     # Build env kwargs from config
-    # Import here to avoid pulling in stable_baselines3 at module level
     from pyxis_portfolio_challenge.environment.env_factory import (
         _build_multi_agent_env_kwargs,
     )

@@ -117,14 +117,13 @@ def get_agent_investment_decisions(
     and retrieves agent actions. It then converts the action array back to
     investment decisions.
 
-    This approach works for all agent types:
-    - PyxieAgent: Uses normalized observations and action masks via the environment
-    - KnapsackAgent: Can use either the environment or direct game state access
+    This approach works for all agent types: KnapsackAgent can use either the
+    environment or direct game state access.
 
     Parameters
     ----------
     agent : Agent
-        The agent instance (PyxieAgent, KnapsackAgent, etc.).
+        The agent instance (KnapsackAgent, etc.).
     game_state : GameState
         The current game state to get recommendations for. The assets_dir is
         extracted from the game state's asset generator.
@@ -137,7 +136,7 @@ def get_agent_investment_decisions(
     Examples
     --------
     >>> from pyxis_portfolio_challenge.agents import get_agent
-    >>> agent = get_agent("Pyxie", model_path=model_path, vecnorm_path=vecnorm_path)
+    >>> agent = get_agent("Knapsack")
     >>> decisions = get_agent_investment_decisions(agent, game_state)
     >>> print(decisions)
     {UUID('...'): 'invest', UUID('...'): 'invest'}
@@ -221,12 +220,9 @@ def get_all_agents_investment_decisions(
 
     Examples
     --------
-    >>> agents = {
-    ...     "Pyxie": get_agent("Pyxie", model_path=..., vecnorm_path=...),
-    ...     "Knapsack": get_agent("Knapsack"),
-    ... }
+    >>> agents = {"Knapsack": get_agent("Knapsack")}
     >>> all_decisions = get_all_agents_investment_decisions(agents, game_state)
-    >>> print(all_decisions["Pyxie"])
+    >>> print(all_decisions["Knapsack"])
     {UUID('...'): 'invest', UUID('...'): 'invest'}
 
     """

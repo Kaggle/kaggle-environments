@@ -667,7 +667,6 @@ class Config(BaseModel):
     evaluation_metrics: list[dict[str, str]]
     num_eval_episodes: int
     eval_initial_seed: int
-    pyxie_model_root_path: upath.UPath
     warmup_on_reset_steps: int
     warmup_on_reset_policy: str
 
@@ -784,20 +783,6 @@ class Config(BaseModel):
                 "Both cap trial throughput; enable at most one."
             )
         return self
-
-    def get_pyxie_model_model_path(self, level: int) -> upath.UPath:
-        """Get the model file path for the Pyxie model for the given level."""
-        if level == -1:
-            # preserving old behavior for level -1 to point to level 2 model
-            return self.pyxie_model_root_path / "2" / "best_model.zip"
-        return self.pyxie_model_root_path / f"{level}" / "best_model.zip"
-
-    def get_pyxie_model_vecnorm_path(self, level: int) -> upath.UPath:
-        """Get the vecnorm file path for the Pyxie model for the given level."""
-        if level == -1:
-            # preserving old behavior for level -1 to point to level 2 model
-            return self.pyxie_model_root_path / "2" / "vecnormalize.pkl"
-        return self.pyxie_model_root_path / f"{level}" / "vecnormalize.pkl"
 
     @model_validator(mode="after")
     def resolve_relative_paths(self):
