@@ -1,0 +1,29 @@
+{
+    "name": "Orventis",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "A multivalent conjugate vaccine designed to raise protective responses against a defined panel of pathogen antigens. A scalable bioprocess underpins reliable supply for large-scale immunisation campaigns.",
+    "max_revenue": 2600000000,
+    "time_until_max_revenue": 7,
+    "time_until_patent_expiry": 17,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 15000000,
+            "time_remaining": 2,
+            "ptrs": 0.78
+        },
+        "phase_2": {
+            "cost_remaining": 60000000,
+            "time_remaining": 3,
+            "ptrs": 0.48
+        },
+        "phase_3": {
+            "cost_remaining": 300000000,
+            "time_remaining": 4,
+            "ptrs": 0.77
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

@@ -1,0 +1,29 @@
+{
+    "name": "Obrenvia",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "A virus-like-particle vaccine built from self-assembling antigenic proteins to prime strong humoral and cellular immunity against infection. A thermostable formulation is engineered for simplified storage and rapid, wide-scale deployment.",
+    "max_revenue": 2000000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 15000000,
+            "time_remaining": 2,
+            "ptrs": 0.76
+        },
+        "phase_2": {
+            "cost_remaining": 52000000,
+            "time_remaining": 3,
+            "ptrs": 0.48
+        },
+        "phase_3": {
+            "cost_remaining": 280000000,
+            "time_remaining": 4,
+            "ptrs": 0.74
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

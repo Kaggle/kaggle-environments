@@ -1,0 +1,29 @@
+{
+    "name": "Palviqen",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "An orally available small molecule that recalibrates an overactive inflammatory signaling axis. Development emphasizes durable disease control paired with a tolerability profile suited to long-term daily use.",
+    "max_revenue": 2050000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 18,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 13000000,
+            "time_remaining": 2,
+            "ptrs": 0.71
+        },
+        "phase_2": {
+            "cost_remaining": 42000000,
+            "time_remaining": 3,
+            "ptrs": 0.5
+        },
+        "phase_3": {
+            "cost_remaining": 205000000,
+            "time_remaining": 4,
+            "ptrs": 0.7
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

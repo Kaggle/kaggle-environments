@@ -1,0 +1,29 @@
+{
+    "name": "Clypexor",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "A conjugate vaccine developed to provide early and durable immunity against a widespread bacterial pathogen. It is optimized for administration in infants living in endemic regions, with the potential for a single booster dose later in life.",
+    "max_revenue": 2400000000,
+    "time_until_max_revenue": 7,
+    "time_until_patent_expiry": 18,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 14000000,
+            "time_remaining": 2,
+            "ptrs": 0.76
+        },
+        "phase_2": {
+            "cost_remaining": 55000000,
+            "time_remaining": 3,
+            "ptrs": 0.48
+        },
+        "phase_3": {
+            "cost_remaining": 305000000,
+            "time_remaining": 4,
+            "ptrs": 0.76
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

@@ -1,0 +1,29 @@
+{
+    "name": "Cavontis",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "An antibody-drug conjugate pairing a selective targeting antibody with a potent cytotoxic payload for controlled delivery to cancer cells. Its linker chemistry is designed to maximise on-target release while sparing healthy tissue.",
+    "max_revenue": 3300000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 16,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.65
+        },
+        "phase_2": {
+            "cost_remaining": 58000000,
+            "time_remaining": 3,
+            "ptrs": 0.41
+        },
+        "phase_3": {
+            "cost_remaining": 250000000,
+            "time_remaining": 4,
+            "ptrs": 0.63
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

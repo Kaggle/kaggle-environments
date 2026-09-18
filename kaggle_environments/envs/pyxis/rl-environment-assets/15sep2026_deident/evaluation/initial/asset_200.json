@@ -1,0 +1,29 @@
+{
+    "name": "Volixan",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "A novel oral small molecule designed to inhibit a key node in oncogenic signaling pathways. It is being developed for use in combination therapies to address adaptive resistance mechanisms in various solid tumors.",
+    "max_revenue": 4100000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 20000000,
+            "time_remaining": 2,
+            "ptrs": 0.65
+        },
+        "phase_2": {
+            "cost_remaining": 52000000,
+            "time_remaining": 3,
+            "ptrs": 0.41
+        },
+        "phase_3": {
+            "cost_remaining": 250000000,
+            "time_remaining": 4,
+            "ptrs": 0.64
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

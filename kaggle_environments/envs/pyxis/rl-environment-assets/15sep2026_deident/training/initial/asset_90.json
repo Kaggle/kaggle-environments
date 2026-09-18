@@ -1,0 +1,29 @@
+{
+    "name": "Travixa",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "An orally-administered, brain-penetrant small molecule designed to treat aggressive CNS malignancies. It inhibits multiple oncogenic signaling pathways implicated in tumor growth and resistance to standard therapies.",
+    "max_revenue": 3300000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 16,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.65
+        },
+        "phase_2": {
+            "cost_remaining": 58000000,
+            "time_remaining": 3,
+            "ptrs": 0.41
+        },
+        "phase_3": {
+            "cost_remaining": 250000000,
+            "time_remaining": 4,
+            "ptrs": 0.63
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

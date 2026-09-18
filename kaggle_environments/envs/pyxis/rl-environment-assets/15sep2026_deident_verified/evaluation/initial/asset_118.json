@@ -1,0 +1,29 @@
+{
+    "name": "Ravonta",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "A long-acting monoclonal antibody developed for prophylaxis against infectious disease, offering immediate passive protection. It is engineered for an extended half-life to support infrequent systemic dosing and consistent exposure across recipients.",
+    "max_revenue": 3000000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 16,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.78
+        },
+        "phase_2": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.48
+        },
+        "phase_3": {
+            "cost_remaining": 320000000,
+            "time_remaining": 4,
+            "ptrs": 0.75
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 3",
+    "time_on_market": 0
+}

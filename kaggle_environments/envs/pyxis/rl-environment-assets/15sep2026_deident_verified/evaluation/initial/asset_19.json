@@ -1,0 +1,29 @@
+{
+    "name": "Sendavel",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "An mRNA-based vaccine delivered by a lipid nanoparticle system to prompt strong neutralising immunity against an infectious agent. Engineered for rapid, flexible manufacturing with reliable batch-to-batch consistency.",
+    "max_revenue": 1500000000,
+    "time_until_max_revenue": 4,
+    "time_until_patent_expiry": 10,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.76
+        },
+        "phase_2": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.47
+        },
+        "phase_3": {
+            "cost_remaining": 200000000,
+            "time_remaining": 3,
+            "ptrs": 0.73
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 3",
+    "time_on_market": 0
+}

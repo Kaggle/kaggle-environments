@@ -1,0 +1,29 @@
+{
+    "name": "Orsalind",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "A targeted protein therapeutic aimed at disrupting a molecular dependency that drives malignant growth. It is being studied in settings where treatment choices are limited, with the goal of improving patient outcomes.",
+    "max_revenue": 3200000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 9,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.64
+        },
+        "phase_2": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.4
+        },
+        "phase_3": {
+            "cost_remaining": 230000000,
+            "time_remaining": 4,
+            "ptrs": 0.63
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 3",
+    "time_on_market": 0
+}

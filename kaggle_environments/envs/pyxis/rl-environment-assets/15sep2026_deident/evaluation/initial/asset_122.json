@@ -1,0 +1,29 @@
+{
+    "name": "Onxeris",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "A covalent modulator of a critical oncogenic signaling pathway, developed for treatment-refractory solid tumors. The molecule is engineered for sustained target inhibition with a profile suitable for long-term dosing.",
+    "max_revenue": 3600000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 17,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 22000000,
+            "time_remaining": 2,
+            "ptrs": 0.64
+        },
+        "phase_2": {
+            "cost_remaining": 50000000,
+            "time_remaining": 3,
+            "ptrs": 0.4
+        },
+        "phase_3": {
+            "cost_remaining": 235000000,
+            "time_remaining": 4,
+            "ptrs": 0.62
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

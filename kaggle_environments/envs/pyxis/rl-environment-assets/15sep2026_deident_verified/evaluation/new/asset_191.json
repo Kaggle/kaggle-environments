@@ -1,0 +1,29 @@
+{
+    "name": "Sendaviq",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "An investigational vaccine that presents conserved antigens via virus-like particles to prime broadly cross-reactive protective immunity. Engineered for thermostability to widen the range of settings in which it can be handled and administered.",
+    "max_revenue": 2000000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 15000000,
+            "time_remaining": 2,
+            "ptrs": 0.76
+        },
+        "phase_2": {
+            "cost_remaining": 52000000,
+            "time_remaining": 3,
+            "ptrs": 0.47
+        },
+        "phase_3": {
+            "cost_remaining": 280000000,
+            "time_remaining": 4,
+            "ptrs": 0.74
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

@@ -1,0 +1,29 @@
+{
+    "name": "Tavrinel",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "A conjugate vaccine that links an antigenic carrier to a target immunogen to strengthen and broaden the protective immune response. Manufactured for stability and consistent potency across distribution networks, with a schedule allowing a booster where needed.",
+    "max_revenue": 2400000000,
+    "time_until_max_revenue": 7,
+    "time_until_patent_expiry": 16,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 14000000,
+            "time_remaining": 2,
+            "ptrs": 0.76
+        },
+        "phase_2": {
+            "cost_remaining": 55000000,
+            "time_remaining": 3,
+            "ptrs": 0.48
+        },
+        "phase_3": {
+            "cost_remaining": 305000000,
+            "time_remaining": 4,
+            "ptrs": 0.76
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

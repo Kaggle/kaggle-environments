@@ -1,0 +1,29 @@
+{
+    "name": "Zephyria",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "An inhaled anti-fibrotic agent for progressive fibrotic lung diseases, targeting a key signaling pathway involved in tissue remodeling. The therapy is designed to be delivered directly to the lungs to slow disease progression and preserve vital capacity.",
+    "max_revenue": 2000000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 18,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 12000000,
+            "time_remaining": 2,
+            "ptrs": 0.71
+        },
+        "phase_2": {
+            "cost_remaining": 42000000,
+            "time_remaining": 3,
+            "ptrs": 0.49
+        },
+        "phase_3": {
+            "cost_remaining": 185000000,
+            "time_remaining": 3,
+            "ptrs": 0.69
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

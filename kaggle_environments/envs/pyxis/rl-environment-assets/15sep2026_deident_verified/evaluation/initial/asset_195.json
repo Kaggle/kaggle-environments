@@ -1,0 +1,29 @@
+{
+    "name": "Trelvanti",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "A recombinant protein-subunit vaccine paired with a next-generation adjuvant to elicit durable, broad humoral immunity. It is engineered for stability under standard cold-chain conditions to support wide distribution across immunisation programmes.",
+    "max_revenue": 1800000000,
+    "time_until_max_revenue": 4,
+    "time_until_patent_expiry": 15,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.76
+        },
+        "phase_2": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.47
+        },
+        "phase_3": {
+            "cost_remaining": 210000000,
+            "time_remaining": 3,
+            "ptrs": 0.73
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 3",
+    "time_on_market": 0
+}

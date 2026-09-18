@@ -1,0 +1,29 @@
+{
+    "name": "Intevria",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "Intevria is a recombinant subunit vaccine developed to elicit durable neutralising immunity with a favourable tolerability profile. Its formulation is built for scalable manufacturing and dependable distribution across routine immunisation programmes.",
+    "max_revenue": 2300000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 13,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.77
+        },
+        "phase_2": {
+            "cost_remaining": 50000000,
+            "time_remaining": 3,
+            "ptrs": 0.47
+        },
+        "phase_3": {
+            "cost_remaining": 285000000,
+            "time_remaining": 4,
+            "ptrs": 0.75
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

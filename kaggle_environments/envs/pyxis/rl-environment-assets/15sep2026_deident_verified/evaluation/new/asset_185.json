@@ -1,0 +1,29 @@
+{
+    "name": "Zorenva",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "A multivalent recombinant protein-subunit vaccine formulated with a proprietary adjuvant to elicit broad, durable humoral immunity. Built on a scalable manufacturing platform intended to support flexible primary and booster schedules.",
+    "max_revenue": 2400000000,
+    "time_until_max_revenue": 7,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 15000000,
+            "time_remaining": 2,
+            "ptrs": 0.78
+        },
+        "phase_2": {
+            "cost_remaining": 60000000,
+            "time_remaining": 3,
+            "ptrs": 0.49
+        },
+        "phase_3": {
+            "cost_remaining": 300000000,
+            "time_remaining": 4,
+            "ptrs": 0.76
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

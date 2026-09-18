@@ -1,0 +1,29 @@
+{
+    "name": "Vectrix",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "A live-attenuated vaccine candidate targeting a mosquito-borne alphavirus known for causing debilitating joint pain. It is designed to provide robust, long-lasting immunity from a single dose and is produced in a scalable system for global health applications.",
+    "max_revenue": 2800000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 18,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.77
+        },
+        "phase_2": {
+            "cost_remaining": 62000000,
+            "time_remaining": 3,
+            "ptrs": 0.49
+        },
+        "phase_3": {
+            "cost_remaining": 320000000,
+            "time_remaining": 4,
+            "ptrs": 0.76
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

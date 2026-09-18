@@ -1,0 +1,29 @@
+{
+    "name": "Nexylet",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "An oral, small-molecule inhibitor designed to target a specific driver mutation in certain blood cancers. The therapy works by blocking an abnormal metabolic pathway to encourage normal cell development.",
+    "max_revenue": 2400000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 18,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 18000000,
+            "time_remaining": 2,
+            "ptrs": 0.64
+        },
+        "phase_2": {
+            "cost_remaining": 33000000,
+            "time_remaining": 3,
+            "ptrs": 0.38
+        },
+        "phase_3": {
+            "cost_remaining": 200000000,
+            "time_remaining": 4,
+            "ptrs": 0.63
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

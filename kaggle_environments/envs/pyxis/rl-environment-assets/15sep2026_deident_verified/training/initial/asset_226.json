@@ -1,0 +1,29 @@
+{
+    "name": "Draluvex",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "An oral small-molecule inhibitor of an enzyme that cancer cells depend on for sustained proliferation. Supported by pharmacodynamic biomarkers, it is positioned for biomarker-guided patient selection and rational combination regimens.",
+    "max_revenue": 4100000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 22000000,
+            "time_remaining": 2,
+            "ptrs": 0.62
+        },
+        "phase_2": {
+            "cost_remaining": 58000000,
+            "time_remaining": 3,
+            "ptrs": 0.39
+        },
+        "phase_3": {
+            "cost_remaining": 255000000,
+            "time_remaining": 4,
+            "ptrs": 0.62
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

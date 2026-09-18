@@ -1,0 +1,29 @@
+{
+    "name": "Providus",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "A recombinant subunit vaccine against a viral agent known to cause acute liver inflammation, particularly dangerous in specific patient groups. It is produced using a highly scalable platform to facilitate widespread availability and use in vulnerable populations.",
+    "max_revenue": 3000000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 14000000,
+            "time_remaining": 2,
+            "ptrs": 0.78
+        },
+        "phase_2": {
+            "cost_remaining": 47000000,
+            "time_remaining": 3,
+            "ptrs": 0.48
+        },
+        "phase_3": {
+            "cost_remaining": 320000000,
+            "time_remaining": 4,
+            "ptrs": 0.75
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

@@ -1,0 +1,320 @@
+# this config serves as a place to fix the train and eval environment parameters for the published game
+# Gym environment initialization parameters - 40 assets for complexity test
+equilibrium_num_assets: 35
+max_num_assets: 40
+asset_arrival_sensitivity_below: 5.0
+asset_arrival_sensitivity_above: 2.0
+starting_cash: 5e9
+horizon: 100        # agent-acting steps; warmup_on_reset_steps (below) is now an additive pre-roll (PR #60), not subtracted from this
+reinvestment_percentage: 0.35
+trial_cost_multiplier: 1.0        # Scales all trial phase costs (>1 = more expensive trials)
+shuffle_order: false
+mask_first_order_assets: true
+mask_negative_enpv_assets: false
+auto_center_rewards: false
+auto_center_calibration_steps: 10_000
+flatten_obs: true
+warmup_on_reset_steps: 500
+warmup_on_reset_policy: do_nothing
+reward_fn:
+  _target_: pyxis_portfolio_challenge.environment.reward.NetCashFlowReward
+
+# Training parameters
+training_data_dir: rl-environment-assets/15sep2026_deident_verified/training
+
+# Evaluation parameters
+evaluation_data_dir: rl-environment-assets/15sep2026_deident_verified/evaluation
+eval_initial_seed: 891024889
+num_eval_episodes: 100
+evaluation_metrics:
+  # Overall performance
+  - _target_: pyxis_portfolio_challenge.environment.metrics.PerEvaluationCumulativeReward
+  - _target_: pyxis_portfolio_challenge.environment.metrics.PerEvaluationBankruptcyRate
+  # Per-episode outcomes
+  - _target_: pyxis_portfolio_challenge.environment.metrics.PerEpisodeBankruptcyStep
+  - _target_: pyxis_portfolio_challenge.environment.metrics.PerEpisodeCumulativeReward
+  - _target_: pyxis_portfolio_challenge.environment.metrics.PerEpisodeRealisedRoi
+  - _target_: pyxis_portfolio_challenge.environment.metrics.PerEpisodeFinalEnpv
+  # Per-step trajectories
+  - _target_: pyxis_portfolio_challenge.environment.metrics.PerStepCash
+  - _target_: pyxis_portfolio_challenge.environment.metrics.PerStepRevenue
+  - _target_: pyxis_portfolio_challenge.environment.metrics.PerStepCost
+  # Pipeline shape
+  - _target_: pyxis_portfolio_challenge.environment.metrics.PerStepNumAssetsIdleState
+  - _target_: pyxis_portfolio_challenge.environment.metrics.PerStepNumSkippedPosEnpvAssets
+  - _target_: pyxis_portfolio_challenge.environment.metrics.PerStepNumAssetsInDevelopmentState
+  - _target_: pyxis_portfolio_challenge.environment.metrics.PerStepNumAssetsOnMarketState
+  # Multi-agent competitive position
+  - _target_: pyxis_portfolio_challenge.environment.multi_agent_metrics.PerStepAgentRank
+  - _target_: pyxis_portfolio_challenge.environment.multi_agent_metrics.PerStepRelativeEnpv
+  - _target_: pyxis_portfolio_challenge.environment.multi_agent_metrics.PerStepMeanMarketShare
+  - _target_: pyxis_portfolio_challenge.environment.multi_agent_metrics.PerStepDrugsOnMarket
+  # Multi-agent outcomes
+  - _target_: pyxis_portfolio_challenge.environment.multi_agent_metrics.PerEpisodeWinLoss
+  - _target_: pyxis_portfolio_challenge.environment.multi_agent_metrics.PerEpisodeBDDealsWon
+  - _target_: pyxis_portfolio_challenge.environment.multi_agent_metrics.PerEpisodeFirstMoverRate
+  - _target_: pyxis_portfolio_challenge.environment.multi_agent_metrics.PerEpisodeRevenueLostToCompetition
+  - _target_: pyxis_portfolio_challenge.environment.multi_agent_metrics.PerEpisodeInvestmentPnL
+  - _target_: pyxis_portfolio_challenge.environment.multi_agent_metrics.PerEpisodeAssetLifecycle
+
+
+# Pyxie agent parameters
+pyxie_model_root_path: az://saved-gym-agent
+
+# Per-drug pricing — agents set price levels for on-market drugs
+# Higher prices increase per-unit revenue but reduce market share via demand elasticity
+pricing:
+  enabled: false
+  levels: [0.60, 0.75, 1.00, 1.20, 1.40, 1.60]   # Revenue multipliers per tier
+  default_level: 2                                   # Index 2 = Standard (1.0x)
+  elasticity: 2.0                                    # share ~ 1/price^elasticity (>1 = price cuts win)
+
+# Multi-agent environment configuration
+multi_agent:
+  enabled: true  # Set to true to use multi-agent competitive environment
+  num_agents: 2
+  # BD market parameters (Poisson-distributed, event-driven)
+  bd_enabled: true
+  bd_assets_dir: rl-environment-assets/15sep2026_deident_verified/training
+  bd_eval_assets_dir: rl-environment-assets/15sep2026_deident_verified/evaluation
+  bd_base_lambda: 1.3                # Poisson λ: P(0)=27%, P(1)=35%, P(2)=23%, P(≥3)=14%
+  bd_leak_lambda_boost: 0.3          # Added λ per recent leak in any indication
+  bd_min_step: 0                     # No BD before this step
+  bd_max_bid: 100000                 # Continuous cash bid cap in £M (=£100B) (<=0=pass); cash gates real limit (overbid can bankrupt)
+  bd_max_slots: 3                    # Max BD assets per step
+  bd_persist_steps: 3               # Steps an unwon BD asset persists (1 = old single-step behaviour)
+  bd_phase_weights: [0.2, 0.4, 0.4]  # Phase 1/2/3 sampling weights for BD assets
+  bd_indication_activity_bias: 0.8   # Weight of activity vs uniform in indication sampling
+  # Competition parameters
+  exclusivity_period: 0
+  first_mover_bonus: 0.0
+  disable_market_share_competition: false
+  # Intelligence parameters (event-driven leaks on phase transitions)
+  alert_history_length: 5
+  leak_phase_probabilities: [0.2, 0.5, 0.7]  # Phase 1→2, 2→3, 3→Approval
+  # Marketing-spend leaks: chance an opponent sees the spend (not the amount).
+  # be = brand equity, alerted per drug's indication (de-duped per indication);
+  # dc = demand creation, alerted per indication. Spending BE early therefore
+  # telegraphs intent — an early-intel leak.
+  be_leak_probability: 0.8
+  dc_leak_probability: 0.8
+  # DC boosts a public per-indication demand multiplier that is already in the
+  # observation, so with few agents an opponent can attribute a rise to the only
+  # other spender for free — the leak adds nothing. It self-activates once
+  # attribution stops being trivial (num_agents >= this threshold), so future
+  # multi-agent (>2) iterations get DC leaks automatically. BE has no public
+  # analogue and always leaks.
+  dc_leak_min_agents: 3
+  # Alert observation slots per opponent. Sized so that a single step's alert
+  # burst is visible at age 1: structural alerts (drug release / pipeline leak /
+  # BD deal) plus up to one BE and one DC spend alert per indication
+  # (max_indications_per_ta × 3 = 9 each). Truncation is alerts[-max_alerts:],
+  # so an alert that does not fit on arrival is never seen at all.
+  alerts_per_agent: 20
+  # Multi-agent reward type: "absolute", "relative_rank", "zero_sum"
+  reward_type: absolute
+  reward_scale: 1.0
+  # Indication-based market segmentation
+  # Controls how finely the market is segmented within each TA
+  target_drugs_per_indication: 0.17  # Target number of competing drugs per indication
+  on_market_fraction: 0.25          # Estimated fraction of portfolio that's on-market
+  max_indications_per_ta: 3          # Hard cap for observation space sizing (3 × 3 TAs = 9 total)
+
+  indication_spread: 1.33    # Absolute Gaussian sigma in indication-index units
+  indication_drift_speed: 2       # How many times the hot zone sweeps through all indications per episode
+
+  # Market congestion penalty: reduces revenue when many drugs compete in same indication
+  congestion_exponent: 2.0           # α in 1/n^α (0 = disabled, 0.5 = moderate penalty)
+  congestion_ramp_steps: 3              # Entry positions to reach full penalty (1 = binary incumbent/challenger)
+  congestion_incumbent_penalty: 0.15    # Fraction of full penalty applied to incumbent (0 = fully protected)
+
+# Approval phase - regulatory approval between Phase 3 and market entry
+approval_phase:
+  enabled: true
+  duration_min: 1       # Min approval duration in steps
+  duration_max: 3       # Max approval duration in steps
+  success_rate_min: 0.85  # Min PTRS for approval
+  success_rate_max: 0.95  # Max PTRS for approval
+  cost: 50_000_000      # Filing fees
+
+# TA Experience system - decoupled from PTRS features
+# Can be used with uncertain_ptrs, distributional_ptrs, or standalone
+ta_experience:
+  enabled: false  # Master toggle for TA experience system
+
+  # Experience system - aggressive decay to force specialization
+  experience_to_full_knowledge: 30.0   # Very high bar for full knowledge
+  max_expertise_boost: 0.05            # 5% PTRS boost for specialists
+  experience_to_max_boost: 40.0
+  experience_decay_rate: 0.98          # 2% decay per step
+  max_total_experience: 60.0           # Hard cap on total experience (2x full knowledge)
+                                       # Forces trade-off: specialist gets 100% in 1 TA,
+                                       # generalist gets ~33% in each of 3 TAs
+
+  # Phase experience weights - how much experience gained per trial phase completion
+  phase_experience_weights:
+    phase_1: 0.5
+    phase_2: 1.0
+    phase_3: 1.5
+    approval: 0.5
+
+  # Asset arrival bias - small bias toward experienced TAs
+  asset_arrival_temperature: 0.1  # Small bias, rewards mild specialization
+
+# Uncertain PTRS feature - adds Gaussian noise to point estimates
+# NOTE: Mutually exclusive with distributional_ptrs
+uncertain_ptrs:
+  enabled: false
+
+  # TA-specific base noise levels
+  # These multiply with phase multipliers: effective_std = ta_noise * phase_mult
+  # With typical PTRS in [0.3, 0.7], noise should be meaningful but not overwhelming
+  ta_noise_config:
+    oncology: 0.12                        # Highest noise (hardest to evaluate)
+    respiratory and immunology: 0.10
+    vaccines and infectious disease: 0.08  # Lowest noise (most predictable)
+
+  # Phase noise multipliers (later phases have more data, so less noise)
+  phase_noise_multipliers:
+    phase_1: 1.5    # Early stage: least data, most uncertain
+    phase_2: 1.0    # Mid stage: moderate uncertainty
+    phase_3: 0.75   # Late stage: most data, least uncertain
+    approval: 0.5   # Regulatory: very predictable
+
+# R&D capacity constraints - standalone, independent of investment levels feature
+# When enabled: each InDevelopment asset = 1 capacity unit (or per-level capacity_cost if investment_levels enabled)
+# Overage penalties: when capacity_used > base_capacity
+#   success_modifier = 1.0 - (overage_ratio * overage_max_penalty)
+#   cost_modifier    = 1.0 + (overage_ratio * overage_cost_max_penalty)
+#   where overage_ratio = (used - base) / base
+rd_capacity:
+  enabled: false
+  base_capacity: 10  # Max simultaneous assets in development (with linear action space: 1 unit per asset)
+  overage_max_penalty: 0.30  # At 2x capacity, success rates drop 30%
+  overage_cost_max_penalty: 0.40  # At 2x capacity, costs increase 40%
+  overage_scaling: linear  # "linear" or "quadratic"
+
+# Investment levels feature - variable investment intensity
+investment_levels:
+  enabled: false  # Master toggle for investment levels feature
+
+  # Investment level definitions
+  # Each level affects: cost, speed, success probability, capacity usage, and experience gain
+  levels:
+    none:  # Not investing (for idle assets or pausing)
+      cost_modifier: 0.0
+      speed_modifier: 0.0
+      success_modifier: 1.0
+      capacity_cost: 0
+      experience_modifier: 0.0
+    minimal:  # Much slower and cheaper, better learning
+      cost_modifier: 0.5
+      speed_modifier: 0.5  # 2x slower
+      success_modifier: 0.85
+      capacity_cost: 1
+      experience_modifier: 2.0
+    standard:  # Normal development pace
+      cost_modifier: 1.0
+      speed_modifier: 1.0
+      success_modifier: 1.0
+      capacity_cost: 2
+      experience_modifier: 1.0
+    accelerated:  # Much faster but very expensive, minimal learning
+      cost_modifier: 2.0
+      speed_modifier: 2.0  # 2x faster
+      success_modifier: 1.10
+      capacity_cost: 4
+      experience_modifier: 0.25
+
+# Standalone drop action - agents can drop any asset (Idle, InDevelopment, OnMarket)
+# Independent of investment_levels (mutually exclusive); adds action=2 (DROP) to each asset slot
+# Drop fee = round(drop_price_fraction * cost_remaining / drop_price_rounding) * drop_price_rounding
+drop_action:
+  enabled: true
+  drop_price_fraction: 0.25    # 25% of the current phase cost_remaining
+  drop_price_rounding: 1000000 # round drop fee to nearest £1M
+
+# Marketing spend feature — demand creation and brand equity
+# Demand creation: top up a shared per-indication pool multiplier (asymptotic toward dc_max_multiplier,
+#   ~7-step half-max, ~5-step decay half-life). Cost = dc_cost_fraction × pool-peak max_revenue
+#   (an indication-wide cost — DC sizes the whole indication, not one drug — charged unconditionally
+#   each step spent, so an agent can size a market before it holds a drug there; DC is never free).
+# Brand equity: build a per-drug quality score that boosts market share quality formula
+#   (~5-step decay half-life; 15 steps of continuous spend reaches ~90% of cap).
+#   Can be applied to any drug at any phase incl. pre-market.
+# Both actions are binary per step (0=don't spend, 1=spend fixed cost).
+marketing:
+  enabled: true
+  dc_cost_fraction: 0.035      # = 0.10 × reinvestment_percentage(0.35); cost base is now pool-peak max_revenue (not the agent's own drug), so the peak drug keeps the old 21% breakeven while smaller drugs face a size-scaled hurdle s* = (peak/R) × 21% — DC is a large-market tool
+  dc_step_boost: 0.10          # fixed additive increment per spend; single-agent ss ≈ 1.39×
+  dc_decay_rate: 0.206         # ~3-step decay half-life: 1 - 0.5^(1/3)
+  be_cost_fraction: 0.0175     # = 0.05 × reinvestment_percentage(0.35); restores BE calibration (neutral for strong drug A solo; B strongly positive) under cash accounting
+  be_boost: 0.25               # brand_score increment per step; natural ss ≈ 0.963
+  be_decay_rate: 0.206         # ~3-step decay half-life: 1 - 0.5^(1/3)
+  be_effectiveness: 3.5        # quality multiplier per unit of underdog-weighted (1−floor)·(brand_score − floor); higher than the un-weighted 2.0 to keep small-drug catch-up strong after the (1−floor) attenuation
+
+# Clinical sites - hard concurrency cap on active trials (runaway-cash sink)
+# Each operational site hosts one InDevelopment asset at a time (Model B: freed
+# between phases). Grow capacity via the Fibonacci-priced `upgrade` action (with
+# a build delay) or by winning the periodic PvP site auction. When an agent
+# requests more trial starts than free sites, allocation is arbitrated by
+# agent_priority (false = asset-index order; true = per-asset priority action).
+clinical_sites:
+  enabled: true                  # master toggle (off = no obs/action changes)
+  starting_sites: 4               # operational sites at episode start (calibrated, see kaggle_clinical_sites/design.md §10)
+  purchase_base_cost: 500000000   # £, base for the Fibonacci purchase curve (CALIBRATE)
+  purchase_cost_rounding: 1000000 # round purchase cost to nearest £1M
+  site_development_steps: 2        # build delay for bought sites (= 2 years)
+  agent_priority: false            # false = asset-index arbitration; true = priority action
+  priority_entropy_weight: 1.0     # entropy weight for priority head (agent_priority only)
+  auction_enabled: true            # PvP site auction
+  auction_interval_steps: 20       # a site is auctioned every 20 steps (= years)
+  auction_min_step: 10             # first auction at step 10, then every 20 (10, 30, 50, ...)
+  site_max_bid: 100000             # continuous bid cap (matches bd_max_bid) units of millions
+
+# Per-asset PTRS research readings feature
+# Agents pay Fibonacci-scaled costs for stochastic logit-normal PTRS samples.
+# Readings are paid for and applied within the same step, before trial evolution.
+# Phase noise scales with distance from the current phase: [1×, 1.5×, 2×] σ_base.
+# sigma_logit_base must be set by calibration script before enabling.
+ptrs_readings:
+  enabled: true
+  cost_fraction: 0.05              # fraction of asset.trial.cost_remaining per reading (base before Fibonacci)
+  cost_rounding: 1000000           # round base to nearest £1M (matches drop action)
+  action_space_max_readings: 10    # upper bound for MultiDiscrete; cash gates real limit
+  sigma_logit_base: 1.5            # calibrated: MAE(n=1)≈21%, smooth 1/√n convergence
+  sigma_ep: null                   # episode-level noise; null falls back to sigma_logit_base
+  noise_multipliers: [1.0, 1.5, 2.0]   # phase distances 0, 1, 2
+  max_sample_obs: 20
+
+# Interim trial observations feature - noisy signals during trials enable early stopping
+interim_trial_observations:
+  enabled: false  # Disabled - mutually exclusive with distributional_ptrs
+  latent_quality_concentration: 10.0  # Beta distribution concentration (higher = tighter around PTRS)
+  initial_noise_scale: 0.3  # Initial noise in interim signals (decreases as trial progresses)
+
+# Distributional PTRS feature - makes PTRS a distribution with correlated TA quality
+# This introduces compound uncertainty that RL can learn but heuristics cannot optimize
+#
+# To use POINT-BASED PTRS instead: set enabled: false
+# The game will then use the simple ptrs value directly (no distribution sampling)
+# Note: mutually exclusive with interim_trial_observations
+distributional_ptrs:
+  enabled: false  # Set to false for point-based PTRS
+
+  # Per-TA variance in quality modifier (hidden state sampled at episode start)
+  # Higher variance = more uncertainty about TA quality
+  ta_quality_variance:
+    oncology: 0.08
+    respiratory and immunology: 0.05
+    vaccines and infectious disease: 0.03
+
+  # Per-asset additional noise (independent of TA quality)
+  asset_noise_std: 0.03
+
+  # Prior concentration for Beta belief representation
+  # Higher = tighter prior (more confident initial estimate)
+  prior_concentration: 5.0
+
+  # Observation noise for Bayesian updates (how much trial outcomes vary)
+  observation_noise: 0.1

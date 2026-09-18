@@ -1,0 +1,29 @@
+{
+    "name": "Malventh",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "Malventh is an oral small-molecule immunomodulator that recalibrates an overactive inflammatory response while limiting broad immunosuppression. It is being advanced with convenient systemic dosing across respiratory and immunology conditions.",
+    "max_revenue": 1200000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 14,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.69
+        },
+        "phase_2": {
+            "cost_remaining": 28000000,
+            "time_remaining": 2,
+            "ptrs": 0.46
+        },
+        "phase_3": {
+            "cost_remaining": 160000000,
+            "time_remaining": 3,
+            "ptrs": 0.69
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

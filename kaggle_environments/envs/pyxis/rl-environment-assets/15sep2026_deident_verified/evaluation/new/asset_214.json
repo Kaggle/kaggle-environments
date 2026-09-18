@@ -1,0 +1,29 @@
+{
+    "name": "Melvoran",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "A monoclonal antibody that modulates a central inflammatory signalling pathway involved in immune-mediated disease. Delivered systemically, it is intended to provide sustained control of chronic inflammation with convenient dosing.",
+    "max_revenue": 2050000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 18,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 13000000,
+            "time_remaining": 2,
+            "ptrs": 0.71
+        },
+        "phase_2": {
+            "cost_remaining": 45000000,
+            "time_remaining": 3,
+            "ptrs": 0.5
+        },
+        "phase_3": {
+            "cost_remaining": 200000000,
+            "time_remaining": 4,
+            "ptrs": 0.7
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

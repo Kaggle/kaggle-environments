@@ -1,0 +1,29 @@
+{
+    "name": "Eldoverin",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "A monoclonal antibody engineered to modulate a central inflammatory signalling pathway implicated in immune-mediated disease. Formulated for subcutaneous administration with an extended dosing interval to support long-term disease control.",
+    "max_revenue": 2000000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 18,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 12000000,
+            "time_remaining": 2,
+            "ptrs": 0.71
+        },
+        "phase_2": {
+            "cost_remaining": 42000000,
+            "time_remaining": 3,
+            "ptrs": 0.49
+        },
+        "phase_3": {
+            "cost_remaining": 185000000,
+            "time_remaining": 3,
+            "ptrs": 0.69
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

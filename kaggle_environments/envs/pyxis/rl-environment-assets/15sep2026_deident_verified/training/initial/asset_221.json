@@ -1,0 +1,29 @@
+{
+    "name": "Melquoris",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "A monoclonal antibody designed to dampen a central inflammatory signalling pathway implicated in chronic immune-mediated disease. Given on an extended dosing interval, it aims to reduce disease flares while limiting reliance on broad immunosuppression.",
+    "max_revenue": 1700000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 18,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 12000000,
+            "time_remaining": 2,
+            "ptrs": 0.74
+        },
+        "phase_2": {
+            "cost_remaining": 40000000,
+            "time_remaining": 3,
+            "ptrs": 0.52
+        },
+        "phase_3": {
+            "cost_remaining": 185000000,
+            "time_remaining": 4,
+            "ptrs": 0.72
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

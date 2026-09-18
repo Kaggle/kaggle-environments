@@ -1,0 +1,29 @@
+{
+    "name": "Veltyra",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "A humanized monoclonal antibody that dampens a key inflammatory signalling cascade implicated across immune-mediated disorders. Delivered by subcutaneous injection on an extended dosing schedule, it is designed to lower flare frequency while preserving a favourable tolerability profile.",
+    "max_revenue": 1700000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 12000000,
+            "time_remaining": 1,
+            "ptrs": 0.73
+        },
+        "phase_2": {
+            "cost_remaining": 38000000,
+            "time_remaining": 3,
+            "ptrs": 0.53
+        },
+        "phase_3": {
+            "cost_remaining": 190000000,
+            "time_remaining": 4,
+            "ptrs": 0.72
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

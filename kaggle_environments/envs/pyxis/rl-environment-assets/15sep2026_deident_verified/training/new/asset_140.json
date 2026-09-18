@@ -1,0 +1,29 @@
+{
+    "name": "Malvethis",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "Malvethis is a monoclonal antibody that antagonises a key mediator of the inflammatory cascade underlying immune-mediated disease. Delivered as a systemic therapy, it is designed to modulate disease activity while sparing normal immune function.",
+    "max_revenue": 1600000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 16,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 10000000,
+            "time_remaining": 1,
+            "ptrs": 0.71
+        },
+        "phase_2": {
+            "cost_remaining": 35000000,
+            "time_remaining": 3,
+            "ptrs": 0.46
+        },
+        "phase_3": {
+            "cost_remaining": 175000000,
+            "time_remaining": 3,
+            "ptrs": 0.69
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

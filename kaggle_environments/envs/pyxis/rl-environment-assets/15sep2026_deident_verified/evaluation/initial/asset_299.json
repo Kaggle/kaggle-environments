@@ -1,0 +1,29 @@
+{
+    "name": "Cascovar",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "A monoclonal antibody raised against a tumour-associated antigen to concentrate anti-tumour activity where it is needed. Developed for patients with few remaining options, with dosing intended to support outpatient administration.",
+    "max_revenue": 3900000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 8,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.64
+        },
+        "phase_2": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.39
+        },
+        "phase_3": {
+            "cost_remaining": 240000000,
+            "time_remaining": 4,
+            "ptrs": 0.63
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 3",
+    "time_on_market": 0
+}

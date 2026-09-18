@@ -1,0 +1,29 @@
+{
+    "name": "Topivera",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "A non-steroidal topical cream acting on a novel receptor pathway to reduce skin inflammation. It is being developed for common inflammatory skin disorders, aiming for significant clearance of lesions with a favorable local tolerability profile.",
+    "max_revenue": 1200000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 14,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.7
+        },
+        "phase_2": {
+            "cost_remaining": 28000000,
+            "time_remaining": 2,
+            "ptrs": 0.46
+        },
+        "phase_3": {
+            "cost_remaining": 155000000,
+            "time_remaining": 3,
+            "ptrs": 0.68
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

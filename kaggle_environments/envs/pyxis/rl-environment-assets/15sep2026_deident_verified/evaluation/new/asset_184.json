@@ -1,0 +1,29 @@
+{
+    "name": "Meravyn",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "A humanised antibody targeting an upstream driver of immune-mediated inflammation, delivered by subcutaneous injection on an extended schedule. Designed to reduce flare frequency and lessen reliance on systemic corticosteroids.",
+    "max_revenue": 1700000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 12000000,
+            "time_remaining": 1,
+            "ptrs": 0.73
+        },
+        "phase_2": {
+            "cost_remaining": 37000000,
+            "time_remaining": 3,
+            "ptrs": 0.52
+        },
+        "phase_3": {
+            "cost_remaining": 190000000,
+            "time_remaining": 4,
+            "ptrs": 0.71
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

@@ -1,0 +1,29 @@
+{
+    "name": "Helvantis",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "A recombinant protein-subunit vaccine designed to elicit durable, high-titre protective immunity against an infectious pathogen. Its manufacturing process is built for scalable, reproducible supply.",
+    "max_revenue": 3000000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 11,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.78
+        },
+        "phase_2": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.48
+        },
+        "phase_3": {
+            "cost_remaining": 320000000,
+            "time_remaining": 4,
+            "ptrs": 0.75
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 3",
+    "time_on_market": 0
+}

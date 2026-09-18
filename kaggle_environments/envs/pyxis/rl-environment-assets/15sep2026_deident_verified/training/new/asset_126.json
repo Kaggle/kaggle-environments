@@ -1,0 +1,29 @@
+{
+    "name": "Kravonel",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "Kravonel is an oral small-molecule inhibitor designed to disrupt a dysregulated signalling pathway that drives malignant cell growth. Its development program pairs pharmacodynamic biomarkers with rational combination strategies to support precision patient selection.",
+    "max_revenue": 3900000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 18,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 21000000,
+            "time_remaining": 2,
+            "ptrs": 0.64
+        },
+        "phase_2": {
+            "cost_remaining": 56000000,
+            "time_remaining": 3,
+            "ptrs": 0.41
+        },
+        "phase_3": {
+            "cost_remaining": 245000000,
+            "time_remaining": 4,
+            "ptrs": 0.63
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

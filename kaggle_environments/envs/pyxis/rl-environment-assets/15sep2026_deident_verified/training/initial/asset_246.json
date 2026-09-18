@@ -1,0 +1,29 @@
+{
+    "name": "Astyvorn",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "A selective enzyme inhibitor that exploits a synthetic-lethal vulnerability present in defined tumour genotypes. Biomarker-guided patient selection and oral dosing are intended to maximise on-target activity within combination strategies.",
+    "max_revenue": 4000000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 18,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 22000000,
+            "time_remaining": 2,
+            "ptrs": 0.62
+        },
+        "phase_2": {
+            "cost_remaining": 58000000,
+            "time_remaining": 3,
+            "ptrs": 0.39
+        },
+        "phase_3": {
+            "cost_remaining": 255000000,
+            "time_remaining": 4,
+            "ptrs": 0.62
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

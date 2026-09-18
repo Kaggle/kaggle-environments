@@ -1,0 +1,29 @@
+{
+    "name": "Velorquen",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "An orally administered small-molecule modulator of a key inflammatory signalling pathway, developed for immune-mediated inflammatory disease. It is engineered for selective target engagement and convenient once-daily systemic dosing, with the goal of durable symptom control and a manageable safety profile.",
+    "max_revenue": 1400000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 12,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.71
+        },
+        "phase_2": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.5
+        },
+        "phase_3": {
+            "cost_remaining": 190000000,
+            "time_remaining": 3,
+            "ptrs": 0.7
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 3",
+    "time_on_market": 0
+}

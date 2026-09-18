@@ -1,0 +1,29 @@
+{
+    "name": "CytoVex",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "A vaccine candidate designed to prevent congenital disease caused by a common latent virus. It is being developed to elicit durable neutralizing antibodies and is intended for immunization prior to pregnancy.",
+    "max_revenue": 2300000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 15000000,
+            "time_remaining": 2,
+            "ptrs": 0.77
+        },
+        "phase_2": {
+            "cost_remaining": 50000000,
+            "time_remaining": 3,
+            "ptrs": 0.47
+        },
+        "phase_3": {
+            "cost_remaining": 290000000,
+            "time_remaining": 4,
+            "ptrs": 0.75
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

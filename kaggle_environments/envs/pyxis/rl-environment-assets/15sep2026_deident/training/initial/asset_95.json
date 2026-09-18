@@ -1,0 +1,29 @@
+{
+    "name": "Defendix",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "An orally administered vaccine candidate for a common gastrointestinal virus, formulated for stability at ambient temperatures. It is designed to be easily administered and provide rapid protection for at-risk populations in outbreak scenarios.",
+    "max_revenue": 1800000000,
+    "time_until_max_revenue": 4,
+    "time_until_patent_expiry": 12,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.76
+        },
+        "phase_2": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.47
+        },
+        "phase_3": {
+            "cost_remaining": 220000000,
+            "time_remaining": 3,
+            "ptrs": 0.73
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 3",
+    "time_on_market": 0
+}

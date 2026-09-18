@@ -1,0 +1,29 @@
+{
+    "name": "Nuvella",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "A non-steroidal topical cream that modulates a key intracellular signaling pathway involved in psoriasis. It is designed for significant plaque clearance with once-daily application while limiting systemic absorption.",
+    "max_revenue": 1300000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 18,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 10000000,
+            "time_remaining": 1,
+            "ptrs": 0.7
+        },
+        "phase_2": {
+            "cost_remaining": 28000000,
+            "time_remaining": 2,
+            "ptrs": 0.46
+        },
+        "phase_3": {
+            "cost_remaining": 155000000,
+            "time_remaining": 3,
+            "ptrs": 0.68
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

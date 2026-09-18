@@ -1,0 +1,108 @@
+{
+  "name": "pyxis",
+  "title": "Pyxis Portfolio Challenge",
+  "description": "Two pharma companies compete to build the most valuable drug-development portfolio over a fixed horizon.",
+  "version": "1.0.0",
+  "agents": [2],
+  "configuration": {
+    "episodeSteps": {
+      "description": "Framework step cap. The match ends earlier when the engine terminates both players (bankruptcy or horizon).",
+      "type": "integer",
+      "minimum": 2,
+      "default": 1000
+    },
+    "actTimeout": {
+      "description": "Seconds an agent has to return an action each step.",
+      "type": "number",
+      "minimum": 0,
+      "default": 60
+    },
+    "runTimeout": {
+      "description": "Seconds the whole episode may run (excludes the one-time reset warmup).",
+      "type": "number",
+      "minimum": 1,
+      "default": 1200
+    },
+    "agentTimeout": {
+      "description": "Obsolete field kept for backwards compatibility, please use observation.remainingOverageTime.",
+      "type": "number",
+      "minimum": 0,
+      "default": 60
+    },
+    "seed": {
+      "description": "Optional episode seed. Kaggle controls this to run mirrored seed pairs externally. The interpreter reads it, clears it from configuration, and stores the resolved value on env.info['seed'] so it stays out of agent observations but is recorded in the replay.",
+      "type": ["integer", "null"],
+      "default": null
+    }
+  },
+  "reward": {
+    "description": "Match outcome for the agent: 1 = win, 0.5 = draw, 0 = loss (bankruptcy-aware, otherwise by net cash flow). None on error/invalid/timeout.",
+    "type": "number",
+    "default": 0
+  },
+  "observation": {
+    "obs": {
+      "description": "Flattened per-agent observation vector from the engine.",
+      "type": "array",
+      "default": []
+    },
+    "actionMask": {
+      "description": "Per-agent action masks from the engine (e.g. investments legality). Continuous bids are unmasked.",
+      "type": "object",
+      "default": {}
+    },
+    "agentIndex": {
+      "description": "Seat index of this agent (0 or 1).",
+      "type": "integer",
+      "defaults": [0, 1]
+    },
+    "kaggleEnvId": {
+      "description": "Internal id linking a built-in agent to the live engine instance. Ignored by isolated submissions.",
+      "type": "string",
+      "shared": true,
+      "default": ""
+    },
+    "cash": {
+      "description": "Agent cash at the current step (GBP).",
+      "type": "number",
+      "default": 0
+    },
+    "enpv": {
+      "description": "Agent expected net present value at the current step (GBP).",
+      "type": "number",
+      "default": 0
+    },
+    "bankrupt": {
+      "description": "Whether the agent is bankrupt (cash < 0).",
+      "type": "boolean",
+      "default": false
+    },
+    "initialized": {
+      "description": "Internal flag marking that the engine has been created for this episode.",
+      "type": "boolean",
+      "hidden": true,
+      "default": false
+    },
+    "remainingOverageTime": 60
+  },
+  "action": {
+    "description": "Engine action dict. Missing or null keys default to no-op. Extra keys (upgrade, site_bid, site_priority, pricing, ...) are passed through when the corresponding feature is enabled.",
+    "type": ["object", "null"],
+    "default": {},
+    "properties": {
+      "investments": {
+        "description": "Per-asset investment decision (length max_num_assets).",
+        "type": "array",
+        "items": { "type": "integer" }
+      },
+      "bd_bids": {
+        "description": "Per-slot business-development cash bids in GBP millions (length bd_max_slots).",
+        "type": "array",
+        "items": { "type": "number" }
+      }
+    }
+  },
+  "status": {
+    "defaults": ["ACTIVE", "ACTIVE"]
+  }
+}

@@ -1,0 +1,29 @@
+{
+    "name": "Revonis",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "A covalent inhibitor of a frequently mutated oncogene, intended for use in combination regimens for advanced cancers. This agent is designed to achieve deep and durable pathway inhibition when paired with other targeted therapies.",
+    "max_revenue": 4500000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 14,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.66
+        },
+        "phase_2": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.41
+        },
+        "phase_3": {
+            "cost_remaining": 260000000,
+            "time_remaining": 4,
+            "ptrs": 0.64
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 3",
+    "time_on_market": 0
+}

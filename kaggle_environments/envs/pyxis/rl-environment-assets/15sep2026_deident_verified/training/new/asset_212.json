@@ -1,0 +1,29 @@
+{
+    "name": "Serantyl",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "A biologic that modulates a central inflammatory pathway underlying chronic immune-mediated disease. Engineered for convenient periodic dosing, it aims to reduce flares while improving day-to-day disease control and lowering reliance on background therapy.",
+    "max_revenue": 2100000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 18,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 13000000,
+            "time_remaining": 2,
+            "ptrs": 0.72
+        },
+        "phase_2": {
+            "cost_remaining": 43000000,
+            "time_remaining": 3,
+            "ptrs": 0.5
+        },
+        "phase_3": {
+            "cost_remaining": 205000000,
+            "time_remaining": 4,
+            "ptrs": 0.71
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

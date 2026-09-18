@@ -1,0 +1,29 @@
+{
+    "name": "Jandovel",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "Jandovel is an orally administered small-molecule inhibitor of an oncogenic signalling pathway implicated in tumour growth and survival. It is optimised for consistent systemic exposure and once-daily dosing, and is intended to support rational combination strategies guided by molecular biomarkers.",
+    "max_revenue": 3300000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 17,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 17000000,
+            "time_remaining": 2,
+            "ptrs": 0.64
+        },
+        "phase_2": {
+            "cost_remaining": 58000000,
+            "time_remaining": 3,
+            "ptrs": 0.41
+        },
+        "phase_3": {
+            "cost_remaining": 250000000,
+            "time_remaining": 4,
+            "ptrs": 0.62
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

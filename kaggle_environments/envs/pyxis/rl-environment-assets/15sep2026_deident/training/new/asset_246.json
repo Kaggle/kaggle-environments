@@ -1,0 +1,29 @@
+{
+    "name": "Gantoris",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "A precision oncology agent that acts as an oral inhibitor of a key epigenetic modifier. It is being developed for tumors defined by a specific genetic biomarker, with a focus on enabling biomarker-driven patient selection for monotherapy and combination strategies.",
+    "max_revenue": 3900000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 18,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 21000000,
+            "time_remaining": 2,
+            "ptrs": 0.64
+        },
+        "phase_2": {
+            "cost_remaining": 56000000,
+            "time_remaining": 3,
+            "ptrs": 0.41
+        },
+        "phase_3": {
+            "cost_remaining": 245000000,
+            "time_remaining": 4,
+            "ptrs": 0.63
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

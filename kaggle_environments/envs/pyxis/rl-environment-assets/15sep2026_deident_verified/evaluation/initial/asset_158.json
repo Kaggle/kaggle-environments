@@ -1,0 +1,29 @@
+{
+    "name": "Yorbanth",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "Yorbanth is a targeted therapeutic designed to interfere with an oncogenic driver while sparing normal tissue. Its once-daily oral profile is intended to support combination strategies that address treatment resistance.",
+    "max_revenue": 3200000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 16,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.64
+        },
+        "phase_2": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.4
+        },
+        "phase_3": {
+            "cost_remaining": 230000000,
+            "time_remaining": 4,
+            "ptrs": 0.62
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 3",
+    "time_on_market": 0
+}

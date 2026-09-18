@@ -1,0 +1,29 @@
+{
+    "name": "Cindravel",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "A humanised monoclonal antibody that neutralises a key upstream mediator of the inflammatory cascade. Long dosing intervals and subcutaneous delivery are designed to ease treatment burden while providing steady suppression of the underlying immune response.",
+    "max_revenue": 1650000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 11500000,
+            "time_remaining": 1,
+            "ptrs": 0.73
+        },
+        "phase_2": {
+            "cost_remaining": 36000000,
+            "time_remaining": 3,
+            "ptrs": 0.52
+        },
+        "phase_3": {
+            "cost_remaining": 190000000,
+            "time_remaining": 4,
+            "ptrs": 0.71
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

@@ -1,0 +1,29 @@
+{
+    "name": "Oblarex",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "An oral small-molecule inhibitor directed at an oncogenic signalling pathway implicated in tumour growth. It is designed for durable target engagement and is being evaluated in combination regimens for advanced malignancies.",
+    "max_revenue": 3200000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 16,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 20000000,
+            "time_remaining": 2,
+            "ptrs": 0.64
+        },
+        "phase_2": {
+            "cost_remaining": 50000000,
+            "time_remaining": 3,
+            "ptrs": 0.39
+        },
+        "phase_3": {
+            "cost_remaining": 230000000,
+            "time_remaining": 4,
+            "ptrs": 0.62
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

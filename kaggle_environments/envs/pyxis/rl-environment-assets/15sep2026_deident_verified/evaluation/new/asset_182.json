@@ -1,0 +1,29 @@
+{
+    "name": "Corbexal",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "An investigational targeted agent engineered to disrupt an oncogenic driver while sparing normal tissue. Being evaluated alongside standard-of-care therapies to deepen and prolong responses.",
+    "max_revenue": 3800000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 20000000,
+            "time_remaining": 2,
+            "ptrs": 0.65
+        },
+        "phase_2": {
+            "cost_remaining": 52000000,
+            "time_remaining": 3,
+            "ptrs": 0.38
+        },
+        "phase_3": {
+            "cost_remaining": 240000000,
+            "time_remaining": 4,
+            "ptrs": 0.62
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

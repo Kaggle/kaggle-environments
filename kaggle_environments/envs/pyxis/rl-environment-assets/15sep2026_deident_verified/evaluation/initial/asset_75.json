@@ -1,0 +1,29 @@
+{
+    "name": "Valtaris",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "Valtaris is a recombinant protein-subunit vaccine that uses nanoparticle display to strengthen and prolong the protective immune response. Built on scalable bioprocessing, it is designed to deliver reliable immunogenicity and to support broad global supply.",
+    "max_revenue": 2000000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 15,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.77
+        },
+        "phase_2": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.48
+        },
+        "phase_3": {
+            "cost_remaining": 220000000,
+            "time_remaining": 3,
+            "ptrs": 0.74
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 3",
+    "time_on_market": 0
+}

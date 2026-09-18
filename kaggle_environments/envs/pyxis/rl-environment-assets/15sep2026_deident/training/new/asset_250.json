@@ -1,0 +1,29 @@
+{
+    "name": "Naxelor",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "An advanced biologic agent designed to control a key inflammatory pathway in severe asthma. Administered subcutaneously with an extended dosing schedule, it aims to reduce exacerbation frequency and dependence on steroids for patients with uncontrolled disease.",
+    "max_revenue": 1750000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 18,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 11000000,
+            "time_remaining": 1,
+            "ptrs": 0.72
+        },
+        "phase_2": {
+            "cost_remaining": 36000000,
+            "time_remaining": 3,
+            "ptrs": 0.53
+        },
+        "phase_3": {
+            "cost_remaining": 195000000,
+            "time_remaining": 4,
+            "ptrs": 0.72
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

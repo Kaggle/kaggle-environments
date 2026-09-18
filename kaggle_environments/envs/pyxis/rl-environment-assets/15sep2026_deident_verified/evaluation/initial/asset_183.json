@@ -1,0 +1,29 @@
+{
+    "name": "Trevanyx",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "A targeted therapy that interrupts a dysregulated intracellular signalling cascade driving malignant cell proliferation. Its once-daily oral dosing is intended to fit combination strategies that counter treatment resistance.",
+    "max_revenue": 3600000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 17,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 21000000,
+            "time_remaining": 2,
+            "ptrs": 0.64
+        },
+        "phase_2": {
+            "cost_remaining": 50000000,
+            "time_remaining": 3,
+            "ptrs": 0.4
+        },
+        "phase_3": {
+            "cost_remaining": 235000000,
+            "time_remaining": 4,
+            "ptrs": 0.62
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

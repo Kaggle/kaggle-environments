@@ -1,0 +1,29 @@
+{
+    "name": "Aldovique",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "A precision-targeted small-molecule inhibitor engineered to overcome common mechanisms of acquired resistance. Its design emphasizes potency against the intended target while minimizing off-target activity for a cleaner tolerability profile.",
+    "max_revenue": 3600000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 16,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.66
+        },
+        "phase_2": {
+            "cost_remaining": 52000000,
+            "time_remaining": 3,
+            "ptrs": 0.4
+        },
+        "phase_3": {
+            "cost_remaining": 240000000,
+            "time_remaining": 4,
+            "ptrs": 0.64
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

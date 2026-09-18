@@ -1,0 +1,29 @@
+{
+    "name": "Havelquist",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "An oral targeted therapy that modulates aberrant immune-cell signaling underlying chronic inflammatory conditions. It is optimized for systemic exposure and once-daily convenience to support long-term control.",
+    "max_revenue": 1500000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 13,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.7
+        },
+        "phase_2": {
+            "cost_remaining": 37000000,
+            "time_remaining": 2,
+            "ptrs": 0.5
+        },
+        "phase_3": {
+            "cost_remaining": 180000000,
+            "time_remaining": 3,
+            "ptrs": 0.7
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

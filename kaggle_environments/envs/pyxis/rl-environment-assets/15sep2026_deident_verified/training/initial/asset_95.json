@@ -1,0 +1,29 @@
+{
+    "name": "Sarnovell",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "A next-generation vaccine built on a self-amplifying mRNA platform delivered by lipid nanoparticles. The program is designed to generate robust, durable immunity from a streamlined dosing schedule and to support rapid manufacturing scale-up.",
+    "max_revenue": 1800000000,
+    "time_until_max_revenue": 4,
+    "time_until_patent_expiry": 12,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.76
+        },
+        "phase_2": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.47
+        },
+        "phase_3": {
+            "cost_remaining": 220000000,
+            "time_remaining": 3,
+            "ptrs": 0.73
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 3",
+    "time_on_market": 0
+}

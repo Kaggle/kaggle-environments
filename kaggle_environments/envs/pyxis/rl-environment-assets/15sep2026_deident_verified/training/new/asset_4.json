@@ -1,0 +1,29 @@
+{
+    "name": "Vesquano",
+    "therapeutic_area": "respiratory and immunology",
+    "type": "internal",
+    "description": "A selective small-molecule modulator of an intracellular signalling node that governs immune and inflammatory responses. Formulated for reliable exposure and once-daily use, it is intended to improve control of chronic immune-mediated disease.",
+    "max_revenue": 1250000000,
+    "time_until_max_revenue": 5,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 10000000,
+            "time_remaining": 1,
+            "ptrs": 0.7
+        },
+        "phase_2": {
+            "cost_remaining": 29000000,
+            "time_remaining": 2,
+            "ptrs": 0.47
+        },
+        "phase_3": {
+            "cost_remaining": 160000000,
+            "time_remaining": 3,
+            "ptrs": 0.69
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}

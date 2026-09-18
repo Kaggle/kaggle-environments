@@ -1,0 +1,29 @@
+{
+    "name": "Quenthiral",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "A monoclonal antibody directed at a tumour-associated antigen, engineered to recruit immune effector activity against cancer cells. Its systemic profile supports evaluation across a range of combination oncology regimens.",
+    "max_revenue": 3100000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 9,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.67
+        },
+        "phase_2": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.4
+        },
+        "phase_3": {
+            "cost_remaining": 230000000,
+            "time_remaining": 4,
+            "ptrs": 0.63
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 3",
+    "time_on_market": 0
+}

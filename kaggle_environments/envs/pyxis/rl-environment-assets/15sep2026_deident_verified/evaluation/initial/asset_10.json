@@ -1,0 +1,29 @@
+{
+    "name": "Yularis",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "A recombinant protein-subunit vaccine candidate designed to elicit durable, broadly protective immune responses. It is formulated with a proprietary adjuvant system and engineered for stability under standard cold-chain conditions to support wide-scale deployment.",
+    "max_revenue": 2800000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 18,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.77
+        },
+        "phase_2": {
+            "cost_remaining": 62000000,
+            "time_remaining": 3,
+            "ptrs": 0.49
+        },
+        "phase_3": {
+            "cost_remaining": 320000000,
+            "time_remaining": 4,
+            "ptrs": 0.76
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

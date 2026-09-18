@@ -1,0 +1,29 @@
+{
+    "name": "Protiva",
+    "therapeutic_area": "vaccines and infectious disease",
+    "type": "internal",
+    "description": "An oral vaccine using virus-like particle (VLP) technology to prevent a common gastrointestinal virus. It is engineered for ambient temperature stability for rapid deployment, aiming to provide single-dose protection for travelers and in outbreak scenarios.",
+    "max_revenue": 1600000000,
+    "time_until_max_revenue": 4,
+    "time_until_patent_expiry": 16,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 0,
+            "time_remaining": 0,
+            "ptrs": 0.76
+        },
+        "phase_2": {
+            "cost_remaining": 45000000,
+            "time_remaining": 3,
+            "ptrs": 0.47
+        },
+        "phase_3": {
+            "cost_remaining": 200000000,
+            "time_remaining": 3,
+            "ptrs": 0.73
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 2",
+    "time_on_market": 0
+}

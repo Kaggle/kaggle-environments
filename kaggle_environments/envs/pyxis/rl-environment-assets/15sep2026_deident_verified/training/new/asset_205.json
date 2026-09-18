@@ -1,0 +1,29 @@
+{
+    "name": "Kavrelis",
+    "therapeutic_area": "oncology",
+    "type": "internal",
+    "description": "Kavrelis is an oral small-molecule inhibitor that blocks an oncogenic signalling enzyme driving uncontrolled proliferation. Once-daily dosing together with a biomarker-guided selection strategy supports precise patient identification and rational combination regimens.",
+    "max_revenue": 4000000000,
+    "time_until_max_revenue": 6,
+    "time_until_patent_expiry": 19,
+    "trials": {
+        "phase_1": {
+            "cost_remaining": 22000000,
+            "time_remaining": 2,
+            "ptrs": 0.66
+        },
+        "phase_2": {
+            "cost_remaining": 56000000,
+            "time_remaining": 3,
+            "ptrs": 0.42
+        },
+        "phase_3": {
+            "cost_remaining": 255000000,
+            "time_remaining": 4,
+            "ptrs": 0.64
+        }
+    },
+    "state": "Idle",
+    "pending_trial_phase": "Phase 1",
+    "time_on_market": 0
+}
