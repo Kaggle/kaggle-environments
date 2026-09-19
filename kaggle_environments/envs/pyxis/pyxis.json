@@ -36,7 +36,7 @@
     }
   },
   "reward": {
-    "description": "Match outcome for the agent: 1 = win, 0.5 = draw, 0 = loss (bankruptcy-aware, otherwise by net cash flow). None on error/invalid/timeout.",
+    "description": "Match outcome for the agent: 1 = win, 0.5 = draw, 0 = loss (bankruptcy-aware, otherwise by net cash flow). An agent that submits an illegal action forfeits and its opponent is awarded the win. None on error/invalid/timeout.",
     "type": "number",
     "default": 0
   },
@@ -47,7 +47,7 @@
       "default": []
     },
     "actionMask": {
-      "description": "Per-agent action masks from the engine (e.g. investments legality). Continuous bids are unmasked.",
+      "description": "Per-head action masks from the engine, one key per masked head (investments, ptrs_research, upgrade, demand_creation, brand_equity). Continuous bid heads (bd_bids, site_bid) are unmasked and absent.",
       "type": "object",
       "default": {}
     },
@@ -86,19 +86,55 @@
     "remainingOverageTime": 60
   },
   "action": {
-    "description": "Engine action dict. Missing or null keys default to no-op. Extra keys (upgrade, site_bid, site_priority, pricing, ...) are passed through when the corresponding feature is enabled.",
+    "description": "Engine action dict, one entry per enabled action head. Missing or null heads are filled with their no-op, so an agent may send only the heads it uses (or {} to pass). An unknown head, or a choice that observation.actionMask forbids, forfeits the match. Heads are config-dependent; actionMask keys and the no-op shapes below reflect the live set.",
     "type": ["object", "null"],
     "default": {},
     "properties": {
       "investments": {
-        "description": "Per-asset investment decision (length max_num_assets).",
-        "type": "array",
-        "items": { "type": "integer" }
+        "description": "Per-asset investment level, length max_num_assets. 0 = no-op. Masked by actionMask.investments.",
+        "type": ["array", "null"],
+        "items": {
+          "type": "integer"
+        }
       },
       "bd_bids": {
-        "description": "Per-slot business-development cash bids in GBP millions (length bd_max_slots).",
-        "type": "array",
-        "items": { "type": "number" }
+        "description": "Per-slot business-development cash bids in GBP millions, length bd_max_slots. 0 = pass. Unmasked: an overbid is legal and can bankrupt the winner.",
+        "type": ["array", "null"],
+        "items": {
+          "type": "number"
+        }
+      },
+      "ptrs_research": {
+        "description": "PTRS readings to commission per slot (portfolio assets then BD slots). 0 = none. Masked by actionMask.ptrs_research.",
+        "type": ["array", "null"],
+        "items": {
+          "type": "integer"
+        }
+      },
+      "upgrade": {
+        "description": "Clinical-site purchase: 0 = no-op, 1 = buy. Masked by actionMask.upgrade.",
+        "type": ["integer", "null"]
+      },
+      "site_bid": {
+        "description": "Clinical-site auction cash bid in GBP millions, length 1. 0 = pass. Unmasked.",
+        "type": ["array", "null"],
+        "items": {
+          "type": "number"
+        }
+      },
+      "demand_creation": {
+        "description": "Per-indication demand-creation spend flag (0/1). Masked by actionMask.demand_creation.",
+        "type": ["array", "null"],
+        "items": {
+          "type": "integer"
+        }
+      },
+      "brand_equity": {
+        "description": "Per-asset brand-equity spend flag (0/1). Masked by actionMask.brand_equity.",
+        "type": ["array", "null"],
+        "items": {
+          "type": "integer"
+        }
       }
     }
   },

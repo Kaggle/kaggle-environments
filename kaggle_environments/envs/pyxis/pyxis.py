@@ -14,7 +14,13 @@ from kaggle_environments.utils import resolve_episode_seed
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
 if _DIR not in sys.path:
-    # The bundled package uses absolute ``pyxis_portfolio_challenge`` imports.
+    # The bundled package uses absolute ``pyxis_portfolio_challenge`` imports,
+    # so its parent has to be importable. This leaks exactly one top-level
+    # name, which is distinctive enough not to shadow a competitor's module.
+    # (The bundle also shipped a top-level ``app``; that one was generic enough
+    # to collide, so it now lives under ``pyxis_portfolio_challenge.app``.)
+    # Removing the path hack entirely means rewriting ~160 absolute imports in
+    # vendored code — worth doing only alongside an upstream change.
     sys.path.insert(0, _DIR)
 
 NUM_AGENTS = 2
@@ -114,37 +120,95 @@ def _finish(state, outcomes):
         state[i].status = "DONE"
 
 
-def _illegal_investments(pyenv, aid, action):
-    """True if ``action`` picks an investment level the mask forbids.
+def _coerce_for_space(space, action):
+    """Cast a JSON action to the dtypes and shapes ``space`` expects.
 
-    An out-of-mask investment makes the engine raise, which would crash the
-    whole episode, so the interpreter forfeits the offender instead. Level 0 is
-    always safe.
+    A JSON round-trip loses dtype: a ``Box(float32)`` head arrives as a list of
+    Python floats, and ``contains()`` rejects the float64 array ``asarray``
+    would build. Casting first means validation judges the values, not the
+    encoding.
     """
-    if not isinstance(action, dict):
-        return False
-    inv = action.get("investments")
-    if inv is None:
-        return False
-    inv_mask = pyenv.action_masks(aid).get("investments")
-    if inv_mask is None:
-        return False
-    for i, choice in enumerate(inv):
-        if i >= len(inv_mask):
-            break
-        try:
-            c = int(choice)
-        except (TypeError, ValueError):
-            return True
-        if c == 0:
+    import numpy as np
+
+    out = {}
+    for head, value in action.items():
+        sub = space.get(head) if hasattr(space, "get") else None
+        if sub is None:
+            out[head] = value
             continue
-        m = inv_mask[i]
-        if isinstance(m, (list, tuple)):
-            if c < 0 or c >= len(m) or not m[c]:
-                return True
-        elif not m or c != 1:
+        arr = np.asarray(value, dtype=sub.dtype)
+        # Discrete heads are scalars; gymnasium wants the numpy scalar, not a
+        # 0-d array.
+        out[head] = arr if arr.shape else arr[()]
+    return out
+
+
+def _masked_head_illegal(mask, values):
+    """True if any entry of ``values`` picks a choice ``mask`` forbids.
+
+    Masks are shaped ``(*slots, num_choices)`` against an action of shape
+    ``(*slots,)`` — including scalar heads like ``upgrade``, whose mask is a
+    flat per-choice vector. So the check is a per-slot ``mask[slot][choice]``
+    lookup, and a slot-count mismatch is itself illegal.
+    """
+    import numpy as np
+
+    if mask is None:
+        return False
+    try:
+        m = np.asarray(mask, dtype=bool)
+        choices = np.asarray(values).reshape(-1)
+        flat = m.reshape(-1, m.shape[-1])
+        if choices.shape[0] != flat.shape[0]:
             return True
-    return False
+        idx = choices.astype(np.int64)
+        if np.any(idx < 0) or np.any(idx >= flat.shape[1]):
+            return True
+        return not bool(flat[np.arange(flat.shape[0]), idx].all())
+    except (ValueError, TypeError, IndexError, OverflowError):
+        return True
+
+
+def _normalize_action(pyenv, aid, action):
+    """Coerce a submitted action into one the engine accepts, or reject it.
+
+    Returns ``(action, illegal)``. Isolated submissions can only send JSON, and
+    the engine demands every enabled head each step, so missing heads are
+    filled from ``noop_action()`` — an agent that ignores a feature gets its
+    no-op rather than a crash.
+
+    Rejection is reserved for actions the engine would raise on: a non-dict, an
+    unknown head, or a choice the mask forbids. Those forfeit the offender
+    rather than ending the match in a draw.
+    """
+    noop = pyenv.noop_action()
+    if action is None:
+        return noop, False
+    if not isinstance(action, dict):
+        return noop, True
+    if any(head not in noop for head in action):
+        return noop, True
+
+    masks = pyenv.action_masks(aid)
+    merged = dict(noop)
+    for head, value in action.items():
+        if value is None:
+            continue
+        if _masked_head_illegal(masks.get(head), value):
+            return noop, True
+        merged[head] = value
+
+    # The masks only cover discrete heads. Let the engine's own action space
+    # reject anything else malformed (wrong length, wrong dtype, out of range)
+    # before it reaches step() and raises.
+    try:
+        space = pyenv.action_space(aid)
+        coerced = _coerce_for_space(space, merged)
+        if not space.contains(coerced):
+            return noop, True
+    except Exception:
+        return noop, True
+    return coerced, False
 
 
 def _forfeit(state, env, loser_seats):
@@ -183,20 +247,23 @@ def interpreter(state, env):
     pyenv = live["env"]
 
     losers = {i for i in range(len(state)) if state[i].status in _FORFEIT_STATUSES}
-    losers |= {
-        i for i, aid in enumerate(AGENT_IDS) if i not in losers and _illegal_investments(pyenv, aid, state[i].action)
-    }
+    actions = {}
+    for i, aid in enumerate(AGENT_IDS):
+        action, illegal = _normalize_action(pyenv, aid, state[i].action)
+        if illegal:
+            losers.add(i)
+        actions[aid] = action
     if losers:
         _forfeit(state, env, losers)
         return state
 
-    actions = {aid: state[i].action for i, aid in enumerate(AGENT_IDS)}
     try:
         observations, rewards, terminations, truncations, _ = pyenv.step(actions)
     except Exception:
-        # An action slipped past validation and broke the engine; draw it out.
-        _finish(state, {aid: 0.5 for aid in AGENT_IDS})
-        _LIVE.pop(env.id, None)
+        # Validation should have caught this. Forfeiting both seats keeps a
+        # malformed action from being a cheap way to escape a losing position;
+        # a draw would reward whoever sent it.
+        _forfeit(state, env, set(range(len(state))))
         return state
 
     for aid in AGENT_IDS:
@@ -223,6 +290,8 @@ def renderer(state, env):
 
 
 def html_renderer():
+    # No web visualizer yet; ``renderer`` above is the text fallback. Replays
+    # can be viewed via the CLI's -o export (see README).
     return ""
 
 

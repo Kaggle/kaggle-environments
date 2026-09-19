@@ -18,7 +18,9 @@ dependencies = [
     "litellm >= 1.86.1, < 1.94.0",
     "numpy >= 2.0",
     "open_spiel == 2.0.1",
-    "pettingzoo >= 1.26.1",
+    # Upper bound: pyxis subclasses ParallelEnv, whose API has broken across
+    # minor releases before. Raise deliberately after testing.
+    "pettingzoo >= 1.26.1, < 1.28",
     "pokerkit==0.6.3",
     "pydantic >= 2.11.4",
     "pygame",
