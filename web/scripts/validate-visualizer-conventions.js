@@ -82,6 +82,7 @@ const KNOWN_STANDALONE_GAME_DIRS = new Set([
   'mab',
   'orbit_wars',
   'planet_wars',
+  'pyxis',
   'reinforce_tactics',
   'rps',
   'werewolf',

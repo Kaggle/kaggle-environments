@@ -83,6 +83,13 @@
       "hidden": true,
       "default": false
     },
+    "render": {
+      "description": "Compact per-step portfolio and market snapshot for the web visualizer: both agents' cash/eNPV/sites and per-asset trial rows, plus BD offers, indication markets and the rolling alert feed. Recorded in the replay only -- stripped from both agents' observations at runtime, so it leaks nothing.",
+      "type": "object",
+      "hidden": true,
+      "shared": true,
+      "default": {}
+    },
     "remainingOverageTime": 60
   },
   "action": {
