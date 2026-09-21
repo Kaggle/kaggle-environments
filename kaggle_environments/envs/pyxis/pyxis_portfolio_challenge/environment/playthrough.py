@@ -14,7 +14,7 @@ from typing import Any, Callable
 from pydantic import BaseModel
 
 # Re-use the existing serialization helpers from the app layer
-from app.endpoint_datamodels import (
+from pyxis_portfolio_challenge.app.endpoint_datamodels import (
     alert_to_response,
     bd_asset_to_response,
     game_state_to_response,

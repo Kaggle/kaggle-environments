@@ -8,7 +8,7 @@ from typing import Any, Callable
 
 from tqdm import tqdm
 
-from app.endpoint_datamodels import bd_asset_to_response
+from pyxis_portfolio_challenge.app.endpoint_datamodels import bd_asset_to_response
 from pyxis_portfolio_challenge.config import config, instantiate_from_config
 from pyxis_portfolio_challenge.environment.metrics import (
     EvaluationMetric,

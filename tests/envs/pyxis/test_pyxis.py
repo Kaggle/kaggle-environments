@@ -62,3 +62,57 @@ def test_pyxis_illegal_action_forfeits():
     assert last[0]["reward"] is None
     assert last[1]["status"] == "DONE"
     assert last[1]["reward"] == 1.0
+
+
+def test_pyxis_partial_action_is_filled_with_noops():
+    """An agent may send only the heads it uses; the rest default to no-ops."""
+
+    def only_investments(observation, configuration):
+        return {"investments": [0 for _ in observation["actionMask"]["investments"]]}
+
+    def null_heads(observation, configuration):
+        return {"investments": None, "upgrade": None}
+
+    for agent in (only_investments, null_heads):
+        env = make("pyxis", configuration={"seed": 9})
+        env.run([agent, "knapsack"])
+        assert [s["status"] for s in env.steps[-1]] == ["DONE", "DONE"], agent.__name__
+
+
+def test_pyxis_malformed_action_forfeits_rather_than_draws():
+    """A malformed action must not be a cheap escape from a losing position."""
+    for bad in ([1, 2, 3], {"bogus_head": 1}):
+        env = make("pyxis", configuration={"seed": 3})
+        env.run([lambda o, c, b=bad: b, "do_nothing"])
+        last = env.steps[-1]
+        assert last[0]["status"] == "INVALID", bad
+        assert last[1]["reward"] == 1.0, bad
+
+
+def test_pyxis_every_masked_head_is_validated():
+    """Mask violations forfeit on all discrete heads, not just investments."""
+    # Choices outside the head's range, which every mask forbids on step 1.
+    violations = {
+        "investments": 4,
+        "ptrs_research": 10,
+        "upgrade": 1,
+    }
+    for head, choice in violations.items():
+
+        def agent(observation, configuration, h=head, c=choice):
+            mask = observation["actionMask"][h]
+            return {h: c if isinstance(mask[0], bool) else [c for _ in mask]}
+
+        env = make("pyxis", configuration={"seed": 3})
+        env.run([agent, "do_nothing"])
+        last = env.steps[-1]
+        assert last[0]["status"] == "INVALID", head
+        assert last[1]["reward"] == 1.0, head
+
+
+def test_pyxis_wrong_shape_action_forfeits():
+    """Continuous heads are unmasked, so the action space is the validator."""
+    for bad in ({"investments": [0] * 5}, {"bd_bids": [-5.0, -5.0, -5.0]}, {"site_bid": [1e12]}):
+        env = make("pyxis", configuration={"seed": 3})
+        env.run([lambda o, c, b=bad: b, "do_nothing"])
+        assert env.steps[-1][0]["status"] == "INVALID", bad
