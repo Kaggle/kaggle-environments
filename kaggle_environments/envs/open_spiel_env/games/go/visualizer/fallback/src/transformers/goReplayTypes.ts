@@ -12,6 +12,10 @@ export interface GoBoardState {
 export interface GoPlayer extends BaseGamePlayer {
   reward: number | null;
   generateReturns: string[] | null;
+  /** True when this player forfeited on this step (illegal-move retries exhausted, timeout, or error). */
+  forfeited?: boolean;
+  /** Raw move string the parser rejected on the final attempt. Not a legal coordinate. */
+  forfeitLastAttempt?: string | null;
 }
 
 export interface GoStep extends Omit<BaseGameStep, 'players'> {
@@ -19,6 +23,8 @@ export interface GoStep extends Omit<BaseGameStep, 'players'> {
   boardState: GoBoardState;
   isTerminal: boolean;
   winner: string | null;
+  /** Forfeit reason category (TIMEOUT / ERROR / INVALID / TRUNCATED), or null for a natural ending. */
+  status: string | null;
 }
 
 /**
@@ -60,6 +66,9 @@ export interface GoReplay {
 export interface GoReplayStep {
   action?: {
     actionString?: string;
+    call_details?: Array<{ response?: string; finish_reason?: string | null }>;
+    /** Why the harness gave up: TRUNCATED / EMPTY / UNPARSABLE / ILLEGAL. */
+    failureCategory?: string | null;
     generate_returns?: string[];
     status?: string;
     submission: number;
@@ -84,5 +93,5 @@ export interface GoReplayStep {
     step: number;
   };
   reward: number | null;
-  status: 'ACTIVE' | 'INACTIVE' | 'DONE';
+  status: 'ACTIVE' | 'INACTIVE' | 'DONE' | 'TIMEOUT' | 'ERROR' | 'INVALID';
 }
