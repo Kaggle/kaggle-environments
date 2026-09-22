@@ -19,7 +19,7 @@ import type {
  * object itself.
  */
 interface ReplayIndex {
-  meta: Record<string, AssetMeta>;
+  assetMeta: Record<string, AssetMeta>;
   enpv: Record<string, number[]>;
 }
 
@@ -33,14 +33,14 @@ function snapshotAt(replay: any, step: number): RenderSnapshot | null {
 }
 
 function buildIndex(replay: any): ReplayIndex {
-  const index: ReplayIndex = { meta: {}, enpv: {} };
+  const index: ReplayIndex = { assetMeta: {}, enpv: {} };
   const total = Array.isArray(replay?.steps) ? replay.steps.length : 0;
   for (let i = 0; i < total; i += 1) {
     const snap = snapshotAt(replay, i);
     if (!snap) continue;
-    if (snap.meta) Object.assign(index.meta, snap.meta);
-    for (const [agentId, agent] of Object.entries(snap.ag ?? {})) {
-      (index.enpv[agentId] ??= []).push(agent.e);
+    if (snap.assetMeta) Object.assign(index.assetMeta, snap.assetMeta);
+    for (const [agentId, agent] of Object.entries(snap.agents ?? {})) {
+      (index.enpv[agentId] ??= []).push(agent.enpv);
     }
   }
   return index;
@@ -55,21 +55,21 @@ function getIndex(replay: any): ReplayIndex {
   return cached;
 }
 
-function resolveAsset(row: AssetRow, meta: Record<string, AssetMeta>): AssetView {
-  const [key, state, phase, timeRemaining, ptrs, level, timeOnMarket] = row;
-  const [name, ta, indication, isBd, maxRevenue] = meta[key] ?? ['?', 0, 0, 0, 0];
+function resolveAsset(row: AssetRow, assetMeta: Record<string, AssetMeta>): AssetView {
+  const [key, state, phase, timeRemaining, ptrs, investmentLevel, timeOnMarket] = row;
+  const [name, therapeuticArea, indication, isBusinessDevelopment, maxRevenue] = assetMeta[key] ?? ['?', 0, 0, 0, 0];
   return {
     key,
     name,
-    ta,
+    therapeuticArea,
     indication,
-    isBd: isBd === 1,
+    isBusinessDevelopment: isBusinessDevelopment === 1,
     maxRevenue,
     state,
     phase,
     timeRemaining,
     ptrs,
-    level,
+    investmentLevel,
     timeOnMarket,
   };
 }
@@ -106,32 +106,32 @@ export function buildView(replay: any, step: number): StepView | null {
   const snap = snapshotAt(replay, step);
   if (!snap) return null;
 
-  const { meta, enpv } = getIndex(replay);
+  const { assetMeta, enpv } = getIndex(replay);
   const teamNames: string[] = Array.isArray(replay?.info?.TeamNames) ? replay.info.TeamNames : [];
 
-  const players: PlayerView[] = Object.entries(snap.ag ?? {}).map(([agentId, agent], i) => ({
+  const players: PlayerView[] = Object.entries(snap.agents ?? {}).map(([agentId, agent], i) => ({
     name: teamNames[i] || agentId,
     agentId,
-    cash: agent.c,
-    enpv: agent.e,
-    eroi: agent.r,
-    bankrupt: agent.bk,
-    operationalSites: agent.os,
-    buildingSites: agent.bs,
-    failed: agent.nf,
-    dropped: agent.nd,
-    assets: (agent.a ?? []).map((row) => resolveAsset(row, meta)),
+    cash: agent.cash,
+    enpv: agent.enpv,
+    eroi: agent.eroi,
+    bankrupt: agent.bankrupt,
+    operationalSites: agent.operationalSites,
+    buildingSites: agent.buildingSites,
+    failedCount: agent.failedCount,
+    droppedCount: agent.droppedCount,
+    assets: (agent.assets ?? []).map((row) => resolveAsset(row, assetMeta)),
     enpvSeries: (enpv[agentId] ?? []).slice(0, step + 1),
     reward: typeof stepData[i]?.reward === 'number' ? (stepData[i].reward as number) : null,
     status: stepData[i]?.status ?? 'ACTIVE',
   }));
 
   return {
-    time: snap.t,
+    time: snap.time,
     players,
-    bd: snap.bd ?? [],
-    alerts: snap.al ?? [],
-    markets: snap.im ?? [],
+    bdOffers: snap.bdOffers ?? [],
+    alerts: snap.alerts ?? [],
+    indicationMarkets: snap.indicationMarkets ?? [],
     gameOver: detectGameOver(stepData as any[], players),
   };
 }

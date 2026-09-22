@@ -2,8 +2,10 @@
  * Mirror of the `render` snapshot written by `_render_snapshot` in
  * `kaggle_environments/envs/pyxis/pyxis.py`.
  *
- * Keys are terse and asset rows are positional because the snapshot ships on
- * every step of a 101-step replay; see the Python docstring for the reasoning.
+ * Asset and market rows are tuples rather than objects: they repeat ~60x per
+ * step across a 101-step replay, and naming their fields costs 16% of the whole
+ * replay. The tuple elements are labeled below, so an editor names each slot on
+ * hover and a destructure reads like a field access.
  */
 
 /** Fixed order, matching `_THERAPEUTIC_AREAS` on the Python side. */
@@ -18,63 +20,80 @@ export const TRIAL_PHASES = ['Phase 1', 'Phase 2', 'Phase 3', 'Approval'] as con
 /** `InvestmentLevel` in `game/constants.py`. */
 export const INVESTMENT_LEVELS = ['none', 'minimal', 'standard', 'accelerated', 'stop'] as const;
 
-/** Immutable asset identity: [name, taIndex, indication, isBd, maxRevenue]. */
-export type AssetMeta = [string, number, number, number, number];
+/** An asset's immutable identity, sent once on the step it first appears. */
+export type AssetMeta = [
+  name: string,
+  therapeuticArea: number,
+  indication: number,
+  /** 1 when acquired through business development, 0 when developed in-house. */
+  isBusinessDevelopment: number,
+  maxRevenue: number,
+];
 
-/** Mutable asset row: [key, state, phase, timeRemaining, ptrs, level, timeOnMarket]. */
-export type AssetRow = [string, number, number, number, number, number, number];
+/** An asset's mutable state for one step. */
+export type AssetRow = [
+  key: string,
+  state: number,
+  phase: number,
+  timeRemaining: number,
+  /** Probability of technical and regulatory success. */
+  ptrs: number,
+  investmentLevel: number,
+  timeOnMarket: number,
+];
 
 export interface AgentSnapshot {
-  /** Cash (GBP). */
-  c: number;
-  /** Expected net present value (GBP). */
-  e: number;
+  /** GBP. */
+  cash: number;
+  /** Expected net present value, GBP. */
+  enpv: number;
   /** Expected return on investment. */
-  r: number;
-  /** Bankrupt. */
-  bk: boolean;
-  /** Operational clinical sites. */
-  os: number;
+  eroi: number;
+  bankrupt: boolean;
+  operationalSites: number;
   /** Clinical sites under construction. */
-  bs: number;
-  /** Failed assets. */
-  nf: number;
-  /** Dropped assets. */
-  nd: number;
-  a: AssetRow[];
+  buildingSites: number;
+  failedCount: number;
+  droppedCount: number;
+  assets: AssetRow[];
 }
 
 export interface BdOffer {
-  n: string;
-  ta: number;
-  ph: number;
-  mr: number;
+  name: string;
+  therapeuticArea: number;
+  phase: number;
+  maxRevenue: number;
 }
 
 export interface MarketAlert {
   /** Step the event happened on. */
-  s: number;
+  step: number;
   /** `AlertType` value: drug_release, bd_deal, pipeline_leak, ... */
-  e: string;
+  eventType: string;
   /** Agent responsible. */
-  a: string;
-  ta: number;
-  i: number;
-  d: Record<string, unknown>;
+  agentId: string;
+  therapeuticArea: number;
+  indication: number;
+  details: Record<string, unknown>;
 }
 
-/** [key, indicationName, firstMoverAgent, demandMultiplier, activeDrugCount]. */
-export type IndicationMarket = [string, string, string | null, number, number];
+export type IndicationMarket = [
+  key: string,
+  indicationName: string,
+  firstMoverAgent: string | null,
+  demandMultiplier: number,
+  activeDrugCount: number,
+];
 
 export interface RenderSnapshot {
   /** Engine time, 0..horizon. */
-  t: number;
-  ag: Record<string, AgentSnapshot>;
-  bd: BdOffer[];
-  al: MarketAlert[];
-  im: IndicationMarket[];
+  time: number;
+  agents: Record<string, AgentSnapshot>;
+  bdOffers: BdOffer[];
+  alerts: MarketAlert[];
+  indicationMarkets: IndicationMarket[];
   /** Assets first seen this step. Absent when nothing new appeared. */
-  meta?: Record<string, AssetMeta>;
+  assetMeta?: Record<string, AssetMeta>;
 }
 
 export interface PyxisObservation {
@@ -88,15 +107,15 @@ export interface PyxisObservation {
 export interface AssetView {
   key: string;
   name: string;
-  ta: number;
+  therapeuticArea: number;
   indication: number;
-  isBd: boolean;
+  isBusinessDevelopment: boolean;
   maxRevenue: number;
   state: number;
   phase: number;
   timeRemaining: number;
   ptrs: number;
-  level: number;
+  investmentLevel: number;
   timeOnMarket: number;
 }
 
@@ -109,8 +128,8 @@ export interface PlayerView {
   bankrupt: boolean;
   operationalSites: number;
   buildingSites: number;
-  failed: number;
-  dropped: number;
+  failedCount: number;
+  droppedCount: number;
   assets: AssetView[];
   /** eNPV at every step up to and including the current one. */
   enpvSeries: number[];
@@ -132,8 +151,8 @@ export interface GameOver {
 export interface StepView {
   time: number;
   players: PlayerView[];
-  bd: BdOffer[];
+  bdOffers: BdOffer[];
   alerts: MarketAlert[];
-  markets: IndicationMarket[];
+  indicationMarkets: IndicationMarket[];
   gameOver: GameOver | null;
 }

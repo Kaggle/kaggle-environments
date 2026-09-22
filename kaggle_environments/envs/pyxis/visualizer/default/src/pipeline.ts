@@ -114,7 +114,7 @@ function drawPlayerAssets(
   for (const asset of player.assets) {
     const col = columnOf(asset);
     if (col < 0) continue;
-    const key = `${asset.ta}:${col}`;
+    const key = `${asset.therapeuticArea}:${col}`;
     const bucket = cells.get(key);
     if (bucket) bucket.push(asset);
     else cells.set(key, [asset]);
@@ -122,10 +122,10 @@ function drawPlayerAssets(
 
   const half = rowH / 2;
   for (const [key, assets] of cells) {
-    const [ta, col] = key.split(':').map(Number);
+    const [therapeuticArea, col] = key.split(':').map(Number);
     const x0 = PAD.left + colW * col;
     // Player 0 takes the top half of the row, player 1 the bottom.
-    const y0 = PAD.top + rowH * ta + (playerIdx === 0 ? 0 : half);
+    const y0 = PAD.top + rowH * therapeuticArea + (playerIdx === 0 ? 0 : half);
 
     assets.sort((a, b) => b.maxRevenue - a.maxRevenue);
     const perRow = Math.max(1, Math.floor(colW / 16));
@@ -147,7 +147,7 @@ function drawPlayerAssets(
       ctx.stroke();
 
       // An accelerated asset gets a ring; it is the loudest thing a player does.
-      if (asset.level >= 3) {
+      if (asset.investmentLevel >= 3) {
         ctx.beginPath();
         ctx.arc(cx, cy, r + 2.5, 0, Math.PI * 2);
         ctx.strokeStyle = INK;

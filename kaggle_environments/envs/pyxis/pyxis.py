@@ -94,13 +94,19 @@ def _render_snapshot(game, known):
 
     The engine's own ``playthrough.capture_agent_states`` emits ~215 KB per step
     (21 MB for a match), most of it static prose and per-phase trial detail the
-    renderer never reads. This keeps the ~2.8 KB the visualizer actually draws:
-    an asset's immutable identity is emitted once into ``meta`` the step it first
-    appears, and every later step carries only the mutable row. ``known`` is the
-    caller's accumulator of already-described assets.
+    renderer never reads. This keeps the ~4 KB the visualizer actually draws: an
+    asset's immutable identity is emitted once into ``assetMeta`` the step it
+    first appears, and every later step carries only the mutable row. ``known``
+    is the caller's accumulator of already-described assets.
+
+    Asset and market rows stay positional because they repeat ~60x per step;
+    naming their fields would add 16% to the whole replay. Everything that
+    appears once per step is spelled out -- measured at 1.7% of the replay, not
+    worth the illegibility. ``visualizer/default/src/types.ts`` labels the tuple
+    slots.
     """
     market = game.shared_market
-    meta = {}
+    asset_meta = {}
     agents = {}
     for aid, gs in game.agent_states.items():
         rows = []
@@ -108,7 +114,7 @@ def _render_snapshot(game, known):
             key = _asset_key(asset)
             if key not in known:
                 known.add(key)
-                meta[key] = [
+                asset_meta[key] = [
                     asset.name,
                     _THERAPEUTIC_AREAS.index(asset.therapeutic_area),
                     int(asset.indication),
@@ -128,44 +134,44 @@ def _render_snapshot(game, known):
                 ]
             )
         agents[aid] = {
-            "c": round(float(gs.cash)),
-            "e": round(float(gs.enpv())),
-            "r": round(float(gs.eroi()), 3),
-            "bk": bool(gs.bankrupt),
-            "os": int(gs.operational_sites),
-            "bs": len(gs.sites_in_development),
+            "cash": round(float(gs.cash)),
+            "enpv": round(float(gs.enpv())),
+            "eroi": round(float(gs.eroi()), 3),
+            "bankrupt": bool(gs.bankrupt),
+            "operationalSites": int(gs.operational_sites),
+            "buildingSites": len(gs.sites_in_development),
             # ``expired_assets`` is the unreleased asset pool, not expired drugs —
             # it holds hundreds of entries at reset — so it is deliberately absent.
-            "nf": len(gs.failed_assets),
-            "nd": len(gs.dropped_assets),
-            "a": rows,
+            "failedCount": len(gs.failed_assets),
+            "droppedCount": len(gs.dropped_assets),
+            "assets": rows,
         }
 
     snapshot = {
-        "t": int(game.time),
-        "ag": agents,
-        "bd": [
+        "time": int(game.time),
+        "agents": agents,
+        "bdOffers": [
             {
-                "n": a.name,
-                "ta": _THERAPEUTIC_AREAS.index(a.therapeutic_area),
-                "ph": a.trial.phase.integer if a.trial else -1,
-                "mr": round(float(a.max_revenue)),
+                "name": a.name,
+                "therapeuticArea": _THERAPEUTIC_AREAS.index(a.therapeutic_area),
+                "phase": a.trial.phase.integer if a.trial else -1,
+                "maxRevenue": round(float(a.max_revenue)),
             }
             for a in market.current_bd_assets
         ],
         # Already pruned by the engine to a rolling 5-step window.
-        "al": [
+        "alerts": [
             {
-                "s": al.step,
-                "e": al.event_type.value,
-                "a": al.agent_id,
-                "ta": _THERAPEUTIC_AREAS.index(al.therapeutic_area),
-                "i": int(al.indication),
-                "d": _to_jsonable(al.details),
+                "step": al.step,
+                "eventType": al.event_type.value,
+                "agentId": al.agent_id,
+                "therapeuticArea": _THERAPEUTIC_AREAS.index(al.therapeutic_area),
+                "indication": int(al.indication),
+                "details": _to_jsonable(al.details),
             }
             for al in market.alerts
         ],
-        "im": [
+        "indicationMarkets": [
             [
                 key,
                 m.indication_name,
@@ -176,8 +182,8 @@ def _render_snapshot(game, known):
             for key, m in market.indication_markets.items()
         ],
     }
-    if meta:
-        snapshot["meta"] = meta
+    if asset_meta:
+        snapshot["assetMeta"] = asset_meta
     return snapshot
 
 

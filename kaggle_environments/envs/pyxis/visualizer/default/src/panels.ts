@@ -80,7 +80,7 @@ function renderPlayerCards(refs: PanelRefs, view: StepView) {
     (card.children[2] as HTMLElement).textContent =
       `${inDev} in trials  ·  ${onMarket} on market  ·  ${player.operationalSites} sites` +
       (player.buildingSites ? ` (+${player.buildingSites} building)` : '') +
-      (player.failed ? `  ·  ${player.failed} failed` : '');
+      (player.failedCount ? `  ·  ${player.failedCount} failed` : '');
 
     const badge = card.children[3] as HTMLElement;
     badge.textContent = player.bankrupt ? 'BANKRUPT' : i === leader ? 'LEADING' : '';
@@ -90,17 +90,17 @@ function renderPlayerCards(refs: PanelRefs, view: StepView) {
 function renderBd(refs: PanelRefs, view: StepView) {
   refs.bd.textContent = '';
   refs.bd.append(el('div', 'panel-title', 'Business development'));
-  if (view.bd.length === 0) {
+  if (view.bdOffers.length === 0) {
     refs.bd.append(el('div', 'panel-empty', 'No assets on offer'));
     return;
   }
-  for (const offer of view.bd) {
+  for (const offer of view.bdOffers) {
     const row = el('div', 'panel-row');
     row.append(
-      el('span', 'panel-key', offer.n),
-      el('span', 'panel-val', `${TRIAL_PHASES[offer.ph] ?? '—'} · ${formatMoney(offer.mr)} peak`)
+      el('span', 'panel-key', offer.name),
+      el('span', 'panel-val', `${TRIAL_PHASES[offer.phase] ?? '—'} · ${formatMoney(offer.maxRevenue)} peak`)
     );
-    row.title = THERAPEUTIC_AREAS[offer.ta] ?? '';
+    row.title = THERAPEUTIC_AREAS[offer.therapeuticArea] ?? '';
     refs.bd.append(row);
   }
 }
@@ -109,7 +109,9 @@ function renderMarkets(refs: PanelRefs, view: StepView) {
   refs.markets.textContent = '';
   refs.markets.append(el('div', 'panel-title', 'Indication markets'));
   // Only contested or boosted indications are worth the space.
-  const active = view.markets.filter(([, , firstMover, demand, drugs]) => drugs > 0 || firstMover || demand !== 1);
+  const active = view.indicationMarkets.filter(
+    ([, , firstMover, demand, drugs]) => drugs > 0 || firstMover || demand !== 1
+  );
   if (active.length === 0) {
     refs.markets.append(el('div', 'panel-empty', 'No drugs on market yet'));
     return;
@@ -125,23 +127,24 @@ function renderMarkets(refs: PanelRefs, view: StepView) {
 }
 
 function alertText(alert: MarketAlert): string {
-  const area = THERAPEUTIC_AREAS[alert.ta] ?? '';
-  const d = alert.d ?? {};
-  switch (alert.e) {
+  const area = THERAPEUTIC_AREAS[alert.therapeuticArea] ?? '';
+  const who = alert.agentId;
+  const d = alert.details ?? {};
+  switch (alert.eventType) {
     case 'drug_release':
-      return `${alert.a} launched a drug in ${area} (${formatMoney(Number(d.max_revenue ?? 0))} peak)`;
+      return `${who} launched a drug in ${area} (${formatMoney(Number(d.max_revenue ?? 0))} peak)`;
     case 'bd_deal':
-      return `${alert.a} acquired ${d.asset_name ?? 'an asset'} for ${formatMoney(Number(d.price ?? 0))}`;
+      return `${who} acquired ${d.asset_name ?? 'an asset'} for ${formatMoney(Number(d.price ?? 0))}`;
     case 'pipeline_leak':
-      return `${alert.a}'s ${area} programme reached ${d.new_phase ?? 'a new phase'}`;
+      return `${who}'s ${area} programme reached ${d.new_phase ?? 'a new phase'}`;
     case 'clinical_site_deal':
-      return `${alert.a} won a clinical site for ${formatMoney(Number(d.price ?? 0))}`;
+      return `${who} won a clinical site for ${formatMoney(Number(d.price ?? 0))}`;
     case 'be_spend':
-      return `${alert.a} spent on brand equity in ${area}`;
+      return `${who} spent on brand equity in ${area}`;
     case 'dc_spend':
-      return `${alert.a} spent on demand creation in ${area}`;
+      return `${who} spent on demand creation in ${area}`;
     default:
-      return `${alert.a}: ${alert.e}`;
+      return `${who}: ${alert.eventType}`;
   }
 }
 
@@ -152,10 +155,10 @@ function renderAlerts(refs: PanelRefs, view: StepView) {
     refs.alerts.append(el('div', 'panel-empty', 'Quiet on the market'));
     return;
   }
-  const recent = [...view.alerts].sort((a, b) => b.s - a.s).slice(0, 5);
+  const recent = [...view.alerts].sort((a, b) => b.step - a.step).slice(0, 5);
   for (const alert of recent) {
     const row = el('div', 'panel-row alert-row');
-    row.append(el('span', 'panel-key', `t${alert.s}`), el('span', 'panel-val', alertText(alert)));
+    row.append(el('span', 'panel-key', `t${alert.step}`), el('span', 'panel-val', alertText(alert)));
     refs.alerts.append(row);
   }
 }
