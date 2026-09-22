@@ -1,3 +1,4 @@
+import { detectForfeit, FORFEIT_REASONS } from '@kaggle-environments/core';
 import { GoPlayer, GoReplay, GoStep, GoBoardState, GoReplayStep } from './goReplayTypes';
 
 function parseThoughts(action?: { generate_returns?: string[]; thoughts?: string }): string {
@@ -41,17 +42,30 @@ function parseBoardState(observationString: string): GoBoardState {
   }
 }
 
-function deriveWinner(step: GoReplayStep[]): string {
+/**
+ * Derive the result from the final rewards rather than `observation.isTerminal`.
+ *
+ * A forfeit ends the episode while OpenSpiel is still mid-game, so `isTerminal`
+ * stays false even though the env has already paid out +1 / -1. Gating on it
+ * dropped the result from forfeited replays entirely.
+ */
+function deriveWinner(step: GoReplayStep[], forfeitReasonKey?: string | null): string {
   if (step.length < 2) return '';
 
   const reward0 = step[0].reward;
   const reward1 = step[1].reward;
 
-  if (reward0 === reward1) {
+  let result: string;
+  if (reward0 === 1) {
+    result = 'Black Wins!';
+  } else if (reward1 === 1) {
+    result = 'White Wins!';
+  } else {
     return 'Draw';
   }
 
-  return reward0 === 1 ? 'Black Wins!' : 'White Wins!';
+  const reason = forfeitReasonKey ? FORFEIT_REASONS[forfeitReasonKey] : undefined;
+  return reason ? `${result} (opponent ${reason})` : result;
 }
 
 export const goTransformer = (environment: any): GoStep[] => {
@@ -61,7 +75,13 @@ export const goTransformer = (environment: any): GoStep[] => {
   const goSteps: GoStep[] = [];
 
   goReplay.steps.forEach((step, index) => {
+    // Scoping the per-player flag to detectForfeit also filters out Go's setup
+    // step, where *both* seats carry a "no legal actions" status -- a two-sided
+    // match is ambiguous, so detectForfeit returns null there.
+    const forfeit = detectForfeit(step);
+
     const stepPlayers: GoPlayer[] = step.map((player, playerIndex): GoPlayer => {
+      const forfeited = forfeit?.index === playerIndex;
       const actionString = player.action?.actionString ?? '';
       const [, move] = actionString.split(' ');
 
@@ -69,22 +89,29 @@ export const goTransformer = (environment: any): GoStep[] => {
         id: playerIndex,
         name: agents[playerIndex],
         thumbnail: '',
-        isTurn: player.action?.submission !== undefined && player.action.submission !== -1,
-        actionDisplayText: move ?? '',
+        // Forfeits count as a turn so the step survives into the replay;
+        // otherwise neither seat is active and the ending vanishes.
+        isTurn: (player.action?.submission !== undefined && player.action.submission !== -1) || forfeited,
+        actionDisplayText: forfeited ? '' : (move ?? ''),
         thoughts: parseThoughts(player.action),
         reward: player.reward,
         generateReturns: player.action?.generate_returns ?? null,
+        forfeited,
+        forfeitLastAttempt: forfeited ? (player.action?.actionString ?? null) : null,
       };
     });
 
     if (stepPlayers.some((player) => player.isTurn)) {
-      const isTerminal = step[0].observation.isTerminal;
+      // A forfeit ends the episode even though OpenSpiel never reached a
+      // terminal state, so treat it as terminal for display purposes.
+      const isTerminal = step[0].observation.isTerminal || !!forfeit;
       goSteps.push({
         step: index,
         players: stepPlayers,
         boardState: parseBoardState(step[0].observation.observationString),
         isTerminal,
-        winner: isTerminal ? deriveWinner(step) : null,
+        winner: isTerminal ? deriveWinner(step, forfeit?.reasonKey) : null,
+        status: forfeit?.reasonKey ?? null,
       });
     }
   });

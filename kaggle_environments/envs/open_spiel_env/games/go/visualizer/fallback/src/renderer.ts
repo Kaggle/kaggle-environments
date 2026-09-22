@@ -420,9 +420,20 @@ export function renderer(options: RendererOptions<GoStep[]>) {
     }
 
     // Update status display
-    currentStatusTextElement.innerHTML = currentPlayer?.name || '';
+    if (currentPlayer?.forfeited) {
+      const attempted = currentPlayer.forfeitLastAttempt;
+      currentStatusTextElement.textContent = attempted
+        ? `${currentPlayer.name} forfeited (last attempt: ${attempted})`
+        : `${currentPlayer.name} forfeited`;
+    } else {
+      currentStatusTextElement.textContent = currentPlayer?.name || '';
+    }
 
-    if (previous_move) {
+    // The result takes precedence over the last-move line: on a forfeit the
+    // episode is over even though the board looks mid-game.
+    if (step.isTerminal && step.winner) {
+      currentWinnerTextElement.textContent = step.winner;
+    } else if (previous_move) {
       currentWinnerTextElement.textContent = `Last move: ${previous_move}${komi ? ` • Komi: ${komi}` : ''}`;
     } else {
       currentWinnerTextElement.textContent = komi ? `Komi: ${komi}` : '';

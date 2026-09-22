@@ -13,6 +13,16 @@ export interface GoBoardState {
 export interface GoPlayer extends BaseGamePlayer {
   reward: number | null;
   generateReturns: string[] | null;
+  /** True when this player forfeited on this step (ran out of legal-move retries, timed out, or errored). */
+  forfeited?: boolean;
+  /**
+   * The raw move string the parser rejected on the final attempt, when the
+   * player forfeited. Unlike actionDisplayText this is *not* a legal Go
+   * coordinate -- it is whatever the model produced -- so it must never be
+   * fed to the board engine. null on non-forfeit turns, and also on
+   * EMPTY / UNPARSABLE forfeits where nothing was extracted.
+   */
+  forfeitLastAttempt?: string | null;
 }
 
 export interface GoStep extends Omit<BaseGameStep, 'players'> {
@@ -21,6 +31,8 @@ export interface GoStep extends Omit<BaseGameStep, 'players'> {
   isTerminal: boolean;
   hasCaptures: boolean;
   winner: string | null;
+  /** Forfeit reason category (TIMEOUT / ERROR / INVALID / TRUNCATED), or null for a natural ending. */
+  status: string | null;
 }
 
 /**
@@ -62,6 +74,9 @@ export interface GoReplay {
 export interface GoReplayStep {
   action?: {
     actionString?: string;
+    call_details?: Array<{ response?: string; finish_reason?: string | null }>;
+    /** Why the harness gave up: TRUNCATED / EMPTY / UNPARSABLE / ILLEGAL. */
+    failureCategory?: string | null;
     generate_returns?: string[];
     status?: string;
     submission: number;
@@ -86,5 +101,5 @@ export interface GoReplayStep {
     step: number;
   };
   reward: number | null;
-  status: 'ACTIVE' | 'INACTIVE' | 'DONE';
+  status: 'ACTIVE' | 'INACTIVE' | 'DONE' | 'TIMEOUT' | 'ERROR' | 'INVALID';
 }
