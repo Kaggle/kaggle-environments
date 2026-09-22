@@ -75,7 +75,119 @@ def _build_pyxis_env():
     return env
 
 
-def _write_observations(state, pyenv, observations):
+# Fixed therapeutic-area order, mirrored in the visualizer. Snapshots store the
+# index rather than repeating these strings once per asset per step.
+_THERAPEUTIC_AREAS = [
+    "oncology",
+    "respiratory and immunology",
+    "vaccines and infectious disease",
+]
+
+
+def _asset_key(asset):
+    """Short stable id for an asset, long enough not to collide within a match."""
+    return str(asset.id)[:8]
+
+
+def _render_snapshot(game, known):
+    """Compact per-step portfolio + market state for the web visualizer.
+
+    The engine's own ``playthrough.capture_agent_states`` emits ~215 KB per step
+    (21 MB for a match), most of it static prose and per-phase trial detail the
+    renderer never reads. This keeps the ~4 KB the visualizer actually draws: an
+    asset's immutable identity is emitted once into ``assetMeta`` the step it
+    first appears, and every later step carries only the mutable row. ``known``
+    is the caller's accumulator of already-described assets.
+
+    Asset and market rows stay positional because they repeat ~60x per step;
+    naming their fields would add 16% to the whole replay. Everything that
+    appears once per step is spelled out -- measured at 1.7% of the replay, not
+    worth the illegibility. ``visualizer/default/src/types.ts`` labels the tuple
+    slots.
+    """
+    market = game.shared_market
+    asset_meta = {}
+    agents = {}
+    for aid, gs in game.agent_states.items():
+        rows = []
+        for asset in gs.assets.values():
+            key = _asset_key(asset)
+            if key not in known:
+                known.add(key)
+                asset_meta[key] = [
+                    asset.name,
+                    _THERAPEUTIC_AREAS.index(asset.therapeutic_area),
+                    int(asset.indication),
+                    0 if asset.type == "internal" else 1,
+                    round(float(asset.max_revenue)),
+                ]
+            trial = asset.trial
+            rows.append(
+                [
+                    key,
+                    asset.state.integer,
+                    trial.phase.integer if trial else -1,
+                    int(trial.time_remaining) if trial else 0,
+                    round(float(trial.ptrs), 3) if trial else 0,
+                    int(asset.current_investment_level),
+                    int(asset.time_on_market),
+                ]
+            )
+        agents[aid] = {
+            "cash": round(float(gs.cash)),
+            "enpv": round(float(gs.enpv())),
+            "eroi": round(float(gs.eroi()), 3),
+            "bankrupt": bool(gs.bankrupt),
+            "operationalSites": int(gs.operational_sites),
+            "buildingSites": len(gs.sites_in_development),
+            # ``expired_assets`` is the unreleased asset pool, not expired drugs —
+            # it holds hundreds of entries at reset — so it is deliberately absent.
+            "failedCount": len(gs.failed_assets),
+            "droppedCount": len(gs.dropped_assets),
+            "assets": rows,
+        }
+
+    snapshot = {
+        "time": int(game.time),
+        "agents": agents,
+        "bdOffers": [
+            {
+                "name": a.name,
+                "therapeuticArea": _THERAPEUTIC_AREAS.index(a.therapeutic_area),
+                "phase": a.trial.phase.integer if a.trial else -1,
+                "maxRevenue": round(float(a.max_revenue)),
+            }
+            for a in market.current_bd_assets
+        ],
+        # Already pruned by the engine to a rolling 5-step window.
+        "alerts": [
+            {
+                "step": al.step,
+                "eventType": al.event_type.value,
+                "agentId": al.agent_id,
+                "therapeuticArea": _THERAPEUTIC_AREAS.index(al.therapeutic_area),
+                "indication": int(al.indication),
+                "details": _to_jsonable(al.details),
+            }
+            for al in market.alerts
+        ],
+        "indicationMarkets": [
+            [
+                key,
+                m.indication_name,
+                m.first_mover_agent,
+                round(float(m.demand_multiplier), 3),
+                sum(len(ids) for ids in m.active_drugs.values()),
+            ]
+            for key, m in market.indication_markets.items()
+        ],
+    }
+    if asset_meta:
+        snapshot["assetMeta"] = asset_meta
+    return snapshot
+
+
+def _write_observations(state, pyenv, observations, known_assets):
     """Copy per-agent engine observation + book-keeping into the Kaggle state."""
     portfolios = pyenv.agent_portfolios
     for i, aid in enumerate(AGENT_IDS):
@@ -87,6 +199,9 @@ def _write_observations(state, pyenv, observations):
             obs.cash = float(gs.cash)
             obs.enpv = float(gs.enpv())
             obs.bankrupt = bool(gs.bankrupt)
+    # Hidden + shared: recorded once on seat 0 for the replay, stripped from both
+    # agents' runtime observations so neither can read the other's portfolio.
+    state[0].observation.render = _render_snapshot(pyenv.multi_agent_game, known_assets)
 
 
 def _outcomes(pyenv, cum):
@@ -229,8 +344,14 @@ def interpreter(state, env):
         seed = resolve_episode_seed(env)
         pyenv = _build_pyxis_env()
         observations, _ = pyenv.reset(seed=seed)
-        _LIVE[env.id] = {"env": pyenv, "cum": {aid: 0.0 for aid in AGENT_IDS}, "baselines": {}}
-        _write_observations(state, pyenv, observations)
+        _LIVE[env.id] = {
+            "env": pyenv,
+            "cum": {aid: 0.0 for aid in AGENT_IDS},
+            "baselines": {},
+            # Assets already described in a snapshot's ``meta``; see _render_snapshot.
+            "known_assets": set(),
+        }
+        _write_observations(state, pyenv, observations, _LIVE[env.id]["known_assets"])
         for i in range(len(state)):
             state[i].observation.initialized = True
         state[0].observation.kaggleEnvId = env.id
@@ -269,7 +390,7 @@ def interpreter(state, env):
     for aid in AGENT_IDS:
         live["cum"][aid] += float(rewards.get(aid, 0.0))
 
-    _write_observations(state, pyenv, observations)
+    _write_observations(state, pyenv, observations, live["known_assets"])
 
     if all(terminations.values()) or all(truncations.values()):
         _finish(state, _outcomes(pyenv, live["cum"]))
@@ -289,9 +410,12 @@ def renderer(state, env):
     return "\n".join(lines)
 
 
-def html_renderer():
-    # No web visualizer yet; ``renderer`` above is the text fallback. Replays
-    # can be viewed via the CLI's -o export (see README).
+def html_renderer(env, mode):
+    jspath = os.path.join(_DIR, "visualizer", "default", "dist", "index.html")
+    if os.path.exists(jspath):
+        with open(jspath, encoding="utf-8") as f:
+            return f.read()
+    # Unbuilt visualizer; ``renderer`` above is the text fallback.
     return ""
 
 
