@@ -5,262 +5,253 @@ from absl.testing import absltest
 
 
 class SnakeGameTest(absltest.TestCase):
+    def test_game_creation(self):
+        game = pyspiel.load_game("snake")
+        self.assertIsNotNone(game)
+        state = game.new_initial_state()
+        self.assertIsNotNone(state)
+        self.assertFalse(state.is_terminal())
+        # Default 2 players
+        self.assertEqual(state.num_players, 2)
+        # Simultaneous dynamics: current player is SIMULTANEOUS, not 0.
+        self.assertTrue(state.is_simultaneous_node())
+        self.assertEqual(state.current_player(), pyspiel.PlayerId.SIMULTANEOUS)
 
-  def test_game_creation(self):
-    game = pyspiel.load_game("snake")
-    self.assertIsNotNone(game)
-    state = game.new_initial_state()
-    self.assertIsNotNone(state)
-    self.assertFalse(state.is_terminal())
-    # Default 2 players
-    self.assertEqual(state.num_players, 2)
+    def test_movement(self):
+        game = pyspiel.load_game("snake", {"rows": 10, "columns": 10, "players": 1})
+        state = game.new_initial_state()
+        # Initial snake is at center.
+        head_pos = state.snakes[0][0]
 
-  def test_movement(self):
-    game = pyspiel.load_game(
-        "snake", {"rows": 10, "columns": 10, "players": 1}
-    )
-    state = game.new_initial_state()
-    # Initial snake is at center.
-    head_pos = state.snakes[0][0]
+        # Move UP (0)
+        state.apply_actions([0])
+        new_head_pos = state.snakes[0][0]
+        self.assertEqual(new_head_pos[0], head_pos[0] - 1)
+        self.assertEqual(new_head_pos[1], head_pos[1])
 
-    # Move UP (0)
-    state.apply_action(0)
-    new_head_pos = state.snakes[0][0]
-    self.assertEqual(new_head_pos[0], head_pos[0] - 1)
-    self.assertEqual(new_head_pos[1], head_pos[1])
+    def test_wall_collision(self):
+        game = pyspiel.load_game("snake", {"rows": 3, "columns": 3, "players": 1})
+        state = game.new_initial_state()
+        # Clear foods so the test only measures wall collision (random food may
+        # otherwise land on the snake's path and grant a point).
+        state.foods = []
+        # Snake at 1, 1.
+        # Move UP to 0, 1
+        state.apply_actions([0])
+        # Move UP to -1, 1 (collision)
+        state.apply_actions([0])
+        self.assertTrue(state.is_terminal())
+        # Check returns (0 score)
+        self.assertEqual(state.returns()[0], 0)
 
-  def test_wall_collision(self):
-    game = pyspiel.load_game(
-        "snake", {"rows": 3, "columns": 3, "players": 1}
-    )
-    state = game.new_initial_state()
-    # Clear foods so the test only measures wall collision (random food may
-    # otherwise land on the snake's path and grant a point).
-    state.foods = []
-    # Snake at 1, 1.
-    # Move UP to 0, 1
-    state.apply_action(0)
-    # Move UP to -1, 1 (collision)
-    state.apply_action(0)
-    self.assertTrue(state.is_terminal())
-    # Check returns (0 score)
-    self.assertEqual(state.returns()[0], 0)
+    def test_eating_food(self):
+        game = pyspiel.load_game("snake", {"rows": 10, "columns": 10, "players": 1})
+        state = game.new_initial_state()
 
-  def test_eating_food(self):
-    game = pyspiel.load_game(
-        "snake", {"rows": 10, "columns": 10, "players": 1}
-    )
-    state = game.new_initial_state()
+        # Force food pair to known cells (one reachable, one far away).
+        head_r, head_c = state.snakes[0][0]
+        food_r, food_c = head_r - 1, head_c
+        partner = (state.rows - 1 - food_r, state.cols - 1 - food_c)
+        state.foods = [(food_r, food_c), partner]
 
-    # Force food pair to known cells (one reachable, one far away).
-    head_r, head_c = state.snakes[0][0]
-    food_r, food_c = head_r - 1, head_c
-    partner = (state.rows - 1 - food_r, state.cols - 1 - food_c)
-    state.foods = [(food_r, food_c), partner]
+        initial_len = len(state.snakes[0])
+        # Move UP to eat
+        state.apply_actions([0])
 
-    initial_len = len(state.snakes[0])
-    # Move UP to eat
-    state.apply_action(0)
+        self.assertLen(state.snakes[0], initial_len + 1)
+        self.assertEqual(state.returns()[0], 1.0)
+        # Eaten food cell should be gone.
+        self.assertNotIn((food_r, food_c), state.foods)
 
-    self.assertLen(state.snakes[0], initial_len + 1)
-    self.assertEqual(state.returns()[0], 1.0)
-    # Eaten food cell should be gone.
-    self.assertNotIn((food_r, food_c), state.foods)
+    def test_food_pair_symmetric(self):
+        game = pyspiel.load_game("snake", {"rows": 10, "columns": 10, "players": 2})
+        state = game.new_initial_state()
 
-  def test_food_pair_symmetric(self):
-    game = pyspiel.load_game(
-        "snake", {"rows": 10, "columns": 10, "players": 2}
-    )
-    state = game.new_initial_state()
+        self.assertLen(state.foods, 2)
+        (r0, c0), (r1, c1) = state.foods
+        # 180° rotation about board center.
+        self.assertEqual(r0 + r1, state.rows - 1)
+        self.assertEqual(c0 + c1, state.cols - 1)
 
-    self.assertLen(state.foods, 2)
-    (r0, c0), (r1, c1) = state.foods
-    # 180° rotation about board center.
-    self.assertEqual(r0 + r1, state.rows - 1)
-    self.assertEqual(c0 + c1, state.cols - 1)
+        # Distance from each snake start to its nearest food is equal.
+        def manhattan(a, b):
+            return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
-    # Distance from each snake start to its nearest food is equal.
-    def manhattan(a, b):
-      return abs(a[0] - b[0]) + abs(a[1] - b[1])
+        p0_start = state.snakes[0][0]
+        p1_start = state.snakes[1][0]
+        d0 = min(manhattan(p0_start, f) for f in state.foods)
+        d1 = min(manhattan(p1_start, f) for f in state.foods)
+        self.assertEqual(d0, d1)
 
-    p0_start = state.snakes[0][0]
-    p1_start = state.snakes[1][0]
-    d0 = min(manhattan(p0_start, f) for f in state.foods)
-    d1 = min(manhattan(p1_start, f) for f in state.foods)
-    self.assertEqual(d0, d1)
+    def test_food_respawn_timer(self):
+        game = pyspiel.load_game(
+            "snake",
+            {"rows": 10, "columns": 10, "players": 2, "food_respawn_interval": 3},
+        )
+        state = game.new_initial_state()
 
-  def test_food_respawn_timer(self):
-    game = pyspiel.load_game(
-        "snake",
-        {"rows": 10, "columns": 10, "players": 2, "food_respawn_interval": 3},
-    )
-    state = game.new_initial_state()
+        # Pin foods to cells far from either snake so neither can eat them.
+        state.foods = [(4, 0), (5, 9)]
 
-    # Pin foods to cells far from either snake so neither can eat them.
-    state.foods = [(4, 0), (5, 9)]
+        # Step 3 turns of safe moves: P0 starts at (1,1) heads DOWN; P1 starts
+        # at (8,8) heads UP — both stay well clear of the walls and each other.
+        for _ in range(3):
+            state.apply_actions([1, 0])  # P0 DOWN, P1 UP
 
-    # Step 3 turns of safe moves: P0 starts at (1,1) heads DOWN; P1 starts
-    # at (8,8) heads UP — both stay well clear of the walls and each other.
-    for _ in range(3):
-      state.apply_action(1)  # P0 DOWN
-      state.apply_action(0)  # P1 UP
+        # Old pinned cells must be gone (replaced by a fresh symmetric pair).
+        self.assertNotIn((4, 0), state.foods)
+        self.assertNotIn((5, 9), state.foods)
+        self.assertLen(state.foods, 2)
+        (r0, c0), (r1, c1) = state.foods
+        self.assertEqual(r0 + r1, state.rows - 1)
+        self.assertEqual(c0 + c1, state.cols - 1)
 
-    # Old pinned cells must be gone (replaced by a fresh symmetric pair).
-    self.assertNotIn((4, 0), state.foods)
-    self.assertNotIn((5, 9), state.foods)
-    self.assertLen(state.foods, 2)
-    (r0, c0), (r1, c1) = state.foods
-    self.assertEqual(r0 + r1, state.rows - 1)
-    self.assertEqual(c0 + c1, state.cols - 1)
+    def test_uneaten_food_removed_on_respawn(self):
+        game = pyspiel.load_game(
+            "snake",
+            {"rows": 10, "columns": 10, "players": 2, "food_respawn_interval": 2},
+        )
+        state = game.new_initial_state()
+        state.foods = [(0, 0), (9, 9)]  # Out of reach in 2 turns.
 
-  def test_uneaten_food_removed_on_respawn(self):
-    game = pyspiel.load_game(
-        "snake",
-        {"rows": 10, "columns": 10, "players": 2, "food_respawn_interval": 2},
-    )
-    state = game.new_initial_state()
-    state.foods = [(0, 0), (9, 9)]  # Out of reach in 2 turns.
+        for _ in range(2):
+            state.apply_actions([1, 0])  # P0 DOWN, P1 UP
 
-    for _ in range(2):
-      state.apply_action(1)  # P0 DOWN
-      state.apply_action(0)  # P1 UP
+        self.assertNotIn((0, 0), state.foods)
+        self.assertNotIn((9, 9), state.foods)
 
-    self.assertNotIn((0, 0), state.foods)
-    self.assertNotIn((9, 9), state.foods)
+    def test_food_respawns_immediately_when_board_empty(self):
+        game = pyspiel.load_game(
+            "snake",
+            {"rows": 10, "columns": 10, "players": 2, "food_respawn_interval": 10},
+        )
+        state = game.new_initial_state()
 
-  def test_food_respawns_immediately_when_board_empty(self):
-    game = pyspiel.load_game(
-        "snake",
-        {"rows": 10, "columns": 10, "players": 2, "food_respawn_interval": 10},
-    )
-    state = game.new_initial_state()
+        # Pin food where P0 will eat it on step 1 (and its symmetric partner
+        # where P1 will eat it on step 1).
+        state.snakes[0] = [(1, 1)]
+        state.snakes[1] = [(8, 8)]
+        state.foods = [(2, 1), (7, 8)]
 
-    # Pin food where P0 will eat it on step 1 (and its symmetric partner
-    # where P1 will eat it on step 1).
-    state.snakes[0] = [(1, 1)]
-    state.snakes[1] = [(8, 8)]
-    state.foods = [(2, 1), (7, 8)]
+        state.apply_actions([1, 0])  # P0 DOWN eats (2,1); P1 UP eats (7,8)
 
-    state.apply_action(1)  # P0 DOWN -> eats (2,1)
-    state.apply_action(0)  # P1 UP   -> eats (7,8)
+        # Both eaten in one turn: new pair should be placed immediately (not
+        # wait 10 turns for the timer).
+        self.assertLen(state.foods, 2)
+        self.assertNotIn((2, 1), state.foods)
+        self.assertNotIn((7, 8), state.foods)
 
-    # Both eaten in one turn: new pair should be placed immediately (not
-    # wait 10 turns for the timer).
-    self.assertLen(state.foods, 2)
-    self.assertNotIn((2, 1), state.foods)
-    self.assertNotIn((7, 8), state.foods)
+    def test_immediate_respawn_resets_timer(self):
+        game = pyspiel.load_game(
+            "snake",
+            {"rows": 10, "columns": 10, "players": 2, "food_respawn_interval": 5},
+        )
+        state = game.new_initial_state()
+        state.snakes[0] = [(1, 1)]
+        state.snakes[1] = [(8, 8)]
+        state.foods = [(2, 1), (7, 8)]
 
-  def test_immediate_respawn_resets_timer(self):
-    game = pyspiel.load_game(
-        "snake",
-        {"rows": 10, "columns": 10, "players": 2, "food_respawn_interval": 5},
-    )
-    state = game.new_initial_state()
-    state.snakes[0] = [(1, 1)]
-    state.snakes[1] = [(8, 8)]
-    state.foods = [(2, 1), (7, 8)]
+        # Turn 1: both foods eaten -> immediate respawn resets the timer.
+        state.apply_actions([1, 0])
+        respawned = list(state.foods)
 
-    # Turn 1: both foods eaten -> immediate respawn resets the timer.
-    state.apply_action(1)  # P0 DOWN
-    state.apply_action(0)  # P1 UP
-    respawned = list(state.foods)
+        # Pin the fresh pair somewhere unreachable so it survives 4 more turns.
+        state.foods = [(0, 4), (9, 5)]
 
-    # Pin the fresh pair somewhere unreachable so it survives 4 more turns.
-    state.foods = [(0, 4), (9, 5)]
+        # 4 more safe turns: timer must NOT have fired yet (5 turns since the
+        # last spawn haven't elapsed).
+        for _ in range(4):
+            state.apply_actions([1, 0])
+        self.assertIn((0, 4), state.foods)
+        self.assertIn((9, 5), state.foods)
 
-    # 4 more safe turns: timer must NOT have fired yet (5 turns since the
-    # last spawn haven't elapsed).
-    for _ in range(4):
-      state.apply_action(1)  # P0 DOWN
-      state.apply_action(0)  # P1 UP
-    self.assertIn((0, 4), state.foods)
-    self.assertIn((9, 5), state.foods)
+        # 5th turn since the immediate respawn: timer fires, uneaten food is
+        # cleared, fresh pair placed. Assert the timer bumped
+        # (_last_food_spawn_step) rather than checking specific coordinates:
+        # `_place_foods` samples uniformly from all symmetric candidate pairs,
+        # so it can legitimately re-pick the pinned (0, 4)/(9, 5) pair -- a
+        # coordinate-based assertion is flaky under different RNG states.
+        prev_spawn_step = state._last_food_spawn_step
+        state.apply_actions([1, 0])
+        self.assertEqual(state._last_food_spawn_step, state._steps)
+        self.assertNotEqual(state._last_food_spawn_step, prev_spawn_step)
+        self.assertLen(state.foods, 2)
+        del respawned
 
-    # 5th turn since the immediate respawn: timer fires, uneaten food is
-    # cleared, fresh pair placed. Assert the timer bumped
-    # (_last_food_spawn_step) rather than checking specific coordinates:
-    # `_place_foods` samples uniformly from all symmetric candidate pairs,
-    # so it can legitimately re-pick the pinned (0, 4)/(9, 5) pair -- a
-    # coordinate-based assertion is flaky under different RNG states.
-    prev_spawn_step = state._last_food_spawn_step
-    state.apply_action(1)
-    state.apply_action(0)
-    self.assertEqual(state._last_food_spawn_step, state._steps)
-    self.assertNotEqual(state._last_food_spawn_step, prev_spawn_step)
-    self.assertLen(state.foods, 2)
-    del respawned
+    def test_simultaneous_movement(self):
+        game = pyspiel.load_game("snake", {"rows": 5, "columns": 5, "players": 2})
+        state = game.new_initial_state()
 
-  def test_simultaneous_movement(self):
-    game = pyspiel.load_game(
-        "snake", {"rows": 5, "columns": 5, "players": 2}
-    )
-    state = game.new_initial_state()
+        # 2 players.
+        p0_head = state.snakes[0][0]
+        p1_head = state.snakes[1][0]
 
-    # 2 players.
-    p0_head = state.snakes[0][0]
-    p1_head = state.snakes[1][0]
+        # Apply both moves at once: P0 DOWN (1), P1 UP (0).
+        state.apply_actions([1, 0])
 
-    # P0 moves DOWN (1)
-    state.apply_action(1)
+        # Both heads should have moved.
+        self.assertEqual(state.snakes[0][0], (p0_head[0] + 1, p0_head[1]))
+        self.assertEqual(state.snakes[1][0], (p1_head[0] - 1, p1_head[1]))
 
-    # State shouldn't change yet (buffered)
-    self.assertEqual(state.snakes[0][0], p0_head)
+    def test_collision_other_snake(self):
+        # Set up a small board where they collide
+        game = pyspiel.load_game("snake", {"rows": 4, "columns": 4, "players": 2})
+        state = game.new_initial_state()
 
-    # P1 moves UP (0)
-    state.apply_action(0)
+        # Force positions for collision test
+        # P0 head at (1,1)
+        # P1 head at (1,3)
+        state.snakes[0] = [(1, 1)]
+        state.snakes[1] = [(1, 3)]
 
-    # Now state update
-    self.assertEqual(state.snakes[0][0], (p0_head[0] + 1, p0_head[1]))
-    self.assertEqual(state.snakes[1][0], (p1_head[0] - 1, p1_head[1]))
+        # P0 moves RIGHT (3) -> (1,2)
+        # P1 moves LEFT (2) -> (1,2)
+        # Head to Head collision! Both should die.
+        state.apply_actions([3, 2])
 
-  def test_collision_other_snake(self):
-    # Set up a small board where they collide
-    game = pyspiel.load_game(
-        "snake", {"rows": 4, "columns": 4, "players": 2}
-    )
-    state = game.new_initial_state()
+        # Check survival
+        self.assertFalse(state.is_alive[0])
+        self.assertFalse(state.is_alive[1])
+        self.assertTrue(state.is_terminal())
 
-    # Force positions for collision test
-    # P0 head at (1,1)
-    # P1 head at (1,3)
-    state.snakes[0] = [(1, 1)]
-    state.snakes[1] = [(1, 3)]
+    def test_one_survivor_wins(self):
+        game = pyspiel.load_game("snake", {"rows": 4, "columns": 4, "players": 2})
+        state = game.new_initial_state()
 
-    # P0 moves RIGHT (3) -> (1,2)
-    # P1 moves LEFT (2) -> (1,2)
-    # Head to Head collision! Both should die.
+        # Force positions:
+        # P0 at (1,1), P1 at (3,3)
+        state.snakes[0] = [(1, 1)]
+        state.snakes[1] = [(3, 3)]
 
-    state.apply_action(3)  # P0 RIGHT
-    state.apply_action(2)  # P1 LEFT
+        # P0 hits wall: UP -> (0,1) -> UP -> (-1,1)
+        state.apply_actions([0, 0])  # P0 UP (safe), P1 UP (safe)
+        state.apply_actions([0, 0])  # P0 UP (crash), P1 UP (safe)
 
-    # Check survival
-    self.assertFalse(state.is_alive[0])
-    self.assertFalse(state.is_alive[1])
-    self.assertTrue(state.is_terminal())
+        self.assertFalse(state.is_alive[0])
+        self.assertTrue(state.is_alive[1])
+        self.assertTrue(state.is_terminal())
 
-  def test_one_survivor_wins(self):
-    game = pyspiel.load_game(
-        "snake", {"rows": 4, "columns": 4, "players": 2}
-    )
-    state = game.new_initial_state()
+    def test_dead_player_has_no_legal_actions(self):
+        """A dead player must have empty legal_actions so the interpreter
+        marks them INACTIVE at simultaneous nodes."""
+        game = pyspiel.load_game("snake", {"rows": 5, "columns": 5, "players": 3})
+        state = game.new_initial_state()
+        # Force positions so only P0 dies from a wall crash.
+        state.snakes[0] = [(0, 0)]
+        state.snakes[1] = [(4, 4)]
+        state.snakes[2] = [(0, 4)]
 
-    # Force positions:
-    # P0 at (1,1), P1 at (3,3)
-    state.snakes[0] = [(1, 1)]
-    state.snakes[1] = [(3, 3)]
+        # P0 UP -> off top edge. P1 UP (safe). P2 DOWN (safe).
+        state.apply_actions([0, 0, 1])
 
-    # P0 hits wall: UP -> (0,1) -> UP -> (-1,1)
-    state.apply_action(0)  # P0 UP
-    state.apply_action(0)  # P1 UP (safe)
-
-    # Next turn
-    state.apply_action(0)  # P0 UP (crash)
-    state.apply_action(0)  # P1 UP (safe)
-
-    self.assertFalse(state.is_alive[0])
-    self.assertTrue(state.is_alive[1])
-    self.assertTrue(state.is_terminal())
+        self.assertFalse(state.is_alive[0])
+        self.assertTrue(state.is_alive[1])
+        self.assertTrue(state.is_alive[2])
+        self.assertFalse(state.is_terminal())
+        self.assertEqual(state.legal_actions(0), [])
+        self.assertNotEqual(state.legal_actions(1), [])
+        self.assertNotEqual(state.legal_actions(2), [])
 
 
 if __name__ == "__main__":
-  absltest.main()
+    absltest.main()
