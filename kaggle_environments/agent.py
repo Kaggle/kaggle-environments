@@ -158,12 +158,14 @@ def build_agent(
 
 class Agent:
     def __init__(self, raw: str | Callable | Any, environment: Any) -> None:
-        self.builtin_agents = environment.agents
         self.configuration = environment.configuration
         self.debug = environment.debug
         self.environment_name = environment.name
         self.raw = raw
-        self.agent, self.is_parallelizable = build_agent(self.raw, self.builtin_agents, self.environment_name)
+        # Deliberately not stored on self: parallelizable agents get pickled for
+        # the process pool, and an env's builtin agents may be unpicklable
+        # closures that this agent never calls.
+        self.agent, self.is_parallelizable = build_agent(self.raw, environment.agents, self.environment_name)
 
     def act(self, observation: Any) -> Tuple[Any, Dict[str, Any]]:
         args = [structify(observation), structify(self.configuration)]
