@@ -47,6 +47,12 @@ function radiusOf(asset: AssetView, cell: number): number {
   return Math.max(3, Math.min(cell * 0.34, 3 + scale * cell * 0.3));
 }
 
+/**
+ * Below this, a PTRS rests on the single noisy reading every trial ships with.
+ * Readings raise it in steps of roughly 0.05, so anything above is researched.
+ */
+const RESEARCHED = 0.1;
+
 function chipStyle(asset: AssetView, playerIdx: number): { fill: string; stroke: string } {
   const hue = PLAYER_HUES[playerIdx % PLAYER_HUES.length];
   const state = ASSET_STATES[asset.state];
@@ -142,9 +148,31 @@ function drawPlayerAssets(
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.fillStyle = fill;
       ctx.fill();
+      // A funded chip's shading reads as its PTRS, but an unresearched PTRS is
+      // one noisy sample. Dash its outline so a guess never looks like a fact.
+      // Idle chips are hollow already -- their outline carries no PTRS claim.
+      const funded = ASSET_STATES[asset.state] !== 'Idle';
+      ctx.save();
+      if (funded && asset.phase >= 0 && asset.ptrsEvidence < RESEARCHED) ctx.setLineDash([2, 2]);
       ctx.strokeStyle = stroke;
       ctx.lineWidth = 1;
       ctx.stroke();
+      ctx.restore();
+
+      // Brand equity is a standing score on a selling drug, so draw it as an
+      // arc outside the chip -- a wedge inside a 5px circle is invisible. It
+      // shares the ring radius with the accelerate marker below, which is safe:
+      // accelerating is an in-development action and brand equity an on-market
+      // one, so no asset ever carries both.
+      if (asset.brandScore > 0) {
+        const sweep = Math.PI * 2 * Math.min(1, asset.brandScore);
+        ctx.beginPath();
+        ctx.arc(cx, cy, r + 2.5, -Math.PI / 2, -Math.PI / 2 + sweep);
+        ctx.strokeStyle = `hsl(${PLAYER_HUES[playerIdx % PLAYER_HUES.length]} 70% 34%)`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.lineWidth = 1;
+      }
 
       // An accelerated asset gets a ring; it is the loudest thing a player does.
       if (asset.investmentLevel >= 3) {

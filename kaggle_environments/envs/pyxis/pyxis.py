@@ -89,6 +89,41 @@ def _asset_key(asset):
     return str(asset.id)[:8]
 
 
+def _ptrs_readings_config():
+    """The PTRS-readings config, or None when the feature is off."""
+    from pyxis_portfolio_challenge.config import config
+
+    cfg = config.ptrs_readings
+    return cfg if cfg.enabled else None
+
+
+def _ptrs_evidence(trial, cfg):
+    """How well-researched a trial's PTRS is, on the same 0..1 scale agents see.
+
+    Every trial ships with one noisy reading, so a PTRS alone says nothing about
+    how much to trust it -- 0.56 off a single sample and 0.56 off ten readings
+    are the same number and very different bets. This mirrors the
+    ``offset_ptrs_count`` observation feature exactly: equivalent sample count,
+    normalised by the cap, so a researched asset stands out from a guessed one.
+    """
+    if cfg is None or trial is None:
+        return 0.0
+    equivalent_samples = trial.ptrs_total_precision * cfg.sigma_logit_base**2
+    return min(equivalent_samples, cfg.max_sample_obs) / cfg.max_sample_obs
+
+
+def _ta_index(area):
+    """Index into ``_THERAPEUTIC_AREAS``, or -1 when there is no area.
+
+    A clinical-site-deal alert carries ``therapeutic_area=""`` -- the site
+    auction is portfolio-wide, not tied to an area -- so this cannot raise.
+    """
+    try:
+        return _THERAPEUTIC_AREAS.index(area)
+    except ValueError:
+        return -1
+
+
 def _render_snapshot(game, known):
     """Compact per-step portfolio + market state for the web visualizer.
 
@@ -104,8 +139,15 @@ def _render_snapshot(game, known):
     appears once per step is spelled out -- measured at 1.7% of the replay, not
     worth the illegibility. ``visualizer/default/src/types.ts`` labels the tuple
     slots.
+
+    What is here beyond what the board shows is what an agent actually decides
+    on: committed trial cost (the liability that causes bankruptcy, invisible in
+    the cash balance), how researched a PTRS is (a lone noisy reading and a
+    sampled-out estimate print the same number), brand equity, and whether the
+    site auction is taking bids.
     """
     market = game.shared_market
+    readings_cfg = _ptrs_readings_config()
     asset_meta = {}
     agents = {}
     for aid, gs in game.agent_states.items():
@@ -116,7 +158,7 @@ def _render_snapshot(game, known):
                 known.add(key)
                 asset_meta[key] = [
                     asset.name,
-                    _THERAPEUTIC_AREAS.index(asset.therapeutic_area),
+                    _ta_index(asset.therapeutic_area),
                     int(asset.indication),
                     0 if asset.type == "internal" else 1,
                     round(float(asset.max_revenue)),
@@ -131,6 +173,14 @@ def _render_snapshot(game, known):
                     round(float(trial.ptrs), 3) if trial else 0,
                     int(asset.current_investment_level),
                     int(asset.time_on_market),
+                    # A running trial charges every step whether or not the
+                    # agent acts, so this liability -- not the cash balance --
+                    # is what decides solvency.
+                    round(float(trial.cost_remaining)) if trial else 0,
+                    round(_ptrs_evidence(trial, readings_cfg), 3),
+                    # Private on ``GameState`` but there is no public accessor;
+                    # the engine's own observation encoder reads it the same way.
+                    round(float(gs._brand_scores.get(asset.id, 0.0)), 3),
                 ]
             )
         agents[aid] = {
@@ -149,11 +199,15 @@ def _render_snapshot(game, known):
 
     snapshot = {
         "time": int(game.time),
+        # The site auction opens every 20 steps and is the only way to add a
+        # site without paying the Fibonacci upgrade price. Without this the
+        # viewer learns an auction happened only from the winner's alert.
+        "siteAuctionOpen": bool(market.site_auction_available()),
         "agents": agents,
         "bdOffers": [
             {
                 "name": a.name,
-                "therapeuticArea": _THERAPEUTIC_AREAS.index(a.therapeutic_area),
+                "therapeuticArea": _ta_index(a.therapeutic_area),
                 "phase": a.trial.phase.integer if a.trial else -1,
                 "maxRevenue": round(float(a.max_revenue)),
             }
@@ -165,7 +219,7 @@ def _render_snapshot(game, known):
                 "step": al.step,
                 "eventType": al.event_type.value,
                 "agentId": al.agent_id,
-                "therapeuticArea": _THERAPEUTIC_AREAS.index(al.therapeutic_area),
+                "therapeuticArea": _ta_index(al.therapeutic_area),
                 "indication": int(al.indication),
                 "details": _to_jsonable(al.details),
             }

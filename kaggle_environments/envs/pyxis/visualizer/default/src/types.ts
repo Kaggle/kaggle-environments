@@ -40,6 +40,12 @@ export type AssetRow = [
   ptrs: number,
   investmentLevel: number,
   timeOnMarket: number,
+  /** GBP still owed on the running trial. Charged every step, act or not. */
+  costRemaining: number,
+  /** How researched `ptrs` is, 0 (one noisy reading) to 1 (sampled out). */
+  ptrsEvidence: number,
+  /** Accumulated brand-equity score; decays toward a floor each step. */
+  brandScore: number,
 ];
 
 export interface AgentSnapshot {
@@ -72,6 +78,7 @@ export interface MarketAlert {
   eventType: string;
   /** Agent responsible. */
   agentId: string;
+  /** `-1` when the event has no area: a site auction is portfolio-wide. */
   therapeuticArea: number;
   indication: number;
   details: Record<string, unknown>;
@@ -88,6 +95,8 @@ export type IndicationMarket = [
 export interface RenderSnapshot {
   /** Engine time, 0..horizon. */
   time: number;
+  /** A clinical-site auction is taking bids this step. Opens every 20 steps. */
+  siteAuctionOpen: boolean;
   agents: Record<string, AgentSnapshot>;
   bdOffers: BdOffer[];
   alerts: MarketAlert[];
@@ -117,6 +126,9 @@ export interface AssetView {
   ptrs: number;
   investmentLevel: number;
   timeOnMarket: number;
+  costRemaining: number;
+  ptrsEvidence: number;
+  brandScore: number;
 }
 
 export interface PlayerView {
@@ -130,6 +142,8 @@ export interface PlayerView {
   buildingSites: number;
   failedCount: number;
   droppedCount: number;
+  /** Total GBP owed across every running trial. Falls due whatever happens. */
+  committedCost: number;
   assets: AssetView[];
   /** eNPV at every step up to and including the current one. */
   enpvSeries: number[];
@@ -150,6 +164,7 @@ export interface GameOver {
 
 export interface StepView {
   time: number;
+  siteAuctionOpen: boolean;
   players: PlayerView[];
   bdOffers: BdOffer[];
   alerts: MarketAlert[];

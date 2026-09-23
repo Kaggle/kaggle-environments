@@ -5,6 +5,7 @@ export interface PanelRefs {
   root: HTMLElement;
   canvas: HTMLCanvasElement;
   playerCards: HTMLElement[];
+  auction: HTMLElement;
   bd: HTMLElement;
   markets: HTMLElement;
   alerts: HTMLElement;
@@ -27,6 +28,7 @@ function playerCard(index: number): HTMLElement {
     el('div', 'player-name'),
     el('div', 'player-stats'),
     el('div', 'player-sites'),
+    el('div', 'player-commitment'),
     el('div', 'player-badge')
   );
   return card;
@@ -43,7 +45,8 @@ export function buildShell(parent: HTMLElement): PanelRefs {
   const board = el('div', 'board');
   const canvas = document.createElement('canvas');
   canvas.className = 'pipeline';
-  board.append(canvas);
+  const auction = el('div', 'auction-banner');
+  board.append(canvas, auction);
 
   const lower = el('div', 'lower');
   const bd = el('div', 'panel bd-panel');
@@ -60,7 +63,7 @@ export function buildShell(parent: HTMLElement): PanelRefs {
   root.append(header, board, lower, footer);
   parent.append(root);
 
-  return { root, canvas, playerCards: cards, bd, markets, alerts, spark, status };
+  return { root, canvas, playerCards: cards, auction, bd, markets, alerts, spark, status };
 }
 
 function renderPlayerCards(refs: PanelRefs, view: StepView) {
@@ -77,12 +80,26 @@ function renderPlayerCards(refs: PanelRefs, view: StepView) {
 
     const onMarket = player.assets.filter((a) => ASSET_STATES[a.state] === 'On Market').length;
     const inDev = player.assets.filter((a) => ASSET_STATES[a.state] === 'In Development').length;
+    // Sites are consumed by running trials, so free capacity is what gates a
+    // new programme -- the owned count alone reads as more room than there is.
+    const busySites = player.assets.filter((a) => a.timeRemaining > 0).length;
+    const freeSites = Math.max(0, player.operationalSites - busySites);
     (card.children[2] as HTMLElement).textContent =
-      `${inDev} in trials  ·  ${onMarket} on market  ·  ${player.operationalSites} sites` +
+      `${inDev} in trials  ·  ${onMarket} on market  ·  ${freeSites}/${player.operationalSites} sites free` +
       (player.buildingSites ? ` (+${player.buildingSites} building)` : '') +
       (player.failedCount ? `  ·  ${player.failedCount} failed` : '');
 
-    const badge = card.children[3] as HTMLElement;
+    // Committed trial spend, not the cash balance, is what decides solvency:
+    // it falls due every step whether or not the agent acts.
+    const commitment = card.children[3] as HTMLElement;
+    const runway = player.committedCost > 0 ? player.cash / player.committedCost : Infinity;
+    const cover = player.cash <= 0 ? 'unfunded' : `${runway.toFixed(1)}× covered`;
+    commitment.textContent = player.committedCost
+      ? `${formatMoney(player.committedCost)} committed  ·  ${cover}`
+      : 'nothing committed';
+    commitment.classList.toggle('tight', runway < 1.5);
+
+    const badge = card.children[4] as HTMLElement;
     badge.textContent = player.bankrupt ? 'BANKRUPT' : i === leader ? 'LEADING' : '';
   });
 }
@@ -103,6 +120,11 @@ function renderBd(refs: PanelRefs, view: StepView) {
     row.title = THERAPEUTIC_AREAS[offer.therapeuticArea] ?? '';
     refs.bd.append(row);
   }
+}
+
+function renderAuction(refs: PanelRefs, view: StepView) {
+  refs.auction.textContent = view.siteAuctionOpen ? 'Clinical site auction open — sealed bids this step' : '';
+  refs.auction.classList.toggle('open', view.siteAuctionOpen);
 }
 
 function renderMarkets(refs: PanelRefs, view: StepView) {
@@ -231,6 +253,7 @@ function statusText(view: StepView): string {
 
 export function renderPanels(refs: PanelRefs, view: StepView) {
   renderPlayerCards(refs, view);
+  renderAuction(refs, view);
   renderBd(refs, view);
   renderMarkets(refs, view);
   renderAlerts(refs, view);

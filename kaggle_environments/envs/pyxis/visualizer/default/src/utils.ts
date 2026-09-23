@@ -56,7 +56,18 @@ function getIndex(replay: any): ReplayIndex {
 }
 
 function resolveAsset(row: AssetRow, assetMeta: Record<string, AssetMeta>): AssetView {
-  const [key, state, phase, timeRemaining, ptrs, investmentLevel, timeOnMarket] = row;
+  const [
+    key,
+    state,
+    phase,
+    timeRemaining,
+    ptrs,
+    investmentLevel,
+    timeOnMarket,
+    costRemaining,
+    ptrsEvidence,
+    brandScore,
+  ] = row;
   const [name, therapeuticArea, indication, isBusinessDevelopment, maxRevenue] = assetMeta[key] ?? ['?', 0, 0, 0, 0];
   return {
     key,
@@ -71,6 +82,9 @@ function resolveAsset(row: AssetRow, assetMeta: Record<string, AssetMeta>): Asse
     ptrs,
     investmentLevel,
     timeOnMarket,
+    costRemaining,
+    ptrsEvidence,
+    brandScore,
   };
 }
 
@@ -109,25 +123,30 @@ export function buildView(replay: any, step: number): StepView | null {
   const { assetMeta, enpv } = getIndex(replay);
   const teamNames: string[] = Array.isArray(replay?.info?.TeamNames) ? replay.info.TeamNames : [];
 
-  const players: PlayerView[] = Object.entries(snap.agents ?? {}).map(([agentId, agent], i) => ({
-    name: teamNames[i] || agentId,
-    agentId,
-    cash: agent.cash,
-    enpv: agent.enpv,
-    eroi: agent.eroi,
-    bankrupt: agent.bankrupt,
-    operationalSites: agent.operationalSites,
-    buildingSites: agent.buildingSites,
-    failedCount: agent.failedCount,
-    droppedCount: agent.droppedCount,
-    assets: (agent.assets ?? []).map((row) => resolveAsset(row, assetMeta)),
-    enpvSeries: (enpv[agentId] ?? []).slice(0, step + 1),
-    reward: typeof stepData[i]?.reward === 'number' ? (stepData[i].reward as number) : null,
-    status: stepData[i]?.status ?? 'ACTIVE',
-  }));
+  const players: PlayerView[] = Object.entries(snap.agents ?? {}).map(([agentId, agent], i) => {
+    const assets = (agent.assets ?? []).map((row) => resolveAsset(row, assetMeta));
+    return {
+      name: teamNames[i] || agentId,
+      agentId,
+      cash: agent.cash,
+      enpv: agent.enpv,
+      eroi: agent.eroi,
+      bankrupt: agent.bankrupt,
+      operationalSites: agent.operationalSites,
+      buildingSites: agent.buildingSites,
+      failedCount: agent.failedCount,
+      droppedCount: agent.droppedCount,
+      committedCost: assets.reduce((sum, a) => sum + (a.timeRemaining > 0 ? a.costRemaining : 0), 0),
+      assets,
+      enpvSeries: (enpv[agentId] ?? []).slice(0, step + 1),
+      reward: typeof stepData[i]?.reward === 'number' ? (stepData[i].reward as number) : null,
+      status: stepData[i]?.status ?? 'ACTIVE',
+    };
+  });
 
   return {
     time: snap.time,
+    siteAuctionOpen: snap.siteAuctionOpen ?? false,
     players,
     bdOffers: snap.bdOffers ?? [],
     alerts: snap.alerts ?? [],

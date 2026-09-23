@@ -76,6 +76,17 @@ body,
   color: #444343;
 }
 
+.player-commitment {
+  font-size: 0.72rem;
+  color: #8a8880;
+}
+
+/* Cash under 1.5x committed trial spend: a step or two from insolvency. */
+.player-commitment.tight {
+  color: #9c2f1f;
+  font-weight: 600;
+}
+
 .player-badge {
   position: absolute;
   top: 6px;
@@ -108,6 +119,27 @@ body,
   max-width: 860px;
   height: 100%;
   background: transparent;
+}
+
+/* Sits over the board so an open auction is visible without stealing a row.
+   Empty and invisible on every step the auction is shut. */
+.auction-banner {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  padding: 2px 8px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  font-family: 'Mynerve', cursive;
+  color: #050001;
+  opacity: 0;
+  transition: opacity 200ms;
+}
+
+.auction-banner.open {
+  opacity: 1;
+  background-color: #bdeeff;
+  border: 1px dashed #3c3b37;
 }
 
 /* Lower panels */
@@ -226,7 +258,8 @@ body,
     max-width: none;
   }
 
-  .player-sites {
+  .player-sites,
+  .player-commitment {
     display: none;
   }
 
