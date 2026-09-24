@@ -84,6 +84,19 @@ _THERAPEUTIC_AREAS = [
 ]
 
 
+def _therapeutic_area_index(area):
+    """Index of ``area``, or -1 when the event isn't tied to one.
+
+    Clinical-site auctions are TA-agnostic, so their alerts carry an empty
+    therapeutic area. The visualizer already falls back to no label on an
+    unknown index.
+    """
+    try:
+        return _THERAPEUTIC_AREAS.index(area)
+    except ValueError:
+        return -1
+
+
 def _asset_key(asset):
     """Short stable id for an asset, long enough not to collide within a match."""
     return str(asset.id)[:8]
@@ -165,7 +178,7 @@ def _render_snapshot(game, known):
                 "step": al.step,
                 "eventType": al.event_type.value,
                 "agentId": al.agent_id,
-                "therapeuticArea": _THERAPEUTIC_AREAS.index(al.therapeutic_area),
+                "therapeuticArea": _therapeutic_area_index(al.therapeutic_area),
                 "indication": int(al.indication),
                 "details": _to_jsonable(al.details),
             }
