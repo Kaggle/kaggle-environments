@@ -84,6 +84,23 @@ _THERAPEUTIC_AREAS = [
 ]
 
 
+def _ta_index(therapeutic_area):
+    """TA index for the visualizer, or -1 when the event has no TA.
+
+    Clinical-site-deal alerts carry ``therapeutic_area=""`` (a site is not tied
+    to any TA), so a bare ``list.index`` raises and takes the whole episode
+    down with it. -1 matches the padding convention used elsewhere.
+
+    Assets go through here too. Their ``therapeutic_area`` is a pydantic
+    ``Literal`` of exactly these three values, so they cannot miss today --
+    this just keeps a future TA from turning a render into a forfeit.
+    """
+    try:
+        return _THERAPEUTIC_AREAS.index(therapeutic_area)
+    except ValueError:
+        return -1
+
+
 def _asset_key(asset):
     """Short stable id for an asset, long enough not to collide within a match."""
     return str(asset.id)[:8]
@@ -116,7 +133,7 @@ def _render_snapshot(game, known):
                 known.add(key)
                 asset_meta[key] = [
                     asset.name,
-                    _THERAPEUTIC_AREAS.index(asset.therapeutic_area),
+                    _ta_index(asset.therapeutic_area),
                     int(asset.indication),
                     0 if asset.type == "internal" else 1,
                     round(float(asset.max_revenue)),
@@ -153,7 +170,7 @@ def _render_snapshot(game, known):
         "bdOffers": [
             {
                 "name": a.name,
-                "therapeuticArea": _THERAPEUTIC_AREAS.index(a.therapeutic_area),
+                "therapeuticArea": _ta_index(a.therapeutic_area),
                 "phase": a.trial.phase.integer if a.trial else -1,
                 "maxRevenue": round(float(a.max_revenue)),
             }
@@ -165,7 +182,7 @@ def _render_snapshot(game, known):
                 "step": al.step,
                 "eventType": al.event_type.value,
                 "agentId": al.agent_id,
-                "therapeuticArea": _THERAPEUTIC_AREAS.index(al.therapeutic_area),
+                "therapeuticArea": _ta_index(al.therapeutic_area),
                 "indication": int(al.indication),
                 "details": _to_jsonable(al.details),
             }
