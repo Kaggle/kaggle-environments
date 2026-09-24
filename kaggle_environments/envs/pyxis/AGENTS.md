@@ -10,6 +10,7 @@ Pyxis is a two-player pharmaceutical R&D game. Each player runs a drug-developme
 
 - **Horizon** — 100 acting steps. Before your first action the market is pre-rolled 500 steps under a do-nothing policy and the clock rebased to 0, so you inherit a mature, populated market
 - **Starting cash** — £5B. All money is GBP
+- **Revenue** — only 35% of on-market revenue is credited to cash; costs are charged in full
 - **Portfolio** — up to 40 asset slots (equilibrium ~35). Each asset sits in one of 3 therapeutic areas and one of 3 indications within it (9 indications total)
 - **Pipeline** — Phase 1 → 2 → 3 → regulatory approval, then on-market revenue until patent expiry. Each phase has a cost, a duration, and a probability of success (PTRS). Roughly 80% of assets fail
 - **Hidden PTRS** — the true per-phase PTRS is never observed. Each asset arrives with one free noisy reading, and that estimate is what the observation shows; outcomes roll against the hidden truth. Buy more readings to sharpen it (a single sample has ~21% mean absolute error)
@@ -17,14 +18,15 @@ Pyxis is a two-player pharmaceutical R&D game. Each player runs a drug-developme
 - **Shared market** — both players compete in the same indications. Revenue is scaled by `1 / n^α` as drugs pile into an indication; the first entrant is lightly penalised and later entrants ramp to the full `α = 2.0` by the 4th
 - **Intelligence** — an opponent advancing a phase leaks to you with probability 20%/50%/70% (Phase 1→2 / 2→3 / 3→Approval). Marketing spend leaks too
 - **Auctions** — business-development assets (pre-progressed, skip early development) and clinical sites are sold by first-price sealed bid. Highest bid wins and pays its own bid. **There is no affordability cap: an overbid can bankrupt you**
-- **Win condition** — bankruptcy-aware. A bankrupt agent loses; if both go bankrupt the one that survived longer wins; same-step bankruptcy is a draw. Otherwise the higher net cash flow wins
+- **Bankruptcy** — cash below 0. Trial and reading costs are charged before that step's revenue arrives. A bankrupt agent's actions are ignored for the rest of the match
+- **Win condition** — a bankrupt agent loses; if both go bankrupt the one that survived longer wins; same-step bankruptcy is a draw. Otherwise higher net cash flow (final cash minus step-0 cash) wins
 
 ## Your Agent
 
 Your agent is a function that receives an observation and returns an action dict.
 
 **Observation fields:**
-- `obs` — the flattened engine observation: a list of 1534 floats with 40 asset slots and the shipped config. See [README.md](README.md) for the layout, and "Decoding the observation" below for turning it into a dict
+- `obs` — the flattened engine observation, 1534 floats. See Observation Layout in [README.md](README.md), and "Decoding the observation" below
 - `actionMask` — per-head masks for the discrete heads. `investments` is 40×3, `ptrs_research` 43×11, `demand_creation` 9×2, `brand_equity` 40×2, `upgrade` length 2. Indexed `mask[slot][choice]`
 - `agentIndex` — your seat (0 or 1)
 - `cash` — your cash this step (GBP)
@@ -53,7 +55,7 @@ action = {
 
 **Illegal actions forfeit the match.** Your status becomes `INVALID`, your reward `None`, and your opponent is awarded 1.0. An action is illegal if it is not a dict, names a head that doesn't exist, or picks a choice the mask forbids. The two cash-bid heads (`bd_bids`, `site_bid`) are unmasked, so the action space itself is the validator — a wrong length, a negative bid, or a bid above the £100B cap forfeits just the same.
 
-Raising an exception (`ERROR`) or exceeding `actTimeout` (`TIMEOUT`) forfeits the same way.
+Raising an exception (`ERROR`) or exceeding `actTimeout` (`TIMEOUT`) forfeits the same way. Run with `debug=True` to see the traceback.
 
 This agent invests wherever the mask says it can:
 
@@ -64,7 +66,7 @@ def agent(observation, configuration):
     return {"investments": [1 if slot[1] else 0 for slot in masks["investments"]]}
 ```
 
-Affordability in the masks is first-order: each option is checked on its own, ignoring what the rest of your action costs. Taking several masked-legal actions in one step can still overspend.
+Affordability in the masks is first-order: each option is checked on its own, ignoring what the rest of your action costs. Taking several masked-legal actions in one step can still overspend. The `demand_creation` and `brand_equity` masks are always all-legal, with no affordability check.
 
 ### Decoding the observation
 
@@ -113,6 +115,8 @@ def agent(observation, configuration):
 
 This instance is a decoder only — it is not the live match, and stepping it does nothing to your game. Build it once and reuse it; construction is the expensive part.
 
+The decoded view omits the clinical-site globals and per-trial `ptrs_equiv_n_norm`. Read the sites directly: `obs[2:6]` is `operational_sites`, `free_sites`, `sites_in_development`, `site_auction_active`.
+
 ## Test Locally
 
 Install the environment from PyPI (any recent release that includes Pyxis):
@@ -143,11 +147,9 @@ with open("replay.json", "w") as f:
     json.dump(env.toJSON(), f)
 ```
 
-Three built-in agents are available by name: `"knapsack"` (a budget-optimising heuristic, the strong baseline), `"random"`, and `"do_nothing"`.
+Three built-in agents are available by name: `"knapsack"` (a budget-optimising heuristic), `"random"`, and `"do_nothing"`.
 
-An exception in your agent forfeits the match: status `ERROR`, reward `None`, opponent awarded 1.0. Use `debug=True` while developing to see the traceback instead of just the status.
-
-A full match is 101 steps and takes roughly 15 seconds against `do_nothing`. Pass a `seed` to make a match reproducible; the seed is scrubbed from the configuration so neither agent can read it.
+A full match is 101 steps and takes roughly 15 seconds against `do_nothing`. A `seed` fixes the engine's randomness; the `random` agent is unseeded, so matches involving it still vary. The seed is scrubbed from the configuration so neither agent can read it.
 
 `make("pyxis")` also exposes the standard kaggle-environments helpers:
 
