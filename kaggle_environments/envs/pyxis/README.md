@@ -1,5 +1,7 @@
 # GSK Pyxis Portfolio Challenge
 
+The Kaggle environment name is `pyxis`; the competition is `gsk-simulation`. To build and submit an agent, start with [AGENTS.md](AGENTS.md) — this file is the rules reference.
+
 ## Overview
 
 The Pyxis Portfolio Challenge is a multi-agent reinforcement learning environment for sequential capital allocation under uncertainty. Agents manage a portfolio of R&D assets, each progressing through a multi-phase development pipeline with stochastic outcomes, compounding costs, and long time horizons. The objective is to maximise portfolio value through investment timing, resource allocation, and competitive positioning against other agents.
@@ -17,11 +19,30 @@ Before building an agent, you can play the game yourself against a provided AI o
 ### Installation
 
 ```bash
-# From source
-uv sync
+pip install -U kaggle-environments
 ```
 
 ### Quick Start
+
+Run a match through the Kaggle environment:
+
+```python
+from kaggle_environments import make
+
+env = make("pyxis", configuration={"seed": 42}, debug=True)
+env.run(["knapsack", "random"])
+print([s.reward for s in env.steps[-1]])
+```
+
+See [AGENTS.md](AGENTS.md) for writing an agent, and the [Kaggle Environment](#kaggle-environment) section below for the agent contract.
+
+### Engine API
+
+The sections after [Kaggle Environment](#kaggle-environment) document the underlying engine package, which is vendored into the environment and also usable directly for training. From a source checkout of that package:
+
+```bash
+uv sync
+```
 
 Run a match from the CLI and generate a replay file:
 
@@ -68,6 +89,78 @@ uv run python -m pyxis_portfolio_challenge.multi_agent_cli 'knapsack' random -o 
 ```
 
 Custom agent scripts must define a `create_agent(agent_name, **kwargs)` factory function returning a callable with an optional `set_env(env)` method.
+
+## Kaggle Environment
+
+This is the contract a competition submission plays against. The engine-facing API documented further below is for training; on Kaggle your agent is an `(observation, configuration)` callable.
+
+### Observation
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `obs` | list[float] | Flattened engine observation. 1534 entries with 40 asset slots and the shipped config. Layout is in [Observation Space](#observation-space) below |
+| `actionMask` | dict | Per-head masks for the discrete heads, indexed `mask[slot][choice]` |
+| `agentIndex` | int | Your seat, 0 or 1 |
+| `cash` | float | Your cash this step (GBP) |
+| `enpv` | float | Your expected net present value this step (GBP) |
+| `bankrupt` | bool | Whether you are bankrupt (cash < 0) |
+| `step` | int | Current step, 0-indexed (supplied by the framework) |
+| `remainingOverageTime` | float | Remaining overage time budget (seconds) |
+
+The observation holds your portfolio only. The opponent's portfolio is never in it — what you learn about them comes through the alert feed. The per-step visualizer snapshot that does contain both portfolios is written to the replay and stripped from both agents' runtime observations.
+
+Mask shapes with the shipped config:
+
+| Head | Shape | Choices |
+|------|-------|---------|
+| `investments` | 40 × 3 | 0 = nothing, 1 = invest, 2 = drop |
+| `ptrs_research` | 43 × 11 | 0-10 readings (40 assets, then 3 BD slots) |
+| `demand_creation` | 9 × 2 | binary, per indication |
+| `brand_equity` | 40 × 2 | binary, per asset |
+| `upgrade` | 2 | 0 = no-op, 1 = buy a clinical site |
+
+The continuous cash-bid heads (`bd_bids`, `site_bid`) are unmasked and absent from `actionMask` — only your cash limits them, and an overbid can bankrupt you.
+
+### Action
+
+A dict with one entry per head, matching the [Action Space](#action-space) below. Every head is optional: missing or `null` heads are filled with their no-op, so `{}` is a legal pass and an agent that ignores a feature never has to send it.
+
+```python
+def agent(observation, configuration):
+    masks = observation["actionMask"]
+    return {"investments": [1 if slot[1] else 0 for slot in masks["investments"]]}
+```
+
+**An illegal action forfeits the match** — status `INVALID`, reward `None`, and the opponent is awarded 1.0. An action is illegal if it is:
+- not a dict
+- naming a head that doesn't exist
+- picking a choice the mask forbids
+- malformed for the action space: wrong length, wrong type, or out of range. This is how the unmasked bid heads are validated — a negative bid or one above the £100B cap forfeits
+
+Mask affordability is first-order: each option is judged on its own cost, ignoring the rest of your action. A set of individually-legal actions can still overspend.
+
+### Reward
+
+Match outcome, not the engine's net cash flow: **1.0 win, 0.5 draw, 0.0 loss**. `None` on error, invalid action, or timeout.
+
+Outcomes are bankruptcy-aware — a bankrupt agent loses; if both go bankrupt the one that survived longer wins; same-step bankruptcy is a draw. Otherwise the agent with higher cumulative net cash flow wins.
+
+### Configuration
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `episodeSteps` | 1000 | Framework step cap. A match actually ends at 101 steps, when the engine terminates both players |
+| `actTimeout` | 60 | Seconds per agent per step |
+| `runTimeout` | 1200 | Seconds for the whole episode, excluding the one-time reset warmup |
+| `seed` | `null` | Optional episode seed. Scrubbed from the configuration so agents can't read it, and stored on `env.info["seed"]` for the replay |
+
+### Built-in Agents
+
+`"knapsack"`, `"random"`, and `"do_nothing"` — the same three described under [Provided Agents](#provided-agents), usable by name in `env.run()`:
+
+```python
+env.run(["main.py", "knapsack"])
+```
 
 ## Environment
 
@@ -223,7 +316,9 @@ masks = env.action_masks(agent_id)
 # For manual agents: restrict each action head to its valid choices
 ```
 
-## Competition API
+## Engine Training API
+
+These are the engine package's own entry points, for local training and evaluation. They are not how a Kaggle submission is scored — see [Kaggle Environment](#kaggle-environment) for that.
 
 ### Creating the Environment
 
