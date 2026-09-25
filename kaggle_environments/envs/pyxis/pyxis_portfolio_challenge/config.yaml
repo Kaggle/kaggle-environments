@@ -238,7 +238,7 @@ drop_action:
 #   each step spent, so an agent can size a market before it holds a drug there; DC is never free).
 # Brand equity: build a per-drug quality score that boosts market share quality formula
 #   (~5-step decay half-life; 15 steps of continuous spend reaches ~90% of cap).
-#   Can be applied to any drug at any phase incl. pre-market.
+#   On-market drugs only: the score is reset to its floor at launch, so pre-launch spend would be lost.
 # Both actions are binary per step (0=don't spend, 1=spend fixed cost).
 marketing:
   enabled: true

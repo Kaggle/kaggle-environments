@@ -194,7 +194,7 @@ action = {
 - **bd_bids** — continuous cash bid per BD slot; highest bid wins and pays its own bid (0 = pass)
 - **ptrs_research** — number of PTRS readings to buy per slot this step (0–10), over 40 portfolio slots then 3 BD slots
 - **demand_creation** — binary per indication; `1` = spend on demand creation
-- **brand_equity** — binary per asset; `1` = spend on brand equity
+- **brand_equity** — binary per asset; `1` = spend on brand equity (on-market drugs only)
 - **upgrade** — `1` = buy one clinical site (Fibonacci-priced, 2-step build)
 - **site_bid** — continuous cash bid for the periodic site auction (ignored when no auction is active that step)
 
@@ -212,7 +212,8 @@ masks = env.action_masks("pharma_0")
 Mask rules (all affordability checks are first-order — they consider each option independently and do not account for the combined cost of taking several actions in the same step):
 - **investments**: `1` (invest) valid only for Idle assets the agent can afford; `2` (drop) valid whenever the asset exists and the drop fee is affordable; `0` always valid; padding slots allow only `0`
 - **ptrs_research**: count 0 always valid; count `n>0` valid only if the slot holds an asset with a pending trial and the agent can afford the Fibonacci-scaled cost of `n` readings
-- **demand_creation** / **brand_equity**: spending is valid when affordable
+- **demand_creation**: always valid, including before launch (it sizes the shared indication market); affordability is not checked
+- **brand_equity**: `1` valid only for on-market drugs (a pre-launch score is reset to the floor at launch); affordability is not checked
 - **upgrade**: index 0 (no-op) always valid; index 1 (buy) valid only when `cash ≥ next site cost`
 
 Using masks with MaskablePPO or a manual agent:

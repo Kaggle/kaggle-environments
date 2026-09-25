@@ -116,3 +116,56 @@ def test_pyxis_wrong_shape_action_forfeits():
         env = make("pyxis", configuration={"seed": 3})
         env.run([lambda o, c, b=bad: b, "do_nothing"])
         assert env.steps[-1][0]["status"] == "INVALID", bad
+
+
+def test_pyxis_trial_outcome_rolls_against_true_ptrs():
+    """A noisy PTRS estimate informs agents but never changes the real odds."""
+    from kaggle_environments.envs.pyxis import pyxis  # noqa: F401, I001
+    from pyxis_portfolio_challenge.game.trial import Trial, TrialPhase, TrialState
+    from pyxis_portfolio_challenge.rng import init_game_rng
+
+    init_game_rng(0)
+
+    def trial(observed, true):
+        t = Trial(
+            cost_remaining=1.0,
+            time_remaining=1,
+            ptrs=observed,
+            phase=TrialPhase.PHASE_1,
+            state=TrialState.IN_PROGRESS,
+            next_trial_on_success=None,
+        )
+        t._true_ptrs = true
+        return t
+
+    for _ in range(50):
+        assert trial(observed=0.0, true=1.0).success()
+        assert not trial(observed=1.0, true=0.0).success()
+        assert trial(observed=0.0, true=1.0)._success_with_modifier(1.0)
+    # Without a hidden value (e.g. approval), the observed PTRS is the truth.
+    assert trial(observed=1.0, true=None).success()
+
+
+def test_pyxis_brand_equity_only_on_market():
+    """Brand equity is masked, and so forfeits, on drugs not yet launched."""
+    from kaggle_environments.envs.pyxis import pyxis
+
+    knapsack = pyxis.agents["knapsack"]
+
+    def marketer(observation, configuration):
+        action = knapsack(observation, configuration)
+        action["brand_equity"] = [int(m[1]) for m in observation["actionMask"]["brand_equity"]]
+        return action
+
+    env = make("pyxis", configuration={"seed": 1})
+    env.run([marketer, "do_nothing"])
+    assert env.steps[-1][0]["status"] == "DONE"
+    lifts = [row[8] for step in env.steps for row in step[0]["observation"]["render"]["agents"]["pharma_0"]["assets"]]
+    assert max(lifts) > 0
+
+    def spend_everywhere(observation, configuration):
+        return {"brand_equity": [1] * len(observation["actionMask"]["brand_equity"])}
+
+    env = make("pyxis", configuration={"seed": 1})
+    env.run([spend_everywhere, "do_nothing"])
+    assert env.steps[-1][0]["status"] == "INVALID"
