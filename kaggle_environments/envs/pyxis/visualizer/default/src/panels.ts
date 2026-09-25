@@ -1,4 +1,11 @@
-import { ASSET_STATES, THERAPEUTIC_AREAS, TRIAL_PHASES, type MarketAlert, type StepView } from './types';
+import {
+  ASSET_STATES,
+  THERAPEUTIC_AREAS,
+  TRIAL_PHASES,
+  type MarketAlert,
+  type PlayerView,
+  type StepView,
+} from './types';
 import { formatMoney } from './utils';
 
 export interface PanelRefs {
@@ -6,6 +13,7 @@ export interface PanelRefs {
   canvas: HTMLCanvasElement;
   playerCards: HTMLElement[];
   auction: HTMLElement;
+  tip: HTMLElement;
   bd: HTMLElement;
   markets: HTMLElement;
   alerts: HTMLElement;
@@ -29,6 +37,7 @@ function playerCard(index: number): HTMLElement {
     el('div', 'player-stats'),
     el('div', 'player-sites'),
     el('div', 'player-commitment'),
+    el('div', 'player-moves'),
     el('div', 'player-badge')
   );
   return card;
@@ -46,7 +55,8 @@ export function buildShell(parent: HTMLElement): PanelRefs {
   const canvas = document.createElement('canvas');
   canvas.className = 'pipeline';
   const auction = el('div', 'auction-banner');
-  board.append(canvas, auction);
+  const tip = el('div', 'chip-tip');
+  board.append(canvas, auction, tip);
 
   const lower = el('div', 'lower');
   const bd = el('div', 'panel bd-panel');
@@ -63,7 +73,7 @@ export function buildShell(parent: HTMLElement): PanelRefs {
   root.append(header, board, lower, footer);
   parent.append(root);
 
-  return { root, canvas, playerCards: cards, auction, bd, markets, alerts, spark, status };
+  return { root, canvas, playerCards: cards, auction, tip, bd, markets, alerts, spark, status };
 }
 
 function renderPlayerCards(refs: PanelRefs, view: StepView) {
@@ -82,26 +92,45 @@ function renderPlayerCards(refs: PanelRefs, view: StepView) {
     const inDev = player.assets.filter((a) => ASSET_STATES[a.state] === 'In Development').length;
     // Sites are consumed by running trials, so free capacity is what gates a
     // new programme -- the owned count alone reads as more room than there is.
-    const busySites = player.assets.filter((a) => a.timeRemaining > 0).length;
-    const freeSites = Math.max(0, player.operationalSites - busySites);
     (card.children[2] as HTMLElement).textContent =
-      `${inDev} in trials  ·  ${onMarket} on market  ·  ${freeSites}/${player.operationalSites} sites free` +
+      `${inDev} in trials  ·  ${onMarket} on market  ·  ${player.freeSites}/${player.operationalSites} sites free` +
       (player.buildingSites ? ` (+${player.buildingSites} building)` : '') +
       (player.failedCount ? `  ·  ${player.failedCount} failed` : '');
 
-    // Committed trial spend, not the cash balance, is what decides solvency:
-    // it falls due every step whether or not the agent acts.
+    // Running trials bill every step whether or not the agent acts, and cash
+    // below that bill is bankruptcy -- so runway, not the balance, is solvency.
     const commitment = card.children[3] as HTMLElement;
-    const runway = player.committedCost > 0 ? player.cash / player.committedCost : Infinity;
-    const cover = player.cash <= 0 ? 'unfunded' : `${runway.toFixed(1)}× covered`;
-    commitment.textContent = player.committedCost
-      ? `${formatMoney(player.committedCost)} committed  ·  ${cover}`
-      : 'nothing committed';
-    commitment.classList.toggle('tight', runway < 1.5);
+    const runway = player.trialBurn > 0 ? player.cash / player.trialBurn : Infinity;
+    commitment.textContent = player.trialBurn
+      ? `trials ${formatMoney(player.trialBurn)}/step  ·  ` +
+        (player.cash > 0 ? `${Math.floor(runway)} steps of cash` : 'no cash') +
+        `  ·  ${formatMoney(player.committedCost)} still owed`
+      : 'no trials running';
+    commitment.classList.toggle('tight', !player.bankrupt && runway < 3);
 
-    const badge = card.children[4] as HTMLElement;
+    (card.children[4] as HTMLElement).textContent = movesText(player);
+
+    const badge = card.children[5] as HTMLElement;
     badge.textContent = player.bankrupt ? 'BANKRUPT' : i === leader ? 'LEADING' : '';
   });
+}
+
+function movesText(player: PlayerView): string {
+  const m = player.moves;
+  // Cash flow and portfolio stop updating at bankruptcy; don't replay the last step.
+  if (m.frozen) return 'frozen since bankruptcy';
+  const parts = [`+${formatMoney(player.revenue)} in`, `−${formatMoney(player.spend)} out`];
+  if (m.started) parts.push(`started ${m.started}`);
+  if (m.launched) parts.push(`launched ${m.launched}`);
+  if (m.failed) parts.push(`${m.failed} failed`);
+  if (m.dropped) parts.push(`dropped ${m.dropped}`);
+  if (m.readings) parts.push(`${m.readings} reading${m.readings === 1 ? '' : 's'}`);
+  if (m.bdBids) parts.push(`BD bid ${formatMoney(m.bdBid)}${m.bdBids > 1 ? ` on ${m.bdBids}` : ''}`);
+  if (m.siteBid) parts.push(`site bid ${formatMoney(m.siteBid)}`);
+  if (m.boughtSite) parts.push('bought a site');
+  if (m.brandEquity) parts.push(`brand ×${m.brandEquity}`);
+  if (m.demandCreation) parts.push(`demand ×${m.demandCreation}`);
+  return parts.join('  ·  ');
 }
 
 function renderBd(refs: PanelRefs, view: StepView) {
@@ -113,11 +142,16 @@ function renderBd(refs: PanelRefs, view: StepView) {
   }
   for (const offer of view.bdOffers) {
     const row = el('div', 'panel-row');
+    const left = offer.stepsLeft === 1 ? 'last step' : `${offer.stepsLeft} steps left`;
     row.append(
       el('span', 'panel-key', offer.name),
-      el('span', 'panel-val', `${TRIAL_PHASES[offer.phase] ?? '—'} · ${formatMoney(offer.maxRevenue)} peak`)
+      el(
+        'span',
+        'panel-val',
+        `${TRIAL_PHASES[offer.phase] ?? '—'} · PTRS ${offer.ptrs.toFixed(2)} · eNPV ${formatMoney(offer.enpv)} · ${left}`
+      )
     );
-    row.title = THERAPEUTIC_AREAS[offer.therapeuticArea] ?? '';
+    row.title = `${THERAPEUTIC_AREAS[offer.therapeuticArea] ?? ''} · ${formatMoney(offer.maxRevenue)} peak`;
     refs.bd.append(row);
   }
 }
@@ -247,8 +281,30 @@ function statusText(view: StepView): string {
       : `${offender} submitted an illegal action.`;
   }
   const winner = name(over.winner);
-  const suffix = over.kind === 'bankruptcy' ? ' by bankruptcy' : '';
-  return winner ? `${winner} wins${suffix}` : 'Draw';
+  if (over.kind === 'bankruptcy') {
+    const broke = view.players.filter((p) => p.bankrupt);
+    const cause = broke.map((p) => `${p.name} ${bankruptcyCause(p.endedReason)}`).join('; ');
+    return winner ? `${winner} wins — ${cause}` : `Draw — ${cause}`;
+  }
+  return winner ? `${winner} wins` : 'Draw';
+}
+
+/** `endedReason` as a clause; see `_ended_reason` in `pyxis.py`. */
+function bankruptcyCause(reason: string | null): string {
+  switch (reason) {
+    case 'ongoing_investments':
+      return 'ran out of cash on running costs';
+    case 'new_investments':
+      return 'ran out of cash starting trials';
+    case 'research_costs':
+    case 'ptrs_readings_costs':
+      return 'ran out of cash on PTRS readings';
+    // The engine's BD and site-auction settlement write a bare "bankrupt".
+    case 'bankrupt':
+      return 'overpaid at auction';
+    default:
+      return 'went bankrupt';
+  }
 }
 
 export function renderPanels(refs: PanelRefs, view: StepView) {

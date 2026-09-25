@@ -81,10 +81,15 @@ body,
   color: #8a8880;
 }
 
-/* Cash under 1.5x committed trial spend: a step or two from insolvency. */
+/* Cash for under 3 steps of running trials: close to insolvency. */
 .player-commitment.tight {
   color: #9c2f1f;
   font-weight: 600;
+}
+
+.player-moves {
+  font-size: 0.72rem;
+  color: #444343;
 }
 
 .player-badge {
@@ -122,10 +127,11 @@ body,
 }
 
 /* Sits over the board so an open auction is visible without stealing a row.
-   Empty and invisible on every step the auction is shut. */
+   Bottom right: chips pack from the top of a cell, and the top edge holds the
+   column headers. Empty and invisible on every step the auction is shut. */
 .auction-banner {
   position: absolute;
-  top: 2px;
+  bottom: 2px;
   right: 4px;
   padding: 2px 8px;
   font-size: 0.68rem;
@@ -140,6 +146,24 @@ body,
   opacity: 1;
   background-color: #bdeeff;
   border: 1px dashed #3c3b37;
+}
+
+/* Hover card for a chip. Pointer-transparent so it never blocks the canvas. */
+.chip-tip {
+  position: absolute;
+  display: none;
+  padding: 4px 8px;
+  background-color: white;
+  border: 1px dashed #3c3b37;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  white-space: pre;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.chip-tip.open {
+  display: block;
 }
 
 /* Lower panels */
@@ -259,7 +283,8 @@ body,
   }
 
   .player-sites,
-  .player-commitment {
+  .player-commitment,
+  .player-moves {
     display: none;
   }
 

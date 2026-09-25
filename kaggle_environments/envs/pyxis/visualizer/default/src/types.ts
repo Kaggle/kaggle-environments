@@ -40,12 +40,12 @@ export type AssetRow = [
   ptrs: number,
   investmentLevel: number,
   timeOnMarket: number,
-  /** GBP still owed on the running trial. Charged every step, act or not. */
-  costRemaining: number,
-  /** How researched `ptrs` is, 0 (one noisy reading) to 1 (sampled out). */
-  ptrsEvidence: number,
-  /** Accumulated brand-equity score; decays toward a floor each step. */
-  brandScore: number,
+  /** Readings `ptrs` rests on, precision-weighted: 1 is the free first one. */
+  ptrsReadings: number,
+  /** Brand score above the launch floor: what marketing bought. Decays. */
+  brandLift: number,
+  /** Steps until the patent expires and the asset leaves play. */
+  patentLeft: number,
 ];
 
 export interface AgentSnapshot {
@@ -61,6 +61,18 @@ export interface AgentSnapshot {
   buildingSites: number;
   failedCount: number;
   droppedCount: number;
+  /** Operational sites not hosting a trial. */
+  freeSites: number;
+  /** GBP next step charges for running trials. Cash below this is bankruptcy. */
+  trialBurn: number;
+  /** GBP the running trials still owe, across all remaining steps. */
+  committedCost: number;
+  /** GBP earned in the step just played. */
+  revenue: number;
+  /** GBP spent in the step just played, all sources. */
+  spend: number;
+  /** `GameEndReason` name, e.g. `ongoing_investments`; null while playing. */
+  endedReason: string | null;
   assets: AssetRow[];
 }
 
@@ -69,6 +81,11 @@ export interface BdOffer {
   therapeuticArea: number;
   phase: number;
   maxRevenue: number;
+  /** Public PTRS reading. Each agent's private readings are not recorded. */
+  ptrs: number;
+  enpv: number;
+  /** Steps the offer stays up, this one included. */
+  stepsLeft: number;
 }
 
 export interface MarketAlert {
@@ -126,9 +143,32 @@ export interface AssetView {
   ptrs: number;
   investmentLevel: number;
   timeOnMarket: number;
-  costRemaining: number;
-  ptrsEvidence: number;
-  brandScore: number;
+  ptrsReadings: number;
+  brandLift: number;
+  patentLeft: number;
+}
+
+/** What a player did on the step just played. */
+export interface Moves {
+  /** Bankrupt before this step: nothing it submits is applied. */
+  frozen: boolean;
+  /** Idle assets whose trials started. */
+  started: number;
+  /** Assets that reached market. */
+  launched: number;
+  failed: number;
+  dropped: number;
+  /** PTRS readings bought, across portfolio and BD offers. */
+  readings: number;
+  /** GBP bid across BD offers, and the number of offers bid on. */
+  bdBid: number;
+  bdBids: number;
+  /** GBP bid in the clinical-site auction. */
+  siteBid: number;
+  /** Bought a site outright at the Fibonacci price. */
+  boughtSite: boolean;
+  brandEquity: number;
+  demandCreation: number;
 }
 
 export interface PlayerView {
@@ -142,8 +182,13 @@ export interface PlayerView {
   buildingSites: number;
   failedCount: number;
   droppedCount: number;
-  /** Total GBP owed across every running trial. Falls due whatever happens. */
+  freeSites: number;
+  trialBurn: number;
   committedCost: number;
+  revenue: number;
+  spend: number;
+  endedReason: string | null;
+  moves: Moves;
   assets: AssetView[];
   /** eNPV at every step up to and including the current one. */
   enpvSeries: number[];

@@ -25,9 +25,30 @@ test.describe('Pyxis Visualizer', () => {
     await expect(page.locator('.panel-title').filter({ hasText: /Intelligence/i })).toBeVisible();
   });
 
-  test('shows committed trial spend, the liability that decides solvency', async ({ page }) => {
+  test('shows the trial bill and runway that decide solvency', async ({ page }) => {
     await scrubTo(page, 0.5);
-    await expect(page.locator('.player-commitment').first()).toContainText(/committed|nothing/i);
+    await expect(page.locator('.player-commitment').first()).toContainText(/trials £\S+\/step\s+·\s+\d+ steps of cash/);
+  });
+
+  test('counts only running trials against sites', async ({ page }) => {
+    await scrubTo(page, 0.5);
+    const text = (await page.locator('.player-sites').first().textContent()) ?? '';
+    const [, inTrials, free, owned] = text.match(/(\d+) in trials .* (\d+)\/(\d+) sites free/) ?? [];
+    expect(Number(free)).toBe(Number(owned) - Number(inTrials));
+  });
+
+  test("reports each player's moves for the step", async ({ page }) => {
+    // The rules bot buys PTRS readings from the first step.
+    const slider = page.locator('input[type="range"]');
+    await slider.waitFor({ state: 'visible' });
+    await slider.fill('2');
+    await page.waitForTimeout(200);
+    await expect(page.locator('.player-moves').first()).toContainText(/reading/);
+  });
+
+  test('prices each BD offer', async ({ page }) => {
+    await scrubTo(page, 0.2);
+    await expect(page.locator('.bd-panel')).toContainText(/PTRS \d\.\d\d · eNPV/);
   });
 
   test('flags the clinical site auction on the steps it is open', async ({ page }) => {
@@ -44,7 +65,7 @@ test.describe('Pyxis Visualizer', () => {
 
   test('displays the outcome at the final step', async ({ page }) => {
     await scrubTo(page, 1);
-    await expect(page.locator('.status-container')).toContainText(/wins|Draw/i);
+    await expect(page.locator('.status-container')).toContainText(/rules_bot wins/);
   });
 });
 

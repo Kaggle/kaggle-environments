@@ -118,6 +118,42 @@ def test_pyxis_wrong_shape_action_forfeits():
         assert env.steps[-1][0]["status"] == "INVALID", bad
 
 
+def test_pyxis_render_snapshot_signals():
+    """The replay's per-step signals agree with the portfolio they summarise."""
+    # ``pyxis`` puts the bundle on the path, so it must be imported first.
+    from kaggle_environments.envs.pyxis import pyxis  # noqa: I001
+    from pyxis_portfolio_challenge.game.asset import AssetState
+
+    in_dev = AssetState.InDevelopment.integer
+    env = make("pyxis", configuration={"seed": 1})
+    env.run(["knapsack", "random"])
+
+    saw_trials = saw_bd = False
+    for step in env.steps:
+        render = step[0]["observation"]["render"]
+        assert isinstance(render["siteAuctionOpen"], bool)
+        for agent in render["agents"].values():
+            running = sum(1 for row in agent["assets"] if row[1] == in_dev)
+            # Idle assets hold a pending trial but neither a site nor a bill.
+            assert agent["freeSites"] == max(0, agent["operationalSites"] - running)
+            assert (agent["trialBurn"] > 0) == (running > 0)
+            assert agent["committedCost"] >= agent["trialBurn"]
+            saw_trials |= running > 0
+            for row in agent["assets"]:
+                assert len(row) == 10
+                readings, brand_lift, patent_left = row[7:]
+                assert readings >= 0 and brand_lift >= 0 and patent_left >= 0
+        for offer in render["bdOffers"]:
+            assert 0 <= offer["ptrs"] <= 1 and offer["stepsLeft"] >= 1
+            saw_bd = True
+    assert saw_trials and saw_bd
+
+    final = env.steps[-1][0]["observation"]["render"]["agents"]
+    reasons = {a["endedReason"] for a in final.values()}
+    assert reasons <= {"horizon_reached", "bankrupt", "ongoing_investments", "new_investments", "ptrs_readings_costs"}
+    assert pyxis._ta_index("") == -1
+
+
 def test_pyxis_trial_outcome_rolls_against_true_ptrs():
     """A noisy PTRS estimate informs agents but never changes the real odds."""
     from kaggle_environments.envs.pyxis import pyxis  # noqa: F401, I001
