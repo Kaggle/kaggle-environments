@@ -2,7 +2,7 @@
 
 This guide walks you through building an agent, testing it locally, and submitting it to the `gsk-simulation` competition on Kaggle.
 
-For full game rules, the asset pipeline, market mechanics, and the observation layout, see [README.md](README.md).
+For full game rules, the asset pipeline, market mechanics, and the observation layout, see [README.md](README.md). For the shortest path to a submission, see [QUICKSTART.md](QUICKSTART.md).
 
 ## Game Overview
 
