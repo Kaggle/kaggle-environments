@@ -84,6 +84,23 @@ _THERAPEUTIC_AREAS = [
 ]
 
 
+def _ta_index(therapeutic_area):
+    """TA index for the visualizer, or -1 when the event has no TA.
+
+    Clinical-site-deal alerts carry ``therapeutic_area=""`` (a site is not tied
+    to any TA), so a bare ``list.index`` raises and takes the whole episode
+    down with it. -1 matches the padding convention used elsewhere.
+
+    Assets go through here too. Their ``therapeutic_area`` is a pydantic
+    ``Literal`` of exactly these three values, so they cannot miss today --
+    this just keeps a future TA from turning a render into a forfeit.
+    """
+    try:
+        return _THERAPEUTIC_AREAS.index(therapeutic_area)
+    except ValueError:
+        return -1
+
+
 def _asset_key(asset):
     """Short stable id for an asset, long enough not to collide within a match."""
     return str(asset.id)[:8]
@@ -110,18 +127,6 @@ def _ptrs_readings(trial, cfg):
     if cfg is None or trial is None:
         return 0.0
     return cfg.effective_readings(trial.ptrs_total_precision)
-
-
-def _ta_index(area):
-    """Index into ``_THERAPEUTIC_AREAS``, or -1 when there is no area.
-
-    A clinical-site-deal alert carries ``therapeutic_area=""`` -- the site
-    auction is portfolio-wide, not tied to an area -- so this cannot raise.
-    """
-    try:
-        return _THERAPEUTIC_AREAS.index(area)
-    except ValueError:
-        return -1
 
 
 def _ended_reason(gs):

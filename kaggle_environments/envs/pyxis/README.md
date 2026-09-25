@@ -1,356 +1,283 @@
 # GSK Pyxis Portfolio Challenge
 
+Two pharma companies compete to build the most valuable drug-development portfolio. The Kaggle environment is `pyxis`; the competition is `gsk-simulation`. To build and submit an agent, start with [AGENTS.md](AGENTS.md) — this file is the rules reference.
+
 ## Overview
 
-The Pyxis Portfolio Challenge is a multi-agent reinforcement learning environment for sequential capital allocation under uncertainty. Agents manage a portfolio of R&D assets, each progressing through a multi-phase development pipeline with stochastic outcomes, compounding costs, and long time horizons. The objective is to maximise portfolio value through investment timing, resource allocation, and competitive positioning against other agents.
+Each player manages a portfolio of R&D assets, funding each through clinical trials toward market. Outcomes are stochastic and delayed: most assets fail (~80% attrition), results arrive phases after the money is spent, and cash committed to one asset constrains every other option. Both players sell into the same indication markets, bid for the same business-development assets, and receive noisy intelligence about each other's pipelines. After 100 steps the player with the higher net cash flow wins; a bankrupt player loses.
 
-The environment is highly stochastic, reflecting the reality of R&D pipeline investment where the majority of assets fail and individual outcomes carry outsized financial consequences. Agents face ~80% asset attrition rates, long development timelines where investment outcomes are delayed by multiple phases, and coupled investment decisions where capital committed to one asset constrains all future options. In the multi-agent setting, agents share indication markets, compete for business development acquisitions, and receive noisy intelligence about rival pipelines. Agents must balance exploration (investing in uncertain early-stage assets) against exploitation (scaling proven late-stage assets), while adapting to opponents' strategies in a high-variance environment where robust decision-making under uncertainty is essential.
+You can play against an AI opponent at [gsk.ai/pyxis-portfolio-challenge](https://gsk.ai/pyxis-portfolio-challenge).
 
-The repository provides a standardised environment with multiple baseline agents spanning different algorithmic paradigms: a budget-optimising heuristic (knapsack) and stochastic baselines (random, do-nothing). The environment exposes a PettingZoo `ParallelEnv` API, a gym-compatible single-agent training wrapper, and evaluation utilities for head-to-head matchups.
+## Game Parameters
 
-## Play the Game
+- 2 players
+- 100 acting steps. Before the first action the market is advanced 500 steps under a do-nothing policy and the clock is rebased to 0, so play starts on a mature, populated market
+- Starting cash: £5B. All money is GBP
+- Up to 40 asset slots. New assets arrive each step by a mean-reverting process around 35 (the equilibrium)
+- 35% of on-market revenue is credited to cash (`reinvestment_percentage`). Costs are charged in full. The cash-basis eNPV (`ask_cash_enpv`) uses the same rate
 
-Before building an agent, you can play the game yourself against a provided AI opponent at [gsk.ai/pyxis-portfolio-challenge](https://gsk.ai/pyxis-portfolio-challenge). This is the best way to develop an intuition for the environment dynamics — asset pipelines, trial outcomes, cash management, and competitive market timing.
+## Asset Pipeline
 
-## Getting Started
+- Assets belong to one of 3 therapeutic areas (TAs): oncology, respiratory & immunology, vaccines & infectious disease. Each targets one of 3 indications within its TA (9 total)
+- Phase 1 → Phase 2 → Phase 3 → regulatory approval → on market. Each trial phase has a cost, a duration, and a probability of success (PTRS)
+- Approval takes 1-3 steps, succeeds 85-95% of the time, and costs a £50M filing fee
+- On-market assets earn revenue until patent expiry
+- Investing starts an Idle asset's next phase. Idle assets cost nothing
+- PTRS is hidden. Each asset arrives with one free noisy reading, and the observation shows that estimate; trial outcomes roll against the true value. More readings can be bought (see [PTRS Readings](#ptrs-readings))
 
-### Installation
+## Shared Market
 
-```bash
-# From source
-uv sync
-```
+- Both players' drugs compete in the same indications. Each drug's revenue share is scaled by `1 / n^α`, where the exponent ramps with entry order: the first entrant takes ~15% of the full penalty, and later entrants ramp to the full `α = 2.0` by the 4th
+- First-mover exclusivity and the first-mover revenue bonus are disabled
+- Pipeline leaks: when an opponent's asset advances a phase, you receive an alert with probability 20% / 50% / 70% (Phase 1→2 / 2→3 / 3→Approval)
+- Marketing spend also leaks (see [Marketing](#marketing))
 
-### Quick Start
+## Business Development (BD)
 
-Run a match from the CLI and generate a replay file:
+- BD assets arrive at random each step (Poisson λ = 1.3, up to 3 slots). They are pre-progressed — already in Phase 1, 2, or 3
+- An unsold BD asset stays up to 3 steps
+- First-price sealed-bid auction per slot: each player bids cash (£M, capped at £100B; 0 passes). Highest bid wins and pays its own bid; ties break randomly
+- There is no affordability check. A winning bid above your cash bankrupts you
+- `ask_cash_enpv` in the observation is a value estimate, not a price
 
-```bash
-uv run python -m pyxis_portfolio_challenge.multi_agent_cli 'knapsack' random --seed 42 -o replay.json
-```
+## Dropping Assets
 
-Upload `replay.json` to [gsk.ai/pyxis-portfolio-challenge](https://gsk.ai/pyxis-portfolio-challenge) to watch the replay in the browser.
+- Any non-terminal asset (Idle, InDevelopment, OnMarket) can be dropped. An InDevelopment asset's trial stops
+- Drop fee = `0.25 × cost_remaining` of the current phase, rounded to the nearest £1M; 0 with no active trial
+- A dropped asset enters the `Dropped` state (distinct from `Failed`)
 
-Or use the Python API to evaluate agents over multiple episodes:
+## Marketing
 
-```python
-from pyxis_portfolio_challenge.environment import make_multi_agent_train_env
-from pyxis_portfolio_challenge.environment.competition import evaluate
+Two binary per-step spends.
 
-env = make_multi_agent_train_env()
-reports, _ = evaluate(agents=["knapsack", "random"], num_episodes=100)
-# 100 seeds × 2 positions = 200 episodes; results keyed by agent_0/agent_1
-```
+- **Demand creation (DC)** — per indication. Each spend adds `+0.10` to that indication's shared demand multiplier, which scales the revenue of every on-market drug there (both players'). The multiplier decays toward 1.0 (~3-step half-life). Cost = `0.035 × pool-peak max_revenue` (anchored to the largest drug in the pool, not yours). Allowed in indications where you hold no drug
+- **Brand equity (BE)** — per asset. Each spend adds `+0.25` to the drug's `brand_score`, which scales its market share by `brand_mult = 1 + 3.5·(1−floor)·max(0, brand_score − floor)`. `floor = min(raw_max_revenue / pool_peak, 1)`, so BE has the most effect on small drugs and almost none on the market leader. The score decays toward the floor (~3-step half-life). Cost = `0.0175 × the drug's own max_revenue`. On-market drugs only; the mask forbids it elsewhere, since a pre-market score would be reset to the floor at market entry
+- **Leaks** — each BE spend leaks with probability 0.8, as a `BE_SPEND` alert carrying the TA, indication, and number of leaked spends (never the amount). DC leaks are off with 2 players; the demand multiplier is already public
 
-### Provided Agents
+## Clinical Sites
 
-The following agents are available as named opponents in `env.train()`, `env.run()`, and `evaluate()`, as well as in the interactive frontend:
+A hard cap on concurrent trials.
 
-| Name | API string | Description |
-|------|-----------|-------------|
-| **Knapsack** | `"knapsack"` | Budget-optimising heuristic that solves a 0/1 knapsack each step. Concurrent trials are limited naturally by the clinical-sites cap rather than a hard per-agent capacity. Strong baseline. |
-| **Random** | `"random"` | Randomly invests in available idle assets each step. Useful as a lower-bound baseline. |
-| **Do Nothing** | `"do_nothing"` | Never invests in anything. Useful for testing and as an absolute floor. |
+- Each operational site hosts one InDevelopment asset. It frees the moment that asset leaves development, including between phases. You start with 4
+- The cap gates only new trial starts; running trials are never blocked. Excess starts are costless no-ops (the asset stays Idle), granted in ascending asset (arrival) order
+- `upgrade` buys one site. Cost follows a Fibonacci curve off £500M (1×, 1×, 2×, 3×, 5×, … for successive purchases), rounded to £1M. A bought site takes 2 steps to build
+- Site auction: at step 10 and every 20 steps after, one immediately-operational site is sold by first-price sealed bid (£M), as for BD. No affordability check
 
-### CLI
+## PTRS Readings
 
-Run matches from the command line with the `multi_agent_cli` module. Specify two agents by name or script path:
+- A reading draws a noisy logit-normal sample of the asset's true PTRS. Readings are combined in a precision-weighted mean, so error shrinks as `~1/√N`. One sample has ~21% mean absolute error
+- Readings can target your 40 asset slots and the 3 BD slots (43 total), 0-10 per slot per step. One reading refreshes every pending phase of the asset; nearer phases are less noisy (σ multipliers 1.0 / 1.5 / 2.0 by phase distance)
+- Cost per reading = `0.05 × the trial's cost_remaining`, rounded to £1M, scaled for multiple readings in one step: 1×, 2×, 4×, 7×, 12× total for 1-5
+- Readings on a BD asset refine your private estimate only; opponents don't see them
+- Per-trial confidence is exposed as `ptrs_equiv_n_norm` ∈ [0, 1]
 
-```bash
-# Named agents
-uv run python -m pyxis_portfolio_challenge.multi_agent_cli 'knapsack' random --seed 42
+## Turn Order
 
-# Custom agent script vs named agent
-uv run python -m pyxis_portfolio_challenge.multi_agent_cli ./my_bot.py 'knapsack' -o replay.json
+Each step:
 
-# Export replay with custom display names
-uv run python -m pyxis_portfolio_challenge.multi_agent_cli 'knapsack' random -o replay.json -n "Alpha" -n "Beta"
-```
+1. **BD auctions** — each slot resolves; winners pay and receive the asset
+2. **Site auction** — if one is running
+3. **Per player:**
+   1. Sites whose build finished become operational
+   2. Ongoing trial costs are charged
+   3. Site purchase (`upgrade`)
+   4. New trial starts (gated by free sites) and drops are charged
+   5. PTRS readings are charged and applied
+   6. Revenue is collected
+   7. Marketing is charged
+   8. Trials resolve — advance, pass, or fail
+   9. New assets arrive
+4. **Market update** — demand creation boosts apply, multipliers decay, new BD assets spawn
 
-Custom agent scripts must define a `create_agent(agent_name, **kwargs)` factory function returning a callable with an optional `set_env(env)` method.
+Bankruptcy is checked after each charge in step 3. Trial costs and readings are charged before revenue, so a player can go bankrupt on a step whose revenue would have covered them.
 
-## Environment
+## Termination and Scoring
 
-### Overview
+A player's game ends when its cash drops below 0 (bankrupt) or at the 100-step horizon. A bankrupt player's actions are ignored for the rest of the match; the match ends when both players' games have ended, 101 framework steps at most.
 
-**Game Parameters:**
-- 2 agents compete head-to-head
-- 100-step horizon (the agent's acting window)
-- 500-step warmup pre-roll: before the agent takes its first action, the market is advanced 500 steps under a do-nothing policy, then the clock is rebased to 0. The agent therefore starts on a mature, already-populated market and plays a full 100 steps on top of it.
-- Starting cash: £5B
-- Up to 40 assets in portfolio (equilibrium ~35)
-- 35% reinvestment percentage (fraction of on-market revenue reinvested; also scales cash-basis eNPV)
-- Reward function: net cash flow per step
+Net cash flow (NCF) is final cash minus cash at step 0: `0.35 × revenue − costs`, summed over the 100 steps, with auction payments included in costs.
 
-All monetary values are in GBP (£).
+Outcomes:
+- A bankrupt player loses to a solvent one
+- If both go bankrupt, the one that lasted longer wins; same step is a draw
+- Otherwise higher NCF wins; equal NCF is a draw
 
-> **Official competition settings:** 40 asset slots (equilibrium ~35), £5B starting cash, 100-step acting horizon after a 500-step warmup pre-roll.
+Reward is **1.0 win, 0.5 draw, 0.0 loss**. An illegal action, exception, or timeout forfeits: the offender's reward is `None` and the opponent gets 1.0.
 
-**Asset Pipeline:**
-- Assets arrive in one of 3 therapeutic areas (TAs): oncology, respiratory & immunology, vaccines & infectious disease
-- Each asset targets a specific indication within its TA (3 indications per TA, 9 total)
-- Assets have 3 trial phases (Phase 1, 2, 3) plus a regulatory approval phase
-- Each trial phase has a cost, duration, and probability of success (PTRS)
-- **PTRS is hidden**: the true per-phase PTRS is not observed. Each asset arrives with a single free noisy reading, and the PTRS shown in the observation is that noisy estimate. Trial outcomes are rolled against the hidden true value. Agents can pay for additional **PTRS research readings** to sharpen their estimate (see below)
-- Assets that pass all phases reach market and generate revenue until patent expiry
-- Most assets fail during trials (~80% attrition)
+## Observation
 
-**Approval Phase:**
-- After Phase 3, assets enter regulatory approval (1-3 steps, 85-95% success rate, £50M filing fee)
+| Field | Type | Description |
+|-------|------|-------------|
+| `obs` | list[float] | Flattened engine observation, 1534 floats. See [Observation Layout](#observation-layout) |
+| `actionMask` | dict | Masks for the discrete action heads, indexed `mask[slot][choice]` |
+| `agentIndex` | int | Your seat, 0 or 1 |
+| `cash` | float | Your cash (GBP) |
+| `enpv` | float | Your portfolio's expected net present value (GBP) |
+| `bankrupt` | bool | Whether you are bankrupt (cash < 0) |
+| `step` | int | Current step, 0-indexed |
+| `remainingOverageTime` | float | Remaining overage time budget (seconds) |
 
-**Shared Market & Competition:**
-- Agents share indication markets — multiple drugs can compete in the same indication
-- Market congestion: revenue drops as more drugs compete in the same indication. Each drug's share is scaled by `1 / n^α`, where the effective exponent ramps with entry order — the incumbent (first entrant) is lightly penalised (~15% of full penalty) and later entrants ramp to the full `α=2.0` by the 4th entrant. First-mover exclusivity and the first-mover revenue bonus are **disabled** in the shipped config
-- Pipeline leak alerts: when an opponent advances a trial phase, there's a probability of an intelligence leak (20%/50%/70% for Phase 1→2/2→3/3→Approval)
-- Marketing-spend leaks: brand-equity and demand-creation spending can also leak to opponents as alerts (see Marketing Spend below)
+The observation holds your portfolio only. The opponent's appears only through alerts.
 
-**Business Development (BD):**
-- BD assets appear randomly each step (Poisson λ=1.3, up to 3 slots per step)
-- BD assets are pre-progressed (already in Phase 1, 2, or 3) — buying one skips early development
-- An unwon BD asset persists for up to 3 steps before disappearing
-- **Continuous cash-bid auction**: agents submit a raw cash bid per slot (£M, capped at £100B; a bid of 0 passes). Highest bid wins and **pays its own bid** (first-price sealed-bid); ties broken randomly. There is no affordability cap — an overbid can bankrupt the winner. The `ask_cash_enpv` field in the observation is value guidance only (the cash-basis eNPV under the 35% reinvestment rate), not the price paid
+### Observation Layout
 
-**Drop Action:**
-- Each asset slot can be dropped instead of invested. The per-asset action is ternary: `0` = do nothing, `1` = invest, `2` = drop
-- Any non-terminal asset can be dropped (Idle, InDevelopment, or OnMarket); an InDevelopment asset's trial is stopped
-- Drop fee = `0.25 × cost_remaining` of the current phase, rounded to the nearest £1M (fee is 0 if the asset has no active trial). The asset transitions to a `Dropped` state (distinct from `Failed`)
+`obs` concatenates, in order:
 
-**Marketing Spend (Demand Creation & Brand Equity):**
+| Block | Floats | Contents |
+|-------|--------|----------|
+| Globals | 6 | `cash`, `time`, `operational_sites`, `free_sites`, `sites_in_development`, `site_auction_active` |
+| Assets | 40 × 29 | Per asset: 13 scalars, then 4 trials × 4 |
+| BD slots | 3 × 18 | Per BD offer |
+| Indication markets | 9 × 6 | 3 TAs × 3 indications |
+| Alerts | 20 × 13 | Event type as a 6-float one-hot, then 7 fields |
 
-Two independent, per-step binary spend actions let agents grow revenue beyond raw trial success.
+**Asset scalars** (13): `max_revenue`, `time_until_max_revenue`, `time_until_patent_expiry`, `pending_trial_phase` (0 = none, 1-4 = Phase 1/2/3/Approval), `time_on_market`, `cost_this_step`, `revenue_this_step`, `enpv`, `eroi`, `state` (0 = Idle, 1 = InDevelopment, 2 = OnMarket, 3 = Failed, 4 = Expired, 5 = Dropped), `ta_index` (0-2), `indication` (0-2), `brand_score`.
 
-- **Demand Creation (DC)** — spent *per indication* (9 indications). Each spend adds a fixed increment (`+0.10`) to that indication's **shared** demand multiplier, which multiplies the revenue of every on-market drug in the indication (yours and rivals'). The multiplier decays toward 1.0 (~3-step half-life). Cost = `0.035 × pool-peak max_revenue` (an indication-wide cost anchored to the largest drug ever seen, not your own), charged each step you spend. DC can be spent in an indication where you hold no drug — it sizes the whole market — so it is a large-market tool.
-- **Brand Equity (BE)** — spent *per drug/asset* (40 slots). Each spend raises that drug's `brand_score` (`+0.25`), which boosts its market-share quality via `brand_mult = 1 + 3.5·(1−floor)·max(0, brand_score − floor)`. The `floor` scales with drug size (`min(raw_max_revenue / pool_peak, 1)`), so BE is strong for small underdog drugs and nearly useless for the market leader — a big drug cannot cheaply spend to bury a small rival. Score decays toward the floor (~3-step half-life). Cost = `0.0175 × the drug's own max_revenue`. Only affects on-market drugs.
-- **Leaks**: BE spend leaks to opponents with probability 0.8 (a `BE_SPEND` alert carrying the TA, indication, and count of leaked spends — never the amount). DC spend leaks with probability 0.8 but is **gated off below 3 agents** (with 2 agents the per-indication demand multiplier is already public in the observation, so a DC leak would add nothing).
+**Trial** (4, one per phase): `cost_remaining`, `time_remaining`, `ptrs` (noisy estimate), `ptrs_equiv_n_norm` (reading confidence).
 
-**Clinical Sites:**
+**BD slot** (18): `available`, `max_revenue`, `time_until_max_revenue`, `time_until_patent_expiry`, `ta_index`, `indication`, `enpv`, `trial_phase`, `ptrs`, `steps_remaining`, `eroi`, `ask_cash_enpv`, then `ph0_ptrs`, `ph0_equiv_n_norm`, `ph1_ptrs`, `ph1_equiv_n_norm`, `ph2_ptrs`, `ph2_equiv_n_norm`.
 
-A hard concurrency cap on the number of trials an agent can run simultaneously — a runaway-cash-sink control.
+**Indication market** (6): `exclusivity_remaining`, `my_avg_share`, `first_mover`, `my_drugs`, `competitor_drugs`, `demand_multiplier` (public). `exclusivity_remaining` and `first_mover` are always 0.
 
-- Each **operational site** hosts one InDevelopment asset at a time and frees the instant that asset leaves development, including between phases. Agents start with 4 sites. The cap gates only *new* trial starts; ongoing trials are never blocked
-- When an agent requests more trial starts than it has free sites, the excess become costless no-ops (assets stay Idle). Arbitration follows ascending asset (arrival) index in the shipped config (`agent_priority=false`)
-- **Upgrade action** (`0`/`1`): buy one new site. Cost follows a Fibonacci curve off a £500M base (1×, 1×, 2×, 3×, 5×, … for successive purchases beyond the starting 4), rounded to £1M. A bought site takes 2 steps to build before it becomes operational
-- **PvP site auction**: starting at step 10 and every 20 steps thereafter, one immediately-operational site is auctioned. Agents submit a continuous cash bid (£M); highest bid wins and pays its own bid (first-price, ties random). No affordability cap — an overbid can bankrupt the winner
+**Alert** (7 after the one-hot): `agent_index`, `ta_index`, `indication`, `age`, `phase`, `bd_price` (price paid, BD and site deals), `be_count` (leaked BE spends). Event types: 0 = drug release, 1 = BD deal, 2 = pipeline leak, 3 = site deal, 4 = BE spend leak, 5 = DC spend leak.
 
-**PTRS Research Readings:**
+Padding: empty asset slots have `state = 4` (Expired), empty BD slots `available = 0`, empty alerts an all-zero one-hot.
 
-Because PTRS is hidden (see Asset Pipeline), agents can buy noisy readings to refine their estimate of an asset's success probability.
+[AGENTS.md](AGENTS.md) shows how to decode `obs` into a dict with the bundled engine.
 
-- A "reading" draws a stochastic logit-normal sample of the asset's true PTRS. Readings are folded into a precision-weighted running mean, so the estimate converges to the truth as `~1/√N`. A single-sample estimate has a mean absolute error of ~21%
-- Readings can be bought on your own portfolio assets (40 slots) and on BD offers (3 slots) — 43 slots total, 0–10 readings each per step. One reading action refreshes all pending phases of an asset at once; nearer phases are sampled less noisily (σ multipliers 1.0/1.5/2.0 by phase distance)
-- Cost per reading = `0.05 × the trial's cost_remaining` (rounded to £1M), Fibonacci-scaled for multiple readings in one step (1×, 2×, 4×, 7×, 12× for 1–5). Readings are paid for and applied within the same step, before trial evolution
-- Readings on a BD asset (not yet owned) refine your own private estimate without revealing it to opponents. The observation exposes the noisy estimate plus a per-trial confidence scalar (`ptrs_equiv_n_norm` ∈ [0,1]) indicating how much you effectively know
+## Action Format
 
-### Observation Space
+A dict with one entry per head. Every head is optional; missing or `null` heads are filled with their no-op, so `{}` passes.
 
-The observation and action space dimensions scale with `max_num_assets`. The competition uses 40 asset slots (equilibrium ~35). All per-asset counts below refer to the configured `max_num_assets`.
+| Head | Shape | Values |
+|------|-------|--------|
+| `investments` | 40 ints | 0 = nothing, 1 = invest, 2 = drop |
+| `bd_bids` | 3 floats | Cash bid per BD slot (£M, 0 = pass, max 100000) |
+| `ptrs_research` | 43 ints | Readings to buy, 0-10 (40 assets, then 3 BD slots) |
+| `demand_creation` | 9 ints | 1 = spend, per indication |
+| `brand_equity` | 40 ints | 1 = spend, per on-market drug |
+| `upgrade` | int | 1 = buy a clinical site |
+| `site_bid` | 1 float | Site-auction cash bid (£M, 0 = pass, max 100000). Ignored when no auction is running |
 
-**Flat observation** (default): a numpy array whose length depends on `max_num_assets` and the enabled features (1534 with 40 assets and the shipped config).
+### Action Masks
 
-**Dict observation** (`flatten_obs=False`): a nested dict with these top-level keys:
-- `cash` — current cash (float)
-- `time` — current step (int)
-- `assets` — tuple of `max_num_assets` asset dicts
-- `bd_market` — tuple of 3 BD slot dicts
-- `indication_markets` — dict of 3 TAs, each with 3 indication dicts (9 total)
-- `alerts` — tuple of 20 alert dicts
-- `clinical_sites` — dict of `operational_sites`, `free_sites`, `sites_in_development`, `site_auction_active`
+`actionMask` covers the discrete heads. `bd_bids` and `site_bid` are unmasked.
 
-**Per-asset features** (13 fields + trials):
-- `max_revenue`, `time_until_max_revenue`, `time_until_patent_expiry`
-- `pending_trial_phase` (0=none, 1-4=Phase 1/2/3/Approval)
-- `time_on_market`, `cost_this_step`, `revenue_this_step`
-- `enpv` (expected NPV), `eroi` (expected ROI)
-- `state` (0=Idle, 1=InDevelopment, 2=OnMarket, 3=Failed, 4=Expired; 5=Dropped)
-- `ta_index` (0-2), `indication` (0-2)
-- `brand_score` — current brand-equity score (marketing)
-- `trials` — tuple of 4 trial dicts, each with `cost_remaining`, `time_remaining`, `ptrs` (noisy estimate), `ptrs_equiv_n_norm` (reading-confidence ∈ [0,1])
+| Head | Shape | A choice is legal when |
+|------|-------|------------------------|
+| `investments` | 40 × 3 | 0: always. 1: the asset is Idle and the phase is affordable. 2: the slot holds an asset and the drop fee is affordable. Padding slots allow only 0 |
+| `ptrs_research` | 43 × 11 | 0: always. `n > 0`: the slot holds an asset with a pending trial and `n` readings are affordable |
+| `demand_creation` | 9 × 2 | Always; not affordability-checked |
+| `brand_equity` | 40 × 2 | 0: always. 1: the asset is on market. Not affordability-checked |
+| `upgrade` | 2 | 0: always. 1: cash ≥ next site cost |
 
-**Per BD slot** (18 fields): `available`, `max_revenue`, `time_until_max_revenue`, `time_until_patent_expiry`, `ta_index`, `indication`, `enpv`, `eroi`, `trial_phase`, `ptrs`, `steps_remaining` (persistence countdown), `ask_cash_enpv` (value-guidance price anchor), plus per-phase noisy PTRS estimates and reading-confidence: `ph0_ptrs`/`ph1_ptrs`/`ph2_ptrs` and `ph0_equiv_n_norm`/`ph1_equiv_n_norm`/`ph2_equiv_n_norm`
+Affordability is first-order: each choice is judged on its own cost, ignoring the rest of the action. A set of individually legal choices can still overspend.
 
-**Per indication market** (6 fields): `my_avg_share`, `my_drugs`, `competitor_drugs`, `demand_multiplier` (public shared DC multiplier), `exclusivity_remaining`, `first_mover`. Note: `exclusivity_remaining` and `first_mover` are always 0 in the shipped config (first-mover mechanics disabled)
+### Illegal Actions
 
-**Per alert** (8 fields): `event_type`, `agent_index`, `ta_index`, `indication`, `age`, `phase`, `bd_price` (price paid, for BD/site deals), `be_count` (number of leaked BE spends). `event_type` values: 0=drug release, 1=BD deal, 2=pipeline leak, 3=clinical-site deal, 4=brand-equity spend leak, 5=demand-creation spend leak
+An illegal action forfeits the match (status `INVALID`). An action is illegal if it:
+- is not a dict
+- names a head that doesn't exist
+- picks a choice the mask forbids
+- has the wrong length, type, or range for its head — a negative bid or one above 100000 included
 
-Empty/padding slots: empty assets have `state=Expired`, empty BD slots have `available=0`, empty alerts have `event_type=-1`.
-
-### Action Space
-
-Actions are dicts. With the shipped config (drop action, marketing, clinical sites, and PTRS readings all enabled), the action has seven keys:
-
-```python
-action = {
-    "investments":     np.array([...], dtype=np.int64),   # (40,)  MultiDiscrete, 0=nothing / 1=invest / 2=drop
-    "bd_bids":         np.array([...], dtype=np.float32),  # (3,)   continuous cash bid per BD slot (£M, 0=pass)
-    "ptrs_research":   np.array([...], dtype=np.int64),    # (43,)  MultiDiscrete, 0-10 readings per slot (40 assets + 3 BD)
-    "demand_creation": np.array([...], dtype=np.int64),    # (9,)   MultiDiscrete binary, per indication
-    "brand_equity":    np.array([...], dtype=np.int64),    # (40,)  MultiDiscrete binary, per asset
-    "upgrade":         0,                                   # Discrete(2), buy one clinical site
-    "site_bid":        np.array([...], dtype=np.float32),  # (1,)   continuous cash bid for the site auction (£M, 0=pass)
-}
-```
-
-- **investments** — ternary per asset: `0` = do nothing, `1` = invest (Idle assets only; starts the next trial phase), `2` = drop (any non-terminal asset; charges the drop fee)
-- **bd_bids** — continuous cash bid per BD slot; highest bid wins and pays its own bid (0 = pass)
-- **ptrs_research** — number of PTRS readings to buy per slot this step (0–10), over 40 portfolio slots then 3 BD slots
-- **demand_creation** — binary per indication; `1` = spend on demand creation
-- **brand_equity** — binary per asset; `1` = spend on brand equity (on-market drugs only)
-- **upgrade** — `1` = buy one clinical site (Fibonacci-priced, 2-step build)
-- **site_bid** — continuous cash bid for the periodic site auction (ignored when no auction is active that step)
-
-**Action Masks**: Call `env.action_masks(agent_id)` before each step. It returns masks for the discrete heads; the continuous cash-bid heads (`bd_bids`, `site_bid`) are unmasked and gated only by the cash you actually have (an overbid can bankrupt you):
+## Quick Start
 
 ```python
-masks = env.action_masks("pharma_0")
-# masks["investments"]:     list of 40 lists, each length 3 — [asset][action] valid?
-# masks["ptrs_research"]:   list of 43 lists, each length 11 — [slot][count] affordable?
-# masks["demand_creation"]: list of 9 lists,  each length 2
-# masks["brand_equity"]:    list of 40 lists, each length 2
-# masks["upgrade"]:         list of length 2 — [no-op, can-afford-a-site]
+from kaggle_environments import make
+
+def agent(observation, configuration):
+    masks = observation["actionMask"]
+    return {"investments": [1 if slot[1] else 0 for slot in masks["investments"]]}
+
+env = make("pyxis", configuration={"seed": 42}, debug=True)
+env.run([agent, "knapsack"])
+print([s.reward for s in env.steps[-1]])
 ```
 
-Mask rules (all affordability checks are first-order — they consider each option independently and do not account for the combined cost of taking several actions in the same step):
-- **investments**: `1` (invest) valid only for Idle assets the agent can afford; `2` (drop) valid whenever the asset exists and the drop fee is affordable; `0` always valid; padding slots allow only `0`
-- **ptrs_research**: count 0 always valid; count `n>0` valid only if the slot holds an asset with a pending trial and the agent can afford the Fibonacci-scaled cost of `n` readings
-- **demand_creation**: always valid, including before launch (it sizes the shared indication market); affordability is not checked
-- **brand_equity**: `1` valid only for on-market drugs (a pre-launch score is reset to the floor at launch); affordability is not checked
-- **upgrade**: index 0 (no-op) always valid; index 1 (buy) valid only when `cash ≥ next site cost`
+## Built-in Agents
 
-Using masks with MaskablePPO or a manual agent:
+| Name | Description |
+|------|-------------|
+| `"knapsack"` | Budget-optimising heuristic: solves a 0/1 knapsack over investments each step |
+| `"random"` | Invests in random idle assets. Unseeded, so matches involving it are not reproducible |
+| `"do_nothing"` | Never acts |
+
+## Configuration
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `episodeSteps` | 1000 | Framework step cap. Matches end at 101 steps, when the engine ends both players' games |
+| `actTimeout` | 60 | Seconds per agent per step |
+| `runTimeout` | 1200 | Seconds for the whole episode, excluding the warmup at reset |
+| `seed` | `null` | Episode seed. Scrubbed from the configuration agents see; stored on `env.info["seed"]` |
+
+## Engine Training API
+
+The engine package is bundled with the environment and importable for local training. It is not how a Kaggle submission is scored.
 
 ```python
-masks = env.action_masks(agent_id)
-# For RL: pass masks to MaskablePPO predict()
-# For manual agents: restrict each action head to its valid choices
-```
-
-## Competition API
-
-### Creating the Environment
-
-```python
+import kaggle_environments.envs.pyxis.pyxis  # puts the engine on sys.path
 from pyxis_portfolio_challenge.environment import make_multi_agent_train_env
 
-env = make_multi_agent_train_env()
+env = make_multi_agent_train_env()                    # flat observations
+env = make_multi_agent_train_env(flatten_obs=False)   # nested dict observations
 ```
 
-This creates a PettingZoo `ParallelEnv` from the YAML configuration. Observations are flat numpy arrays by default for faster processing. Pass `flatten_obs=False` if you prefer structured dict observations:
-
-```python
-env = make_multi_agent_train_env(flatten_obs=False)
-```
-
-### PettingZoo Environment
-
-Use the env directly for advanced training setups (self-play, population-based training, etc.):
+The env is a PettingZoo `ParallelEnv`. Agent ids are `pharma_0` and `pharma_1`.
 
 ```python
 obs, infos = env.reset(seed=42)
 done = False
 while not done:
-    actions = {}
-    for agent_id in env.agents:
-        actions[agent_id] = my_policy(obs[agent_id])
+    actions = {aid: my_policy(obs[aid], env.action_masks(aid)) for aid in env.agents}
     obs, rewards, terms, truncs, infos = env.step(actions)
-    done = any(terms.values()) or any(truncs.values())
+    done = all(terms.values()) or all(truncs.values())
 ```
 
-### Gym-like Trainer
+Engine step rewards are net cash flow per step, not the Kaggle win/loss reward. With `flatten_obs=False`, observations are dicts with `cash`, `time`, `assets`, `bd_market`, `indication_markets`, `alerts`, and `clinical_sites`, using the field names above.
 
-Call `.train()` on the env to get a single-agent `gym.Env` wrapper. Use `None` to mark your trainee slot and name strings for opponents:
+### Single-Agent Trainer
+
+`.train()` returns a `gym.Env`. `None` marks the trainee; opponents are names or callables.
 
 ```python
 trainer = env.train([None, "knapsack"])
-
-# Standard gym loop
 obs, info = trainer.reset(seed=42)
 while True:
-    masks = trainer.action_masks()  # for MaskablePPO
-    action = my_policy(obs, masks)
+    action = my_policy(obs, trainer.action_masks())  # masks work with MaskablePPO
     obs, reward, terminated, truncated, info = trainer.step(action)
     if terminated or truncated:
         break
 ```
 
-You can also pass your own callable as an opponent:
+### Single Match and Replay
 
 ```python
-from pyxis_portfolio_challenge.agents import MultiAgentKnapsackAgent
-
-custom_opp = MultiAgentKnapsackAgent(agent_name="pharma_1", capacity=8)
-trainer = env.train([None, custom_opp])
-```
-
-### Run
-
-Call `.run()` to pit two agents against each other for a single episode. It always captures a full playthrough and returns per-agent metrics — useful for quick head-to-head comparisons and generating replay files. Agents can be name strings or callables, just like `.train()` and `evaluate()`:
-
-```python
-per_agent_reports, playthrough = env.run(
-    [my_agent, "knapsack"],
-    seed=42,
-    flat_obs={0: True},  # my_agent at index 0 expects flat obs
-)
-
-# per_agent_reports: {"pharma_0": [...], "pharma_1": [...]}
-# playthrough is a PlaythroughData object — serialize to JSON for the replay viewer
-playthrough.model_dump_json(indent=2)
-```
-
-You can also run two named agents directly:
-
-```python
-reports, playthrough = env.run(["knapsack", "random"], seed=42)
-
-# Save replay to file
+reports, playthrough = env.run([my_agent, "knapsack"], seed=42, flat_obs={0: True})
 with open("replay.json", "w") as f:
     f.write(playthrough.model_dump_json(indent=2))
 ```
 
-For multi-episode statistical evaluation, use `evaluate()` below instead.
+Upload `replay.json` to [gsk.ai/pyxis-portfolio-challenge](https://gsk.ai/pyxis-portfolio-challenge) to watch it. `flat_obs={0: True}` gives flat observations to the agent at index 0.
 
-### Evaluate & Metrics
-
-Use the standalone `evaluate()` function. Agents can be strings or callables:
+### Evaluate
 
 ```python
 from pyxis_portfolio_challenge.environment.competition import evaluate
 
-per_agent_reports, playthrough = evaluate(
-    agents=[my_agent, "knapsack"],
-    num_episodes=100,
-    num_workers=4,
-    flat_obs={0: True},  # my_agent expects flat obs
-)
-
-# per_agent_reports: {"agent_0": [...], "agent_1": [...]}
+reports, _ = evaluate(agents=[my_agent, "knapsack"], num_episodes=100, num_workers=4, flat_obs={0: True})
 ```
 
-> **Note:** With `num_workers > 1`, `evaluate()` spawns subprocesses. In a script, guard the call with `if __name__ == "__main__":` (required on macOS/Windows, which use `spawn`), otherwise you'll get a `BrokenProcessPool` / "importing the main module" error.
+Each seed is played twice with seats swapped, so `num_episodes=100` runs 200 episodes; results are keyed `agent_0` / `agent_1` by agent, not seat. `symmetric=False` disables the swap and keys results by seat (`pharma_0` / `pharma_1`). With `num_workers > 1`, guard the call with `if __name__ == "__main__":` on macOS and Windows.
 
-By default, `evaluate()` uses **seed-symmetric evaluation**: each seed is played twice with agent positions swapped to control for positional asymmetry. With `num_episodes=100`, this produces 200 total episodes (100 per seat assignment). Results are keyed by original agent identity (`agent_0`, `agent_1`), not seat position. Pass `symmetric=False` to disable this and get position-keyed results (`pharma_0`, `pharma_1`).
-
-**Win conditions** are bankruptcy-aware: bankrupt agents automatically lose; if both go bankrupt, the agent that survived longer wins; same-step bankruptcy is a draw. Non-bankrupt agents are ranked by NCF.
-
-The return value `per_agent_reports` is a dict mapping agent key to a list of three report groups:
-
-```python
-[
-    {"PerEvaluationMetrics": [...]},  # Aggregated across all episodes
-    {"PerEpisodeMetrics": [...]},     # Per-episode breakdowns
-    {"PerStepMetrics": [...]},        # Per-step time series
-]
-```
-
-Each group contains dicts keyed by metric name. The metrics cover financial performance (cumulative reward, cash, revenue, cost), pipeline state (assets idle/in-development/on-market), competitive position (agent rank, relative eNPV, market share), and head-to-head outcomes (win/loss per episode).
-
-Key metrics for competition scoring:
+Each agent's report is a list of three groups — `PerEvaluationMetrics`, `PerEpisodeMetrics`, `PerStepMetrics` — covering cash, revenue, cost, pipeline state, market share, and head-to-head outcomes. Key metrics:
 
 | Metric | Group | Description |
 |--------|-------|-------------|
-| `PerEvaluationCumulativeReward` | PerEvaluation | Mean, stdev, min, max of cumulative reward across episodes |
+| `PerEpisodeWinLoss` | PerEpisode | 1.0 / 0.5 / 0.0, as in [Termination and Scoring](#termination-and-scoring). The mean is the win rate |
+| `PerEpisodeCumulativeReward` | PerEpisode | NCF per episode |
+| `PerEvaluationCumulativeReward` | PerEvaluation | Mean, stdev, min, max of NCF |
 | `PerEvaluationBankruptcyRate` | PerEvaluation | Fraction of episodes ending in bankruptcy |
-| `PerEpisodeWinLoss` | PerEpisode | 1.0 = win, 0.0 = loss, 0.5 = draw (based on cumulative reward). Mean across episodes gives win rate. |
-| `PerEpisodeCumulativeReward` | PerEpisode | Total reward per episode |
 
-Additional metrics cover BD deal activity (`PerEpisodeBDDealsWon`), first-mover advantage (`PerEpisodeFirstMoverRate`), revenue lost to competition (`PerEpisodeRevenueLostToCompetition`), per-drug profitability (`PerEpisodeInvestmentPnL`), pipeline efficiency (`PerEpisodeAssetLifecycle`), and market share dynamics (`PerStepMeanMarketShare`, `PerStepDrugsOnMarket`). See `config.yaml` for the full list of enabled metrics, or define your own by adding entries to the `evaluation_metrics` list.
+`pyxis_portfolio_challenge/config.yaml` lists every enabled metric.

@@ -4,11 +4,11 @@ from argparse import Namespace
 if __package__ == "":
     from agent import Agent
     from lux.config import EnvConfig
-    from lux.kit import process_action, process_obs, to_json
+    from lux.kit import process_action, process_obs
 else:
     from .agent import Agent
     from .lux.config import EnvConfig
-    from .lux.kit import process_action, process_obs, to_json
+    from .lux.kit import process_action, process_obs
 
 ### DO NOT REMOVE THE FOLLOWING CODE ###
 agent_dict = dict()  # store potentially multiple dictionaries as kaggle imports code directly
@@ -31,9 +31,6 @@ def agent_fn(observation, configurations):
         agent = agent_dict[player]
     agent = agent_dict[player]
     obs = process_obs(player, agent_prev_obs[player], step, json.loads(observation.obs))
-    if step == 100:
-        with open("obs.json", "w") as f:
-            json.dump(to_json(obs), f)
     agent_prev_obs[player] = obs
     agent.step = step
     if obs["real_env_steps"] < 0:
