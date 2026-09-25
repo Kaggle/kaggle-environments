@@ -1,4 +1,5 @@
 import { ASSET_STATES, THERAPEUTIC_AREAS, TRIAL_PHASES, type AssetView, type PlayerView } from './types';
+import { formatMoney } from './utils';
 
 /**
  * The pipeline board: a drug's journey left to right.
@@ -17,6 +18,15 @@ const MUTED = '#8a8880';
 const PLAYER_HUES = [205, 22];
 
 const PAD = { top: 26, left: 92, right: 8, bottom: 8 };
+
+/** A drawn chip, in CSS pixels, for hover hit-testing. */
+export interface ChipHit {
+  x: number;
+  y: number;
+  r: number;
+  asset: AssetView;
+  playerIdx: number;
+}
 
 function dashedLine(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, dash = [4, 4]) {
   ctx.save();
@@ -46,6 +56,12 @@ function radiusOf(asset: AssetView, cell: number): number {
   const scale = Math.sqrt(Math.min(1, Math.max(0, asset.maxRevenue / 1e10)));
   return Math.max(3, Math.min(cell * 0.34, 3 + scale * cell * 0.3));
 }
+
+/**
+ * Below this, a PTRS rests on little more than the free first reading every
+ * trial ships with: one bought reading at the current phase clears it.
+ */
+const RESEARCHED = 2;
 
 function chipStyle(asset: AssetView, playerIdx: number): { fill: string; stroke: string } {
   const hue = PLAYER_HUES[playerIdx % PLAYER_HUES.length];
@@ -106,7 +122,8 @@ function drawPlayerAssets(
   player: PlayerView,
   playerIdx: number,
   colW: number,
-  rowH: number
+  rowH: number,
+  hits: ChipHit[]
 ) {
   // Bucket by cell first so chips within a cell can be packed rather than
   // drawn on top of each other.
@@ -137,14 +154,40 @@ function drawPlayerAssets(
       if (cy > y0 + half - 3) return; // overflow guard; count is shown in the panels
       const r = radiusOf(asset, Math.min(colW / perRow, half));
       const { fill, stroke } = chipStyle(asset, playerIdx);
+      hits.push({ x: cx, y: cy, r, asset, playerIdx });
 
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.fillStyle = fill;
       ctx.fill();
+      // A funded chip's shading reads as its PTRS, but an unresearched PTRS is
+      // one noisy sample. Dash its outline so a guess never looks like a fact.
+      // Idle chips are hollow already -- their outline carries no PTRS claim --
+      // and an approval PTRS is never noised, so it has no readings to lack.
+      const state = ASSET_STATES[asset.state];
+      const funded = state !== 'Idle';
+      const noisy = asset.phase >= 0 && TRIAL_PHASES[asset.phase] !== 'Approval';
+      ctx.save();
+      if (funded && noisy && asset.ptrsReadings < RESEARCHED) ctx.setLineDash([2, 2]);
       ctx.strokeStyle = stroke;
       ctx.lineWidth = 1;
       ctx.stroke();
+      ctx.restore();
+
+      // Brand lift is a standing score on a selling drug, so draw it as an
+      // arc outside the chip -- a wedge inside a 5px circle is invisible.
+      // Pre-launch spend is accepted but reset to the floor at launch, so only
+      // an on-market lift moves share. That also keeps it off the accelerate
+      // ring below, which shares the radius but marks in-development assets.
+      if (state === 'On Market' && asset.brandLift > 0) {
+        const sweep = Math.PI * 2 * Math.min(1, asset.brandLift);
+        ctx.beginPath();
+        ctx.arc(cx, cy, r + 2.5, -Math.PI / 2, -Math.PI / 2 + sweep);
+        ctx.strokeStyle = `hsl(${PLAYER_HUES[playerIdx % PLAYER_HUES.length]} 70% 34%)`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.lineWidth = 1;
+      }
 
       // An accelerated asset gets a ring; it is the loudest thing a player does.
       if (asset.investmentLevel >= 3) {
@@ -157,14 +200,16 @@ function drawPlayerAssets(
   }
 }
 
-export function drawPipeline(canvas: HTMLCanvasElement, players: PlayerView[]) {
+/** Draws the board and returns where each chip landed. */
+export function drawPipeline(canvas: HTMLCanvasElement, players: PlayerView[]): ChipHit[] {
+  const hits: ChipHit[] = [];
   const ctx = canvas.getContext('2d');
-  if (!ctx) return;
+  if (!ctx) return hits;
 
   const dpr = window.devicePixelRatio || 1;
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
-  if (w <= 0 || h <= 0) return;
+  if (w <= 0 || h <= 0) return hits;
   if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
@@ -173,5 +218,34 @@ export function drawPipeline(canvas: HTMLCanvasElement, players: PlayerView[]) {
   ctx.clearRect(0, 0, w, h);
 
   const { colW, rowH } = drawGrid(ctx, w, h);
-  players.forEach((player, i) => drawPlayerAssets(ctx, player, i, colW, rowH));
+  players.forEach((player, i) => drawPlayerAssets(ctx, player, i, colW, rowH, hits));
+  return hits;
+}
+
+function plural(n: number, noun: string): string {
+  return `${n} ${noun}${n === 1 ? '' : 's'}`;
+}
+
+/** Tooltip text for a chip: the per-asset signals the board has no room for. */
+export function chipText(asset: AssetView, owner: string): string {
+  const state = ASSET_STATES[asset.state];
+  const area = THERAPEUTIC_AREAS[asset.therapeuticArea] ?? '';
+  const lines = [
+    asset.name,
+    `${owner} · ${area} · ${asset.isBusinessDevelopment ? 'acquired' : 'in-house'}`,
+    `${formatMoney(asset.maxRevenue)} peak · patent ${plural(asset.patentLeft, 'step')}`,
+  ];
+  if (state === 'On Market') {
+    lines.push(
+      `on market ${plural(asset.timeOnMarket, 'step')}` +
+        (asset.brandLift > 0 ? ` · brand +${asset.brandLift.toFixed(2)}` : '')
+    );
+  } else if (asset.phase >= 0) {
+    const phase = TRIAL_PHASES[asset.phase];
+    const readings = asset.ptrsReadings === 1 ? '1 reading' : `${asset.ptrsReadings.toFixed(1)} readings`;
+    const basis = phase === 'Approval' ? 'exact' : readings;
+    lines.push(`${phase} · ${state === 'Idle' ? 'not started' : `${plural(asset.timeRemaining, 'step')} left`}`);
+    lines.push(`PTRS ${asset.ptrs.toFixed(2)} (${basis})`);
+  }
+  return lines.join('\n');
 }

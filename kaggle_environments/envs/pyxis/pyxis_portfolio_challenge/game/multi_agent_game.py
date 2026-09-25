@@ -701,7 +701,8 @@ class MultiAgentGame(BaseModel):
                         if be_action != 1:
                             continue
                         asset = pre_step_assets.get(asset_id)
-                        if asset is None:
+                        # Mirrors GameState.step: only on-market spend happens.
+                        if asset is None or asset.state != AssetState.OnMarket:
                             continue
                         ind = (asset.therapeutic_area, asset.indication)
                         be_spend_counts[ind] = be_spend_counts.get(ind, 0) + 1

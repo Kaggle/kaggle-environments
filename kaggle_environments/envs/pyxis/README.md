@@ -51,7 +51,7 @@ You can play against an AI opponent at [gsk.ai/pyxis-portfolio-challenge](https:
 Two binary per-step spends.
 
 - **Demand creation (DC)** — per indication. Each spend adds `+0.10` to that indication's shared demand multiplier, which scales the revenue of every on-market drug there (both players'). The multiplier decays toward 1.0 (~3-step half-life). Cost = `0.035 × pool-peak max_revenue` (anchored to the largest drug in the pool, not yours). Allowed in indications where you hold no drug
-- **Brand equity (BE)** — per asset. Each spend adds `+0.25` to the drug's `brand_score`, which scales its market share by `brand_mult = 1 + 3.5·(1−floor)·max(0, brand_score − floor)`. `floor = min(raw_max_revenue / pool_peak, 1)`, so BE has the most effect on small drugs and almost none on the market leader. The score decays toward the floor (~3-step half-life). Cost = `0.0175 × the drug's own max_revenue`. Affects on-market drugs only; spend on a pre-market asset is still charged, and its score is reset to the floor at market entry
+- **Brand equity (BE)** — per asset. Each spend adds `+0.25` to the drug's `brand_score`, which scales its market share by `brand_mult = 1 + 3.5·(1−floor)·max(0, brand_score − floor)`. `floor = min(raw_max_revenue / pool_peak, 1)`, so BE has the most effect on small drugs and almost none on the market leader. The score decays toward the floor (~3-step half-life). Cost = `0.0175 × the drug's own max_revenue`. On-market drugs only; the mask forbids it elsewhere, since a pre-market score would be reset to the floor at market entry
 - **Leaks** — each BE spend leaks with probability 0.8, as a `BE_SPEND` alert carrying the TA, indication, and number of leaked spends (never the amount). DC leaks are off with 2 players; the demand multiplier is already public
 
 ## Clinical Sites
@@ -155,7 +155,7 @@ A dict with one entry per head. Every head is optional; missing or `null` heads 
 | `bd_bids` | 3 floats | Cash bid per BD slot (£M, 0 = pass, max 100000) |
 | `ptrs_research` | 43 ints | Readings to buy, 0-10 (40 assets, then 3 BD slots) |
 | `demand_creation` | 9 ints | 1 = spend, per indication |
-| `brand_equity` | 40 ints | 1 = spend, per asset |
+| `brand_equity` | 40 ints | 1 = spend, per on-market drug |
 | `upgrade` | int | 1 = buy a clinical site |
 | `site_bid` | 1 float | Site-auction cash bid (£M, 0 = pass, max 100000). Ignored when no auction is running |
 
@@ -168,7 +168,7 @@ A dict with one entry per head. Every head is optional; missing or `null` heads 
 | `investments` | 40 × 3 | 0: always. 1: the asset is Idle and the phase is affordable. 2: the slot holds an asset and the drop fee is affordable. Padding slots allow only 0 |
 | `ptrs_research` | 43 × 11 | 0: always. `n > 0`: the slot holds an asset with a pending trial and `n` readings are affordable |
 | `demand_creation` | 9 × 2 | Always; not affordability-checked |
-| `brand_equity` | 40 × 2 | Always; not affordability-checked |
+| `brand_equity` | 40 × 2 | 0: always. 1: the asset is on market. Not affordability-checked |
 | `upgrade` | 2 | 0: always. 1: cash ≥ next site cost |
 
 Affordability is first-order: each choice is judged on its own cost, ignoring the rest of the action. A set of individually legal choices can still overspend.

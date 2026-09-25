@@ -76,6 +76,22 @@ body,
   color: #444343;
 }
 
+.player-commitment {
+  font-size: 0.72rem;
+  color: #8a8880;
+}
+
+/* Cash for under 3 steps of running trials: close to insolvency. */
+.player-commitment.tight {
+  color: #9c2f1f;
+  font-weight: 600;
+}
+
+.player-moves {
+  font-size: 0.72rem;
+  color: #444343;
+}
+
 .player-badge {
   position: absolute;
   top: 6px;
@@ -108,6 +124,46 @@ body,
   max-width: 860px;
   height: 100%;
   background: transparent;
+}
+
+/* Sits over the board so an open auction is visible without stealing a row.
+   Bottom right: chips pack from the top of a cell, and the top edge holds the
+   column headers. Empty and invisible on every step the auction is shut. */
+.auction-banner {
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+  padding: 2px 8px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  font-family: 'Mynerve', cursive;
+  color: #050001;
+  opacity: 0;
+  transition: opacity 200ms;
+}
+
+.auction-banner.open {
+  opacity: 1;
+  background-color: #bdeeff;
+  border: 1px dashed #3c3b37;
+}
+
+/* Hover card for a chip. Pointer-transparent so it never blocks the canvas. */
+.chip-tip {
+  position: absolute;
+  display: none;
+  padding: 4px 8px;
+  background-color: white;
+  border: 1px dashed #3c3b37;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  white-space: pre;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.chip-tip.open {
+  display: block;
 }
 
 /* Lower panels */
@@ -226,7 +282,9 @@ body,
     max-width: none;
   }
 
-  .player-sites {
+  .player-sites,
+  .player-commitment,
+  .player-moves {
     display: none;
   }
 

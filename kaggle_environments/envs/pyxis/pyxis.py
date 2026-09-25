@@ -106,6 +106,46 @@ def _asset_key(asset):
     return str(asset.id)[:8]
 
 
+def _ptrs_readings_config():
+    """The PTRS-readings config, or None when the feature is off."""
+    from pyxis_portfolio_challenge.config import config
+
+    cfg = config.ptrs_readings
+    return cfg if cfg.enabled else None
+
+
+def _ptrs_readings(trial, cfg):
+    """How many readings a trial's PTRS rests on.
+
+    Every trial ships with one noisy reading, so a PTRS alone says nothing about
+    how much to trust it -- 0.56 off a single sample and 0.56 off ten readings
+    are the same number and very different bets. This is the engine's own
+    precision-weighted count, the one ``offset_ptrs_count`` normalises for
+    agents; a reading taken while the trial was phases away counts for less
+    than one.
+    """
+    if cfg is None or trial is None:
+        return 0.0
+    return cfg.effective_readings(trial.ptrs_total_precision)
+
+
+def _ended_reason(gs):
+    """``GameEndReason`` name (``ongoing_investments``, ...), or None while playing.
+
+    The engine stores the enum's prose value, and the site auction writes a bare
+    ``"bankrupt"``; a short key lets the viewer phrase it.
+    """
+    from pyxis_portfolio_challenge.game.game_state import GameEndReason
+
+    reason = gs.ended_reason
+    if not reason:
+        return None
+    try:
+        return GameEndReason(reason).name.lower()
+    except ValueError:
+        return str(reason)
+
+
 def _render_snapshot(game, known):
     """Compact per-step portfolio + market state for the web visualizer.
 
@@ -121,12 +161,22 @@ def _render_snapshot(game, known):
     appears once per step is spelled out -- measured at 1.7% of the replay, not
     worth the illegibility. ``visualizer/default/src/types.ts`` labels the tuple
     slots.
+
+    What is here beyond what the board shows is what an agent actually decides
+    on: next step's trial bill (what triggers bankruptcy, invisible in the cash
+    balance), how researched a PTRS is (a lone noisy reading and a sampled-out
+    estimate print the same number), marketing's brand lift, patent life, what a
+    BD offer is worth, and whether the site auction is taking bids.
     """
+    from pyxis_portfolio_challenge.game.asset import AssetState
+
     market = game.shared_market
+    readings_cfg = _ptrs_readings_config()
     asset_meta = {}
     agents = {}
     for aid, gs in game.agent_states.items():
         rows = []
+        burn = committed = 0.0
         for asset in gs.assets.values():
             key = _asset_key(asset)
             if key not in known:
@@ -139,6 +189,10 @@ def _render_snapshot(game, known):
                     round(float(asset.max_revenue)),
                 ]
             trial = asset.trial
+            # Only running trials are charged; an idle asset's trial is pending.
+            if asset.state == AssetState.InDevelopment:
+                burn += float(asset.cost_this_step)
+                committed += float(trial.cost_remaining)
             rows.append(
                 [
                     key,
@@ -148,6 +202,22 @@ def _render_snapshot(game, known):
                     round(float(trial.ptrs), 3) if trial else 0,
                     int(asset.current_investment_level),
                     int(asset.time_on_market),
+                    round(_ptrs_readings(trial, readings_cfg), 2),
+                    # Every drug launches at a floor sized by its revenue, so the
+                    # raw score mostly measures the drug. The excess over the
+                    # floor is what marketing bought -- and what market share
+                    # reads. Both are private on ``GameState`` with no accessor;
+                    # the engine's own observation encoder reads them the same way.
+                    round(
+                        max(
+                            0.0,
+                            gs._brand_scores.get(asset.id, 0.0) - gs._brand_score_floors.get(asset.id, 0.0),
+                        ),
+                        3,
+                    ),
+                    # Steps until the asset expires: on market, its remaining
+                    # earning life; in development, the clock trials run against.
+                    int(asset.time_until_patent_expiry),
                 ]
             )
         agents[aid] = {
@@ -161,11 +231,26 @@ def _render_snapshot(game, known):
             # it holds hundreds of entries at reset — so it is deliberately absent.
             "failedCount": len(gs.failed_assets),
             "droppedCount": len(gs.dropped_assets),
+            "freeSites": int(gs.free_sites),
+            # Next step's charge for running trials, due whether or not the agent
+            # acts; cash under this is bankruptcy. Investment levels and R&D
+            # capacity, the engine's only modifiers of it, are off.
+            "trialBurn": round(burn),
+            # Everything the running trials still owe, across all steps.
+            "committedCost": round(committed),
+            # Realised cash flow of the step just played, all sources.
+            "revenue": round(float(gs.realised_revenues[-1])) if gs.realised_revenues else 0,
+            "spend": round(float(gs.realised_costs[-1])) if gs.realised_costs else 0,
+            "endedReason": _ended_reason(gs),
             "assets": rows,
         }
 
     snapshot = {
         "time": int(game.time),
+        # The site auction opens every 20 steps and is the only way to add a
+        # site without paying the Fibonacci upgrade price. Without this the
+        # viewer learns an auction happened only from the winner's alert.
+        "siteAuctionOpen": bool(market.site_auction_available()),
         "agents": agents,
         "bdOffers": [
             {
@@ -173,6 +258,12 @@ def _render_snapshot(game, known):
                 "therapeuticArea": _ta_index(a.therapeutic_area),
                 "phase": a.trial.phase.integer if a.trial else -1,
                 "maxRevenue": round(float(a.max_revenue)),
+                # The public reading; each agent's private readings live on its
+                # own clone and are not shown.
+                "ptrs": round(float(a.trial.ptrs), 3) if a.trial else 0,
+                "enpv": round(float(a.enpv)),
+                # Steps the offer stays up, this one included.
+                "stepsLeft": market.bd_persist_steps - market.bd_asset_ages.get(str(a.id), 0),
             }
             for a in market.current_bd_assets
         ],

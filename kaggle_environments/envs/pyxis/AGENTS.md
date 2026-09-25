@@ -47,7 +47,7 @@ action = {
     "bd_bids":         [...],   # 3 floats, cash bid per BD slot (£M, 0 = pass)
     "ptrs_research":   [...],   # 43 ints, 0-10 readings (40 assets, then 3 BD slots)
     "demand_creation": [...],   # 9 ints, binary, per indication
-    "brand_equity":    [...],   # 40 ints, binary, per asset
+    "brand_equity":    [...],   # 40 ints, binary, per on-market drug
     "upgrade":         0,       # int, 1 = buy a clinical site
     "site_bid":        [...],   # 1 float, site-auction cash bid (£M, 0 = pass)
 }
@@ -66,7 +66,7 @@ def agent(observation, configuration):
     return {"investments": [1 if slot[1] else 0 for slot in masks["investments"]]}
 ```
 
-Affordability in the masks is first-order: each option is checked on its own, ignoring what the rest of your action costs. Taking several masked-legal actions in one step can still overspend. The `demand_creation` and `brand_equity` masks are always all-legal, with no affordability check.
+Affordability in the masks is first-order: each option is checked on its own, ignoring what the rest of your action costs. Taking several masked-legal actions in one step can still overspend. The `demand_creation` mask is always all-legal; `brand_equity` allows a spend only on on-market drugs. Neither checks affordability.
 
 ### Decoding the observation
 
