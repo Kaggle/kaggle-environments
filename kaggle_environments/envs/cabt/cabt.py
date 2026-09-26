@@ -185,18 +185,14 @@ def interpreter(state, env):
             Battle.result[2] += 1
 
         count = Battle.result[0] + Battle.result[1] + Battle.result[2]
+        remain = env.configuration.bo - count
         result = -1
-        if Battle.result[0] >= 2:
+        if Battle.result[0] > Battle.result[1] + remain:
             result = 0
-        elif Battle.result[1] >= 2:
+        elif Battle.result[1] > Battle.result[0] + remain:
             result = 1
-        elif count >= 3:
-            if Battle.result[0] > Battle.result[1]:
-                result = 0
-            elif Battle.result[0] < Battle.result[1]:
-                result = 1
-            else:
-                result = 2
+        elif remain <= 0:
+            result = 2
 
         env.result = Battle.result
         if result >= 0:
