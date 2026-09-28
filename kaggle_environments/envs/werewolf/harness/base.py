@@ -383,7 +383,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         system_prompt: str = "",
         prompt_template: str = DEFAULT_PROMPT_TEMPLATE,
         kaggle_config=None,
-        litellm_model_proxy_kwargs: Optional[Dict[str, str]] = None,
+        litellm_model_proxy_kwargs: Optional[Dict[str, Any]] = None,
     ):
         """This wrapper only support 1 LLM."""
         _init_litellm()
