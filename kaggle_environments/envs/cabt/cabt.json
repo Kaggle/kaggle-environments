@@ -7,7 +7,13 @@
   "configuration": {
     "episodeSteps": 10000000,
     "actTimeout": 0,
-    "runTimeout": 2000
+    "runTimeout": 2000,
+    "bo": {
+      "description": "The 'Best of' format (1 for BO1, 3 for BO3, etc.)",
+      "type": "integer",
+      "default": 3,
+      "minimum": 1
+    }
   },
   "reward": {
     "description": "Lost:-1, Won:1, Draw:0",

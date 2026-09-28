@@ -36,6 +36,9 @@ lib.GameInitialize()
 lib.BattleStart.restype = StartData
 lib.BattleStart.argtypes = [ctypes.POINTER(ctypes.c_int)]
 
+lib.BattleStartReverse.restype = StartData
+lib.BattleStartReverse.argtypes = [ctypes.POINTER(ctypes.c_int)]
+
 lib.BattleFinish.argtypes = [ctypes.c_void_p]
 
 lib.GetBattleData.restype = SerialData
@@ -51,4 +54,7 @@ lib.VisualizeData.argtypes = [ctypes.c_void_p]
 class Battle:
     battle_ptr = None
     obs = None
-    raminingTime = [[], []]
+    decks = None
+    result = [0, 0, 0]
+    vis = []
+    last_step = 0
