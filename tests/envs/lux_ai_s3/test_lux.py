@@ -1,7 +1,7 @@
 from kaggle_environments import make
 
 
-def xtest_lux_completes():
+def test_lux_completes():
     env = make("lux_ai_s3", debug=True)
     env.run(["random_agent", "random_agent"])
     json = env.toJSON()
