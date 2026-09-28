@@ -47,6 +47,9 @@ def agent(observation, configuration):
                 "api_base": f"{os.environ['MODEL_PROXY_URL']}/openapi",
                 "api_key": os.environ["MODEL_PROXY_KEY"],
                 "reasoning_effort": "high",
+                # litellm drop_params=True otherwise silently strips
+                # reasoning_effort for models it doesn't recognize.
+                "allowed_openai_params": ["reasoning_effort"],
             },
         )
 
