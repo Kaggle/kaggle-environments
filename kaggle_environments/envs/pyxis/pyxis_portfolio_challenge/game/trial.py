@@ -459,8 +459,7 @@ class Trial(BaseModel):
 
         Priority:
         1. Distributional PTRS: Sample from true Beta, compare to random
-        2. Uncertain PTRS: Use effective_true_ptrs point value
-        3. Default: Use observed ptrs
+        2. Otherwise: the point value from ``_outcome_ptrs``
         """
         rng = get_game_rng()
 
@@ -474,12 +473,23 @@ class Trial(BaseModel):
             # Compare to random draw
             return rng.random() < sampled_ptrs
 
-        # Uncertain PTRS: use effective true PTRS point value
-        if self._effective_true_ptrs is not None:
-            return rng.random() < self._effective_true_ptrs
+        return rng.random() < self._outcome_ptrs
 
-        # Default: use observed PTRS
-        return rng.random() < self.ptrs
+    @property
+    def _outcome_ptrs(self) -> float:
+        """
+        The point PTRS a trial's outcome is drawn against.
+
+        The experience-boosted true value when TA experience sets one, else the
+        hidden true value, else the observed PTRS. With PTRS readings on,
+        ``ptrs`` is the agent's noisy estimate of ``_true_ptrs``; drawing
+        against it would let a lucky reading raise the real odds.
+        """
+        if self._effective_true_ptrs is not None:
+            return self._effective_true_ptrs
+        if self._true_ptrs is not None:
+            return self._true_ptrs
+        return self.ptrs
 
     def _copy_private_attrs(self, new_trial: "Trial") -> None:
         """Copy all private attributes to a new trial instance."""
@@ -710,12 +720,8 @@ class Trial(BaseModel):
             modified_prob = min(1.0, sampled_ptrs * success_modifier)
             return rng.random() < modified_prob
 
-        # Uncertain PTRS or default: use point estimate
-        base_prob = (
-            self._effective_true_ptrs
-            if self._effective_true_ptrs is not None
-            else self.ptrs
-        )
+        # Point estimate: true value when hidden, else observed
+        base_prob = self._outcome_ptrs
 
         # Apply modifier but cap at 1.0
         modified_prob = min(1.0, base_prob * success_modifier)

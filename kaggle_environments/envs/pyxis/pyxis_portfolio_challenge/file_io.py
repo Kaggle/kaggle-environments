@@ -15,7 +15,7 @@ def _load_bytes(uri: upath.UPath):
     """Main loader API. Loads from local or Azure, if Azure support is available."""
     if _azure_like(uri):
         try:
-            from app.azure import _load_bytes_azure
+            from pyxis_portfolio_challenge.app.azure import _load_bytes_azure
         except ImportError:
             raise ImportError(
                 "Azure Blob Storage loading is not available in this installation. "
@@ -45,7 +45,7 @@ def list_files(uri: upath.UPath) -> list[str]:
     """List files given a uri. Supports local and Azure if available."""
     if _azure_like(uri):
         try:
-            from app.azure import _list_files_azure
+            from pyxis_portfolio_challenge.app.azure import _list_files_azure
         except ImportError:
             raise ImportError(
                 "Azure Blob Storage listing is not available in this installation. "
@@ -97,7 +97,7 @@ def write_bytes(data: bytes, path: upath.UPath, overwrite: bool = False):
     """Main writer API. Writes to local or Azure, if Azure support is available."""
     if _azure_like(path):
         try:
-            from app.azure import upload_bytes
+            from pyxis_portfolio_challenge.app.azure import upload_bytes
         except ImportError:
             raise ImportError(
                 "Azure Blob Storage writing is not available in this installation. "

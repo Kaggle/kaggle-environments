@@ -28,7 +28,12 @@ export default memo(function GameRenderer(options: GameRendererProps<GoStep[]>) 
     for (const step of options.replay.steps) {
       if (step.step > options.step) break;
 
-      const move = step.players.find((p) => p.isTurn)?.actionDisplayText;
+      const player = step.players.find((p) => p.isTurn);
+      // A forfeit is a "turn" for timeline purposes but puts no stone on the
+      // board -- there is no legal move to replay.
+      if (player?.forfeited) continue;
+
+      const move = player?.actionDisplayText;
 
       if (move === 'PASS') {
         game.pass();
@@ -43,7 +48,10 @@ export default memo(function GameRenderer(options: GameRendererProps<GoStep[]>) 
     game.whiteName = options.replay.info?.TeamNames.at(1);
     game.step = options.step;
     game.gameStart = game.moveNumber() === 0;
-    game.gameOver = game.step > game.moveNumber();
+    // Read the flag off the step the transformer marked terminal rather than
+    // inferring it from `step > moveNumber()`: a forfeit step contributes no
+    // move, so the move count lags and the heuristic fired a step early.
+    game.gameOver = options.replay.steps.at(options.step)?.isTerminal ?? false;
 
     tenukiLogger(game);
 

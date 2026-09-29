@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { FORFEIT_REASONS } from '@kaggle-environments/core';
 import { Ribbon } from './Ribbon';
 import useGameStore from '../stores/useGameStore';
 import { trackEvent } from '../utils/analytics';
@@ -38,14 +39,18 @@ export default function GameOver() {
   const step = options.replay.steps.at(options.step);
   // TODO(pim-at-stink): https://github.com/Stinkstudios/kaggle-ai-visualiser/issues/15
   if (!step) return null;
-  if (!game.gameOver) return null;
+  if (!step.isTerminal) return null;
 
   const state = game.currentState();
   const points = game.score();
-  const winnerColor = points.black > points.white ? 'black' : 'white';
+  // The result comes from the env's rewards (via the transformer), never from
+  // re-scoring the board here. On a forfeit the board is only half-played, so
+  // the territory count routinely favours the player who forfeited.
+  const winnerColor = step.winner;
   const blackName = game.blackName ?? 'Black';
   const whiteName = game.whiteName ?? 'White';
   const winnerName = winnerColor === 'black' ? blackName : whiteName;
+  const loserName = winnerColor === 'black' ? whiteName : blackName;
   const captured = { black: state.whiteStonesCaptured, white: state.blackStonesCaptured };
   const passes = { black: state.blackPassStones, white: state.whitePassStones };
   const tokens = { black: 0, white: 0 };
@@ -80,6 +85,11 @@ export default function GameOver() {
   const allDurations = [...durations.black, ...durations.white];
   const gameDuration = allDurations.reduce((a, b) => a + b, 0);
 
+  const winnerText = winnerColor ? `Winner is ${winnerName}!` : `It's a draw!`;
+
+  const forfeitReason = step.status ? FORFEIT_REASONS[step.status] : undefined;
+  const forfeitText = forfeitReason ? `${loserName} ${forfeitReason}.` : null;
+
   const rows: StatRow[] = [
     {
       label: 'Stones Captured',
@@ -108,44 +118,76 @@ export default function GameOver() {
     },
   ];
 
-  trackEvent('game-over');
+  switch (step.status) {
+    case 'TIMEOUT':
+      trackEvent('game-over-timeout');
+      break;
+    case 'ERROR':
+      trackEvent('game-over-error');
+      break;
+    case 'TRUNCATED':
+    case 'INVALID':
+      trackEvent('game-over-invalid');
+      break;
+    default:
+      if (!winnerColor) {
+        trackEvent('game-over-draw');
+      } else {
+        trackEvent('game-over');
+      }
+  }
 
   return (
     <dialog ref={dialogRef} className={styles.modal} aria-label="Game over" tabIndex={-1}>
       <div className="ribbon">
         <Ribbon>
-          <h2 className={styles.heading}>Winner is {winnerName}!</h2>
+          <h2 className={styles.heading}>{winnerText}</h2>
         </Ribbon>
       </div>
-      <div className={styles.meta}>
-        Game Duration: {formatDuration(gameDuration)}
-        <br />
-        Total Moves: {totalMoves}
-      </div>
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            <th />
-            <th>{blackName}</th>
-            <th>{whiteName}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.label}>
-              <td>{row.label}</td>
-              <td>{row.black}</td>
-              <td>{row.white}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <p className={styles.rulesNote}>
-        Scoring follows{' '}
-        <a href="https://tromp.github.io/go.html" target="_blank" rel="noopener noreferrer">
-          Tromp-Taylor rules
-        </a>
-      </p>
+
+      {/* The board was abandoned mid-game, so the territory/capture table below
+          would be describing an unfinished position. Show the reason instead. */}
+      {forfeitText && (
+        <p className={styles.forfeit}>
+          {forfeitText}
+          <br />
+          <b>Game Over.</b>
+        </p>
+      )}
+
+      {!forfeitText && (
+        <>
+          <div className={styles.meta}>
+            Game Duration: {formatDuration(gameDuration)}
+            <br />
+            Total Moves: {totalMoves}
+          </div>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th />
+                <th>{blackName}</th>
+                <th>{whiteName}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.label}>
+                  <td>{row.label}</td>
+                  <td>{row.black}</td>
+                  <td>{row.white}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className={styles.rulesNote}>
+            Scoring follows{' '}
+            <a href="https://tromp.github.io/go.html" target="_blank" rel="noopener noreferrer">
+              Tromp-Taylor rules
+            </a>
+          </p>
+        </>
+      )}
     </dialog>
   );
 }

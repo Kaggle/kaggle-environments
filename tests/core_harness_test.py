@@ -1,12 +1,15 @@
 """Tests for core_harness using a minimal in-memory game harness."""
 
 import dataclasses
+import http.server
+import json
+import threading
 from unittest.mock import patch
 
 import httpx
 from absl.testing import absltest
 
-from kaggle_environments import core_harness
+from kaggle_environments import ablation, core_harness
 from kaggle_environments.core_harness import (
     ParseResult,
     create_agent_fn,
@@ -1540,6 +1543,79 @@ class ExtractLastJsonObjectWithPositionTest(absltest.TestCase):
             plain = extract_last_json_object(r)
             with_pos, _ = extract_last_json_object_with_position(r)
             self.assertEqual(plain, with_pos, msg=repr(r))
+
+
+class _RecordingProxyHandler(http.server.BaseHTTPRequestHandler):
+    """Fake OpenAI-compatible proxy: records each request body and streams
+    back a one-move completion."""
+
+    bodies: list[dict] = []
+
+    def log_message(self, *args):
+        pass
+
+    def do_POST(self):
+        body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        type(self).bodies.append(body)
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.end_headers()
+        base = {"id": "x", "object": "chat.completion.chunk", "created": 0, "model": body["model"]}
+        for choices in (
+            [{"index": 0, "delta": {"role": "assistant", "content": "move_0"}, "finish_reason": None}],
+            [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+        ):
+            self.wfile.write(f"data: {json.dumps({**base, 'choices': choices})}\n\n".encode())
+        self.wfile.write(b"data: [DONE]\n\n")
+
+
+class ReasoningEffortForwardingTest(absltest.TestCase):
+    """reasoning_effort must reach the model proxy for EVERY model.
+
+    Runs real litellm (no completion mock) against a local fake proxy, because
+    the bug lives in litellm's param filtering: with drop_params=True it
+    silently strips reasoning_effort for openai/ models it doesn't recognize
+    as reasoning models (anything but gpt-5* / known o-series).
+    """
+
+    # Mix of names litellm does and doesn't classify as reasoning models.
+    MODELS = (
+        "gpt-6-astra", "gpt-6-sol", "claude-opus-4-6", "gemini-3.5-flash",
+        "grok-4.3", "gpt-5.5", "o3",
+    )
+
+    def setUp(self):
+        super().setUp()
+        set_telemetry_exporter(lambda module, **kwargs: None)
+        _RecordingProxyHandler.bodies = []
+        self.server = http.server.HTTPServer(("127.0.0.1", 0), _RecordingProxyHandler)
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.proxy_url = f"http://127.0.0.1:{self.server.server_port}"
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        super().tearDown()
+
+    def test_setup_model_forwards_reasoning_effort(self):
+        for model in self.MODELS:
+            with self.subTest(model=model):
+                _RecordingProxyHandler.bodies = []
+                env = {**_ENV, "MODEL_NAME": model, "MODEL_PROXY_URL": self.proxy_url}
+                with patch.dict("os.environ", env, clear=False):
+                    result = create_agent_fn(_SimpleHarness())({}, {})
+                self.assertEqual(result["submission"], 0)
+                self.assertLen(_RecordingProxyHandler.bodies, 1)
+                self.assertEqual(_RecordingProxyHandler.bodies[0].get("reasoning_effort"), "high")
+
+    def test_ablation_model_setup_forwards_reasoning_effort(self):
+        for model in self.MODELS:
+            with self.subTest(model=model):
+                _RecordingProxyHandler.bodies = []
+                model_name, kwargs = ablation.build_model_setup(model, "key", self.proxy_url)
+                core_harness._call_llm("prompt", model_name, kwargs)
+                self.assertLen(_RecordingProxyHandler.bodies, 1)
+                self.assertEqual(_RecordingProxyHandler.bodies[0].get("reasoning_effort"), "high")
 
 
 if __name__ == "__main__":

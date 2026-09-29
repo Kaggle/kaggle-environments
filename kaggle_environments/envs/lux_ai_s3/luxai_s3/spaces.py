@@ -2,7 +2,8 @@ import chex
 import jax
 import jax.numpy as jnp
 import numpy as np
-from gymnax.environments.spaces import Space
+
+from luxai_s3._gymnax.spaces import Space
 
 
 class MultiDiscrete(Space):

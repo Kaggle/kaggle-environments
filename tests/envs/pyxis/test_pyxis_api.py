@@ -104,6 +104,26 @@ def test_pyxis_toJSON_replay_structure():
     assert j["statuses"] == ["DONE", "DONE"]
 
 
+def test_pyxis_site_auction_alert_renders():
+    """A clinical-site deal carries no therapeutic area; the snapshot must cope."""
+
+    def bidder(observation, configuration):
+        return {"site_bid": [50.0]}
+
+    env = make("pyxis", configuration={"seed": 5})
+    env.run([bidder, "do_nothing"])
+    assert [s["status"] for s in env.steps[-1]] == ["DONE", "DONE"]
+
+    alerts = [
+        alert
+        for step in env.steps
+        for alert in step[0]["observation"].get("render", {}).get("alerts", [])
+        if alert["eventType"] == "clinical_site_deal"
+    ]
+    assert alerts, "expected at least one site-auction win"
+    assert all(a["therapeuticArea"] == -1 for a in alerts)
+
+
 def test_pyxis_train_api_steps_to_done():
     # The gym-style single-agent loop used for RL training.
     env = make("pyxis", configuration={"seed": 15})

@@ -827,9 +827,17 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
         # Marketing masks
         if self.marketing_config.enabled:
             num_ind_slots = self.max_indications_per_ta * len(THERAPEUTIC_AREAS)
-            # No masking for either action — pre-market spend is intentionally allowed
+            # Demand creation sizes a shared indication market, so pre-market
+            # spend is allowed. Brand equity is per drug and its score is reset
+            # to the floor at launch, so only on-market drugs can take it.
             result["demand_creation"] = [[True, True]] * num_ind_slots
-            result["brand_equity"] = [[True, True]] * self.max_num_assets
+            brand_mask = []
+            for i in range(self.max_num_assets):
+                asset_id = asset_order[i] if i < len(asset_order) else None
+                asset = game_state.assets.get(asset_id) if asset_id else None
+                on_market = asset is not None and asset.state == AssetState.OnMarket
+                brand_mask.append([True, on_market])
+            result["brand_equity"] = brand_mask
 
         return result
 

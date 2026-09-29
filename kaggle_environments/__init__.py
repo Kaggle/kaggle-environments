@@ -56,16 +56,16 @@ PROJECT_ROOT = os.path.abspath(os.path.join("..", _script_dir))
 # Dirs that ship only a visualizer subtree with no {name}.py backend.
 # Skipped silently so the CLI stays quiet; any *other* dir missing its
 # backend still surfaces a "Loading environment X failed" message.
-_VISUALIZER_ONLY_ENVS = {"chess", "codenames", "llm_20_questions", "lux_ai_s2"}
+_VISUALIZER_ONLY_ENVS = {"chess", "codenames", "llm_20_questions"}
 
 # Envs whose module import is deferred until first make(name). Werewolf
 # pulls in ~250ms of pydantic schema construction (game/actions.py,
 # game/records.py, harness/base.py) that would otherwise be paid on every
 # `import kaggle_environments` — the env itself is rarely invoked, so
 # defer it. Pyxis drags in stable-baselines3 / omegaconf and the whole
-# investment-game package, which is far too heavy to import eagerly. See
-# core.register_lazy.
-_LAZY_ENVS = {"werewolf", "pyxis"}
+# investment-game package, which is far too heavy to import eagerly. Lux AI
+# S2 pulls in pygame (~0.8s plus a stdout banner). See core.register_lazy.
+_LAZY_ENVS = {"werewolf", "pyxis", "lux_ai_s2"}
 
 
 def _make_lazy_loader(env_name):

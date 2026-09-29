@@ -811,6 +811,11 @@ def _setup_model() -> tuple[str, dict[str, Any]]:
             "api_base": f"{os.environ['MODEL_PROXY_URL']}/openapi",
             "api_key": os.environ["MODEL_PROXY_KEY"],
             "reasoning_effort": "high",
+            # litellm (>=1.61, with drop_params=True) silently strips
+            # reasoning_effort for any openai/ model it doesn't recognize as
+            # a reasoning model (Gemini, Claude, Grok, GPT-6, ...). The proxy
+            # translates it per provider, so force it through unconditionally.
+            "allowed_openai_params": ["reasoning_effort"],
         }
     elif "gemini" in model_name.lower() and not model_name.startswith("gemini/"):
         model_name = f"gemini/{model_name}"

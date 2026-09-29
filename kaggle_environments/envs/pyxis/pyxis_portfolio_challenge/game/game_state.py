@@ -1585,9 +1585,13 @@ class GameState(BaseModel):
                     if action == 1:
                         current_cash -= cost
                         current_realised_cost += cost
-            # Brand equity: update scores and deduct costs
+            # Brand equity: update scores and deduct costs. On-market drugs only:
+            # a pre-launch score is reset to the floor at launch, so the spend
+            # would buy nothing. The mask forbids it; this keeps it free if sent.
             if brand_equity_actions is not None:
                 for asset_id, asset in assets_for_step.items():
+                    if asset.state != AssetState.OnMarket:
+                        continue
                     if brand_equity_actions.get(asset_id, 0) == 1:
                         cost = marketing_cfg.be_cost(asset.max_revenue)
                         current_cash -= cost

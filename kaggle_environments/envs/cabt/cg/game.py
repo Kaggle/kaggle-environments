@@ -16,12 +16,13 @@ def _get_battle_data() -> dict:
     return Battle.obs
 
 
-def battle_start(deck0: list[int], deck1: list[int]) -> tuple[dict, StartData]:
+def battle_start(deck0: list[int], deck1: list[int], reverse_player = False) -> tuple[dict, StartData]:
     """Start the battle.
 
     Args:
         deck0: List of card IDs included in the first player’s deck.
         deck1: List of card IDs included in the second player’s deck.
+        reverse_player: When True, the second player can choose whether to go first or second.
 
     Returns:
         tuple: A tuple containing:
@@ -32,7 +33,10 @@ def battle_start(deck0: list[int], deck1: list[int]) -> tuple[dict, StartData]:
         raise ValueError("The deck must contain 60 cards.")
     cards = deck0 + deck1
     arg = (ctypes.c_int * len(cards))(*cards)
-    start_data = lib.BattleStart(arg)
+    if reverse_player:
+        start_data = lib.BattleStartReverse(arg)
+    else:
+        start_data = lib.BattleStart(arg)
     Battle.battle_ptr = start_data.battlePtr
     if Battle.battle_ptr == None or Battle.battle_ptr == 0:
         return (None, start_data)

@@ -14,7 +14,13 @@ from kaggle_environments.utils import resolve_episode_seed
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
 if _DIR not in sys.path:
-    # The bundled package uses absolute ``pyxis_portfolio_challenge`` imports.
+    # The bundled package uses absolute ``pyxis_portfolio_challenge`` imports,
+    # so its parent has to be importable. This leaks exactly one top-level
+    # name, which is distinctive enough not to shadow a competitor's module.
+    # (The bundle also shipped a top-level ``app``; that one was generic enough
+    # to collide, so it now lives under ``pyxis_portfolio_challenge.app``.)
+    # Removing the path hack entirely means rewriting ~160 absolute imports in
+    # vendored code — worth doing only alongside an upstream change.
     sys.path.insert(0, _DIR)
 
 NUM_AGENTS = 2
@@ -69,7 +75,227 @@ def _build_pyxis_env():
     return env
 
 
-def _write_observations(state, pyenv, observations):
+# Fixed therapeutic-area order, mirrored in the visualizer. Snapshots store the
+# index rather than repeating these strings once per asset per step.
+_THERAPEUTIC_AREAS = [
+    "oncology",
+    "respiratory and immunology",
+    "vaccines and infectious disease",
+]
+
+
+def _ta_index(therapeutic_area):
+    """TA index for the visualizer, or -1 when the event has no TA.
+
+    Clinical-site-deal alerts carry ``therapeutic_area=""`` (a site is not tied
+    to any TA), so a bare ``list.index`` raises and takes the whole episode
+    down with it. -1 matches the padding convention used elsewhere.
+
+    Assets go through here too. Their ``therapeutic_area`` is a pydantic
+    ``Literal`` of exactly these three values, so they cannot miss today --
+    this just keeps a future TA from turning a render into a forfeit.
+    """
+    try:
+        return _THERAPEUTIC_AREAS.index(therapeutic_area)
+    except ValueError:
+        return -1
+
+
+def _asset_key(asset):
+    """Short stable id for an asset, long enough not to collide within a match."""
+    return str(asset.id)[:8]
+
+
+def _ptrs_readings_config():
+    """The PTRS-readings config, or None when the feature is off."""
+    from pyxis_portfolio_challenge.config import config
+
+    cfg = config.ptrs_readings
+    return cfg if cfg.enabled else None
+
+
+def _ptrs_readings(trial, cfg):
+    """How many readings a trial's PTRS rests on.
+
+    Every trial ships with one noisy reading, so a PTRS alone says nothing about
+    how much to trust it -- 0.56 off a single sample and 0.56 off ten readings
+    are the same number and very different bets. This is the engine's own
+    precision-weighted count, the one ``offset_ptrs_count`` normalises for
+    agents; a reading taken while the trial was phases away counts for less
+    than one.
+    """
+    if cfg is None or trial is None:
+        return 0.0
+    return cfg.effective_readings(trial.ptrs_total_precision)
+
+
+def _ended_reason(gs):
+    """``GameEndReason`` name (``ongoing_investments``, ...), or None while playing.
+
+    The engine stores the enum's prose value, and the site auction writes a bare
+    ``"bankrupt"``; a short key lets the viewer phrase it.
+    """
+    from pyxis_portfolio_challenge.game.game_state import GameEndReason
+
+    reason = gs.ended_reason
+    if not reason:
+        return None
+    try:
+        return GameEndReason(reason).name.lower()
+    except ValueError:
+        return str(reason)
+
+
+def _render_snapshot(game, known):
+    """Compact per-step portfolio + market state for the web visualizer.
+
+    The engine's own ``playthrough.capture_agent_states`` emits ~215 KB per step
+    (21 MB for a match), most of it static prose and per-phase trial detail the
+    renderer never reads. This keeps the ~4 KB the visualizer actually draws: an
+    asset's immutable identity is emitted once into ``assetMeta`` the step it
+    first appears, and every later step carries only the mutable row. ``known``
+    is the caller's accumulator of already-described assets.
+
+    Asset and market rows stay positional because they repeat ~60x per step;
+    naming their fields would add 16% to the whole replay. Everything that
+    appears once per step is spelled out -- measured at 1.7% of the replay, not
+    worth the illegibility. ``visualizer/default/src/types.ts`` labels the tuple
+    slots.
+
+    What is here beyond what the board shows is what an agent actually decides
+    on: next step's trial bill (what triggers bankruptcy, invisible in the cash
+    balance), how researched a PTRS is (a lone noisy reading and a sampled-out
+    estimate print the same number), marketing's brand lift, patent life, what a
+    BD offer is worth, and whether the site auction is taking bids.
+    """
+    from pyxis_portfolio_challenge.game.asset import AssetState
+
+    market = game.shared_market
+    readings_cfg = _ptrs_readings_config()
+    asset_meta = {}
+    agents = {}
+    for aid, gs in game.agent_states.items():
+        rows = []
+        burn = committed = 0.0
+        for asset in gs.assets.values():
+            key = _asset_key(asset)
+            if key not in known:
+                known.add(key)
+                asset_meta[key] = [
+                    asset.name,
+                    _ta_index(asset.therapeutic_area),
+                    int(asset.indication),
+                    0 if asset.type == "internal" else 1,
+                    round(float(asset.max_revenue)),
+                ]
+            trial = asset.trial
+            # Only running trials are charged; an idle asset's trial is pending.
+            if asset.state == AssetState.InDevelopment:
+                burn += float(asset.cost_this_step)
+                committed += float(trial.cost_remaining)
+            rows.append(
+                [
+                    key,
+                    asset.state.integer,
+                    trial.phase.integer if trial else -1,
+                    int(trial.time_remaining) if trial else 0,
+                    round(float(trial.ptrs), 3) if trial else 0,
+                    int(asset.current_investment_level),
+                    int(asset.time_on_market),
+                    round(_ptrs_readings(trial, readings_cfg), 2),
+                    # Every drug launches at a floor sized by its revenue, so the
+                    # raw score mostly measures the drug. The excess over the
+                    # floor is what marketing bought -- and what market share
+                    # reads. Both are private on ``GameState`` with no accessor;
+                    # the engine's own observation encoder reads them the same way.
+                    round(
+                        max(
+                            0.0,
+                            gs._brand_scores.get(asset.id, 0.0) - gs._brand_score_floors.get(asset.id, 0.0),
+                        ),
+                        3,
+                    ),
+                    # Steps until the asset expires: on market, its remaining
+                    # earning life; in development, the clock trials run against.
+                    int(asset.time_until_patent_expiry),
+                ]
+            )
+        agents[aid] = {
+            "cash": round(float(gs.cash)),
+            "enpv": round(float(gs.enpv())),
+            "eroi": round(float(gs.eroi()), 3),
+            "bankrupt": bool(gs.bankrupt),
+            "operationalSites": int(gs.operational_sites),
+            "buildingSites": len(gs.sites_in_development),
+            # ``expired_assets`` is the unreleased asset pool, not expired drugs —
+            # it holds hundreds of entries at reset — so it is deliberately absent.
+            "failedCount": len(gs.failed_assets),
+            "droppedCount": len(gs.dropped_assets),
+            "freeSites": int(gs.free_sites),
+            # Next step's charge for running trials, due whether or not the agent
+            # acts; cash under this is bankruptcy. Investment levels and R&D
+            # capacity, the engine's only modifiers of it, are off.
+            "trialBurn": round(burn),
+            # Everything the running trials still owe, across all steps.
+            "committedCost": round(committed),
+            # Realised cash flow of the step just played, all sources.
+            "revenue": round(float(gs.realised_revenues[-1])) if gs.realised_revenues else 0,
+            "spend": round(float(gs.realised_costs[-1])) if gs.realised_costs else 0,
+            "endedReason": _ended_reason(gs),
+            "assets": rows,
+        }
+
+    snapshot = {
+        "time": int(game.time),
+        # The site auction opens every 20 steps and is the only way to add a
+        # site without paying the Fibonacci upgrade price. Without this the
+        # viewer learns an auction happened only from the winner's alert.
+        "siteAuctionOpen": bool(market.site_auction_available()),
+        "agents": agents,
+        "bdOffers": [
+            {
+                "name": a.name,
+                "therapeuticArea": _ta_index(a.therapeutic_area),
+                "phase": a.trial.phase.integer if a.trial else -1,
+                "maxRevenue": round(float(a.max_revenue)),
+                # The public reading; each agent's private readings live on its
+                # own clone and are not shown.
+                "ptrs": round(float(a.trial.ptrs), 3) if a.trial else 0,
+                "enpv": round(float(a.enpv)),
+                # Steps the offer stays up, this one included.
+                "stepsLeft": market.bd_persist_steps - market.bd_asset_ages.get(str(a.id), 0),
+            }
+            for a in market.current_bd_assets
+        ],
+        # Already pruned by the engine to a rolling 5-step window.
+        "alerts": [
+            {
+                "step": al.step,
+                "eventType": al.event_type.value,
+                "agentId": al.agent_id,
+                "therapeuticArea": _ta_index(al.therapeutic_area),
+                "indication": int(al.indication),
+                "details": _to_jsonable(al.details),
+            }
+            for al in market.alerts
+        ],
+        "indicationMarkets": [
+            [
+                key,
+                m.indication_name,
+                m.first_mover_agent,
+                round(float(m.demand_multiplier), 3),
+                sum(len(ids) for ids in m.active_drugs.values()),
+            ]
+            for key, m in market.indication_markets.items()
+        ],
+    }
+    if asset_meta:
+        snapshot["assetMeta"] = asset_meta
+    return snapshot
+
+
+def _write_observations(state, pyenv, observations, known_assets):
     """Copy per-agent engine observation + book-keeping into the Kaggle state."""
     portfolios = pyenv.agent_portfolios
     for i, aid in enumerate(AGENT_IDS):
@@ -81,6 +307,9 @@ def _write_observations(state, pyenv, observations):
             obs.cash = float(gs.cash)
             obs.enpv = float(gs.enpv())
             obs.bankrupt = bool(gs.bankrupt)
+    # Hidden + shared: recorded once on seat 0 for the replay, stripped from both
+    # agents' runtime observations so neither can read the other's portfolio.
+    state[0].observation.render = _render_snapshot(pyenv.multi_agent_game, known_assets)
 
 
 def _outcomes(pyenv, cum):
@@ -114,37 +343,95 @@ def _finish(state, outcomes):
         state[i].status = "DONE"
 
 
-def _illegal_investments(pyenv, aid, action):
-    """True if ``action`` picks an investment level the mask forbids.
+def _coerce_for_space(space, action):
+    """Cast a JSON action to the dtypes and shapes ``space`` expects.
 
-    An out-of-mask investment makes the engine raise, which would crash the
-    whole episode, so the interpreter forfeits the offender instead. Level 0 is
-    always safe.
+    A JSON round-trip loses dtype: a ``Box(float32)`` head arrives as a list of
+    Python floats, and ``contains()`` rejects the float64 array ``asarray``
+    would build. Casting first means validation judges the values, not the
+    encoding.
     """
-    if not isinstance(action, dict):
-        return False
-    inv = action.get("investments")
-    if inv is None:
-        return False
-    inv_mask = pyenv.action_masks(aid).get("investments")
-    if inv_mask is None:
-        return False
-    for i, choice in enumerate(inv):
-        if i >= len(inv_mask):
-            break
-        try:
-            c = int(choice)
-        except (TypeError, ValueError):
-            return True
-        if c == 0:
+    import numpy as np
+
+    out = {}
+    for head, value in action.items():
+        sub = space.get(head) if hasattr(space, "get") else None
+        if sub is None:
+            out[head] = value
             continue
-        m = inv_mask[i]
-        if isinstance(m, (list, tuple)):
-            if c < 0 or c >= len(m) or not m[c]:
-                return True
-        elif not m or c != 1:
+        arr = np.asarray(value, dtype=sub.dtype)
+        # Discrete heads are scalars; gymnasium wants the numpy scalar, not a
+        # 0-d array.
+        out[head] = arr if arr.shape else arr[()]
+    return out
+
+
+def _masked_head_illegal(mask, values):
+    """True if any entry of ``values`` picks a choice ``mask`` forbids.
+
+    Masks are shaped ``(*slots, num_choices)`` against an action of shape
+    ``(*slots,)`` — including scalar heads like ``upgrade``, whose mask is a
+    flat per-choice vector. So the check is a per-slot ``mask[slot][choice]``
+    lookup, and a slot-count mismatch is itself illegal.
+    """
+    import numpy as np
+
+    if mask is None:
+        return False
+    try:
+        m = np.asarray(mask, dtype=bool)
+        choices = np.asarray(values).reshape(-1)
+        flat = m.reshape(-1, m.shape[-1])
+        if choices.shape[0] != flat.shape[0]:
             return True
-    return False
+        idx = choices.astype(np.int64)
+        if np.any(idx < 0) or np.any(idx >= flat.shape[1]):
+            return True
+        return not bool(flat[np.arange(flat.shape[0]), idx].all())
+    except (ValueError, TypeError, IndexError, OverflowError):
+        return True
+
+
+def _normalize_action(pyenv, aid, action):
+    """Coerce a submitted action into one the engine accepts, or reject it.
+
+    Returns ``(action, illegal)``. Isolated submissions can only send JSON, and
+    the engine demands every enabled head each step, so missing heads are
+    filled from ``noop_action()`` — an agent that ignores a feature gets its
+    no-op rather than a crash.
+
+    Rejection is reserved for actions the engine would raise on: a non-dict, an
+    unknown head, or a choice the mask forbids. Those forfeit the offender
+    rather than ending the match in a draw.
+    """
+    noop = pyenv.noop_action()
+    if action is None:
+        return noop, False
+    if not isinstance(action, dict):
+        return noop, True
+    if any(head not in noop for head in action):
+        return noop, True
+
+    masks = pyenv.action_masks(aid)
+    merged = dict(noop)
+    for head, value in action.items():
+        if value is None:
+            continue
+        if _masked_head_illegal(masks.get(head), value):
+            return noop, True
+        merged[head] = value
+
+    # The masks only cover discrete heads. Let the engine's own action space
+    # reject anything else malformed (wrong length, wrong dtype, out of range)
+    # before it reaches step() and raises.
+    try:
+        space = pyenv.action_space(aid)
+        coerced = _coerce_for_space(space, merged)
+        if not space.contains(coerced):
+            return noop, True
+    except Exception:
+        return noop, True
+    return coerced, False
 
 
 def _forfeit(state, env, loser_seats):
@@ -165,8 +452,14 @@ def interpreter(state, env):
         seed = resolve_episode_seed(env)
         pyenv = _build_pyxis_env()
         observations, _ = pyenv.reset(seed=seed)
-        _LIVE[env.id] = {"env": pyenv, "cum": {aid: 0.0 for aid in AGENT_IDS}, "baselines": {}}
-        _write_observations(state, pyenv, observations)
+        _LIVE[env.id] = {
+            "env": pyenv,
+            "cum": {aid: 0.0 for aid in AGENT_IDS},
+            "baselines": {},
+            # Assets already described in a snapshot's ``meta``; see _render_snapshot.
+            "known_assets": set(),
+        }
+        _write_observations(state, pyenv, observations, _LIVE[env.id]["known_assets"])
         for i in range(len(state)):
             state[i].observation.initialized = True
         state[0].observation.kaggleEnvId = env.id
@@ -183,26 +476,29 @@ def interpreter(state, env):
     pyenv = live["env"]
 
     losers = {i for i in range(len(state)) if state[i].status in _FORFEIT_STATUSES}
-    losers |= {
-        i for i, aid in enumerate(AGENT_IDS) if i not in losers and _illegal_investments(pyenv, aid, state[i].action)
-    }
+    actions = {}
+    for i, aid in enumerate(AGENT_IDS):
+        action, illegal = _normalize_action(pyenv, aid, state[i].action)
+        if illegal:
+            losers.add(i)
+        actions[aid] = action
     if losers:
         _forfeit(state, env, losers)
         return state
 
-    actions = {aid: state[i].action for i, aid in enumerate(AGENT_IDS)}
     try:
         observations, rewards, terminations, truncations, _ = pyenv.step(actions)
     except Exception:
-        # An action slipped past validation and broke the engine; draw it out.
-        _finish(state, {aid: 0.5 for aid in AGENT_IDS})
-        _LIVE.pop(env.id, None)
+        # Validation should have caught this. Forfeiting both seats keeps a
+        # malformed action from being a cheap way to escape a losing position;
+        # a draw would reward whoever sent it.
+        _forfeit(state, env, set(range(len(state))))
         return state
 
     for aid in AGENT_IDS:
         live["cum"][aid] += float(rewards.get(aid, 0.0))
 
-    _write_observations(state, pyenv, observations)
+    _write_observations(state, pyenv, observations, live["known_assets"])
 
     if all(terminations.values()) or all(truncations.values()):
         _finish(state, _outcomes(pyenv, live["cum"]))
@@ -222,7 +518,12 @@ def renderer(state, env):
     return "\n".join(lines)
 
 
-def html_renderer():
+def html_renderer(env, mode):
+    jspath = os.path.join(_DIR, "visualizer", "default", "dist", "index.html")
+    if os.path.exists(jspath):
+        with open(jspath, encoding="utf-8") as f:
+            return f.read()
+    # Unbuilt visualizer; ``renderer`` above is the text fallback.
     return ""
 
 
