@@ -1,0 +1,27 @@
+{
+  "name": "battlecast_arena",
+  "title": "BattleCast Arena",
+  "description": "Four-member tactical party combat evaluated by battlecast-engine.",
+  "version": "0.1.0",
+  "agents": [2],
+  "configuration": {
+    "seed": {"type": "integer", "default": 1},
+    "mapId": {"enum": ["open-arena"], "default": "open-arena"},
+    "roundCap": {"enum": [20], "default": 20},
+    "episodeSteps": {"type": "integer", "minimum": 1, "default": 1024},
+    "bridgeTimeout": {"type": "number", "minimum": 1, "default": 30},
+    "actTimeout": 1
+  },
+  "observation": {
+    "phase": {"type": "string", "default": "setup"},
+    "round": {"type": "integer", "default": 0},
+    "activeCreatureIds": {"type": "array", "default": []},
+    "legalActions": {"type": "array", "default": []},
+    "setup": {"type": "object", "default": {}},
+    "engineState": {"type": "object", "hidden": true, "default": {}},
+    "remainingOverageTime": 60
+  },
+  "action": {"type": ["string", "object"], "default": {}},
+  "reward": {"enum": [-1, 0, 1], "default": 0},
+  "status": {"defaults": ["INACTIVE", "INACTIVE"]}
+}
