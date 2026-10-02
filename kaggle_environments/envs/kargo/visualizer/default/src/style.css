@@ -1,0 +1,638 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..800&display=swap');
+@import './status-dots.css';
+
+/* The shared player.css gives .viewer `flex-grow: 1` with the default
+   `min-height: auto`, so a child with an aspect-ratio can push the playback
+   controls off the bottom of the viewport. Same fix as kaggriculture. */
+.viewer {
+  min-height: 0;
+}
+
+.kargo {
+  --surface: #efece4;
+  --ink: #231f1b;
+  --muted: #6a635a;
+  --line: #c9c2b6;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 10px 14px;
+  overflow: hidden;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13px;
+}
+
+.kargo * {
+  box-sizing: border-box;
+}
+
+/* ---- top bar ---- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 0 0 auto;
+}
+
+.brand {
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  font-size: 15px;
+}
+
+.topbar .day {
+  font-weight: 700;
+}
+
+.topbar .clock {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.topbar .phase {
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+.wx {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.wx img {
+  height: 26px;
+}
+
+.forecast {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* ---- layout ---- */
+
+.main {
+  display: grid;
+  grid-template-columns: minmax(170px, 230px) minmax(0, 1fr) minmax(170px, 230px);
+  gap: 12px;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+/* One flank per side, holding one seat at a two-player table and two at a
+   four-player one. The column width does not change between them: the seats
+   stack, so a panel is the same width whoever else is playing.
+
+   Equal rows rather than content height. Two seats then split the column
+   instead of the second running off the bottom of the viewport, and a lone
+   seat still fills its side the way it did before there were flanks. */
+.flank {
+  display: grid;
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.flank > .panel {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ---- map ---- */
+
+/* The map is square and must fit BOTH ways. `aspect-ratio` alone only
+   constrains the axis that is free, so a square box in a wide short column
+   grows past the column; in a tall narrow one it grows past the row. The
+   centering wrapper supplies both bounds and the square sizes itself down to
+   whichever is tighter. */
+.map-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+}
+
+.map {
+  position: relative;
+  aspect-ratio: 1;
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.map svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.sprite-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Every sprite is positioned by its centre so the % coordinate means the
+   thing the engine means: the node, not the sprite's top-left corner. */
+.marker {
+  position: absolute;
+  translate: -50% -50%;
+  pointer-events: auto;
+}
+
+.marker img {
+  display: block;
+  image-rendering: auto;
+}
+
+.warehouse img {
+  width: 30px;
+}
+
+.stop img {
+  width: 26px;
+}
+
+/* Whose stop it is, as a hairline -- not as the dot's colour. */
+.stop::after {
+  content: '';
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: -2px;
+  height: 2px;
+  background: var(--seat);
+  border-radius: 1px;
+}
+
+.face-count {
+  position: absolute;
+  left: -4px;
+  bottom: -4px;
+  min-width: 12px;
+  padding: 0 2px;
+  background: #fffdf8;
+  border: 1px solid var(--muted);
+  border-radius: 6px;
+  font-size: 9px;
+  line-height: 12px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.truck {
+  z-index: 3;
+}
+
+.truck img {
+  width: 24px;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 35%));
+}
+
+.incident img {
+  width: 20px;
+  z-index: 2;
+}
+
+/* ---- night board ---- */
+
+/* The overnight screen sits in the same grid slot the map does, so the seat
+   panels do not shift between day and night. It scrolls: a 40-lot freight
+   board is genuinely longer than the viewport and truncating it would hide
+   the lots nobody bid on, which is half of what the board says. */
+.night {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+  padding-right: 4px;
+  overflow-y: auto;
+}
+
+.nsec {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #f7f5ef;
+}
+
+.nsec-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.nsec-head h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.nsec-head span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.nempty {
+  margin: 0;
+  padding: 8px 10px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* ---- night tables ---- */
+
+.ntable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ntable th {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.ntable td {
+  padding: 3px 8px;
+  border-bottom: 1px solid #e6e2d8;
+}
+
+.ntable tr:last-child td {
+  border-bottom: 0;
+}
+
+.ntable .num {
+  text-align: right;
+}
+
+.ntable em {
+  color: var(--muted);
+  font-style: normal;
+}
+
+/* A bid is money in a column of money, so a win is told apart by WEIGHT and a
+   seat-coloured rule, not by tinting the digits -- coloured text on a pale
+   surface is the one place the palette cannot hold 3:1.
+   The rule goes UNDER the number, not beside it: a left edge on a
+   right-aligned column lands against the neighbouring seat's figure and reads
+   as marking that one. */
+.ntable td.win {
+  font-weight: 800;
+  box-shadow: inset 0 -3px 0 -1px var(--seat-ink);
+}
+
+.ntable td.pass {
+  color: #a9a49c;
+}
+
+.tag {
+  padding: 0 4px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--muted);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.warn {
+  color: #b23a30;
+  font-weight: 600;
+}
+
+/* ---- night lists ---- */
+
+/* One column per seat, however many there are. `auto-fit` rather than a fixed
+   count: at four players two columns of 50% would wrap the roster to six lines
+   each, and at two a four-column grid would leave half the row empty. */
+.seat-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1px;
+  background: var(--line);
+}
+
+.seat-col {
+  padding: 6px 10px 8px;
+  background: #f7f5ef;
+  min-width: 0;
+}
+
+.seat-col > header {
+  margin-bottom: 4px;
+}
+
+/* Identity is the name plus a swatch, never the swatch alone. */
+.seat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 700;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.seat-chip i {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}
+
+.nlist {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 11px;
+}
+
+.nlist li {
+  padding: 2px 0;
+  border-bottom: 1px solid #e6e2d8;
+}
+
+.nlist li:last-child {
+  border-bottom: 0;
+}
+
+.nlist em {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 10px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  background: #fffdf8;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.chip img {
+  width: 16px;
+}
+
+.chip em {
+  color: var(--muted);
+  font-style: normal;
+  font-weight: 400;
+}
+
+.seat-col .chips {
+  padding: 0;
+}
+
+/* ---- panels ---- */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  background: #f7f5ef;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--seat-ink);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.panel-head h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.seat {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--seat-ink);
+}
+
+.worth {
+  font-size: 22px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.money {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.money b {
+  color: #231f1b;
+  font-variant-numeric: tabular-nums;
+}
+
+.tally-cap {
+  margin-bottom: -4px;
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.tallies {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 8px;
+}
+
+.tally {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+}
+
+.tally-n {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.tally-label {
+  color: var(--muted);
+}
+
+.fleet {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: auto;
+}
+
+.fleet-chip {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 5px 1px 2px;
+  background: #fffdf8;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.fleet-chip img {
+  width: 16px;
+}
+
+/* ---- legend ---- */
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+  flex: 0 0 auto;
+  font-size: 11px;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.legend-title {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10px;
+}
+
+.ramp {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+/* The pale end of the ramp is under 3:1 on this surface, so each step is
+   labelled. The validator's contrast WARN is discharged by the label, not
+   dismissed. */
+.ramp-step {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px 1px 4px;
+  border-right: 1px solid var(--line);
+}
+
+.ramp-step:last-child {
+  border-right: 0;
+}
+
+.ramp-step i {
+  width: 11px;
+  height: 11px;
+  border: 1px solid rgb(0 0 0 / 22%);
+  border-radius: 2px;
+}
+
+.key,
+.feed {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  align-items: center;
+}
+
+.key-item,
+.feed-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.closed-swatch {
+  width: 18px;
+  height: 0;
+  border-top: 3px dashed #55504a;
+}
+
+/* Legend and feed dots are free-standing, with no sprite to size against. */
+.dot-key {
+  position: static;
+  height: 12px;
+  width: 12px;
+  font-size: 8px;
+}
+
+/* ---- feed ---- */
+
+.feed {
+  flex: 0 0 auto;
+  min-height: 20px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+}
+
+.feed em {
+  color: var(--muted);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+.feed-quiet,
+.feed-more {
+  color: var(--muted);
+}
