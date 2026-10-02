@@ -1,0 +1,151 @@
+{
+  "name": "kargo",
+  "title": "Kargo",
+  "description": "Last-mile logistics simulation: bid nightly in a sealed-bid reverse auction for a growing shipper's delivery lots, then dispatch a fleet of trucks across a congested city over 60 days. 2 or 4 players.",
+  "version": "0.1.0",
+  "agents": [2, 4],
+  "configuration": {
+    "episodeSteps": 481,
+    "actTimeout": 3,
+    "runTimeout": 9600,
+    "days": {
+      "description": "Business days in the episode. Each day is 3 overnight steps plus 5 driving blocks. Informational: the engine runs a fixed 60 days.",
+      "type": "integer",
+      "default": 60,
+      "minimum": 1
+    },
+    "blockMinutes": {
+      "description": "Simulated minutes per driving decision block.",
+      "type": "integer",
+      "default": 120,
+      "minimum": 15
+    },
+    "shiftMinutes": {
+      "description": "Straight-time minutes before overtime begins. Past this, wages are 1.5x and driver stats decay 2x.",
+      "type": "integer",
+      "default": 480,
+      "minimum": 60
+    },
+    "deadlineMinutes": {
+      "description": "Minutes after 08:00 at which the standard service deadline falls. Deliveries after it take the late penalty.",
+      "type": "integer",
+      "default": 480,
+      "minimum": 60
+    },
+    "gridSize": {
+      "description": "Arterial grid dimension. The travel network is gridSize x gridSize intersections at ~1.5 km spacing.",
+      "type": "integer",
+      "default": 20,
+      "minimum": 4
+    },
+    "warehouses": {
+      "description": "Communal shipper-owned warehouses, placed per episode. Every lot originates at one of them.",
+      "type": "integer",
+      "default": 4,
+      "minimum": 1
+    },
+    "truckPcu": {
+      "description": "Passenger-car equivalent of a player truck: how much player trucks congest each other. One of low, medium, high.",
+      "type": "string",
+      "default": "low"
+    },
+    "startingCash": {
+      "description": "Cash each player starts with.",
+      "type": "number",
+      "default": 12000,
+      "minimum": 0
+    },
+    "startingTrucks": {
+      "description": "Owned trucks each player starts with, taken in order from VAN, VAN, STEP, each with a mid-tier driver.",
+      "type": "integer",
+      "default": 3,
+      "minimum": 0
+    },
+    "seed": {
+      "description": "Optional input seed for deterministic episode generation. The interpreter clears this from configuration after reading and stores the resolved seed on env.info['seed'] so it stays out of agent observations but is still recorded in the replay.",
+      "type": ["integer", "null"],
+      "default": null
+    }
+  },
+  "reward": {
+    "description": "Net worth at the end of the episode: cash + fleet book value - outstanding debt.",
+    "type": "number",
+    "default": 0
+  },
+  "observation": {
+    "player": {
+      "description": "Player index.",
+      "type": "integer",
+      "default": 0
+    },
+    "city": {
+      "description": "Static road graph, known from day 0: grid size, edge list with road classes, per-node district labels, and warehouse node ids. Never changes during an episode.",
+      "type": "object",
+      "shared": true,
+      "default": {}
+    },
+    "traffic": {
+      "description": "Live shared conditions: per-edge ordinal congestion level (one of FREE, LIGHT, MODERATE, HEAVY, SEVERE, GRIDLOCK), active incidents and closures, current weather, and tomorrow's noisy forecast. Never the raw v/c.",
+      "type": "object",
+      "shared": true,
+      "default": {}
+    },
+    "market": {
+      "description": "Tonight's public market: spot lot listings (with retry counts), standing account listings, used-truck listings, rental pool, labor pool candidates (id, name, resume rating, asking wage), fill ceiling and service interval.",
+      "type": "object",
+      "shared": true,
+      "default": {}
+    },
+    "public": {
+      "description": "Per-player public state, indexed by player: cash, net worth, fleet roster (type, age, odometer, status), driver roster (name, tenure, resume rating -- never wages), held standing accounts, and lagged end-of-day lot results.",
+      "type": "array",
+      "shared": true,
+      "default": []
+    },
+    "history": {
+      "description": "Published record: last night's awards and bid book, the latest fleet and labor logs, and live standing accounts.",
+      "type": "object",
+      "shared": true,
+      "default": {}
+    },
+    "private": {
+      "description": "This player's private state only: truck positions, loads, fuel, km_since_service, driver wages, today's manifest with windows and noisy service estimates, lots, pending lots, events and sightings of rival trucks.",
+      "type": "object",
+      "shared": false,
+      "default": {}
+    },
+    "phase": {
+      "description": "What this step accepts: DRIVING, CAPEX, LABOR, or CONTRACTS.",
+      "type": "string",
+      "shared": true,
+      "default": "CAPEX"
+    },
+    "day": {
+      "description": "Current day index, 0-based. Day 0 is a Monday.",
+      "type": "integer",
+      "shared": true,
+      "default": 0
+    },
+    "block": {
+      "description": "Driving block within the day, 0-4. Meaningless outside a DRIVING phase.",
+      "type": "integer",
+      "shared": true,
+      "default": 0
+    },
+    "minute": {
+      "description": "Simulated minutes since 08:00 at the start of this block.",
+      "type": "integer",
+      "shared": true,
+      "default": 0
+    },
+    "remainingOverageTime": 120
+  },
+  "action": {
+    "description": "Phase-dependent object. DRIVING: {\"trucks\": {id: {route, on_late, on_missed_window, wait_cap, then, hold}}, \"abandon\": [lot, segment or door ids, block 0 only]}. CAPEX: {\"fleet\": [[op, arg]], \"fuel\": [[op, truck]], \"stage\": {truck: warehouse}}. LABOR: {\"labor\": [[op, ...args]]}. CONTRACTS: {\"bids\": [[lot, ask]], \"standing_bids\": [[account, rate, term]], \"max_lots\": number}.",
+    "type": "object",
+    "default": {}
+  },
+  "status": {
+    "defaults": ["ACTIVE", "ACTIVE"]
+  }
+}

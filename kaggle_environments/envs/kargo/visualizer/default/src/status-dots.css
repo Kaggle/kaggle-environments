@@ -1,0 +1,123 @@
+/* Stop outcome status dots.
+ *
+ * One `stop_kerb.png` carries the geometry; the outcome is this dot composited
+ * over its top-right. Generating six outcome sprites did not work: the status
+ * badge was a small part of a 40px sprite and every outcome read as the same
+ * grey smudge. A dot is legible at any size and costs no art.
+ *
+ * Outcome is never carried by colour alone. Each state has its own glyph, and
+ * because the glyph is dropped below 90px, each also has its own SHAPE --
+ * circle, square, diamond, dashed -- so the six stay separable in greyscale,
+ * under CVD, in forced-colors, and when too small to letter.
+ *
+ *   <span class="stop">
+ *     <img src="…/stop_kerb.png" alt="block face">
+ *     <i class="dot dot-refused" role="img" aria-label="Refused at the door"></i>
+ *   </span>
+ */
+
+.stop {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+  /* So the dot and its glyph scale off the sprite's own width rather than off
+   * whatever font-size the surrounding panel happens to have. */
+  container-type: inline-size;
+}
+
+.stop > img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Sized off the sprite's HEIGHT, not its width -- stop_kerb is a wide 16:9
+ * block face, and a width-relative dot would balloon. The 2px surface ring
+ * keeps it off the kerb's own outline at small sizes. */
+.dot {
+  position: absolute;
+  top: -10%;
+  right: -3%;
+  height: 42%;
+  aspect-ratio: 1;
+  min-width: 12px;
+  min-height: 12px;
+  box-sizing: border-box;
+  border: 2px solid var(--surface, #787c80);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font: 700 11cqw/1 system-ui, sans-serif;
+  color: #fff;
+  font-style: normal;
+}
+
+/* --- the six outcomes ----------------------------------------------------- */
+/* The glyph is drawn as ::before text, so it scales with the dot and needs no
+ * second asset. */
+
+/* Work still to do. Hollow, so an unworked stop recedes against the finished
+ * ones rather than competing with them. */
+.dot-pending {
+  background: #e9e6df;
+  border-color: #6b6f73;
+  color: #3a3d40;
+}
+.dot-pending::before { content: "\00B7"; }   /* middle dot */
+
+/* Delivered on time. */
+.dot-delivered { background: #2e7d4f; }
+.dot-delivered::before { content: "\2713"; } /* check */
+
+/* Served, but past the deadline -- $6/pkg. */
+.dot-late { background: #c8860d; }
+.dot-late::before { content: "\0021"; }      /* exclamation */
+
+/* DOCK window missed, turned away at the door -- $45/pkg. Square, because the
+ * three money-losing outcomes are told apart by shape before colour. */
+.dot-refused {
+  background: #b23a30;
+  border-radius: 15%;
+}
+.dot-refused::before { content: "\2715"; }   /* cross -- actively turned away */
+
+/* Never reached by 18:00 -- $45/pkg. Costs the same as refused but is a
+ * different failure, and below 90px the glyph is gone, so it cannot lean on one
+ * to separate them: it is a diamond, which reads as its own shape at 12px. */
+.dot-failed {
+  background: #4a4d50;
+  border-radius: 12%;
+  rotate: 45deg;
+}
+.dot-failed::before {
+  content: "\2715";
+  rotate: -45deg;
+}
+
+/* Written off deliberately by the agent. Notched, and the only dashed border --
+ * it is a choice, not a failure, and should not read as one. */
+.dot-abandoned {
+  background: #6d6a78;
+  border-radius: 15%;
+  border-style: dashed;
+}
+.dot-abandoned::before { content: "\2014"; } /* em dash */
+
+/* --- accessibility -------------------------------------------------------- */
+
+/* Forced-colors strips our backgrounds, so the glyph and the shape carry it. */
+@media (forced-colors: active) {
+  .dot {
+    background: Canvas;
+    color: CanvasText;
+    border-color: CanvasText;
+    forced-color-adjust: none;
+  }
+}
+
+/* A dot under ~14px cannot render a glyph legibly, so below that the shape and
+ * fill carry it alone and the glyph is dropped rather than smeared. The
+ * tooltip and the table view still name the outcome. */
+@container (max-width: 90px) {
+  .dot::before { content: none; }
+}
