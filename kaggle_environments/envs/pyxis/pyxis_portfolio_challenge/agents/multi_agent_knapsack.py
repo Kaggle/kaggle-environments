@@ -27,10 +27,11 @@ class MultiAgentKnapsackAgent:
     subject to a concurrent investment capacity limit.
 
     This is the benchmark agent described in the strategic depth analysis.
-    With ``capacity=None`` (uncapped) and ``enable_bd_bidding=True`` it
-    represents the strongest viable heuristic baseline. Concurrent-trial
-    throughput is limited naturally by the clinical-sites feature rather
-    than by a hard capacity cap on the agent.
+    With ``capacity=None`` and ``enable_bd_bidding=True`` it represents the
+    strongest viable heuristic baseline. When the clinical-sites feature is
+    active it caps its own concurrent trials at the operational-site count
+    and advances only its highest-value assets, rather than over-submitting
+    and relying on the environment's index arbitration to pick survivors.
     """
 
     CAPACITY_PER_INVESTMENT = 1
@@ -182,6 +183,13 @@ class MultiAgentKnapsackAgent:
             and self.env.rd_capacity_config.enabled
         ):
             return portfolio.capacity_base
+        # Respect the clinical-sites concurrency limit: an agent can host at most
+        # one in-development asset per operational site, so cap concurrent trials
+        # at the operational-site count. Combined with the value-sorted truncation
+        # below, this makes the agent advance only its highest-value assets rather
+        # than over-submitting and letting index arbitration pick the survivors.
+        if getattr(portfolio, "clinical_sites_enabled", False):
+            return portfolio.operational_sites
         return 999
 
     def _effective_budget(self, portfolio) -> float:
