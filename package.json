@@ -46,6 +46,7 @@
     "vite-tsconfig-paths": "^5.1.4"
   },
   "dependencies": {
+    "@xmldom/xmldom": "0.8.13",
     "lefthook": "^2.0.16",
     "marked": "^17.0.1",
     "react": "^18.2.0",
