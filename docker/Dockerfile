@@ -17,6 +17,11 @@ COPY ./pyproject.toml ./pyproject.toml
 COPY ./MANIFEST.in ./MANIFEST.in
 COPY ./kaggle_environments ./kaggle_environments
 
+# Pin the version reported by the installed package.
+ARG REPORTED_VERSION=1.32.7
+RUN sed -i "s/^version = \".*\"$/version = \"${REPORTED_VERSION}\"/" pyproject.toml && \
+    grep -q "^version = \"${REPORTED_VERSION}\"$" pyproject.toml
+
 # Now that the source code is present, run the installation.
 # This layer is now correctly cached and will only rebuild if the source or pyproject.toml changes.
 RUN uv pip install --system . && \
