@@ -6,6 +6,7 @@ congestion and routing. The interior street grid is generated lazily, per lot.
 
 import heapq
 import math
+import random
 
 from .constants import (
     ACCIDENT_CAPACITY,
@@ -23,6 +24,7 @@ from .constants import (
     CONGESTION_CUTS,
     CONGESTION_LEVELS,
     CONSTRUCTION_PER_DAY,
+    DAY_END_MINUTES,
     DISTRICT_NAMES,
     DISTRICTS,
     DOW_MULT,
@@ -180,8 +182,6 @@ class City:
         self.day = day
         self.dow = day % 7
         self.l_day = math.exp(LDAY_SIGMA * rng.gauss(0, 1) - LDAY_SIGMA**2 / 2)
-        self.noise = [0.0] * len(self.edges)
-        self.noise_tick = -1
 
         self.weather = self._weather_for(day, rng)
         self.occupancy = {}  # edge -> [(enter, leave)] of player trucks today
@@ -190,8 +190,22 @@ class City:
         low, high = CONSTRUCTION_PER_DAY
         for _ in range(rng.randint(low, high)):
             self.closures[rng.randrange(len(self.edges))] = (0, 10**6, "CONSTRUCTION")
-        self.incidents = {}  # edge -> dict
+        self.incidents = {}  # edge -> [{capacity, start, end, reported}]
         self.incident_log = []
+        self._draw_day(random.Random(rng.getrandbits(64)))
+
+    def _draw_day(self, rng):
+        """The whole day's noise path and incidents, per tick, from 08:00 to 18:00."""
+        scale = math.sqrt(1.0 - AR1_RHO * AR1_RHO)
+        noise = [0.0] * len(self.edges)
+        self.noise_path = [noise]
+        ticks = int(DAY_END_MINUTES // CITY_TICK)
+        for tick in range(1, ticks + 1):
+            gauss = rng.gauss
+            noise = [AR1_RHO * x + scale * gauss(0, 1) for x in noise]
+            self.noise_path.append(noise)
+        for tick in range(ticks):
+            self._roll_incidents(tick * CITY_TICK, rng)
 
     def _weather_for(self, day, rng):
         if day not in self.weather_plan:
@@ -221,29 +235,21 @@ class City:
         """Player trucks on `edge` at `minute`, from today's recorded traversals."""
         return sum(1 for a, b in self.occupancy.get(edge, ()) if a <= minute < b)
 
-    def advance(self, minute, rng):
-        """Step the AR(1) noise field and the incident set up to `minute`."""
-        tick = int(minute // CITY_TICK)
-        if tick <= self.noise_tick:
-            self._expire(minute)
-            return
-        steps = 1 if self.noise_tick < 0 else min(tick - self.noise_tick, 8)
-        scale = math.sqrt(1.0 - AR1_RHO * AR1_RHO)
-        for _ in range(steps):
-            for i in range(len(self.noise)):
-                self.noise[i] = AR1_RHO * self.noise[i] + scale * rng.gauss(0, 1)
-        self.noise_tick = tick
-        self._expire(minute)
-        self._roll_accidents(minute, rng)
+    def _closure(self, edge, minute, known):
+        """The closure in force on `edge` at `minute`, if it had begun by `known`."""
+        closure = self.closures.get(edge)
+        if closure and closure[0] <= known and closure[0] <= minute < closure[1]:
+            return closure
+        return None
 
-    def _expire(self, minute):
-        for edge in [e for e, inc in self.incidents.items() if inc["end"] <= minute]:
-            del self.incidents[edge]
-        for edge in [e for e, (_s, end, _r) in self.closures.items() if end <= minute]:
-            del self.closures[edge]
+    def _accident(self, edge, minute, known):
+        for inc in self.incidents.get(edge, ()):
+            if inc["start"] <= known and inc["start"] <= minute < inc["end"]:
+                return inc
+        return None
 
-    def _roll_accidents(self, minute, rng):
-        """Accident hazard scales with the edge's own congestion."""
+    def _roll_incidents(self, minute, rng):
+        """Accident hazard scales with the edge's own background congestion."""
         weather_mult = WEATHER[self.weather]["accident"]
         # Sample rather than sweep all 760 edges: hazard is tiny and uniform
         # sampling with a scaled rate is distributionally the same.
@@ -251,54 +257,60 @@ class City:
         rate = ACCIDENT_HAZARD_PER_EDGE_MIN * CITY_TICK * weather_mult * len(self.edges) / trials
         for _ in range(trials):
             edge = rng.randrange(len(self.edges))
-            if edge in self.incidents or edge in self.closures:
+            if self._accident(edge, minute, minute) or self._closure(edge, minute, minute):
                 continue
             vc = self.background_vc(edge, minute)
             if rng.random() < rate * vc * vc:
                 lo, hi = ACCIDENT_DURATION
-                self.incidents[edge] = {
-                    "capacity": rng.uniform(*ACCIDENT_CAPACITY),
-                    "end": minute + rng.uniform(lo, hi),
-                    "reported": minute + ACCIDENT_REPORT_DELAY,
-                }
+                self.incidents.setdefault(edge, []).append(
+                    {
+                        "capacity": rng.uniform(*ACCIDENT_CAPACITY),
+                        "start": minute,
+                        "end": minute + rng.uniform(lo, hi),
+                        "reported": minute + ACCIDENT_REPORT_DELAY,
+                    }
+                )
                 self.incident_log.append({"edge": edge, "minute": minute, "kind": "ACCIDENT"})
-        if rng.random() < CLOSURE_DAILY_P * CITY_TICK / 600.0:
+        if rng.random() < CLOSURE_DAILY_P * CITY_TICK / DAY_END_MINUTES:
             edge = rng.randrange(len(self.edges))
             lo, hi = CLOSURE_DURATION
-            self.closures[edge] = (minute, minute + rng.uniform(lo, hi), "EMERGENCY")
-            self.incident_log.append({"edge": edge, "minute": minute, "kind": "CLOSURE"})
+            if edge not in self.closures:
+                self.closures[edge] = (minute, minute + rng.uniform(lo, hi), "EMERGENCY")
+                self.incident_log.append({"edge": edge, "minute": minute, "kind": "CLOSURE"})
 
     # --- costs -------------------------------------------------------------
 
-    def background_vc(self, edge, minute):
-        """`v/c` from background traffic alone."""
+    def background_vc(self, edge, minute, known=None):
+        """`v/c` from background traffic alone, with the noise as of `known`."""
         c_d = DISTRICTS[self.edge_district[edge]]["c_d"]
         shape = time_of_day_shape(minute)
-        noise = 1.0 + AR1_SIGMA * self.noise[edge]
+        tick = min(int((minute if known is None else known) // CITY_TICK), len(self.noise_path) - 1)
+        noise = 1.0 + AR1_SIGMA * self.noise_path[max(0, tick)][edge]
         return max(0.0, c_d * shape * DOW_MULT[self.dow] * self.l_day * noise)
 
-    def edge_vc(self, edge, minute):
-        vc = self.background_vc(edge, minute)
+    def edge_vc(self, edge, minute, known=None):
+        """`v/c` at `minute`, from what the city looked like at `known` (default: `minute`)."""
+        known = minute if known is None else known
+        vc = self.background_vc(edge, minute, known)
         trucks = self.trucks_on(edge, minute)
         if trucks:
             vc += self.pcu * trucks / self.edges[edge][4]
-        inc = self.incidents.get(edge)
+        inc = self._accident(edge, minute, known)
         if inc:
             vc /= max(0.05, inc["capacity"])
         return vc
 
-    def edge_time(self, edge, minute):
+    def edge_time(self, edge, minute, known=None):
         """Minutes to traverse, or None if the edge is shut."""
-        if edge in self.closures:
-            start, end, _reason = self.closures[edge]
-            if start <= minute < end:
-                return None
+        known = minute if known is None else known
+        if self._closure(edge, minute, known):
+            return None
         t_free = self.edges[edge][3]
-        vc = self.edge_vc(edge, minute)
+        vc = self.edge_vc(edge, minute, known)
         return t_free * bpr_multiplier(vc) * WEATHER[self.weather]["travel"]
 
     def route(self, source, target, minute):
-        """A* on the true current costs. Returns (minutes, [edge ids])."""
+        """A* on the costs known at `minute`. Returns (minutes, [edge ids])."""
         if source == target:
             return 0.0, []
         n = self.size
@@ -324,7 +336,7 @@ class City:
             for nbr, edge in self.adjacency[node]:
                 if nbr in seen:
                     continue
-                cost = self.edge_time(edge, minute + base)
+                cost = self.edge_time(edge, minute + base, known=minute)
                 if cost is None:
                     continue
                 nd = base + cost
@@ -360,11 +372,12 @@ class City:
 
     def incident_report(self, minute):
         out = []
-        for edge, inc in self.incidents.items():
-            if inc["reported"] <= minute:
-                out.append({"edge": f"e_{edge}", "kind": "ACCIDENT", "until": round(inc["end"], 1)})
+        for edge, incs in self.incidents.items():
+            for inc in incs:
+                if inc["reported"] <= minute < inc["end"]:
+                    out.append({"edge": f"e_{edge}", "kind": "ACCIDENT", "until": round(inc["end"], 1)})
         for edge, (start, end, reason) in self.closures.items():
-            if start <= minute:
+            if start <= minute < end:
                 out.append({"edge": f"e_{edge}", "kind": reason, "until": None if end > 10**5 else round(end, 1)})
         return out
 

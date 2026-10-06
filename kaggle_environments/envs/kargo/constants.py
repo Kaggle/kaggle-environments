@@ -253,6 +253,8 @@ STAT_DECAY_PER_HOUR = 1.6  # effective-stat decay through the day
 # each night. Assigned drivers are paid for the minutes their truck works.
 RETAINER_SHARE = 0.5
 MAX_DRIVERS = 30  # per player
+POACH_NOTICE_DAYS = 2  # driving days a poached driver still works for their employer
+SEVERANCE_DAYS = 3  # daily wages charged on FIRE
 
 # --- Contracts --------------------------------------------------------------
 

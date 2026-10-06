@@ -1,5 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..800&display=swap');
-@import './status-dots.css';
+@import url("https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..800&display=swap");
+@import "./status-dots.css";
 
 /* The shared player.css gives .viewer `flex-grow: 1` with the default
    `min-height: auto`, so a child with an aspect-ratio can push the playback
@@ -22,7 +22,7 @@
   overflow: hidden;
   background: var(--surface);
   color: var(--ink);
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: "Inter", system-ui, sans-serif;
   font-size: 13px;
 }
 
@@ -83,7 +83,10 @@
 
 .main {
   display: grid;
-  grid-template-columns: minmax(170px, 230px) minmax(0, 1fr) minmax(170px, 230px);
+  grid-template-columns: minmax(170px, 230px) minmax(0, 1fr) minmax(
+      170px,
+      230px
+    );
   gap: 12px;
   min-height: 0;
   flex: 1 1 auto;
@@ -171,7 +174,7 @@
 
 /* Whose stop it is, as a hairline -- not as the dot's colour. */
 .stop::after {
-  content: '';
+  content: "";
   position: absolute;
   left: 8%;
   right: 8%;

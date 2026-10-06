@@ -21,7 +21,7 @@ The episode is **60 days**. Each day opens with 3 overnight steps and then runs 
 | Overnight | 3 ordered steps: `CAPEX`, `LABOR`, `CONTRACTS` |
 | Episode | 60 days x (3 + 5) = 480 turns, plus the initial state = 481 steps |
 
-The simulation is continuous; service times are real numbers. The block sets how often players act. The observation after the initial reset is day 0's `CAPEX`; the episode ends at day 59's 18:00 close.
+The simulation is continuous; service times are real numbers. The block sets how often players act. The observation after the initial reset is day 0's `CAPEX`; the episode ends at day 59's 18:00 close, which is the final observation.
 
 Day 0 is a Monday. The day-of-week traffic multiplier keys off the day index; every seventh day is a Sunday and is driven like any other.
 
@@ -32,7 +32,7 @@ Each resolves and publishes its results before the next opens.
 | Phase | Players decide | Published before the next phase |
 |---|---|---|
 | `CAPEX` | buy / finance / rent / sell trucks, buy used, service, refuel, break standing accounts, stage trucks | every player's fleet roster, and a log of fleet operations (buys, rentals, sales, services, breaks). Refuelling and staging are not logged |
-| `LABOR` | hire, set wages, assign, poach, fire | driver rosters (name, tenure, résumé rating, notice flag) and a log of hires, firings, poach outcomes and quits -- never anyone's pay |
+| `LABOR` | hire, set wages, assign, poach, fire | driver rosters (name, tenure, résumé rating, notice flag, `departs`) and a log of hires, firings, poach outcomes and quits -- never anyone's pay |
 | `CONTRACTS` | sealed-bid auction on tomorrow's spot lots and on standing accounts | every bid at or under reserve, and every award |
 
 ## The city
@@ -167,7 +167,7 @@ A `via` entry in a `route` pins a grid node the truck must pass through:
 | Emergency closure | ~0.25 per day | edge closed 1.5-5 h | in the feed immediately |
 | Weather | per-day draw: `CLEAR` 68%, `RAIN` 24%, `SNOW` 8% | travel x1.00 / 1.12 / 1.25; accident hazard x1.0 / 1.6 / 2.4 | drawn at 08:00 |
 
-A closed edge is impassable. `traffic.weather` is today's weather during a driving day and the last driven day's overnight (`null` on day 0's night). `traffic.forecast` names the next driving day's weather: the coming day overnight, tomorrow during a day. It is right with probability 0.75, otherwise a uniform draw over the three kinds, and is fixed once published.
+A closed edge is impassable. `traffic.weather` is today's weather during a driving day and the last driven day's overnight (`null` on day 0's night). `traffic.forecast` names the next driving day's weather: the coming day overnight, tomorrow during a day. It copies the true weather with probability 0.75, otherwise it is a uniform draw over the three kinds (right about 83% of the time overall), and is fixed once published.
 
 ## Delivery windows
 
@@ -186,7 +186,7 @@ Some doors carry a promised time window. Arriving early means **waiting**.
 | `SUBURBS_N/S` | 5% | 40% / 120 min | 20% | 21% | 3.0 / 28.5 |
 | `INDUSTRIAL` | 90% | 20% / **240 min** | 20% | 20% | 9.4 / 1.0 |
 
-A listing's `dock_packages` and `promised_packages` are drawn per package (commercial x `DOCK` rate, residential x `PROMISED` rate). The manifest then places windows on doors at random until those budgets run out, so the manifest's windowed package counts match the listing exactly about 80% of the time and can differ by a few packages either way.
+A listing's `dock_packages` and `promised_packages` are drawn per package (commercial x `DOCK` rate, residential x `PROMISED` rate). The manifest then places windows on doors at random until those budgets run out, so each of the manifest's two windowed package counts matches the listing about 80% of the time (both together about 66%), and a mismatch is usually a few packages, occasionally up to about 15.
 
 **Every windowed door on a block face shares a start.** Starts fall on the half hour: 08:00-12:30 in `DOWNTOWN`, `RIVERSIDE` and `MIDTOWN`, 08:00-12:00 in `SUBURBS_N/S`, 08:00-09:30 in `INDUSTRIAL`. `PROMISED` windows are always 120 min wide, so a `DOCK` and a `PROMISED` door on one `INDUSTRIAL` face open together and shut apart. Every window closes by 14:30.
 
@@ -211,7 +211,7 @@ A lot is 0.15-0.70 of a truck-day, a truck works one `(warehouse, district)` pai
 
 `RENT` draws from a nightly pool per type of `6 - floor(rented trucks in the field / 2) ± 1`; the night's requests from all players are filled in a shuffled order. A rented truck shows `ORDERED` until it arrives, at `wh_0` unless it was staged elsewhere.
 
-A used market posts 2 listings each night during `CAPEX`: a random type at 25-45% off new, 200-1,400 days old, with its odometer shown. Its `km_since_service` (odometer mod 250) is revealed only after purchase. A listing two players buy goes to one of them at random.
+A used market posts 2 listings each night during `CAPEX`: a random type at 25-45% off new, 200-1,400 days old, with its odometer shown. Its `km_since_service`, drawn uniformly from 0-250, is revealed only after purchase. A listing two players buy goes to one of them at random.
 
 ### Fuel and maintenance
 
@@ -237,7 +237,7 @@ Stats are drawn around a common base; a driver's `SPEED` deviation is offset by 
 
 ### Wages, morale, quitting
 
-Players set each driver's daily wage (floor $120). Pay is prorated to minutes worked: `wage x min(worked, 480)/480` plus overtime minutes at 1.5x the per-minute rate. `worked` is the last minute the truck spent driving, serving or waiting on a window; a truck with no work pays nothing. A driver on no truck draws a nightly retainer of 50% of their wage. Rosters are capped at 30 drivers.
+Players set each driver's daily wage (floor $120). Pay is prorated to minutes worked: `wage x min(worked, 480)/480` plus overtime minutes at 1.5x the per-minute rate. `worked` is the last minute the truck spent driving, serving or waiting on a window; a truck with no work pays nothing. A driver on no truck, or on a truck that could not run that day (not arrived, `DISABLED`), draws a retainer of 50% of their wage instead. Rosters are capped at 30 drivers, counting drivers departing to join.
 
 Each driver has a hidden reservation wage. Morale starts at 60 and updates nightly after the `LABOR` actions resolve:
 
@@ -251,11 +251,13 @@ The `LABOR` pool posts 2-4 candidates nightly, with asking wages of $173-348. Qu
 
 ### Poaching
 
-Every player's drivers are public by name, tenure, résumé rating and notice flag. True stats, pay and morale are hidden.
+Every player's drivers are public by name, tenure, résumé rating, notice flag and `departs`. True stats, pay and morale are hidden.
 
-During `LABOR` a player may `POACH` a rival's driver with a wage offer. Only the highest offer per driver is considered (ties random); a player at the roster cap cannot poach. The driver weighs the raise over their current pay, plus their restlessness, against their morale and tenure. If they accept, they join the bidder unassigned at the offered wage with tenure reset to 0.
+During `LABOR` a player may `POACH` a rival's driver with a wage offer, at most one attempt per rival per night (later entries against the same rival are ignored). Only the highest offer per driver is considered (ties random); a player at the roster cap cannot poach, and an offer under $120 is always refused. The driver weighs the raise over their current pay, plus their restlessness, against their morale and tenure.
 
-The night's labor log is public: an accepted poach shows both players, a refused poach shows the employer and the driver but not the bidder or amount, and each losing bidder is logged as `OUTBID` by player index.
+A driver who accepts is **departing**: they keep working for their employer for 2 more days, and their public roster entry shows `departs` (bidder and day). At the `LABOR` step on that day they join the bidder unassigned, at the offered wage, with tenure reset to 0 and a new id. The employer keeps the driver by setting their `WAGE` at or above the offer in any `LABOR` step up to and including that one. Firing a departing driver sends them to the bidder at once, without severance. A departing driver cannot be poached again.
+
+The night's labor log is public: `POACH_ACCEPTED` shows both players and the departure day, `POACH_REFUSED` shows the employer and the driver but not the bidder or amount, each losing bidder is logged as `OUTBID` by player index, and a departure ends as `POACH_MATCHED` or `POACH_TRANSFER`.
 
 A refused offer raises the driver's restlessness by 14, which lowers morale and raises the chance of accepting a later offer. Restlessness decays x0.85 nightly; tenure accumulates nightly and lowers the chance of accepting.
 
@@ -284,7 +286,7 @@ trend  = lo + (hi - lo) / (1 + exp(-k x (day - mid)))
 
 Demand scales with the field's starting fleet, not its current one. Held standing accounts count against it.
 
-Each pair has a demand weight that random-walks around a hidden home level. Fresh lots land on about one pair per 1.5 truck-days posted, drawn by weight, as lots of U(0.15, 0.70) truck-days, at most 160 listings a night.
+Each pair has a demand weight that random-walks around a hidden home level. Fresh lots land on about one pair per 1.5 truck-days posted, drawn by weight, as lots of U(0.15, 0.70) truck-days, at most 160 listings a night. Retries take places first; a retry beyond the cap is lost as if past its patience.
 
 **Price.**
 
@@ -315,7 +317,7 @@ Each pair is a fixed **territory**: an anchor intersection drawn from the six no
 
 Starting trucks sit at `wh_0`, `wh_1`, `wh_2`. At 18:00 every truck that is not already `DISABLED` is placed, free, at the warehouse nearest its position. `stage` during `CAPEX` moves a truck to any warehouse overnight, free, before the auction resolves.
 
-At 08:00 the engine assigns each player's lots to their trucks. Lots go largest first. Each goes to a truck already on that pair with room, otherwise to the free truck with the lowest clock. A truck qualifies if it has arrived, is not `DISABLED`, has a driver, and after taking the lot still has one pair, parcel-units within capacity, at most 1.00 truck-day, and a clock that ends loading before 16:00. Each lot adds 45 minutes of loading. A lot no truck can take is **`UNCOVERED`**: payout forfeited, $45/package.
+At 08:00 the engine assigns each player's lots to their trucks. Pairs go in order of parcel-units needed, largest first, and lots within a pair largest first. Each lot goes to a truck already on that pair with room; otherwise to the smallest free truck whose deck holds the whole pair, preferring one already at the lot's warehouse, then the lowest clock. A truck qualifies if it has arrived, is not `DISABLED`, has a driver, and after taking the lot still has one pair, parcel-units within capacity, at most 1.00 truck-day, and a clock that ends loading before 16:00. Each lot adds 45 minutes of loading. A lot no truck can take is **`UNCOVERED`**: payout forfeited, $45/package.
 
 A truck not already at the lot's warehouse pays the reposition before loading: $0.62/km plus $31/h at 45 km/h on Manhattan distance. Between warehouses that is 14-56 km, $18-73 and 18-74 minutes.
 
@@ -327,7 +329,7 @@ A truck not already at the lot's warehouse pays the reposition before loading: $
 
 ### Auction format
 
-First-price sealed-bid **reverse** auction: each bid is the price the player will accept, lowest ask wins, and the winner is paid their own ask, as `ask / packages` per package delivered. Bids above the reserve are discarded. Ties break at random from the episode seed. The bid book (every bid at or under reserve, per lot) is published for the following driving day; the award list stays up until the next `CONTRACTS`.
+First-price sealed-bid **reverse** auction: each bid is the price the player will accept, lowest ask wins, and the winner is paid their own ask, as `ask / packages` per package delivered. Bids above the reserve are discarded, and only each player's lowest bid per lot counts. Ties break at random from the episode seed. The bid book (every bid at or under reserve, per lot) is published for the following driving day; the award list stays up until the next `CONTRACTS`.
 
 Players may bid on any number of lots and declare `max_lots` alongside. The engine awards the lowest bids, then trims each player back to their constraints, keeping their best-margin wins (ask over the engine's expected cost for the lot, which is not published) and releasing the rest to the next-lowest bidder, repeating until stable.
 
@@ -337,11 +339,11 @@ Players may bid on any number of lots and declare `max_lots` alongside. The engi
 - no more pairs than trucks
 - each pair's parcel-units fit a distinct truck's deck
 
-Tonight's standing-account wins count against these. Lots from accounts already held do not.
+Tonight's standing-account wins count against these, and so do tomorrow's lots from accounts already held.
 
 ### Standing accounts
 
-Each night about a third of fresh listings post as `STANDING` accounts; retries never do:
+Each night a third of fresh listings (rounded) post as `STANDING` accounts; retries never do. Accounts are bid only through `standing_bids`; a plain `bids` entry on an account is ignored. An account's `payout_per_package` is at its discounted reserve.
 
 | | `SPOT` | `STANDING` |
 |---|---|---|
@@ -432,7 +434,7 @@ Route mechanics:
   "stage": { "T1": "wh_0", "T2": "wh_2" } }
 ```
 
-`fleet` entries resolve in order, then `fuel`, then `stage`. `SELL` applies to owned and financed trucks only, and unassigns the truck's driver. `stage` moves an idle truck, or a rental arriving for that day's driving, to the named warehouse; a grounded truck stays put unless `SERVICE` cleared it earlier in the same step.
+Each player's `fleet` entries resolve in order, except `BUY_USED` and `RENT`, which resolve after every player's other fleet entries; then `fuel`, then `stage`. `SELL` applies to owned and financed trucks only, and unassigns the truck's driver. `stage` moves an idle truck, or a rental arriving for that day's driving, to the named warehouse; a grounded truck stays put unless `SERVICE` cleared it earlier in the same step.
 
 ### `LABOR`
 
@@ -441,7 +443,7 @@ Route mechanics:
             ["WAGE", "D0_1", 265], ["POACH", 1, "D1_2", 310], ["FIRE", "D0_3"]] }
 ```
 
-`HIRE` takes a candidate id and a daily wage. `ASSIGN` puts a driver on a truck, unseating whoever drove either before. `POACH` takes the target player index, the driver id, and the offered daily wage. Entries resolve in order, then all poaches resolve together.
+`HIRE` takes a candidate id and a daily wage. `ASSIGN` puts a driver on a truck, unseating whoever drove either before. `POACH` takes the target player index, the driver id, and the offered daily wage. `FIRE` charges severance of 3 days' wage immediately. Entries resolve in order; then departures settle, hires resolve, and all poaches resolve together.
 
 ### `CONTRACTS`
 
@@ -470,7 +472,7 @@ Route mechanics:
 | Item | Note |
 |---|---|
 | Fleet roster | id, type, ownership, age, odometer, status ∈ `IDLE`/`ACTIVE`/`DISABLED`/`ORDERED` |
-| Driver roster | id, name, tenure, résumé rating, notice flag -- **never wages** |
+| Driver roster | id, name, tenure, résumé rating, notice flag, `departs` -- **never wages** |
 | Cash, debt and net worth | net worth is the scoreboard |
 | Day results, last 3 days | packages delivered / late / failed / refused, delivery revenue and the day's charges (holding costs and overhead excluded), net worth |
 | Standing accounts held | id, pair, rate, term, days remaining |
@@ -482,7 +484,7 @@ Route mechanics:
 | Key | Content |
 |---|---|
 | `trucks` | id, type, node, status, clock, fuel, `km_since_service`, driver, staged, carried door ids, the next 50 route entries, and `trail` (up to 24 position samples from the block just run) |
-| `drivers` | id, name, **wage**, résumé, assigned truck, notice |
+| `drivers` | id, name, **wage**, résumé, assigned truck, notice, `departs` (with the offered wage) |
 | `segments`, `addresses` | today's manifest, pending doors only. Windows are `[start, end]` in minutes since 08:00 |
 | `lots`, `pending_lots` | lots loaded today; lots won for tomorrow |
 | `events` | this step's events for the player's trucks: `DELIVER`, `REFUSED`, `ABANDONED`, `UNDELIVERED`, `UNCOVERED`, `SERVICE_DUE`, `RAN_DRY` |
@@ -513,7 +515,7 @@ Assigned at the final step, after day 59's 18:00 close; rewards are 0 before tha
 
 At the 18:00 close the engine settles, in order:
 
-1. Delivery credits and the day's charges: wages, penalties, repositions, fuel calls.
+1. Delivery credits and the day's charges: wages, retainers, penalties, repositions, fuel calls.
 2. Per truck: own or rent cost and finance payment. Then $55 overhead per player.
 3. The credit line: negative cash becomes debt, positive cash repays debt first, and debt then grows 0.25% a day.
 

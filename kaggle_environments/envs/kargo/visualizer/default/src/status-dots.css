@@ -47,7 +47,9 @@
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font: 700 11cqw/1 system-ui, sans-serif;
+  font:
+    700 11cqw/1 system-ui,
+    sans-serif;
   color: #fff;
   font-style: normal;
 }
@@ -63,15 +65,25 @@
   border-color: #6b6f73;
   color: #3a3d40;
 }
-.dot-pending::before { content: "\00B7"; }   /* middle dot */
+.dot-pending::before {
+  content: "\00B7";
+} /* middle dot */
 
 /* Delivered on time. */
-.dot-delivered { background: #2e7d4f; }
-.dot-delivered::before { content: "\2713"; } /* check */
+.dot-delivered {
+  background: #2e7d4f;
+}
+.dot-delivered::before {
+  content: "\2713";
+} /* check */
 
 /* Served, but past the deadline -- $6/pkg. */
-.dot-late { background: #c8860d; }
-.dot-late::before { content: "\0021"; }      /* exclamation */
+.dot-late {
+  background: #c8860d;
+}
+.dot-late::before {
+  content: "\0021";
+} /* exclamation */
 
 /* DOCK window missed, turned away at the door -- $45/pkg. Square, because the
  * three money-losing outcomes are told apart by shape before colour. */
@@ -79,7 +91,9 @@
   background: #b23a30;
   border-radius: 15%;
 }
-.dot-refused::before { content: "\2715"; }   /* cross -- actively turned away */
+.dot-refused::before {
+  content: "\2715";
+} /* cross -- actively turned away */
 
 /* Never reached by 18:00 -- $45/pkg. Costs the same as refused but is a
  * different failure, and below 90px the glyph is gone, so it cannot lean on one
@@ -101,7 +115,9 @@
   border-radius: 15%;
   border-style: dashed;
 }
-.dot-abandoned::before { content: "\2014"; } /* em dash */
+.dot-abandoned::before {
+  content: "\2014";
+} /* em dash */
 
 /* --- accessibility -------------------------------------------------------- */
 
@@ -119,5 +135,7 @@
  * fill carry it alone and the glyph is dropped rather than smeared. The
  * tooltip and the table view still name the outcome. */
 @container (max-width: 90px) {
-  .dot::before { content: none; }
+  .dot::before {
+    content: none;
+  }
 }
