@@ -188,7 +188,7 @@ def test_won_account_is_held_and_rolls_daily():
     held = env.state[0].observation["public"][0]["standing"]
     assert [a["id"] for a in held] == [acct["id"]] and held[0]["remaining"] == 4
     first = f"{acct['id']}_d0"
-    assert first in p0["lots"] or any(lot["id"] == first for lot in p0.get("pending_fails", []))
+    assert first in p0["lots"]
     rolled = 1
     while p0["standing"]:
         _to(env, "CONTRACTS")
@@ -262,8 +262,7 @@ def test_one_player_can_hold_several_accounts():
     assert len(p0["standing"]) >= 2
     _to(env, "CONTRACTS")
     _act(env, 0, {})
-    uncovered = {lot["id"] for lot in p0.get("pending_fails", [])}
-    assert all(f"{a['id']}_d4" in p0["lots"] or f"{a['id']}_d4" in uncovered for a in p0["standing"])
+    assert all(f"{a['id']}_d4" in p0["lots"] for a in p0["standing"])
 
 
 def test_held_accounts_count_against_tomorrows_auction():
@@ -281,5 +280,11 @@ def test_held_accounts_count_against_tomorrows_auction():
                 "max_lots": 3.0,
             },
         )
-        assert not p0.get("pending_fails")
+        runnable = sum(1 for t in p0["trucks"].values() if t["runnable"])
+        pairs = {}
+        for lot in p0["lots"].values():
+            key = (lot["warehouse"], lot["district"])
+            pairs[key] = pairs.get(key, 0.0) + lot["truck_days"]
+        assert sum(pairs.values()) <= 3.0 + 1e-9
+        assert len(pairs) <= runnable and all(td <= 1.0 + 1e-9 for td in pairs.values())
     assert p0["standing"]

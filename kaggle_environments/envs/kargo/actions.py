@@ -14,6 +14,7 @@ MAX_BIDS = 300
 MAX_STANDING_BIDS = 100
 MAX_TRUCK_PLANS = 100
 MAX_ROUTE = 200
+MAX_LOAD = 50
 MAX_ABANDON = 500
 MAX_ID = 64  # characters
 MAX_WAGE = 2000.0
@@ -143,6 +144,8 @@ def _driving(act):
             clean = {}
             if isinstance(plan.get("route"), list):
                 clean["route"] = [r for r in (_route_entry(x) for x in plan["route"][:MAX_ROUTE]) if r is not None]
+            if isinstance(plan.get("load"), list):
+                clean["load"] = [x for x in plan["load"][:MAX_LOAD] if _id(x)]
             if plan.get("on_missed_window") in ("SKIP", "ATTEMPT"):
                 clean["on_missed_window"] = plan["on_missed_window"]
             wait = _num(plan.get("wait_cap"), 0.0, MAX_WAIT)

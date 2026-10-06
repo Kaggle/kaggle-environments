@@ -18,7 +18,7 @@ from .constants import (
     ARTERIAL_KMH,
     BLOCKS_PER_DAY,
     DAY_END_MINUTES,
-    DISTRICTS,
+    EDGE_KM,
     FILL_CEILING,
     LOAD_MINUTES,
     OVERTIME_WAGE_MULT,
@@ -34,7 +34,7 @@ from .constants import (
     TRAIL_SHOWN,
     VEHICLES,
 )
-from .dispatch import abandon, advance_truck, end_of_day, service_check
+from .dispatch import abandon, advance_truck, dock_failures, end_of_day, lot_units, service_check
 from .fleet import make_driver, make_truck
 from .freight import LotBoard, draw_manifest, noisy_service_estimate
 from .market import (
@@ -86,11 +86,11 @@ def _initialize(state, env):
             "standing": [],
             "pending_lots": [],
             "lots": {},
+            "dock": {},
             "manifest": {"segments": {}, "addresses": {}},
             "day_report": _blank_report(),
             "results": [],
             "sightings": [],
-            "unserved": [],
             "truck_seq": 0,
             "driver_seq": 0,
         }
@@ -115,6 +115,7 @@ def _initialize(state, env):
             truck["anchor"] = None
             truck["pos"] = (0.0, 0.0)
             truck["last_t"] = 0.0
+            truck["load"] = []
             player["trucks"][tid] = truck
 
             player["driver_seq"] += 1
@@ -242,7 +243,7 @@ def _roll_standing(world, day):
 
 
 def _start_day(world, day):
-    """08:00. Manifests land, trucks load, repositions are charged."""
+    """08:00. Manifests land and won lots wait at their warehouses."""
     city = world["city"]
     city.reset_day(day, world["city_rng"])
     world["events"] = []
@@ -255,6 +256,7 @@ def _start_day(world, day):
         player["day_report"] = _blank_report()
         player["manifest"] = {"segments": {}, "addresses": {}}
         player["lots"] = {}
+        player["dock"] = {}
         for truck in player["trucks"].values():
             truck["clock"] = 0.0
             truck["worked"] = 0.0
@@ -264,8 +266,7 @@ def _start_day(world, day):
             truck["last_t"] = 0.0
             truck["anchor"] = None
             truck["pos"] = (0.0, 0.0)
-            truck["pair"] = None
-            truck["fill"] = 0.0
+            truck["load"] = []
             truck["lots"] = []
             truck["revisited"] = {}
             if truck.get("arrives", 0) == day and truck["status"] == "ORDERED":
@@ -281,104 +282,17 @@ def _start_day(world, day):
                 and truck["status"] not in ("DISABLED", "ORDERED")
                 and bool(truck["driver"])
             )
-        available = [t for t in player["trucks"].values() if t["runnable"]]
-
-        # Pairs by deck space needed, largest first; within a pair, biggest lot first.
-        pairs = {}
         for lot in player["pending_lots"]:
-            pairs.setdefault((lot["warehouse"], lot["district"]), []).append(lot)
-        for lots in sorted(pairs.values(), key=lambda ls: -sum(lot["parcel_units"] for lot in ls)):
-            need = sum(lot["parcel_units"] for lot in lots)
-            for lot in sorted(lots, key=lambda x: -x["truck_days"]):
-                _assign_lot(player, lot, available, world, pid, need)
-                need -= lot["parcel_units"]
+            manifest = lot.pop("manifest")
+            for seg in manifest["segments"]:
+                player["manifest"]["segments"][seg["id"]] = seg
+            for addr in manifest["addresses"]:
+                player["manifest"]["addresses"][addr["id"]] = addr
+            lot["truck"] = None
+            lot["_addrs"] = [a["id"] for a in manifest["addresses"]]
+            player["lots"][lot["id"]] = lot
+            player["dock"][lot["id"]] = set(lot["_addrs"])
         player["pending_lots"] = []
-
-
-def _assign_lot(player, lot, available, world, pid, need=0.0):
-    """Pair a lot with a truck. Lots on one pair share a truck up to the fill
-    ceiling; a lot no truck can take is UNCOVERED. `need` is the deck space the
-    pair still needs, this lot included.
-    """
-    city = world["city"]
-    origin = city.warehouse_of[lot["warehouse"]]
-    units = lot["parcel_units"]
-    size = lot["truck_days"]
-    pair = (lot["warehouse"], lot["district"])
-    # A truck works one pair a day.
-    fits = [
-        t
-        for t in available
-        if t.get("pair") in (None, pair)
-        and VEHICLES[t["type"]]["capacity"] - _loaded_units(t, player) >= units
-        and t.get("fill", 0.0) + size <= FILL_CEILING
-        and t["clock"] + LOAD_MINUTES < SHIFT_MINUTES
-    ]
-    if not fits:
-        # `truck` is empty rather than absent so consumers can key on it; the
-        # node is the origin dock.
-        world["events"].append(
-            {
-                "kind": "UNCOVERED",
-                "player": pid,
-                "truck": "",
-                "node": origin,
-                "day": world["day"],
-                "minute": 0,
-                # The lot id keeps same-minute events at one dock distinct.
-                "address": lot["id"],
-                "lot": lot["id"],
-                "packages": lot["packages"],
-            }
-        )
-        player["pending_fails"] = player.get("pending_fails", [])
-        player["pending_fails"].append(lot)
-        return
-    # Top up a truck already on this pair; otherwise the smallest deck that
-    # holds the whole pair, then one already at the dock.
-    fits.sort(
-        key=lambda t: (
-            t.get("pair") is None,
-            -t.get("fill", 0.0),
-            VEHICLES[t["type"]]["capacity"] < need,
-            VEHICLES[t["type"]]["capacity"],
-            t["node"] != origin,
-            t["clock"],
-        )
-    )
-    truck = fits[0]
-    if truck["node"] != origin:
-        km = city.node_km(truck["node"], origin)
-        truck["clock"] += km / ARTERIAL_KMH * 60.0
-        world["charges"].append((pid, km * 0.62 + km / ARTERIAL_KMH * 31.0, "REPOSITION"))
-        truck["node"] = origin
-    truck["home"] = origin
-    truck["pair"] = pair
-    truck["fill"] = truck.get("fill", 0.0) + size
-    truck["clock"] += LOAD_MINUTES
-    truck["status"] = "ACTIVE"
-
-    manifest = lot.pop("manifest")
-    for seg in manifest["segments"]:
-        player["manifest"]["segments"][seg["id"]] = seg
-    for addr in manifest["addresses"]:
-        player["manifest"]["addresses"][addr["id"]] = addr
-        truck["carrying"].add(addr["id"])
-    player["lots"][lot["id"]] = lot
-    truck.setdefault("lots", []).append(lot["id"])
-
-
-def _loaded_units(truck, player):
-    """Deck space in use, in parcel-units."""
-    total = 0.0
-    for aid in sorted(truck["carrying"]):
-        addr = player["manifest"]["addresses"].get(aid)
-        if addr:
-            per = addr.get("units")
-            if per is None:
-                per = DISTRICTS[player["manifest"]["segments"][addr["segment"]]["district"]]["pkg_units"]
-            total += addr["packages"] * per
-    return total
 
 
 def _apply_plans(player, act, world, pid):
@@ -388,9 +302,11 @@ def _apply_plans(player, act, world, pid):
         truck = player["trucks"].get(tid)
         if truck is None or not isinstance(plan, dict):
             continue
-        truck["plan"] = {k: v for k, v in plan.items() if k != "route"}
+        truck["plan"] = {k: v for k, v in plan.items() if k not in ("route", "load")}
         if isinstance(plan.get("route"), list):
             truck["route"] = list(plan["route"])
+        if isinstance(plan.get("load"), list):
+            truck["load"] = list(plan["load"])
 
 
 def _abandon(player, act, world, pid, block):
@@ -448,7 +364,7 @@ def _sightings(world):
 
 
 def _load_band(truck, player):
-    units = _loaded_units(truck, player)
+    units = lot_units(player, truck["carrying"])
     ratio = units / max(1.0, VEHICLES[truck["type"]]["capacity"])
     return "EMPTY" if ratio < 0.05 else "LIGHT" if ratio < 0.4 else "HALF" if ratio < 0.75 else "FULL"
 
@@ -480,16 +396,10 @@ def _close_day(world, day):
         for did, driver in player["drivers"].items():
             if did not in seated:
                 world["charges"].append((pid, driver["wage"] * RETAINER_SHARE, "RETAINER"))
-        for lot in player.pop("pending_fails", []):
-            world["charges"].append((pid, lot["packages"] * lot["fail_penalty"], "UNCOVERED"))
-            player["day_report"]["failed"] += lot["packages"]
-            shipper.observe_failed(lot, lot["packages"])
+        dock_failures(player, pid, world, world["events"])
         # Whatever did not reach a door goes back to the shipper.
         for lot in player["lots"].values():
             shipper.observe_failed(lot, lot["packages"] - lot.get("delivered", 0))
-        for lot, packages in player.get("unserved", []):
-            shipper.observe_failed(lot, packages)
-        player["unserved"] = []
 
     for pid, amount, _reason in world["credits"]:
         world["players"][pid]["cash"] += amount
@@ -572,6 +482,8 @@ def _private_view(world, player, pid):
                 "driver": t["driver"],
                 "staged": t["staged"],
                 "carrying": sorted(t["carrying"]),
+                "lots": sorted({manifest["addresses"][a]["lot"] for a in t["carrying"]}),
+                "load": t.get("load", [])[:ROUTE_SHOWN],
                 # The head of the remaining route.
                 "route": t["route"][:ROUTE_SHOWN],
                 # Positions during the block just run, thinned to a cap.
@@ -616,7 +528,7 @@ def _private_view(world, player, pid):
             for a in manifest["addresses"].values()
             if _pending(player, a["id"])
         ],
-        "lots": [_public_lot(lot) for lot in player["lots"].values()],
+        "lots": [{**_public_lot(lot), "status": _lot_status(player, lot)} for lot in player["lots"].values()],
         "pending_lots": [_public_lot(lot) for lot in player["pending_lots"]],
         "sightings": player["sightings"][-20:],
         "day_report": player["day_report"],
@@ -640,7 +552,19 @@ def _thin(trail, cap):
 
 
 def _pending(player, aid):
+    addr = player["manifest"]["addresses"].get(aid)
+    if addr and aid in player["dock"].get(addr["lot"], ()):
+        return True
     return any(aid in t["carrying"] for t in player["trucks"].values())
+
+
+def _lot_status(player, lot):
+    if player["dock"].get(lot["id"]):
+        return "AT_DOCK"
+    truck = player["trucks"].get(lot.get("truck"))
+    if truck and any(a in truck["carrying"] for a in lot.get("_addrs", ())):
+        return "ON_TRUCK"
+    return "DONE"
 
 
 def _publish(state, env, world, phase, day, block, minute):
@@ -814,6 +738,84 @@ def _my(obs):
     return obs.get("private", {}) or {}
 
 
+def plan_loads(obs):
+    """Lots waiting at the dock onto empty, crewed trucks.
+
+    Territories by deck space needed, largest first, and lots within one largest
+    first. A truck already given the pair is topped up; otherwise the smallest
+    deck that holds the whole pair, then one at the warehouse, then the earliest
+    clock. Returns ({truck id: [lot ids]}, [lot ids no truck took]).
+    """
+    priv = _my(obs)
+    city = obs.get("city", {}) or {}
+    size = city.get("size", 20)
+    docks = city.get("warehouses", {})
+    now = obs.get("minute", 0)
+    state = {
+        t["id"]: {
+            "node": t["node"],
+            "clock": max(t["clock"], now),
+            "pair": None,
+            "units": 0.0,
+            "fill": 0.0,
+            "cap": VEHICLES[t["type"]]["capacity"],
+        }
+        for t in priv.get("trucks", [])
+        if t["driver"] and t["status"] not in ("DISABLED", "ORDERED") and not t["carrying"] and not t.get("load")
+    }
+
+    def drive(node, origin):
+        (ra, ca), (rb, cb) = divmod(node, size), divmod(origin, size)
+        return (abs(ra - rb) + abs(ca - cb)) * EDGE_KM / ARTERIAL_KMH * 60.0
+
+    pairs = {}
+    for lot in priv.get("lots", []):
+        if lot.get("status") == "AT_DOCK" and lot["warehouse"] in docks:
+            pairs.setdefault((lot["warehouse"], lot["district"]), []).append(lot)
+    loads, left = {}, []
+    for lots in sorted(pairs.values(), key=lambda ls: -sum(lot["parcel_units"] for lot in ls)):
+        need = sum(lot["parcel_units"] for lot in lots)
+        for lot in sorted(lots, key=lambda x: -x["truck_days"]):
+            pair, origin, units = (lot["warehouse"], lot["district"]), docks[lot["warehouse"]], lot["parcel_units"]
+            fits = [
+                tid
+                for tid, s in state.items()
+                if s["pair"] in (None, pair)
+                and s["cap"] - s["units"] >= units
+                and s["fill"] + lot["truck_days"] <= FILL_CEILING
+                and s["clock"] + drive(s["node"], origin) + LOAD_MINUTES < SHIFT_MINUTES
+            ]
+            if not fits:
+                left.append(lot["id"])
+            else:
+                fits.sort(
+                    key=lambda tid: (
+                        state[tid]["pair"] is None,
+                        -state[tid]["fill"],
+                        state[tid]["cap"] < need,
+                        state[tid]["cap"],
+                        state[tid]["node"] != origin,
+                        state[tid]["clock"],
+                    )
+                )
+                s = state[fits[0]]
+                s["clock"] += drive(s["node"], origin) + LOAD_MINUTES
+                s["node"], s["pair"] = origin, pair
+                s["units"] += units
+                s["fill"] += lot["truck_days"]
+                loads.setdefault(fits[0], []).append(lot["id"])
+            need -= units
+    return loads, left
+
+
+def segments_of(obs, lot_ids):
+    """Today's segments with pending doors from these lots."""
+    priv = _my(obs)
+    wanted = set(lot_ids)
+    doors = {a["id"] for a in priv.get("addresses", []) if a["lot"] in wanted}
+    return [s for s in priv.get("segments", []) if any(a in doors for a in s["pending"])]
+
+
 def idle_agent(obs, config=None):
     """Does nothing."""
     return {}
@@ -831,17 +833,23 @@ def random_agent(obs, config=None):
         return {"bids": bids, "max_lots": len(priv.get("trucks", [])) * FILL_CEILING}
     if phase == "DRIVING":
         trucks = {}
+        waiting = [lot for lot in priv.get("lots", []) if lot.get("status") == "AT_DOCK"]
+        rng.shuffle(waiting)
         for truck in priv.get("trucks", []):
-            segs = [s["id"] for s in priv.get("segments", []) if s["pending"]]
-            rng.shuffle(segs)
-            trucks[truck["id"]] = {"route": segs[:12], "then": "RETURN"}
+            if truck["carrying"] or truck.get("load") or not waiting:
+                continue
+            lot = waiting.pop()
+            if lot["parcel_units"] <= VEHICLES[truck["type"]]["capacity"]:
+                segs = [s["id"] for s in segments_of(obs, [lot["id"]])]
+                rng.shuffle(segs)
+                trucks[truck["id"]] = {"load": [lot["id"]], "route": segs[:12], "then": "RETURN"}
         return {"trucks": trucks}
     return {}
 
 
 def greedy_agent(obs, config=None):
-    """Bid at reserve, then run each truck nearest-neighbour over its segments,
-    bucketed by window close.
+    """Bid at reserve, load lots with `plan_loads`, then run each truck
+    nearest-neighbour over its segments, bucketed by window close.
     """
     phase = obs.get("phase")
     priv = _my(obs)
@@ -901,17 +909,14 @@ def greedy_agent(obs, config=None):
             bids.append([lot["id"], lot["reserve"]])
         return {"bids": bids, "max_lots": round(len(trucks) * FILL_CEILING, 2)}
 
-    # Plan once at 08:00; plans persist.
-    if obs.get("block", 0) != 0:
-        return {}
-    plans = {}
-    segments = {s["id"]: s for s in priv.get("segments", [])}
+    # Load and route empty trucks; plans persist.
+    loads, _left = plan_loads(obs)
     windows = {a["id"]: a["window"] for a in priv.get("addresses", []) if a["window"]}
-    for truck in trucks:
-        carrying = set(truck["carrying"])
-        mine = [s for s in segments.values() if any(a in carrying for a in s["pending"])]
-        plans[truck["id"]] = {
-            "route": _sequence(mine, windows),
+    plans = {}
+    for tid, lot_ids in loads.items():
+        plans[tid] = {
+            "load": lot_ids,
+            "route": _sequence(segments_of(obs, lot_ids), windows),
             "then": "RETURN",
             "wait_cap": 15,
             "on_missed_window": "SKIP",
