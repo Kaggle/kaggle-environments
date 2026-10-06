@@ -74,6 +74,7 @@ const KNOWN_STANDALONE_GAME_DIRS = new Set([
   'hungry_geese',
   'kaggriculture',
   'kaggriculture_beginner',
+  'kargo',
   'kore_fleets',
   'llm_20_questions',
   'lux_ai_2021',
