@@ -383,8 +383,13 @@ class PtrsReadingsConfig(BaseModel):
     # Upper bound for MultiDiscrete; cash gates the real limit
     action_space_max_readings: int
     sigma_logit_base: float
-    # Episode-level noise; None falls back to sigma_logit_base (value, not toggle)
-    sigma_ep: float | None
+    # Episode-level truth spread (logit-normal sigma) around the file PTRS: the
+    # per-episode _true_ptrs is drawn as sigmoid(logit(file_ptrs) + N(0, sigma_ep^2)).
+    # Memorization bound: must equal sigma_logit_base so that knowing the file value
+    # is worth exactly one reading (both carry 1/sigma^2 precision). A smaller value
+    # makes the file-value lookup worth (sigma_logit_base/sigma_ep)^2 readings.
+    # Required (no None fallback).
+    sigma_ep: float
     noise_multipliers: list[float]
     # Normalisation cap for sample count in observation
     max_sample_obs: int

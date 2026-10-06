@@ -280,7 +280,7 @@ ptrs_readings:
   cost_rounding: 1000000           # round base to nearest £1M (matches drop action)
   action_space_max_readings: 10    # upper bound for MultiDiscrete; cash gates real limit
   sigma_logit_base: 1.5            # calibrated: MAE(n=1)≈21%, smooth 1/√n convergence
-  sigma_ep: null                   # episode-level noise; null falls back to sigma_logit_base
+  sigma_ep: 1.5                    # = sigma_logit_base (memorization bound): file-value prior worth exactly one reading. Must track sigma_logit_base.
   noise_multipliers: [1.0, 1.5, 2.0]   # phase distances 0, 1, 2
   max_sample_obs: 20
 

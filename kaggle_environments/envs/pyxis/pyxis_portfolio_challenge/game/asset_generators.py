@@ -9,6 +9,8 @@ from typing import Literal, Optional
 
 import numpy as np
 import upath
+from scipy.special import expit
+from scipy.special import logit as logit_fn
 from scipy.stats import beta as beta_dist
 
 from pyxis_portfolio_challenge.config import (
@@ -264,16 +266,36 @@ def apply_ptrs_readings_to_trial_chain(
     """
     Initialise the ptrs_readings feature for a newly arrived asset.
 
-    Sets _true_ptrs on each non-approval pending trial, draws one initial
-    logit-normal sample per trial (using phase-distance noise), and sets
-    trial.ptrs = ptrs_sample_mean so the agent's first observation is noisy.
+    Draws each trial's hidden per-episode true PTRS as one logit-normal sample
+    centred on the file PTRS (spread = sigma_ep x the phase-distance multiplier),
+    stores it on _true_ptrs, then draws one initial reading per trial (using the
+    same phase-distance noise) centred on that truth, and sets trial.ptrs =
+    ptrs_sample_mean so the agent's first observation is a noisy estimate. The
+    file PTRS is only a prior mean; the realised _true_ptrs is what readings
+    estimate and what drives trial outcomes.
+
+    The episode spread scales by the same noise_multipliers as readings so the
+    memorization bound holds at every phase distance: at distance d both the
+    file-value prior and one reading carry 1/(sigma_ep*m_d)^2 precision, so the
+    file lookup is worth exactly one reading regardless of how far out the phase.
     """
     chain = asset.pending_trial_chain  # excludes APPROVAL
     cfg = ptrs_readings_config
+    mult = list(cfg.noise_multipliers)
+    if len(chain) > len(mult):
+        raise ValueError(
+            f"pending_trial_chain length {len(chain)} exceeds "
+            f"noise_multipliers length {len(mult)}"
+        )
 
-    # Store true PTRS on every pending trial in the chain
-    for trial in chain:
-        trial._true_ptrs = trial.ptrs
+    # Draw the per-episode realised truth on every pending trial: one logit-normal
+    # sample around the file PTRS, spread by sigma_ep x phase-distance multiplier.
+    for i, trial in enumerate(chain):
+        file_ptrs = trial.ptrs
+        sigma_i = cfg.sigma_ep * mult[i]
+        trial._true_ptrs = float(
+            expit(logit_fn(file_ptrs) + rng.gauss(0.0, sigma_i))
+        )
 
     # Draw initial reading (count=1) for each trial at the appropriate noise level
     asset.initialise_ptrs_readings(
