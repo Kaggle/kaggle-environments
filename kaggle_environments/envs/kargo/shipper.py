@@ -220,16 +220,20 @@ class Shipper:
         self._reprice(posted + committed, supply)
 
         listings, accounts = [], []
+        fresh_lots = 0
         for pair, packages, fraction, retry, patience in plan:
             lot = board._listing(pair[0], pair[1], packages, fraction, self.reserve(board, pair, fraction, retry), rng)  # noqa: SLF001
             lot["retry"] = retry
             lot["_patience"] = patience
-            # Only fresh freight posts as a standing account.
-            if not retry and len(accounts) < STANDING_SHARE * (len(listings) + len(accounts) + 1):
+            # Only fresh freight posts as a standing account, a share of it.
+            fresh_lots += 0 if retry else 1
+            if not retry and len(accounts) < int(STANDING_SHARE * fresh_lots + 0.5):
                 lot["id"] = f"acct_{board._next_account}"  # noqa: SLF001
                 board._next_account += 1  # noqa: SLF001
+                lot["kind"] = "STANDING"
                 lot["term_options"] = list(STANDING_TERMS)
                 lot["reserve"] = round(lot["reserve"] * (1.0 - rng.uniform(*STANDING_DISCOUNT)), 2)
+                lot["payout_per_package"] = round(lot["reserve"] / lot["packages"], 2)
                 accounts.append(lot)
             else:
                 listings.append(lot)

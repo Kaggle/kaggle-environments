@@ -68,7 +68,6 @@ def advance_truck(truck, plan, world, player, until, rng):
             break
 
         stats = effective_stats(driver, truck["clock"], truck["overtime"])
-        city.advance(truck["clock"], rng)
 
         arrival = _drive_to(truck, target["node"], world, until, stats, rng, events)
         if arrival is False:
