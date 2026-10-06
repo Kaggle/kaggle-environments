@@ -169,8 +169,7 @@ def make_truck(tid, vtype, rng, ownership="OWNED", age_days=0, odometer=0.0, bas
         "anchor": None,
         "pos": (0.0, 0.0),
         "last_t": 0.0,
-        "pair": None,
-        "fill": 0.0,
+        "load": [],
         "lots": [],
         "revisited": {},
     }

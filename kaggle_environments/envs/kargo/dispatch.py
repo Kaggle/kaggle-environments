@@ -15,6 +15,7 @@ from .constants import (
     FUEL_CALL_MINUTES,
     GRID_DETOUR,
     LATE_PENALTY,
+    LOAD_MINUTES,
     PARK_MINUTES,
     PROMISED_PREMIUM,
     SERVICE_INTERVAL_KM,
@@ -52,6 +53,9 @@ def advance_truck(truck, plan, world, player, until, rng):
         return events
     driver = player["drivers"].get(truck["driver"]) if truck["driver"] else None
     if driver is None:
+        for lot_id in truck.get("load", []):
+            events.append(_event("LOAD_REFUSED", truck, world, lot=lot_id, address=lot_id, reason="NO_DRIVER"))
+        truck["load"] = []
         return events
     if plan.get("hold"):
         truck["clock"] = min(until, truck["clock"])
@@ -62,6 +66,10 @@ def advance_truck(truck, plan, world, player, until, rng):
 
     while truck["clock"] < until and guard < 400:
         guard += 1
+        if truck.get("load"):
+            if not _load_next(truck, world, player, driver, until, rng, events):
+                break
+            continue
         target = _next_target(truck, plan, world, player)
         if target is None:
             _finish(truck, plan, world, player, until, rng, events)
@@ -85,6 +93,90 @@ def advance_truck(truck, plan, world, player, until, rng):
         _breadcrumb(truck, "DEPART")
 
     return events
+
+
+def lot_units(player, addrs):
+    """Parcel-units of a set of doors."""
+    manifest = player["manifest"]["addresses"]
+    total = 0.0
+    for aid in sorted(addrs):
+        addr = manifest.get(aid)
+        if addr:
+            per = addr.get("units")
+            if per is None:
+                per = DISTRICTS[player["manifest"]["segments"][addr["segment"]]["district"]]["pkg_units"]
+            total += addr["packages"] * per
+    return total
+
+
+def on_board_pair(truck, player):
+    """The (warehouse, district) of the freight on board, or None when empty."""
+    manifest = player["manifest"]["addresses"]
+    for aid in truck["carrying"]:
+        lot = player["lots"].get(manifest[aid]["lot"]) if aid in manifest else None
+        if lot:
+            return (lot["warehouse"], lot["district"])
+    return None
+
+
+def _load_check(truck, player, lot, dock):
+    """Why this lot cannot go on this truck, or None."""
+    if lot is None or not dock:
+        return "NOT_AT_DOCK"
+    pair = on_board_pair(truck, player)
+    if pair is not None and pair != (lot["warehouse"], lot["district"]):
+        return "PAIR"
+    if lot_units(player, truck["carrying"]) + lot_units(player, dock) > VEHICLES[truck["type"]]["capacity"] + 1e-9:
+        return "CAPACITY"
+    return None
+
+
+def _load_next(truck, world, player, driver, until, rng, events):
+    """Work the head of the load queue: drive to the lot's warehouse, then load it.
+
+    Returns False when the block runs out before the load is done.
+    """
+    lot_id = truck["load"][0]
+    lot = player["lots"].get(lot_id)
+
+    def refuse(reason):
+        truck["load"].pop(0)
+        events.append(_event("LOAD_REFUSED", truck, world, lot=lot_id, address=lot_id, reason=reason))
+        return True
+
+    reason = _load_check(truck, player, lot, player["dock"].get(lot_id))
+    if reason:
+        return refuse(reason)
+    origin = world["city"].warehouse_of[lot["warehouse"]]
+    if truck["node"] != origin:
+        stats = effective_stats(driver, truck["clock"], truck["overtime"])
+        arrival = _drive_to(truck, origin, world, until, stats, rng, events)
+        truck["worked"] = max(truck.get("worked", 0.0), truck["clock"])
+        if arrival is False:
+            return refuse("UNREACHABLE")
+        if arrival is None:
+            return False
+    dock = player["dock"].get(lot_id)
+    reason = _load_check(truck, player, lot, dock)
+    if reason:
+        return refuse(reason)
+    if truck["clock"] + LOAD_MINUTES >= SHIFT_MINUTES:
+        return refuse("TOO_LATE")
+
+    truck["clock"] += LOAD_MINUTES
+    truck["worked"] = max(truck.get("worked", 0.0), truck["clock"])
+    truck["carrying"] |= dock
+    del player["dock"][lot_id]
+    lot["truck"] = truck["id"]
+    truck["lots"].append(lot_id)
+    truck["home"] = origin
+    truck["anchor"] = None
+    truck["status"] = "ACTIVE"
+    truck["load"].pop(0)
+    packages = sum(player["manifest"]["addresses"][a]["packages"] for a in dock)
+    events.append(_event("LOADED", truck, world, lot=lot_id, address=lot_id, packages=packages))
+    _breadcrumb(truck, "STOP", at_node=True)
+    return True
 
 
 def _approach(truck, target, city, stats):
@@ -348,34 +440,13 @@ def _fail(truck, addr, world, player, reason, events, extra=0.0, cost=None):
 def abandon(player, pid, ids, world, events):
     """Write held freight off for a fee per parcel-unit.
 
-    Takes lot, segment or door ids, including `UNCOVERED` lots. The packages go
+    Takes lot, segment or door ids, at the dock or on a truck. The packages go
     back to the shipper.
     """
     manifest = player["manifest"]
+    at_dock = {}  # lot id -> doors written off at the dock
     for target in ids if isinstance(ids, list) else []:
         if not isinstance(target, str):
-            continue
-        uncovered = next((lot for lot in player.get("pending_fails", []) if lot["id"] == target), None)
-        if uncovered is not None:
-            player["pending_fails"].remove(uncovered)
-            player.setdefault("unserved", []).append((uncovered, uncovered["packages"]))
-            fee = ABANDON_FEE_PER_UNIT * uncovered["parcel_units"]
-            world["charges"].append((pid, fee, "ABANDONED"))
-            player["day_report"]["failed"] += uncovered["packages"]
-            events.append(
-                {
-                    "kind": "ABANDONED",
-                    "player": pid,
-                    "truck": "",
-                    "node": world["city"].warehouse_of[uncovered["warehouse"]],
-                    "day": world["day"],
-                    "minute": 0,
-                    "address": uncovered["id"],
-                    "lot": uncovered["id"],
-                    "packages": uncovered["packages"],
-                    "cost": round(fee, 2),
-                }
-            )
             continue
         if target in manifest["segments"]:
             addrs = list(manifest["segments"][target]["addresses"])
@@ -385,11 +456,52 @@ def abandon(player, pid, ids, world, events):
             addrs = [a for a, x in manifest["addresses"].items() if x["lot"] == target]
         for aid in addrs:
             addr = manifest["addresses"][aid]
+            dock = player["dock"].get(addr["lot"])
+            if dock and aid in dock:
+                dock.discard(aid)
+                at_dock.setdefault(addr["lot"], set()).add(aid)
+                continue
             truck = next((t for t in player["trucks"].values() if aid in t["carrying"]), None)
             if truck is None:
                 continue
             fee = ABANDON_FEE_PER_UNIT * addr["packages"] * addr.get("units", 1.0)
             _fail(truck, addr, world, player, "ABANDONED", events, cost=fee)
+    for lot_id, addrs in at_dock.items():
+        fee = ABANDON_FEE_PER_UNIT * lot_units(player, addrs)
+        _fail_at_dock(player, pid, lot_id, addrs, world, "ABANDONED", fee, events)
+        if not player["dock"].get(lot_id):
+            player["dock"].pop(lot_id, None)
+
+
+def _fail_at_dock(player, pid, lot_id, addrs, world, reason, cost, events):
+    """Freight that never left the warehouse: one charge and one event per lot."""
+    packages = sum(player["manifest"]["addresses"][a]["packages"] for a in addrs)
+    world["charges"].append((pid, cost, reason))
+    player["day_report"]["failed"] += packages
+    lot = player["lots"][lot_id]
+    events.append(
+        {
+            "kind": reason,
+            "player": pid,
+            "truck": "",
+            "node": world["city"].warehouse_of[lot["warehouse"]],
+            "day": world["day"],
+            "minute": round(DAY_END_MINUTES if reason == "UNDELIVERED" else 0.0, 1),
+            "address": lot_id,
+            "lot": lot_id,
+            "packages": packages,
+            "cost": round(cost, 2),
+        }
+    )
+
+
+def dock_failures(player, pid, world, events):
+    """Lots still at the warehouse at 18:00 fail like any undelivered freight."""
+    for lot_id, addrs in sorted(player["dock"].items()):
+        if addrs:
+            packages = sum(player["manifest"]["addresses"][a]["packages"] for a in addrs)
+            _fail_at_dock(player, pid, lot_id, addrs, world, "UNDELIVERED", FAIL_PENALTY * packages, events)
+    player["dock"] = {}
 
 
 def _finish(truck, plan, world, player, until, rng, events):
