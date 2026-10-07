@@ -1,5 +1,6 @@
 from kaggle_environments import make
 from kaggle_environments.envs.cabt.cabt import deck, first_agent, random_agent
+from kaggle_environments.envs.cabt.cg.sim import Battle, get_lib
 
 
 def test_cabt_inits():
@@ -118,3 +119,21 @@ def test_invalid_selection():
         assert env_map["rewards"] == [None, 1]
     else:
         assert env_map["rewards"] == [1, None]
+
+
+def test_cabt_version_1_plays_bo1():
+    """Version 1 uses the legacy engine and ignores bo."""
+    env = make("cabt", configuration={"version": 1, "bo": 3}, debug=True)
+    env.run(["random", "random"])
+    assert env.toJSON()["statuses"] == ["DONE", "DONE"]
+    assert sum(env.result) == 1
+    assert not hasattr(Battle.lib, "BattleStartReverse")
+
+
+def test_cabt_versions_alternate_in_process():
+    """Both engines can run in the same process."""
+    for version in [2, 1, 2]:
+        env = make("cabt", configuration={"version": version}, debug=True)
+        env.run(["random", "first"])
+        assert env.toJSON()["statuses"] == ["DONE", "DONE"]
+        assert Battle.lib is get_lib(version)

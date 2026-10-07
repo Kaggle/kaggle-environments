@@ -13,6 +13,12 @@
       "type": "integer",
       "default": 3,
       "minimum": 1
+    },
+    "version": {
+      "description": "Engine version. 1 is the legacy engine and always plays BO1.",
+      "type": "integer",
+      "default": 2,
+      "enum": [1, 2]
     }
   },
   "reward": {

@@ -20,38 +20,60 @@ class SerialData(ctypes.Structure):
     ]
 
 
-os_name = platform.system()
-if os_name == 'Windows':
-    lib_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cg.dll")
-elif os_name == "Darwin":
-    lib_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "libcg.dylib")
-elif platform.machine() in ('arm64', 'aarch64'):
-    lib_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "libcg-arm64.so")
-else:
-    lib_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "libcg.so")
-lib = ctypes.cdll.LoadLibrary(lib_path)
+def _lib_path(lib_dir: str) -> str:
+    os_name = platform.system()
+    if os_name == "Windows":
+        return os.path.join(lib_dir, "cg.dll")
+    elif os_name == "Darwin":
+        return os.path.join(lib_dir, "libcg.dylib")
+    elif platform.machine() in ("arm64", "aarch64"):
+        return os.path.join(lib_dir, "libcg-arm64.so")
+    return os.path.join(lib_dir, "libcg.so")
 
-lib.GameInitialize()
 
-lib.BattleStart.restype = StartData
-lib.BattleStart.argtypes = [ctypes.POINTER(ctypes.c_int)]
+def load_lib(lib_dir: str) -> ctypes.CDLL:
+    lib = ctypes.cdll.LoadLibrary(_lib_path(lib_dir))
 
-lib.BattleStartReverse.restype = StartData
-lib.BattleStartReverse.argtypes = [ctypes.POINTER(ctypes.c_int)]
+    lib.GameInitialize()
 
-lib.BattleFinish.argtypes = [ctypes.c_void_p]
+    lib.BattleStart.restype = StartData
+    lib.BattleStart.argtypes = [ctypes.POINTER(ctypes.c_int)]
 
-lib.GetBattleData.restype = SerialData
-lib.GetBattleData.argtypes = [ctypes.c_void_p]
+    # Absent in v1.
+    if hasattr(lib, "BattleStartReverse"):
+        lib.BattleStartReverse.restype = StartData
+        lib.BattleStartReverse.argtypes = [ctypes.POINTER(ctypes.c_int)]
 
-lib.Select.restype = ctypes.c_int
-lib.Select.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_int), ctypes.c_int]
+    lib.BattleFinish.argtypes = [ctypes.c_void_p]
 
-lib.VisualizeData.restype = ctypes.c_char_p
-lib.VisualizeData.argtypes = [ctypes.c_void_p]
+    lib.GetBattleData.restype = SerialData
+    lib.GetBattleData.argtypes = [ctypes.c_void_p]
+
+    lib.Select.restype = ctypes.c_int
+    lib.Select.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_int), ctypes.c_int]
+
+    lib.VisualizeData.restype = ctypes.c_char_p
+    lib.VisualizeData.argtypes = [ctypes.c_void_p]
+    return lib
+
+
+_dir = os.path.dirname(os.path.abspath(__file__))
+LATEST_VERSION = 2
+lib = load_lib(_dir)
+_libs = {LATEST_VERSION: lib}
+
+
+def get_lib(version: int = LATEST_VERSION) -> ctypes.CDLL:
+    """Return the engine library for `version`, loading it on first use."""
+    if version not in _libs:
+        if version != 1:
+            raise ValueError(f"Unknown cabt version: {version}")
+        _libs[version] = load_lib(os.path.join(_dir, "v1"))
+    return _libs[version]
 
 
 class Battle:
+    lib = lib
     battle_ptr = None
     obs = None
     decks = None

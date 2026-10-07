@@ -4,7 +4,7 @@ import os
 import random
 
 from .cg.game import battle_finish, battle_select, battle_start, visualize_data
-from .cg.sim import Battle
+from .cg.sim import Battle, get_lib
 
 deck = [
     721,
@@ -86,7 +86,7 @@ agents = {"random": random_agent, "first": first_agent}
 
 
 def round_finish(state, env):
-    steps = env.steps[Battle.last_step:]
+    steps = env.steps[Battle.last_step :]
     if len(steps) > 0:
         vis = json.loads(visualize_data())
         for i in range(len(vis)):
@@ -94,7 +94,7 @@ def round_finish(state, env):
             action = None
             if len(steps) > i:
                 index = 1
-                if steps[i][0].status == 'ACTIVE':
+                if steps[i][0].status == "ACTIVE":
                     index = 0
                 obs = copy.copy(steps[i][index].observation)
                 obs.pop("search_begin_input")
@@ -117,6 +117,7 @@ def finish(state, env):
 
 def interpreter(state, env):
     if env.done:
+        Battle.lib = get_lib(env.configuration.version)
         Battle.battle_ptr = None
         Battle.decks = None
         Battle.result = [0, 0, 0]
@@ -185,7 +186,8 @@ def interpreter(state, env):
             Battle.result[2] += 1
 
         count = Battle.result[0] + Battle.result[1] + Battle.result[2]
-        remain = env.configuration.bo - count
+        bo = 1 if env.configuration.version == 1 else env.configuration.bo
+        remain = bo - count
         result = -1
         if Battle.result[0] > Battle.result[1] + remain:
             result = 0
