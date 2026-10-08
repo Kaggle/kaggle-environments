@@ -348,6 +348,7 @@ def _serve(truck, target, plan, world, player, stats, rng, events):
                 truck["clock"] = window[0]
             elif truck["clock"] > window[1] and addr["window_kind"] == "DOCK":
                 if on_missed == "SKIP":
+                    _fail(truck, addr, world, player, "UNDELIVERED", events)
                     continue
                 # Inside the door's hidden grace the attempt delivers.
                 if truck["clock"] > window[1] + addr.get("_grace", 0.0):

@@ -136,6 +136,7 @@ def _initialize(state, env):
         "board": board,
         # Its own stream, so the market's draws do not shift the city's.
         "shipper": Shipper(random.Random(rng.getrandbits(64)), list(board.truck_days), fleet_size),
+        "stream_key": rng.getrandbits(64),
         "players": players,
         "listings": [],
         "accounts": [],
@@ -170,16 +171,20 @@ def _world(state, env):
     return world
 
 
+def _stream(world, *key):
+    """A draw stream fixed by the episode and `key`, so no other draw can shift it."""
+    return random.Random(":".join(map(str, (world["stream_key"], *key))))
+
+
 # --- overnight --------------------------------------------------------------
 
 
 def _open_night(world, day):
     """Post the night's capital, labor and freight markets."""
-    rng = world["rng"]
     players = world["players"]
-    world["used"] = post_used(rng, day)
-    world["rental_pool"] = rental_pool(rng, players)
-    world["candidates"] = post_candidates(rng, day)
+    world["used"] = post_used(_stream(world, "used", day), day)
+    world["rental_pool"] = rental_pool(_stream(world, "rentals", day), players)
+    world["candidates"] = post_candidates(_stream(world, "candidates", day), day)
 
     # Held standing accounts are demand the shipper has already placed.
     committed = sum(a["truck_days"] for p in players for a in p["standing"])
@@ -194,7 +199,7 @@ def _open_night(world, day):
     )
     listings, accounts = world["shipper"].post(world["board"], day, committed, supply)
     for lot in listings + accounts:
-        lot["manifest"] = draw_manifest(lot, world["city"], rng)
+        lot["manifest"] = draw_manifest(lot, world["city"], _stream(world, "manifest", lot["_key"]))
     world["listings"] = listings
     world["accounts"] = accounts
     world["bid_book"] = []
@@ -215,6 +220,7 @@ def _roll_standing(world, day):
                 world["public_standing"] = [a for a in world["public_standing"] if a["id"] != acct["id"]]
                 continue
             board = world["board"]
+            rng = _stream(world, "standing", acct["id"], day)
             key = (acct["warehouse"], acct["district"])
             td = board.truck_days[key]
             fraction = acct["truck_days"]
@@ -225,13 +231,13 @@ def _roll_standing(world, day):
                 packages,
                 fraction,
                 acct["rate"],
-                world["rng"],
+                rng,
             )
             lot["id"] = f"{acct['id']}_d{day}"
             lot["kind"] = "STANDING"
             lot["price"] = acct["rate"]
             lot["payout_per_package"] = round(acct["rate"] / packages, 4)
-            lot["manifest"] = draw_manifest(lot, world["city"], world["rng"])
+            lot["manifest"] = draw_manifest(lot, world["city"], rng)
             player["pending_lots"].append(lot)
             acct["remaining"] -= 1
             if acct["remaining"] <= 0:
@@ -318,18 +324,19 @@ def _abandon(player, act, world, pid, block):
 def _run_block(world, actions, block):
     """Advance every truck to the end of the block, then take sightings."""
     until = (block + 1) * (DAY_END_MINUTES / BLOCKS_PER_DAY)
-    rng = world["rng"]
+    day = world["day"]
     for pid, player in enumerate(world["players"]):
         act = actions[pid]
         _apply_plans(player, act, world, pid)
         _abandon(player, act, world, pid, block)
     # Player order is shuffled every block.
     order = list(range(len(world["players"])))
-    rng.shuffle(order)
+    _stream(world, "order", day, block).shuffle(order)
     for pid in order:
         player = world["players"][pid]
         for truck in player["trucks"].values():
-            if truck["status"] in ("ACTIVE", "IDLE") and truck.get("arrives", 0) <= world["day"]:
+            if truck["status"] in ("ACTIVE", "IDLE") and truck.get("arrives", 0) <= day:
+                rng = _stream(world, "drive", day, block, pid, truck["id"])
                 world["events"].extend(advance_truck(truck, truck["plan"], world, player, until, rng))
     _sightings(world)
 
@@ -466,7 +473,7 @@ def _public_view(world, day):
 
 def _private_view(world, player, pid):
     manifest = player["manifest"]
-    rng = world["rng"]
+    rng = _stream(world, "estimate", world.get("step", 0), pid)
     return {
         # This step's events, this player's only.
         "events": [e for e in world["events"][world.get("events_mark", 0) :] if e.get("player") == pid],
@@ -637,6 +644,9 @@ def interpreter(state, env):
     step = int(obs0.step or 0)
     phase, day, block = phase_of(step + 1)
     world["day"] = day
+    world["step"] = step + 1
+    # Resolution draws come from a stream fixed by the step.
+    world["rng"] = _stream(world, "step", step)
     # Events raised from here to the publish below belong to this step.
     world["events_mark"] = len(world.get("events", []))
     actions = [s.action if isinstance(s.action, dict) else None for s in state]
