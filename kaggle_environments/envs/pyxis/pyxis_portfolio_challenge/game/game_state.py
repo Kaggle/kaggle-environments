@@ -20,27 +20,18 @@ from scipy.stats import norm
 
 from pyxis_portfolio_challenge.config import (
     ApprovalPhaseConfig,
-    CapacityConfig,
     ClinicalSitesConfig,
-    DistributionalPtrsConfig,
     DropActionConfig,
-    InterimTrialObservationsConfig,
-    InvestmentLevelsConfig,
     MarketingConfig,
     PtrsReadingsConfig,
-    TAExperienceConfig,
-    UncertainPtrsConfig,
     fibonacci_cost,
 )
 from pyxis_portfolio_challenge.game.asset import AssetState, DrugAsset
 from pyxis_portfolio_challenge.game.asset_generators import (
     AssetGeneratorBase,
-    update_distributional_ptrs_for_experience,
-    update_trial_chain_ptrs_for_experience,
 )
 from pyxis_portfolio_challenge.game.clinical_sites import resolve_site_grants
-from pyxis_portfolio_challenge.game.constants import MAX_NUM_ASSETS, InvestmentLevel
-from pyxis_portfolio_challenge.game.trial import TrialPhase
+from pyxis_portfolio_challenge.game.constants import MAX_NUM_ASSETS, InvestmentAction
 from pyxis_portfolio_challenge.rng import get_game_rng, init_game_rng
 
 logger = logging.getLogger(__name__)
@@ -131,13 +122,6 @@ class GameState(BaseModel):
     game_ended: bool
     ended_reason: Optional[str]
 
-    # Uncertain PTRS feature: TA experience tracking
-    ta_experience: dict[str, float] = {}  # {therapeutic_area: weighted_experience}
-
-    # Investment levels feature: capacity tracking
-    capacity_used: float = 0.0  # Current capacity usage
-    capacity_base: float = 80.0  # Base capacity (from config)
-
     # Clinical sites feature: per-agent concurrency capacity (Model B).
     # operational_sites host trials now; sites_in_development are build-delay
     # timers (steps remaining) for purchased-but-not-yet-usable sites. Occupied
@@ -146,23 +130,10 @@ class GameState(BaseModel):
     operational_sites: int = 0
     sites_in_development: list[int] = []
 
-    # Distributional PTRS feature: TA quality estimates (observable posteriors)
-    # These represent the agent's belief about TA quality based on trial outcomes
-    ta_quality_estimates: dict[str, float] = {}  # Posterior mean estimate
-    ta_quality_confidences: dict[str, float] = {}  # Posterior confidence (0-1)
-
     _asset_generator: AssetGeneratorBase = PrivateAttr()
-    _ta_experience_config: Optional[object] = PrivateAttr(default=None)
-    _uncertain_ptrs_config: Optional[object] = PrivateAttr(default=None)
-    _investment_levels_config: Optional[object] = PrivateAttr(default=None)
-    _interim_trial_observations_config: Optional[object] = PrivateAttr(default=None)
-    _distributional_ptrs_config: Optional[object] = PrivateAttr(default=None)
-    _rd_capacity_config: Optional[object] = PrivateAttr(default=None)
     _drop_action_config: Optional[object] = PrivateAttr(default=None)
     _ptrs_readings_config: Optional[object] = PrivateAttr(default=None)
     _clinical_sites_config: Optional[object] = PrivateAttr(default=None)
-    # Hidden TA quality modifiers (sampled at episode start, not observable)
-    _ta_quality_modifiers: dict[str, float] = PrivateAttr(default_factory=dict)
     # Marketing config (set once at game start)
     _marketing_config: Optional[object] = PrivateAttr(default=None)
     # Per-drug brand equity scores (asset_id -> score); accumulates with spend,
@@ -190,172 +161,6 @@ class GameState(BaseModel):
         to the field means any future absolute-time state is rebased here.
         """
         self.time = 0
-
-    def _update_ptrs_for_experience(self) -> None:
-        """
-        Update PTRS values for all assets based on current TA experience.
-
-        For uncertain_ptrs:
-        - Updates observed PTRS via interpolation toward true PTRS
-        - Sets effective true PTRS for trial outcome evaluation
-
-        For distributional_ptrs:
-        - Increases Beta concentration (tighter bounds) based on experience
-        - Higher experience = higher confidence = smaller uncertainty range
-
-        Called internally by step().
-        """
-        # Check if TA experience is enabled
-        if self._ta_experience_config is None or not self._ta_experience_config.enabled:
-            return
-
-        # Log TA experience at start of step
-        exp_str = ", ".join([
-            f"{ta}={exp:.2f}" for ta, exp in sorted(self.ta_experience.items())
-        ])
-
-        # Handle uncertain_ptrs (point-based with noise convergence)
-        if (
-            self._uncertain_ptrs_config is not None
-            and self._uncertain_ptrs_config.enabled
-        ):
-            logger.info(f"[UncertainPTRS] Step {self.time} TA Experience: {exp_str}")
-
-            for asset in self.assets.values():
-                update_trial_chain_ptrs_for_experience(
-                    head_trial=asset.trial,
-                    therapeutic_area=asset.therapeutic_area,
-                    ta_experience=self.ta_experience,
-                    ta_experience_config=self._ta_experience_config,
-                )
-
-                # Log per-asset PTRS details
-                trial = asset.trial
-                if trial is not None and trial._true_ptrs is not None:
-                    ta_exp = self.ta_experience.get(asset.therapeutic_area, 0.0)
-                    alpha = min(
-                        1.0,
-                        ta_exp
-                        / self._ta_experience_config.experience_to_full_knowledge,
-                    )
-                    logger.info(
-                        f"[UncertainPTRS] Asset '{asset.name}' "
-                        f"({asset.therapeutic_area}): "
-                        f"observed={trial.ptrs:.3f}, "
-                        f"true={trial._true_ptrs:.3f}, "
-                        f"effective={trial._effective_true_ptrs:.3f}, "
-                        f"error={abs(trial.ptrs - trial._true_ptrs):.3f}, "
-                        f"α={alpha:.2f}"
-                    )
-
-        # Handle distributional_ptrs (Beta concentration increases with experience)
-        elif (
-            self._distributional_ptrs_config is not None
-            and self._distributional_ptrs_config.enabled
-        ):
-            logger.info(
-                f"[DistributionalPTRS] Step {self.time} TA Experience: {exp_str}"
-            )
-
-            for asset in self.assets.values():
-                update_distributional_ptrs_for_experience(
-                    head_trial=asset.trial,
-                    therapeutic_area=asset.therapeutic_area,
-                    ta_experience=self.ta_experience,
-                    base_concentration=self._distributional_ptrs_config.prior_concentration,
-                    experience_to_full_knowledge=(
-                        self._ta_experience_config.experience_to_full_knowledge
-                    ),
-                )
-
-    def _calculate_capacity_usage(
-        self,
-        assets: dict[uuid.UUID, DrugAsset],
-    ) -> float:
-        """
-        Calculate total capacity usage from all in-development assets.
-
-        Parameters
-        ----------
-        assets : dict[uuid.UUID, DrugAsset]
-            Dictionary of assets to calculate capacity for.
-
-        Returns
-        -------
-        float
-            Total capacity usage.
-
-        """
-        if self._rd_capacity_config is None or not self._rd_capacity_config.enabled:
-            return 0.0
-
-        use_levels = (
-            self._investment_levels_config is not None
-            and self._investment_levels_config.enabled
-        )
-
-        total_capacity = 0.0
-        if use_levels:
-            level_name_map = {
-                InvestmentLevel.NONE: "none",
-                InvestmentLevel.MINIMAL: "minimal",
-                InvestmentLevel.STANDARD: "standard",
-                InvestmentLevel.ACCELERATED: "accelerated",
-            }
-            for asset in assets.values():
-                if asset.state == AssetState.InDevelopment:
-                    level_name = level_name_map[asset.current_investment_level]
-                    level_config = self._investment_levels_config.get_level_params(
-                        level_name
-                    )
-                    total_capacity += level_config.capacity_cost
-        else:
-            # Binary action space: each InDevelopment asset = 1 capacity unit
-            for asset in assets.values():
-                if asset.state == AssetState.InDevelopment:
-                    total_capacity += 1.0
-
-        return total_capacity
-
-    def _get_global_success_modifier(self, capacity_used: float) -> float:
-        """
-        Calculate global success modifier based on capacity overage.
-
-        Parameters
-        ----------
-        capacity_used : float
-            Current total capacity usage.
-
-        Returns
-        -------
-        float
-            Success modifier (1.0 if under capacity, <1.0 if over).
-
-        """
-        if self._rd_capacity_config is None:
-            return 1.0
-
-        return self._rd_capacity_config.calculate_success_modifier(capacity_used)
-
-    def _get_global_cost_modifier(self, capacity_used: float) -> float:
-        """
-        Calculate global cost modifier based on capacity overage.
-
-        Parameters
-        ----------
-        capacity_used : float
-            Current total capacity usage.
-
-        Returns
-        -------
-        float
-            Cost modifier (1.0 if under capacity, >1.0 if over).
-
-        """
-        if self._rd_capacity_config is None:
-            return 1.0
-
-        return self._rd_capacity_config.calculate_cost_modifier(capacity_used)
 
     @property
     def drop_action_enabled(self) -> bool:
@@ -495,30 +300,6 @@ class GameState(BaseModel):
             }
         )
 
-    @property
-    def capacity_ratio(self) -> float:
-        """Get capacity usage ratio (used / base)."""
-        if self.capacity_base <= 0:
-            return 0.0
-        return self.capacity_used / self.capacity_base
-
-    @property
-    def capacity_headroom(self) -> float:
-        """Get capacity headroom ((base - used) / base). Negative if over capacity."""
-        if self.capacity_base <= 0:
-            return 0.0
-        return (self.capacity_base - self.capacity_used) / self.capacity_base
-
-    @property
-    def success_modifier(self) -> float:
-        """Get current global success modifier based on capacity usage."""
-        return self._get_global_success_modifier(self.capacity_used)
-
-    @property
-    def cost_modifier(self) -> float:
-        """Get current global cost modifier based on capacity usage."""
-        return self._get_global_cost_modifier(self.capacity_used)
-
     @model_validator(mode="after")
     def post_init_check_game_ended_horizon(self) -> Self:
         """Raises if game_ended is False but time has reached horizon."""
@@ -599,16 +380,10 @@ class GameState(BaseModel):
         reinvestment_percentage: float,
         seed: int | None,
         *,
-        investment_levels_config: InvestmentLevelsConfig,
-        interim_trial_observations_config: InterimTrialObservationsConfig,
-        distributional_ptrs_config: DistributionalPtrsConfig,
-        rd_capacity_config: CapacityConfig,
         drop_action_config: DropActionConfig,
         marketing_config: MarketingConfig,
         clinical_sites_config: ClinicalSitesConfig,
         ptrs_readings_config: PtrsReadingsConfig,
-        ta_experience_config: TAExperienceConfig,
-        uncertain_ptrs_config: UncertainPtrsConfig,
         approval_phase_config: ApprovalPhaseConfig,
         **asset_generator_kwargs,
     ) -> GameState:
@@ -642,14 +417,6 @@ class GameState(BaseModel):
             Random seed. If not None, re-initializes the game-wide RNG with this seed.
             Pass None to reuse the existing RNG (for multi-agent initialization where
             all agents share a single RNG stream).
-        investment_levels_config : InvestmentLevelsConfig
-            Configuration for the investment levels feature.
-        interim_trial_observations_config : InterimTrialObservationsConfig
-            Configuration for the interim trial observations feature.
-        distributional_ptrs_config : DistributionalPtrsConfig
-            Configuration for the distributional PTRS feature.
-        rd_capacity_config : CapacityConfig
-            Configuration for the R&D capacity constraint feature.
         drop_action_config : DropActionConfig
             Configuration for the standalone drop action feature.
         marketing_config : MarketingConfig
@@ -658,10 +425,6 @@ class GameState(BaseModel):
             Configuration for the clinical sites feature.
         ptrs_readings_config : PtrsReadingsConfig
             Configuration for the PTRS readings feature.
-        ta_experience_config : TAExperienceConfig
-            Configuration for the TA experience feature.
-        uncertain_ptrs_config : UncertainPtrsConfig
-            Configuration for the uncertain PTRS feature.
         approval_phase_config : ApprovalPhaseConfig
             Configuration for the approval phase feature.
         **asset_generator_kwargs : dict
@@ -678,47 +441,11 @@ class GameState(BaseModel):
 
         logger.debug("Initialising new game state...")
 
-        # Sample TA quality modifiers if distributional PTRS is enabled
-        ta_quality_modifiers = {}
-        ta_quality_estimates = {}
-        ta_quality_confidences = {}
-        ta_rng = get_game_rng()
-
-        if (
-            distributional_ptrs_config.enabled
-        ):
-            for ta, variance in distributional_ptrs_config.ta_quality_variance.items():
-                # Sample hidden TA quality modifier from Normal(0, sqrt(variance))
-                std = variance**0.5
-                modifier = ta_rng.gauss(0, std)
-                ta_quality_modifiers[ta] = modifier
-                # Initialize observable estimates to zero (no information yet)
-                ta_quality_estimates[ta] = 0.0
-                # Initial confidence is low (no trial outcomes yet)
-                ta_quality_confidences[ta] = 0.0
-                logger.info(
-                    f"[DistributionalPTRS] Sampled TA quality modifier for {ta}: "
-                    f"{modifier:.4f} (variance={variance})"
-                )
-        else:
-            # Initialize empty dicts when feature is disabled
-            for ta in [
-                "oncology",
-                "respiratory and immunology",
-                "vaccines and infectious disease",
-            ]:
-                ta_quality_estimates[ta] = 0.0
-                ta_quality_confidences[ta] = 1.0  # Full confidence when no uncertainty
-
-        # Pass the asset-generator-relevant configs plus the sampled TA quality
-        # modifiers. Remaining generator args (assets_dir / assets_data_list,
-        # indication_spread, indication_drift_speed, trial_cost_multiplier,
-        # indications_per_ta, generator_index) flow through asset_generator_kwargs.
+        # Pass the asset-generator-relevant configs. Remaining generator args
+        # (assets_dir / assets_data_list, indication_spread, indication_drift_speed,
+        # trial_cost_multiplier, indications_per_ta, generator_index) flow through
+        # asset_generator_kwargs.
         asset_generator = asset_generator_cls(
-            uncertain_ptrs_config=uncertain_ptrs_config,
-            distributional_ptrs_config=distributional_ptrs_config,
-            ta_quality_modifiers=ta_quality_modifiers,
-            ta_experience_config=ta_experience_config,
             approval_phase_config=approval_phase_config,
             ptrs_readings_config=ptrs_readings_config,
             **asset_generator_kwargs,
@@ -731,15 +458,6 @@ class GameState(BaseModel):
             f"cash={cash}, horizon={horizon}, max_num_assets={max_num_assets}, "
             f"asset_generator_kwargs={asset_generator_kwargs}"
         )
-        # Initialize TA experience to zero for all TAs
-        initial_ta_experience = {
-            "oncology": 0.0,
-            "respiratory and immunology": 0.0,
-            "vaccines and infectious disease": 0.0,
-        }
-
-        # Get capacity base from rd_capacity config
-        capacity_base = rd_capacity_config.base_capacity
 
         # Clinical sites: seed the starting operational-site endowment
         initial_operational_sites = (
@@ -769,30 +487,11 @@ class GameState(BaseModel):
             running_eroi=[],
             game_ended=False,
             ended_reason=None,
-            ta_experience=initial_ta_experience,
-            capacity_used=0.0,
-            capacity_base=capacity_base,
-            ta_quality_estimates=ta_quality_estimates,
-            ta_quality_confidences=ta_quality_confidences,
             operational_sites=initial_operational_sites,
             sites_in_development=[],
         )
         # Initialise asset generator after since it is private attribute
         game_state._asset_generator = asset_generator
-        # Store TA experience config if provided
-        game_state._ta_experience_config = ta_experience_config
-        # Store uncertain PTRS config
-        game_state._uncertain_ptrs_config = uncertain_ptrs_config
-        # Store investment levels config if provided
-        game_state._investment_levels_config = investment_levels_config
-        # Store interim trial observations config if provided
-        game_state._interim_trial_observations_config = (
-            interim_trial_observations_config
-        )
-        # Store distributional PTRS config and TA quality modifiers
-        game_state._distributional_ptrs_config = distributional_ptrs_config
-        # Store R&D capacity config if provided
-        game_state._rd_capacity_config = rd_capacity_config
         game_state._drop_action_config = drop_action_config
         game_state._ptrs_readings_config = ptrs_readings_config
         game_state._marketing_config = marketing_config
@@ -800,7 +499,6 @@ class GameState(BaseModel):
         game_state._brand_score_floors = {}
         game_state._clinical_sites_config = clinical_sites_config
         game_state._bd_asset_clones = {}
-        game_state._ta_quality_modifiers = ta_quality_modifiers
         logger.debug("Initialised new game state...")
         return game_state._post_init_update_enpv_eroi()
 
@@ -875,11 +573,9 @@ class GameState(BaseModel):
             # Draw random number and decide whether to add asset
             random_draw = get_game_rng().random()
             if random_draw < probability:
-                # Pass ta_experience for TA bias in asset arrival
                 new_asset = self._asset_generator(
                     1,
                     "new",
-                    ta_experience=self.ta_experience,
                     episode_progress=self.time / self.horizon,
                 )
                 asset_id = list(new_asset.keys())[0]
@@ -1077,87 +773,22 @@ class GameState(BaseModel):
             running_eroi=self.running_eroi,
             game_ended=True,
             ended_reason=reason,
-            ta_experience=self.ta_experience.copy(),
-            capacity_used=self.capacity_used,
-            capacity_base=self.capacity_base,
-            ta_quality_estimates=self.ta_quality_estimates.copy(),
-            ta_quality_confidences=self.ta_quality_confidences.copy(),
             operational_sites=self.operational_sites,
             sites_in_development=list(self.sites_in_development),
         )
-        ended_state._investment_levels_config = self._investment_levels_config
-        ended_state._uncertain_ptrs_config = self._uncertain_ptrs_config
-        ended_state._interim_trial_observations_config = (
-            self._interim_trial_observations_config
-        )
-        ended_state._distributional_ptrs_config = self._distributional_ptrs_config
-        ended_state._rd_capacity_config = self._rd_capacity_config
         ended_state._drop_action_config = self._drop_action_config
         ended_state._ptrs_readings_config = self._ptrs_readings_config
         ended_state._marketing_config = self._marketing_config
         ended_state._brand_scores = dict(self._brand_scores)
         ended_state._brand_score_floors = dict(self._brand_score_floors)
         ended_state._clinical_sites_config = self._clinical_sites_config
-        ended_state._ta_quality_modifiers = self._ta_quality_modifiers.copy()
         ended_state._bd_asset_clones = {}
         return ended_state
 
-    def _get_level_config(self, level: InvestmentLevel) -> dict:
-        """Get configuration for an investment level."""
-        level_name_map = {
-            InvestmentLevel.NONE: "none",
-            InvestmentLevel.MINIMAL: "minimal",
-            InvestmentLevel.STANDARD: "standard",
-            InvestmentLevel.ACCELERATED: "accelerated",
-        }
-        if self._investment_levels_config is None:
-            # Default configs if feature disabled
-            defaults = {
-                "none": {
-                    "cost_modifier": 0.0,
-                    "speed_modifier": 0.0,
-                    "success_modifier": 1.0,
-                    "capacity_cost": 0,
-                    "experience_modifier": 0.0,
-                },
-                "minimal": {
-                    "cost_modifier": 0.7,
-                    "speed_modifier": 0.67,
-                    "success_modifier": 0.90,
-                    "capacity_cost": 1,
-                    "experience_modifier": 1.5,
-                },
-                "standard": {
-                    "cost_modifier": 1.0,
-                    "speed_modifier": 1.0,
-                    "success_modifier": 1.0,
-                    "capacity_cost": 2,
-                    "experience_modifier": 1.0,
-                },
-                "accelerated": {
-                    "cost_modifier": 1.5,
-                    "speed_modifier": 1.33,
-                    "success_modifier": 1.05,
-                    "capacity_cost": 3,
-                    "experience_modifier": 0.5,
-                },
-            }
-            return defaults[level_name_map[level]]
-        # Return dict for consistent access pattern
-        params = self._investment_levels_config.get_level_params(level_name_map[level])
-        return {
-            "cost_modifier": params.cost_modifier,
-            "speed_modifier": params.speed_modifier,
-            "success_modifier": params.success_modifier,
-            "capacity_cost": params.capacity_cost,
-            "experience_modifier": params.experience_modifier,
-        }
-
     def step(
         self,
-        investor_actions: dict[uuid.UUID, InvestmentLevel | Literal["invest"] | None],
+        investor_actions: dict[uuid.UUID, InvestmentAction | Literal["invest"] | None],
         market_shares: dict[uuid.UUID, float] | None = None,
-        pricing_multipliers: dict[uuid.UUID, float] | None = None,
         demand_multipliers: dict[uuid.UUID, float] | None = None,
         brand_equity_actions: dict[uuid.UUID, int] | None = None,
         demand_creation_actions: dict[str, int] | None = None,
@@ -1171,20 +802,15 @@ class GameState(BaseModel):
         Advance the game state by one time step.
 
         Args:
-            investor_actions: Mapping of asset IDs to investment levels.
-             A dictionary mapping asset IDs to investment levels.
-             - InvestmentLevel.NONE: Do not invest (for idle assets)
-             - InvestmentLevel.MINIMAL/STANDARD/ACCELERATED: Invest at this level
-             - "invest": Backward compatible, treated as InvestmentLevel.STANDARD
-             For in-development assets, this changes their investment level.
+            investor_actions: Mapping of asset IDs to investment actions.
+             - InvestmentAction.NONE: Do not invest (for idle assets)
+             - InvestmentAction.INVEST / "invest": Invest in an idle asset
+             - InvestmentAction.STOP: Stop an in-development trial
+             - InvestmentAction.DROP / "drop": Voluntarily drop an asset
             market_shares : dict[uuid.UUID, float] | None
              Optional per-drug market share multipliers (0.0-1.0).
              Used by multi-agent environment for revenue competition.
              If None, full revenue is collected (single-agent default).
-            pricing_multipliers : dict[uuid.UUID, float] | None
-             Optional per-drug pricing multipliers for on-market drugs.
-             Applied to revenue before market share and reinvestment_percentage.
-             If None, all drugs use 1.0x pricing (default).
             demand_multipliers : dict[uuid.UUID, float] | None
              Optional per-drug shared demand multipliers applied to revenue.
              If None, no demand-creation boost is applied.
@@ -1228,85 +854,44 @@ class GameState(BaseModel):
         # into the next state's constructors below.
         self.advance_site_timers()
 
-        # Convert string actions to InvestmentLevel
-        normalized_actions: dict[uuid.UUID, InvestmentLevel] = {}
+        # Convert string actions to InvestmentAction
+        normalized_actions: dict[uuid.UUID, InvestmentAction] = {}
         for asset_id, action in investor_actions.items():
             if action == "invest":
-                normalized_actions[asset_id] = InvestmentLevel.STANDARD
+                normalized_actions[asset_id] = InvestmentAction.INVEST
             elif action == "drop":
-                normalized_actions[asset_id] = InvestmentLevel.DROP
-            elif isinstance(action, InvestmentLevel):
+                normalized_actions[asset_id] = InvestmentAction.DROP
+            elif isinstance(action, InvestmentAction):
                 normalized_actions[asset_id] = action
             # None or missing = no action
 
-        # Log TA experience at start of step (only when enabled)
-        if (
-            self._ta_experience_config is not None
-            and self._ta_experience_config.enabled
-        ):
-            logger.info("TA Experience (post-decay from previous step):")
-            for ta, exp in sorted(self.ta_experience.items()):
-                logger.info(f"  {ta}: {exp:.4f}")
-
         logger.debug("Current game state before step:")
-        logger.debug(
-            f"  Cash: {self.cash}, Capacity: {self.capacity_used}/{self.capacity_base}"
-        )
+        logger.debug(f"  Cash: {self.cash}")
         logger.debug(f"  Time: {self.time}, Assets: {len(self.assets)}")
 
         current_cash = self.cash
         current_realised_cost = 0.0
         current_realised_revenue = 0.0
 
-        # Check if investment levels feature is enabled
-        use_investment_levels = (
-            self._investment_levels_config is not None
-            and self._investment_levels_config.enabled
-        )
-
-        # Calculate global cost modifier based on current capacity usage
-        # (penalty from previous step's overcommitment)
-        global_cost_modifier = self._get_global_cost_modifier(self.capacity_used)
-        if use_investment_levels and global_cost_modifier > 1.0:
-            logger.info(
-                f"[Capacity Cost Penalty] capacity_used={self.capacity_used:.1f}, "
-                f"cost_modifier={global_cost_modifier:.3f}"
-            )
-
         # A (Pt.1): pay for ongoing investments
         logger.debug("Step A (Pt.1): paying for ongoing investments")
         in_dev_assets = self.in_development_assets()
         for in_dev_asset in in_dev_assets.values():
-            # Check if there's a level change for this asset
-            new_level = normalized_actions.get(in_dev_asset.id)
+            # Check if there's an action for this asset
+            new_action = normalized_actions.get(in_dev_asset.id)
 
             # If STOP or DROP is requested, don't pay costs
             # (asset will be stopped/dropped in Pt.2)
-            if new_level in (InvestmentLevel.STOP, InvestmentLevel.DROP):
+            if new_action in (InvestmentAction.STOP, InvestmentAction.DROP):
                 logger.debug(
                     f"Skipping cost for {in_dev_asset.name} (will be stopped/dropped)"
                 )
                 continue
 
-            if new_level is not None and new_level != InvestmentLevel.NONE:
-                level = new_level
-            else:
-                level = in_dev_asset.current_investment_level
-
-            if use_investment_levels:
-                level_config = self._get_level_config(level)
-                base_cost = in_dev_asset.cost_this_step_with_modifier(
-                    level_config["cost_modifier"]
-                )
-                # Apply global cost modifier for capacity overage
-                cost = base_cost * global_cost_modifier
-            else:
-                # Apply global cost modifier for capacity overage
-                cost = in_dev_asset.cost_this_step * global_cost_modifier
+            cost = in_dev_asset.cost_this_step
 
             logger.debug(
-                f"Paying for ongoing: {in_dev_asset.name}, "
-                f"level={level.name}, cost={cost:.2f}"
+                f"Paying for ongoing: {in_dev_asset.name}, cost={cost:.2f}"
             )
             current_cash -= cost
             current_realised_cost += cost
@@ -1350,8 +935,8 @@ class GameState(BaseModel):
                 asset_id
                 for asset_id in self.assets  # ascending asset (arrival) order
                 if normalized_actions.get(asset_id)
-                not in (None, InvestmentLevel.NONE, InvestmentLevel.DROP,
-                        InvestmentLevel.STOP)
+                not in (None, InvestmentAction.NONE, InvestmentAction.DROP,
+                        InvestmentAction.STOP)
                 and self.assets[asset_id].state == AssetState.Idle
             ]
             granted = resolve_site_grants(
@@ -1364,15 +949,15 @@ class GameState(BaseModel):
                     f"request(s) denied (free_sites={self.free_sites})"
                 )
 
-        # A (Pt.2): pay for new investments and update investment levels
+        # A (Pt.2): pay for new investments and apply stop/drop actions
         logger.debug("Step A (Pt.2): paying for new investments")
-        for asset_id, level in normalized_actions.items():
-            if level == InvestmentLevel.NONE:
+        for asset_id, action in normalized_actions.items():
+            if action == InvestmentAction.NONE:
                 continue
 
             asset = assets_for_step[asset_id]
 
-            if level == InvestmentLevel.DROP:
+            if action == InvestmentAction.DROP:
                 if self._drop_action_config is not None and asset.trial is not None:
                     current_cash -= self._drop_action_config.calculate_drop_fee(
                         asset.trial.cost_remaining
@@ -1391,29 +976,11 @@ class GameState(BaseModel):
                     continue
 
                 # New investment
-                # Check if interim trial observations are enabled
-                enable_interim = (
-                    self._interim_trial_observations_config is not None
-                    and self._interim_trial_observations_config.enabled
-                )
-                if use_investment_levels:
-                    invested_asset = asset.to_develop_with_level(
-                        level, enable_interim_observations=enable_interim
-                    )
-                    level_config = self._get_level_config(level)
-                    base_cost = invested_asset.cost_this_step_with_modifier(
-                        level_config["cost_modifier"]
-                    )
-                    # Apply global cost modifier for capacity overage
-                    cost = base_cost * global_cost_modifier
-                else:
-                    invested_asset = asset.to_develop(
-                        enable_interim_observations=enable_interim
-                    )
-                    cost = invested_asset.cost_this_step * global_cost_modifier
+                invested_asset = asset.to_develop()
+                cost = invested_asset.cost_this_step
 
                 logger.debug(
-                    f"New investment: {asset.name}, level={level.name}, cost={cost:.2f}"
+                    f"New investment: {asset.name}, cost={cost:.2f}"
                 )
                 current_cash -= cost
                 current_realised_cost += cost
@@ -1421,15 +988,10 @@ class GameState(BaseModel):
 
             elif asset.state == AssetState.InDevelopment:
                 # Handle in-development assets
-                if level == InvestmentLevel.STOP:
+                if action == InvestmentAction.STOP:
                     # Stop development early (agent decides to abandon)
                     assets_for_step[asset_id] = asset.stop_development()
                     logger.debug(f"Stopped development: {asset.name}")
-                elif use_investment_levels:
-                    # Level change for existing development
-                    if level != asset.current_investment_level:
-                        assets_for_step[asset_id] = asset.set_investment_level(level)
-                        logger.debug(f"Level change: {asset.name} -> {level.name}")
                 else:
                     # Legacy mode: can't re-invest in something already in development
                     raise ValueError(
@@ -1539,12 +1101,6 @@ class GameState(BaseModel):
         logger.debug(f"Current cash before collecting revenues: {current_cash}")
         for asset_id, asset in assets_for_step.items():
             if asset.state == AssetState.OnMarket:
-                # Apply pricing multiplier (per-drug price level)
-                price_mult = 1.0
-                if pricing_multipliers is not None:
-                    price_mult = pricing_multipliers.get(asset_id, 1.0)
-                priced_revenue = asset.revenue_this_step * price_mult
-
                 # Apply market share and demand creation multiplier
                 if market_shares is not None:
                     share = market_shares.get(asset_id, 0.0)
@@ -1555,11 +1111,11 @@ class GameState(BaseModel):
                     if demand_multipliers is not None
                     else 1.0
                 )
-                effective_revenue = priced_revenue * share * demand_mult
+                effective_revenue = asset.revenue_this_step * share * demand_mult
                 cash_collected = effective_revenue * self.reinvestment_percentage
                 logger.debug(
                     f"Collecting revenue: {asset.name}, "
-                    f"revenue={asset.revenue_this_step}, price_mult={price_mult:.2f}, "
+                    f"revenue={asset.revenue_this_step}, "
                     f"share={share:.2f}, demand_mult={demand_mult:.3f}, "
                     f"collected={cash_collected}"
                 )
@@ -1616,151 +1172,12 @@ class GameState(BaseModel):
         # C evolve assets
         logger.debug("Step C: evolving assets")
 
-        # Calculate capacity usage and global success modifier
-        new_capacity_used = self._calculate_capacity_usage(assets_for_step)
-        global_success_modifier = self._get_global_success_modifier(new_capacity_used)
-
-        if use_investment_levels:
-            logger.info(
-                f"[Capacity] Usage: {new_capacity_used:.1f}/{self.capacity_base:.1f} "
-                f"(ratio: {new_capacity_used / self.capacity_base:.2f}), "
-                f"success_modifier: {global_success_modifier:.3f}"
-            )
-
-        # Track trial completions for TA experience (uncertain PTRS feature)
-        # Also track investment levels for experience modifier
-        pre_evolve_trials = {
-            asset_id: (
-                asset.therapeutic_area,
-                asset.trial.phase,
-                asset.trial.time_remaining,
-                asset.current_investment_level,
-            )
-            for asset_id, asset in assets_for_step.items()
-            if asset.state == AssetState.InDevelopment
-        }
-
-        # Evolve assets with investment level modifiers
         evolved_assets = {}
         for asset_id, asset in assets_for_step.items():
             if asset.state == AssetState.Dropped:
                 evolved_assets[asset_id] = asset
                 continue
-            if asset.state == AssetState.InDevelopment and use_investment_levels:
-                level_config = self._get_level_config(asset.current_investment_level)
-                evolved_assets[asset_id] = asset.evolve_with_level(
-                    speed_modifier=level_config["speed_modifier"],
-                    success_modifier=level_config["success_modifier"],
-                    global_success_modifier=global_success_modifier,
-                )
-            elif (
-                asset.state == AssetState.InDevelopment
-                and global_success_modifier < 1.0
-            ):
-                # Apply capacity overage success penalty even without investment levels
-                evolved_assets[asset_id] = asset.evolve_with_level(
-                    speed_modifier=1.0,
-                    success_modifier=1.0,
-                    global_success_modifier=global_success_modifier,
-                )
-            else:
-                evolved_assets[asset_id] = asset.evolve()
-
-        # Detect trial completions by comparing pre/post evolve states
-        # A trial completes when time_remaining was 1 (now 0) and phase resolved
-        trial_completions = []
-        for asset_id, (
-            ta,
-            phase,
-            time_remaining,
-            inv_level,
-        ) in pre_evolve_trials.items():
-            if time_remaining == 1:
-                # Trial phase was about to complete
-                evolved_asset = evolved_assets[asset_id]
-                # Check if trial completed (phase changed or asset state changed)
-                if evolved_asset.state != AssetState.InDevelopment or (
-                    evolved_asset.trial.phase != phase
-                ):
-                    trial_completions.append((ta, phase, inv_level))
-                    logger.debug(f"Trial completion detected: {ta} {phase.value}")
-
-        # Record trial completions for TA experience (experience gained at end of trial,
-        # regardless of whether trial passes or fails)
-        updated_ta_experience = self.ta_experience.copy()
-
-        ta_experience_enabled = (
-            self._ta_experience_config is not None
-            and self._ta_experience_config.enabled
-        )
-
-        if ta_experience_enabled:
-            # Apply decay to existing experience BEFORE adding new experience.
-            # This ensures new experience gained this step isn't immediately decayed.
-            # Decay happens every step to existing experience.
-            decay_rate = self._ta_experience_config.experience_decay_rate
-            if decay_rate < 1.0:
-                logger.info(f"[TAExperience] Applying decay_rate={decay_rate:.4f}")
-                for ta in sorted(updated_ta_experience.keys()):
-                    old_exp = updated_ta_experience[ta]
-                    updated_ta_experience[ta] *= decay_rate
-                    new_exp = updated_ta_experience[ta]
-                    logger.info(
-                        f"  {ta}: {old_exp:.4f} -> {new_exp:.4f} "
-                        f"(decay: -{old_exp - new_exp:.4f})"
-                    )
-
-            # Add new experience from trial completions (not decayed this step)
-            for ta, phase, inv_level in trial_completions:
-                phase_key_map = {
-                    TrialPhase.PHASE_1: "phase_1",
-                    TrialPhase.PHASE_2: "phase_2",
-                    TrialPhase.PHASE_3: "phase_3",
-                    TrialPhase.APPROVAL: "approval",
-                }
-                phase_key = phase_key_map[phase]
-
-                weight = self._ta_experience_config.phase_experience_weights[phase_key]
-
-                # Apply experience_modifier from investment level
-                # Accelerated = less learning (0.5x), Minimal = more learning (1.5x)
-                if use_investment_levels:
-                    level_config = self._get_level_config(inv_level)
-                    exp_modifier = level_config["experience_modifier"]
-                    weight *= exp_modifier
-                    logger.debug(
-                        f"Experience modifier from {inv_level.name}: {exp_modifier:.2f}"
-                    )
-
-                # Check total experience cap before adding new experience
-                current_total = sum(updated_ta_experience.values())
-                max_total = self._ta_experience_config.max_total_experience
-
-                if max_total is not None and current_total >= max_total:
-                    logger.info(
-                        f"[TAExperience] Trial completed: {ta} {phase.value} "
-                        f"+0.0 exp (CAPPED at {max_total:.1f}, "
-                        f"total: {current_total:.1f})"
-                    )
-                    continue
-
-                # Calculate how much experience we can actually add (may be capped)
-                actual_weight = weight
-                if max_total is not None:
-                    available = max_total - current_total
-                    if weight > available:
-                        actual_weight = available
-                        logger.info(
-                            f"[TAExperience] Experience capped: wanted +{weight:.1f}, "
-                            f"adding +{actual_weight:.1f} (cap: {max_total:.1f})"
-                        )
-
-                current = updated_ta_experience.get(ta, 0.0)
-                updated_ta_experience[ta] = current + actual_weight
-                logger.info(
-                    f"[TAExperience] Trial completed: {ta} {phase.value} "
-                    f"+{actual_weight:.1f} exp (total: {updated_ta_experience[ta]:.1f})"
-                )
+            evolved_assets[asset_id] = asset.evolve()
 
         newly_failed_assets = {
             asset_id: asset
@@ -1832,31 +1249,16 @@ class GameState(BaseModel):
                 running_eroi=self.running_eroi,
                 game_ended=True,
                 ended_reason=GameEndReason.HORIZON_REACHED,
-                ta_experience=updated_ta_experience,
-                capacity_used=new_capacity_used,
-                capacity_base=self.capacity_base,
-                ta_quality_estimates=self.ta_quality_estimates.copy(),
-                ta_quality_confidences=self.ta_quality_confidences.copy(),
                 operational_sites=self.operational_sites,
                 sites_in_development=list(self.sites_in_development),
             )
-            final_state._uncertain_ptrs_config = self._uncertain_ptrs_config
-            final_state._investment_levels_config = self._investment_levels_config
-            final_state._interim_trial_observations_config = (
-                self._interim_trial_observations_config
-            )
-            final_state._distributional_ptrs_config = self._distributional_ptrs_config
-            final_state._rd_capacity_config = self._rd_capacity_config
             final_state._drop_action_config = self._drop_action_config
             final_state._ptrs_readings_config = self._ptrs_readings_config
             final_state._marketing_config = self._marketing_config
             final_state._brand_scores = new_brand_scores
             final_state._brand_score_floors = dict(self._brand_score_floors)
             final_state._clinical_sites_config = self._clinical_sites_config
-            final_state._ta_quality_modifiers = self._ta_quality_modifiers.copy()
             final_state._bd_asset_clones = {}
-            # Note: decay is applied at trial completion time (already done above)
-            final_state._update_ptrs_for_experience()
             return final_state._post_init_update_enpv_eroi()
 
         # otherwise return new game state
@@ -1891,34 +1293,16 @@ class GameState(BaseModel):
             running_eroi=self.running_eroi,
             game_ended=False,
             ended_reason=None,
-            ta_experience=updated_ta_experience,
-            capacity_used=new_capacity_used,
-            capacity_base=self.capacity_base,
-            ta_quality_estimates=self.ta_quality_estimates.copy(),
-            ta_quality_confidences=self.ta_quality_confidences.copy(),
             operational_sites=self.operational_sites,
             sites_in_development=list(self.sites_in_development),
         )
         new_game_state._asset_generator = self._asset_generator
-        new_game_state._ta_experience_config = self._ta_experience_config
-        new_game_state._uncertain_ptrs_config = self._uncertain_ptrs_config
-        new_game_state._investment_levels_config = self._investment_levels_config
-        new_game_state._interim_trial_observations_config = (
-            self._interim_trial_observations_config
-        )
-        new_game_state._distributional_ptrs_config = self._distributional_ptrs_config
-        new_game_state._rd_capacity_config = self._rd_capacity_config
         new_game_state._drop_action_config = self._drop_action_config
         new_game_state._ptrs_readings_config = self._ptrs_readings_config
         new_game_state._marketing_config = self._marketing_config
         new_game_state._brand_scores = new_brand_scores
         new_game_state._brand_score_floors = dict(self._brand_score_floors)
         new_game_state._clinical_sites_config = self._clinical_sites_config
-        new_game_state._ta_quality_modifiers = self._ta_quality_modifiers.copy()
         new_game_state._bd_asset_clones = dict(self._bd_asset_clones)
-
-        # Apply uncertain PTRS mechanics: update PTRS values based on experience
-        # Note: decay is now applied at trial completion time, not every step
-        new_game_state._update_ptrs_for_experience()
 
         return new_game_state._post_init_update_enpv_eroi()

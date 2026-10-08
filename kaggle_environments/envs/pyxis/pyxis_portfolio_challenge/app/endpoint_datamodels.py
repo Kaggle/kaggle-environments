@@ -5,7 +5,6 @@ from typing import Literal, Optional
 from pydantic import BaseModel
 
 from pyxis_portfolio_challenge.game.asset import AssetState, DrugAsset
-from pyxis_portfolio_challenge.game.constants import InvestmentLevel
 from pyxis_portfolio_challenge.game.game_state import GameState
 from pyxis_portfolio_challenge.game.multi_agent_game import MultiAgentGame
 from pyxis_portfolio_challenge.game.shared_market_state import (
@@ -19,11 +18,8 @@ from pyxis_portfolio_challenge.game.trial import Trial, TrialPhase, TrialState
 logger = logging.getLogger(__name__)
 
 # Action types that can be sent from frontend. "drop" is the voluntary-
-# abandonment action available when the drop_action feature is enabled (mutually
-# exclusive with investment levels).
-ActionType = Literal[
-    "invest", "stop", "none", "minimal", "standard", "accelerated", "drop"
-]
+# abandonment action available when the drop_action feature is enabled.
+ActionType = Literal["invest", "stop", "none", "drop"]
 
 
 class StartGameRequest(BaseModel):
@@ -43,14 +39,6 @@ class TrialResponse(BaseModel):
     cost_remaining: float
     time_remaining: int
     ptrs: float
-    # Interim observation data
-    interim_result: Optional[Literal["positive", "negative"]]
-    has_interim_observation: bool
-    # Distributional PTRS fields
-    ptrs_expected: Optional[float]
-    ptrs_confidence: Optional[float]
-    ptrs_range_low: Optional[float]
-    ptrs_range_high: Optional[float]
     # PTRS readings (ptrs_readings feature): the number of paid readings
     # commissioned on this trial so far, and the precision-weighted equivalent
     # count of base-σ readings — the exact "effective readings" quantity the
@@ -87,7 +75,6 @@ class DrugAssetResponse(BaseModel):
     expected_costs: list[float]
     expected_revenues: list[float]
     eroi: float
-    current_investment_level: Literal["none", "minimal", "standard", "accelerated"]
     available_actions: list[ActionType]
     # Marketing (brand equity): the drug's current brand score, its slowly-rising
     # floor, and the cash cost of a brand-equity push on it this step (scales with
@@ -112,25 +99,6 @@ class DrugAssetResponse(BaseModel):
     ptrs_reading_costs: list[float]
 
 
-class InvestmentLevelConfigResponse(BaseModel):
-    """Response model for a single investment level configuration."""
-
-    cost_modifier: float
-    speed_modifier: float
-    success_modifier: float
-    capacity_cost: int
-    experience_modifier: float
-
-
-class InvestmentLevelsConfigResponse(BaseModel):
-    """Response model for all investment levels configuration."""
-
-    levels: dict[str, InvestmentLevelConfigResponse]
-    base_capacity: float
-    overage_max_penalty: float
-    overage_cost_max_penalty: float
-
-
 class GameStateResponse(BaseModel):
     """Response model for the game state."""
 
@@ -151,15 +119,6 @@ class GameStateResponse(BaseModel):
     capital_over_time: list[float]
     enpv_over_time: list[float]
     eroi_over_time: list[float]
-    # TA experience
-    ta_experience: dict[str, float]
-    experience_to_full_knowledge: float
-    max_total_experience: float | None
-    # R&D Capacity
-    capacity_used: float
-    capacity_base: float
-    success_modifier: float
-    cost_modifier: float
     # Clinical sites (clinical_sites feature). operational_sites host trials;
     # sites_in_development are build-delay timers; free/occupied are derived.
     clinical_sites_enabled: bool
@@ -171,10 +130,6 @@ class GameStateResponse(BaseModel):
     # is off. Drives the "Buy site" button label/affordability in the UI.
     next_site_purchase_cost: float
     # Feature flags
-    ta_experience_enabled: bool
-    investment_levels_enabled: bool
-    interim_observations_enabled: bool
-    distributional_ptrs_enabled: bool
     # Marketing feature: gates the demand-creation and brand-equity panels. Per-
     # asset brand-equity costs are attached to each asset (be_cost); the flat
     # demand-creation cost is on the game response (dc_cost).
@@ -183,10 +138,6 @@ class GameStateResponse(BaseModel):
     # BD diligence stepper. Per-asset cost curves are attached to each asset
     # (ptrs_reading_costs); the effective-readings signal is on each trial.
     ptrs_readings_enabled: bool
-    # TA quality estimates (distributional PTRS feature)
-    ta_quality: dict[str, dict[str, float]]
-    # Investment levels configuration (for info popup)
-    investment_levels_config: InvestmentLevelsConfigResponse | None
 
 
 class LevelResponse(BaseModel):
@@ -709,12 +660,6 @@ def trial_to_response(trial: Trial, ptrs_cfg) -> dict[TrialPhase, TrialResponse]
                 cost_remaining=0.0,
                 time_remaining=0,
                 ptrs=0.0,
-                interim_result=None,
-                has_interim_observation=False,
-                ptrs_expected=0.0,
-                ptrs_confidence=1.0,
-                ptrs_range_low=0.0,
-                ptrs_range_high=0.0,
                 ptrs_sample_count=0,
                 ptrs_effective_readings=0.0,
             )
@@ -725,25 +670,10 @@ def trial_to_response(trial: Trial, ptrs_cfg) -> dict[TrialPhase, TrialResponse]
             if _trial.state == TrialState.PHASE_FAILED:
                 failure_detected = True
 
-            # Check for interim observation
-            interim_result = None
-            has_interim = False
-            if hasattr(_trial, "_interim_observation_result"):
-                interim_obs = _trial._interim_observation_result
-                if interim_obs is not None:
-                    has_interim = True
-                    interim_result = "positive" if interim_obs else "negative"
-
             response_dict[phase.value] = TrialResponse(
                 cost_remaining=_trial.cost_remaining,
                 time_remaining=_trial.time_remaining,
                 ptrs=_trial.ptrs,
-                interim_result=interim_result,
-                has_interim_observation=has_interim,
-                ptrs_expected=_trial.ptrs_expected,
-                ptrs_confidence=_trial.ptrs_confidence,
-                ptrs_range_low=_trial.ptrs_range_low,
-                ptrs_range_high=_trial.ptrs_range_high,
                 ptrs_sample_count=_trial.ptrs_sample_count,
                 ptrs_effective_readings=(
                     ptrs_cfg.effective_readings(_trial.ptrs_total_precision)
@@ -758,12 +688,6 @@ def trial_to_response(trial: Trial, ptrs_cfg) -> dict[TrialPhase, TrialResponse]
                 cost_remaining=0.0,
                 time_remaining=0,
                 ptrs=1.0,
-                interim_result=None,
-                has_interim_observation=False,
-                ptrs_expected=1.0,
-                ptrs_confidence=1.0,
-                ptrs_range_low=1.0,
-                ptrs_range_high=1.0,
                 ptrs_sample_count=0,
                 ptrs_effective_readings=0.0,
             )
@@ -773,7 +697,6 @@ def trial_to_response(trial: Trial, ptrs_cfg) -> dict[TrialPhase, TrialResponse]
 
 def asset_to_response(
     drug_asset: DrugAsset,
-    investment_levels_enabled: bool = False,
     indication_name_map: dict[str, str] | None = None,
     *,
     reinvestment_percentage: float,
@@ -843,28 +766,12 @@ def asset_to_response(
     else:
         base["ptrs_reading_costs"] = []
 
-    # Add investment level info
-    level_map = {
-        InvestmentLevel.NONE: "none",
-        InvestmentLevel.MINIMAL: "minimal",
-        InvestmentLevel.STANDARD: "standard",
-        InvestmentLevel.ACCELERATED: "accelerated",
-    }
-    current_level = drug_asset.current_investment_level
-    base["current_investment_level"] = level_map[current_level]
-
     # Determine available actions based on asset state
     available_actions: list[ActionType] = []
     if drug_asset.state == AssetState.Idle:
-        if investment_levels_enabled:
-            available_actions = ["none", "minimal", "standard", "accelerated"]
-        else:
-            available_actions = ["none", "invest"]
+        available_actions = ["none", "invest"]
     elif drug_asset.state == AssetState.InDevelopment:
-        if investment_levels_enabled:
-            available_actions = ["minimal", "standard", "accelerated", "stop"]
-        else:
-            available_actions = ["invest", "stop"]
+        available_actions = ["invest", "stop"]
     # On Market, Failed, Expired, Dropped have no actions
     # Voluntary drop is available on any live (Idle / In Development) asset when
     # the feature is enabled (mutually exclusive with investment levels).
@@ -892,26 +799,6 @@ def game_state_to_response(
         del base["running_eroi"]
 
     # Check if features are enabled
-    investment_levels_enabled = (
-        hasattr(game_state, "_investment_levels_config")
-        and game_state._investment_levels_config is not None
-        and game_state._investment_levels_config.enabled
-    )
-    interim_observations_enabled = (
-        hasattr(game_state, "_interim_trial_observations_config")
-        and game_state._interim_trial_observations_config is not None
-        and game_state._interim_trial_observations_config.enabled
-    )
-    distributional_ptrs_enabled = (
-        hasattr(game_state, "_distributional_ptrs_config")
-        and game_state._distributional_ptrs_config is not None
-        and game_state._distributional_ptrs_config.enabled
-    )
-    ta_experience_enabled = (
-        hasattr(game_state, "_ta_experience_config")
-        and game_state._ta_experience_config is not None
-        and game_state._ta_experience_config.enabled
-    )
     drop_action_enabled = game_state.drop_action_enabled
     marketing_cfg = game_state._marketing_config
     marketing_enabled = marketing_cfg is not None and marketing_cfg.enabled
@@ -923,7 +810,6 @@ def game_state_to_response(
     base["assets"] = {
         asset_id: asset_to_response(
             asset,
-            investment_levels_enabled,
             indication_name_map,
             reinvestment_percentage=game_state.reinvestment_percentage,
             drop_action_enabled=drop_action_enabled,
@@ -934,7 +820,6 @@ def game_state_to_response(
     base["expired_assets"] = {
         asset_id: asset_to_response(
             asset,
-            investment_levels_enabled,
             indication_name_map,
             reinvestment_percentage=game_state.reinvestment_percentage,
             drop_action_enabled=drop_action_enabled,
@@ -950,7 +835,6 @@ def game_state_to_response(
     base["dropped_assets"] = {
         asset_id: asset_to_response(
             asset,
-            investment_levels_enabled,
             indication_name_map,
             reinvestment_percentage=game_state.reinvestment_percentage,
             drop_action_enabled=drop_action_enabled,
@@ -1011,26 +895,6 @@ def game_state_to_response(
     base["enpv_over_time"] = game_state.enpv_over_time
     base["eroi_over_time"] = game_state.eroi_over_time
 
-    # Add TA experience
-    base["ta_experience"] = dict(game_state.ta_experience)
-
-    # Add TA experience config values
-    ta_exp_config = game_state._ta_experience_config
-    if ta_exp_config is not None:
-        base["experience_to_full_knowledge"] = (
-            ta_exp_config.experience_to_full_knowledge
-        )
-        base["max_total_experience"] = ta_exp_config.max_total_experience
-    else:
-        base["experience_to_full_knowledge"] = 0.0
-        base["max_total_experience"] = None
-
-    # Add R&D capacity info
-    base["capacity_used"] = game_state.capacity_used
-    base["capacity_base"] = game_state.capacity_base
-    base["success_modifier"] = game_state.success_modifier
-    base["cost_modifier"] = game_state.cost_modifier
-
     # Add clinical-sites info. operational_sites and sites_in_development are
     # public fields (already in model_dump); free_sites/sites_occupied are
     # properties and must be attached explicitly.
@@ -1040,54 +904,7 @@ def game_state_to_response(
     base["next_site_purchase_cost"] = game_state.next_site_purchase_cost()
 
     # Add feature flags
-    base["investment_levels_enabled"] = investment_levels_enabled
-    base["interim_observations_enabled"] = interim_observations_enabled
-    base["distributional_ptrs_enabled"] = distributional_ptrs_enabled
-    base["ta_experience_enabled"] = ta_experience_enabled
     base["marketing_enabled"] = marketing_enabled
     base["ptrs_readings_enabled"] = ptrs_readings_enabled
-
-    # Add TA quality estimates (distributional PTRS feature)
-    if distributional_ptrs_enabled:
-        base["ta_quality"] = {
-            ta: {
-                "estimate": game_state.ta_quality_estimates[ta],
-                "confidence": game_state.ta_quality_confidences[ta],
-            }
-            for ta in [
-                "oncology",
-                "respiratory and immunology",
-                "vaccines and infectious disease",
-            ]
-        }
-    else:
-        base["ta_quality"] = {}
-
-    # Add investment levels configuration for info popup
-    if investment_levels_enabled:
-        inv_config = game_state._investment_levels_config
-        base["investment_levels_config"] = InvestmentLevelsConfigResponse(
-            levels={
-                level_name: InvestmentLevelConfigResponse(
-                    cost_modifier=level_params.cost_modifier,
-                    speed_modifier=level_params.speed_modifier,
-                    success_modifier=level_params.success_modifier,
-                    capacity_cost=level_params.capacity_cost,
-                    experience_modifier=level_params.experience_modifier,
-                )
-                for level_name, level_params in inv_config.levels.items()
-            },
-            base_capacity=game_state._rd_capacity_config.base_capacity
-            if game_state._rd_capacity_config
-            else 0.0,
-            overage_max_penalty=game_state._rd_capacity_config.overage_max_penalty
-            if game_state._rd_capacity_config
-            else 0.0,
-            overage_cost_max_penalty=game_state._rd_capacity_config.overage_cost_max_penalty
-            if game_state._rd_capacity_config
-            else 0.0,
-        )
-    else:
-        base["investment_levels_config"] = None
 
     return base

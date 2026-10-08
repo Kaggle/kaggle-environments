@@ -1,31 +1,20 @@
 # List of trial phases in chronological order
-from enum import Enum
+from enum import Enum, auto
 
 TRIAL_PHASES = ["Phase 1", "Phase 2", "Phase 3", "Approval"]
 
 
-class InvestmentLevel(int, Enum):
+class InvestmentAction(Enum):
     """
-    Investment intensity levels for drug development.
+    Discrete per-asset investor action applied in a single step.
 
-    Each level affects cost, speed, success probability, capacity usage,
-    and experience gain. Configuration is loaded from config.yaml.
+    The member values are opaque identifiers — no code relies on them.
     """
 
-    NONE = 0  # Not investing (for idle assets)
-    MINIMAL = 1  # Slow and cheap, more learning
-    STANDARD = 2  # Normal development
-    ACCELERATED = 3  # Fast and expensive, less learning
-    STOP = 4  # Stop development early (for in-development assets only)
-    DROP = 5  # Drop asset from portfolio regardless of state (agent decision)
-
-    @classmethod
-    def from_int(cls, value: int) -> "InvestmentLevel":
-        """Create an InvestmentLevel from an integer."""
-        for level in cls:
-            if level.value == value:
-                return level
-        raise ValueError(f"{cls.__name__} has no value matching {value}")
+    NONE = auto()  # Do not invest (for idle assets)
+    INVEST = auto()  # Invest in an idle asset (start development)
+    STOP = auto()  # Stop an in-development trial early
+    DROP = auto()  # Voluntarily drop an asset from the portfolio
 
 
 MAX_NUM_ASSETS = 25

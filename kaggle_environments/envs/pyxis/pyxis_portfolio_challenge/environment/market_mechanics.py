@@ -109,8 +109,6 @@ def calculate_per_drug_indication_shares(
     shared_market: SharedMarketState,
     agent_portfolios: dict[str, GameState],
     current_time: int,
-    pricing_multipliers: dict[uuid.UUID, float] | None = None,
-    pricing_elasticity: float = 1.0,
     brand_scores: dict[uuid.UUID, float] | None = None,
     brand_floors: dict[uuid.UUID, float] | None = None,
     marketing_config: "MarketingConfig | None" = None,
@@ -149,11 +147,6 @@ def calculate_per_drug_indication_shares(
                 and asset.state == AssetState.OnMarket
             ):
                 tenure_bonus = 1.0 + asset.time_on_market * 0.05
-                # demand elasticity: quality = max_rev * (1/price^elast) * tenure
-                price_mult = 1.0
-                if pricing_multipliers is not None:
-                    price_mult = pricing_multipliers.get(asset.id, 1.0)
-                price_quality = 1.0 / (price_mult**pricing_elasticity)
                 brand_mult = 1.0
                 if brand_scores is not None and marketing_config is not None:
                     score = brand_scores.get(asset.id, 0.0)
@@ -171,7 +164,7 @@ def calculate_per_drug_indication_shares(
                         1.0 - floor
                     ) * score
                 drug_qualities[asset.id] = (
-                    asset.max_revenue * price_quality * tenure_bonus * brand_mult
+                    asset.max_revenue * tenure_bonus * brand_mult
                 )
 
     if not drug_qualities:
@@ -228,8 +221,6 @@ def calculate_per_drug_ta_shares(
     shared_market: SharedMarketState,
     agent_portfolios: dict[str, GameState],
     current_time: int,
-    pricing_multipliers: dict[uuid.UUID, float] | None = None,
-    pricing_elasticity: float = 1.0,
     brand_scores: dict[uuid.UUID, float] | None = None,
     brand_floors: dict[uuid.UUID, float] | None = None,
     marketing_config: "MarketingConfig | None" = None,
@@ -258,10 +249,6 @@ def calculate_per_drug_ta_shares(
                 and asset.state == AssetState.OnMarket
             ):
                 tenure_bonus = 1.0 + asset.time_on_market * 0.05
-                price_mult = 1.0
-                if pricing_multipliers is not None:
-                    price_mult = pricing_multipliers.get(asset.id, 1.0)
-                price_quality = 1.0 / (price_mult**pricing_elasticity)
                 brand_mult = 1.0
                 if brand_scores is not None and marketing_config is not None:
                     score = brand_scores.get(asset.id, 0.0)
@@ -279,7 +266,7 @@ def calculate_per_drug_ta_shares(
                         1.0 - floor
                     ) * score
                 drug_qualities[asset.id] = (
-                    asset.max_revenue * price_quality * tenure_bonus * brand_mult
+                    asset.max_revenue * tenure_bonus * brand_mult
                 )
 
     if not drug_qualities:
@@ -331,8 +318,6 @@ def calculate_agent_market_shares(
     shared_market: SharedMarketState,
     agent_portfolios: dict[str, GameState],
     current_time: int,
-    all_pricing_multipliers: dict[uuid.UUID, float] | None = None,
-    pricing_elasticity: float = 1.0,
     brand_scores: dict[uuid.UUID, float] | None = None,
     brand_floors: dict[uuid.UUID, float] | None = None,
     marketing_config: "MarketingConfig | None" = None,
@@ -349,9 +334,6 @@ def calculate_agent_market_shares(
         shared_market: Shared market state containing indication markets and TA info.
         agent_portfolios: Dict mapping agent_id -> GameState for all agents.
         current_time: Current simulation time step.
-        all_pricing_multipliers: Merged pricing multipliers from ALL agents'
-            on-market drugs (asset_id -> price_mult). Used in quality formula.
-        pricing_elasticity: Demand elasticity for price-share tradeoff.
         brand_scores: Per-drug brand-equity contribution (asset_id -> value),
             already reduced to max(0, brand_score - floor). If None, no
             brand-equity effect is applied.
@@ -378,8 +360,6 @@ def calculate_agent_market_shares(
                 shared_market,
                 agent_portfolios,
                 current_time,
-                pricing_multipliers=all_pricing_multipliers,
-                pricing_elasticity=pricing_elasticity,
                 brand_scores=brand_scores,
                 brand_floors=brand_floors,
                 marketing_config=marketing_config,
@@ -394,8 +374,6 @@ def calculate_agent_market_shares(
                 shared_market,
                 agent_portfolios,
                 current_time,
-                pricing_multipliers=all_pricing_multipliers,
-                pricing_elasticity=pricing_elasticity,
                 brand_scores=brand_scores,
                 brand_floors=brand_floors,
                 marketing_config=marketing_config,

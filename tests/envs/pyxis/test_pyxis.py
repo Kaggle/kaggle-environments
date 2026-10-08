@@ -140,8 +140,8 @@ def test_pyxis_render_snapshot_signals():
             assert agent["committedCost"] >= agent["trialBurn"]
             saw_trials |= running > 0
             for row in agent["assets"]:
-                assert len(row) == 10
-                readings, brand_lift, patent_left = row[7:]
+                assert len(row) == 9
+                readings, brand_lift, patent_left = row[6:]
                 assert readings >= 0 and brand_lift >= 0 and patent_left >= 0
         for offer in render["bdOffers"]:
             assert 0 <= offer["ptrs"] <= 1 and offer["stepsLeft"] >= 1
@@ -177,7 +177,6 @@ def test_pyxis_trial_outcome_rolls_against_true_ptrs():
     for _ in range(50):
         assert trial(observed=0.0, true=1.0).success()
         assert not trial(observed=1.0, true=0.0).success()
-        assert trial(observed=0.0, true=1.0)._success_with_modifier(1.0)
     # Without a hidden value (e.g. approval), the observed PTRS is the truth.
     assert trial(observed=1.0, true=None).success()
 
@@ -196,7 +195,7 @@ def test_pyxis_brand_equity_only_on_market():
     env = make("pyxis", configuration={"seed": 1})
     env.run([marketer, "do_nothing"])
     assert env.steps[-1][0]["status"] == "DONE"
-    lifts = [row[8] for step in env.steps for row in step[0]["observation"]["render"]["agents"]["pharma_0"]["assets"]]
+    lifts = [row[7] for step in env.steps for row in step[0]["observation"]["render"]["agents"]["pharma_0"]["assets"]]
     assert max(lifts) > 0
 
     def spend_everywhere(observation, configuration):

@@ -122,10 +122,6 @@ def evaluate_multi_agent(
         if capture_playthrough:
             initial_agent_states = capture_agent_states(env.multi_agent_game)
             initial_shared_market = capture_shared_market(env.multi_agent_game)
-            use_levels = (
-                env.investment_levels_config is not None
-                and env.investment_levels_config.enabled
-            )
 
         # Attach env to agents that need it (e.g. for action masks)
         for agent_id, agent in agents.items():
@@ -174,7 +170,6 @@ def evaluate_multi_agent(
                 captured_actions = capture_actions(
                     actions,
                     env._asset_id_orders,
-                    use_levels,
                     pre_step_bd_assets=pre_step_bd_assets,
                     bd_bid_decoder=env._decode_bd_bids,
                     env=env,
