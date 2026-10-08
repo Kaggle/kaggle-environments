@@ -56,9 +56,9 @@ Picks up an item from the shed (must be orthogonally adjacent) into the inventor
   - If you try to plant too many in a specific turn, none are planted  
     - ie if you have 1 melon seed, but two units do the PLANT MELON command  
 - WATER — Water a plant. This only needs to be done once per day, and subsequent waterings on the same day are a no-op.  
-- HARVEST — Gather produce from a plant. If the plant does not have subsequent yields, it will be removed from the map. Each harvest action will yield at least one unit of the crop, with the potential of additional yield depending on watering and fertilizer (the formula differs by crop type — see harvest yields below). Harvested items are added to the inventory. 
+- HARVEST — Gather produce from a plant. If the plant does not have subsequent yields, it will be removed from the map. HARVEST is ignored while the plant has nothing to collect (before its first yield day); once it does, each harvest yields at least one unit of the crop, with the potential of additional yield depending on watering and fertilizer (the formula differs by crop type — see harvest yields below). Harvested items are added to the inventory. 
 - FERTILIZE — Fertilize a plant to increase its potential yield (see harvest yields below).  
-  - Doubles the per-day yield bonus for the next 3 days. The bonus only applies on days the plant is also watered (basic needs first).
+  - Doubles the per-day yield bonus for 3 days, counting the day it is applied. The bonus only applies on days the plant is also watered (basic needs first).
 
 #### Animals
 
@@ -144,7 +144,7 @@ Each player has their own farm with a set number of squares. Players are unable 
 - Functions as an inventory for items that are harvested but not yet sold, or for seeds that have not yet been planted  
 - Farmer and hired farm hands will spawn at the shed at the start of each day  
 - Farmer and hired farm hands drop their inventory at the end of the day in the shed (if there is room)  
-- Limited to 100 items, excluding seeds. Once the shed is full, any further items added (via `PLACE` mid-day or end-of-day inventory drop) are discarded — there is no overflow holding area, so stockpiling on farmer/hand inventories does not bypass the cap.
+- Limited to 100 items, excluding seeds. Once the shed is full, a mid-day `PLACE` moves only what fits and leaves the rest in the unit's inventory, while `DROP` and the end-of-day inventory drop discard the overflow — there is no overflow holding area, so stockpiling on farmer/hand inventories does not bypass the cap.
 
 The shed sits at the center of the board and is not a tile — it never appears in the `tiles` array, whose only values are `None`, `"LOCKED"`, and structure dicts. "Orthogonally adjacent to the shed" means standing on one of the four center tiles, `(half-1, half-1)`, `(half, half-1)`, `(half-1, half)`, `(half, half)` for `half = boardSize // 2`. At the default `boardSize = 10` those are `(4,4)`, `(5,4)`, `(4,5)`, and `(5,5)`, one in each quadrant. Since only NW starts unlocked, three of those four tiles begin locked; the shed is reachable from all of them regardless, because the shed itself is never locked.
 
@@ -191,7 +191,7 @@ Every product (and fertilizer) starts the game with a market inventory of `I0 = 
 
 ### Selling inventory to the market
 
-Players can queue any number of sell or buy orders (for any quantity) in the market action list. Orders are processed concurrently across players, one unit at a time. For example, when both players issue `SELL CARROT 10` first, we take the current carrot price, give both players that price for their first carrot, then add 2 carrots to the market (1 from each player) — which may shift the price — and repeat until both orders complete.
+Players can queue sell or buy orders (for any quantity) in the market action list; only the first `maxMarketOrdersPerTurn` (default 10) orders per player are processed each turn, and the rest are silently dropped. Orders are processed concurrently across players, one unit at a time. For example, when both players issue `SELL CARROT 10` first, we take the current carrot price, give both players that price for their first carrot, then add 2 carrots to the market (1 from each player) — which may shift the price — and repeat until both orders complete.
 
 If the sell price has been driven down to `$1` (the price floor), the unit is still purchased but is *not* added to market inventory, so the floor remains responsive to subsequent buys.
 
@@ -319,11 +319,11 @@ A `tile` is one of:
   }
   ```
 - a weed dict: `{"kind": "WEED"}`
-- an animal structure dict (coop/pasture, optionally occupied):
+- an animal structure dict. An empty coop or pasture is just `{"kind": "COOP"}` / `{"kind": "PASTURE"}`; the remaining keys appear once an animal is PLACEd:
   ```py
   {
     "kind":                 "COOP" | "PASTURE",
-    "animal":               "GOOSE" | "COW" | "SHEEP" | None,  # None until PLACEd
+    "animal":               "GOOSE" | "COW" | "SHEEP",
     "placed_day":           int,
     "yield_units":          int,
     "fed_today":            bool,
