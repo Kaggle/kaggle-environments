@@ -10,6 +10,7 @@ Every parameter is drawn per episode and none is published.
 """
 
 import math
+import random
 
 from .constants import (
     DAYS,
@@ -52,7 +53,6 @@ class Shipper:
     """The market's hidden state, advanced once a night."""
 
     def __init__(self, rng, pairs, capacity):
-        self.rng = rng
         self.pairs = list(pairs)
         # The field's starting fleet, not its current one.
         self.capacity = max(1, capacity)
@@ -83,19 +83,24 @@ class Shipper:
         self.markup = rng.uniform(*RETRY_MARKUP)
         self.patience_max = rng.randint(*PATIENCE_MAX)
         self.reputation = rng.uniform(*REPUTATION_HIT)
+        self.key = rng.getrandbits(64)
 
         self.backlog = []  # (lot, packages still to move)
         self.stats = {}  # pair -> tonight's outcome tallies
         self.lost = 0  # packages given up on, all episode
         self.day = -1
 
+    def _stream(self, *key):
+        """A draw stream fixed by the episode and `key`, so no other draw can shift it."""
+        return random.Random(":".join(map(str, (self.key, *key))))
+
     # --- demand ---------------------------------------------------------------
 
     def _advance(self, day):
         """Step the regime, the noise and the territory weights to `day`."""
-        rng = self.rng
         while self.day < day:
             self.day += 1
+            rng = self._stream("demand", self.day)
             if self.day > 0:
                 if rng.random() > self.stay:
                     i = _REGIME_ORDER.index(self.regime)
@@ -120,9 +125,9 @@ class Shipper:
         lo, hi = INDEX_RANGE
         return max(lo, min(hi, math.exp(self.market + self.dev[pair])))
 
-    def reserve(self, board, pair, fraction, retry=0):
+    def reserve(self, board, pair, fraction, rng, retry=0):
         base = board.reserves[pair] * fraction
-        jitter = 1.0 + self.rng.uniform(-LISTING_NOISE, LISTING_NOISE)
+        jitter = 1.0 + rng.uniform(-LISTING_NOISE, LISTING_NOISE)
         return base * self.index(pair) * (1.0 + self.markup) ** retry * jitter
 
     def _tally(self, pair):
@@ -153,10 +158,9 @@ class Shipper:
         self._tally(pair)["unserved"] += packages
         self.backlog.append((lot, packages))
 
-    def _reprice(self, wanted, supply):
+    def _reprice(self, wanted, supply, rng):
         """Set tonight's prices: the market level off demand against the field,
         then each territory's deviation off its own outcomes."""
-        rng = self.rng
         ratio = max(wanted, 0.1) / max(0.5, supply * self.throughput)
         target = self.elasticity * math.log(ratio)
         self.market += self.speed * (target - self.market) + rng.gauss(0.0, INDEX_NOISE)
@@ -187,9 +191,8 @@ class Shipper:
         `supply` is the field's trucks that can roll, off the public roster.
         The board is laid out before it is priced.
         """
-        rng = self.rng
         fresh = max(0.0, self.demand(day) - committed)
-        plan = []  # (pair, packages, fraction, retry, patience)
+        plan = []  # (pair, packages, fraction, retry, patience, key)
 
         for lot, left in self.backlog:
             pair = (lot["warehouse"], lot["district"])
@@ -199,32 +202,39 @@ class Shipper:
                 self.lost += left
                 self.weight[pair] += math.log(1.0 - self.reputation)
                 continue
-            plan.append((pair, left, lot["truck_days"] * left / max(1, lot["packages"]), retry, patience))
+            key = f"{lot.get('_key', lot['id'])}/r{retry}"
+            plan.append((pair, left, lot["truck_days"] * left / max(1, lot["packages"]), retry, patience, key))
         self.backlog = []
 
         # Tonight's fresh freight lands on a handful of territories, weighted
         # by where the shipper's demand currently sits.
+        rng = self._stream("fresh", day)
         count = max(2, min(len(self.pairs), int(fresh / 1.5 + 0.5)))
-        live = self._draw_pairs(count)
+        live = self._draw_pairs(count, rng)
         weights = [math.exp(self.weight[p]) for p in live]
         posted = 0.0
+        n_fresh = 0
         while posted < fresh and len(plan) < MAX_LISTINGS:
             pair = rng.choices(live, weights=weights)[0]
             fraction = rng.uniform(*LOT_FRACTION)
             packages = max(1, int(round(board.truck_days[pair]["packages"] * fraction)))
-            plan.append((pair, packages, fraction, 0, rng.randint(1, self.patience_max)))
+            plan.append((pair, packages, fraction, 0, rng.randint(1, self.patience_max), f"d{day}f{n_fresh}"))
             posted += fraction
+            n_fresh += 1
 
         # The market level prices fresh demand only; retries carry their own
         # markup and deviation.
-        self._reprice(posted + committed, supply)
+        self._reprice(posted + committed, supply, self._stream("reprice", day))
 
         listings, accounts = [], []
         fresh_lots = 0
-        for pair, packages, fraction, retry, patience in plan:
-            lot = board._listing(pair[0], pair[1], packages, fraction, self.reserve(board, pair, fraction, retry), rng)  # noqa: SLF001
+        for pair, packages, fraction, retry, patience, key in plan:
+            rng = self._stream("lot", key)
+            reserve = self.reserve(board, pair, fraction, rng, retry)
+            lot = board._listing(pair[0], pair[1], packages, fraction, reserve, rng)  # noqa: SLF001
             lot["retry"] = retry
             lot["_patience"] = patience
+            lot["_key"] = key
             # Only fresh freight posts as a standing account, a share of it.
             fresh_lots += 0 if retry else 1
             if not retry and len(accounts) < int(STANDING_SHARE * fresh_lots + 0.5):
@@ -239,12 +249,12 @@ class Shipper:
                 listings.append(lot)
         return listings, accounts
 
-    def _draw_pairs(self, count):
+    def _draw_pairs(self, count, rng):
         """`count` distinct pairs, each drawn in proportion to its weight."""
         pool = list(self.pairs)
         out = []
         while pool and len(out) < count:
-            pick = self.rng.choices(pool, weights=[math.exp(self.weight[p]) for p in pool])[0]
+            pick = rng.choices(pool, weights=[math.exp(self.weight[p]) for p in pool])[0]
             pool.remove(pick)
             out.append(pick)
         return out

@@ -175,7 +175,7 @@ Some doors carry a promised time window. Arriving early means **waiting**.
 
 | Kind | Miss it |
 |---|---|
-| `DOCK` | a scheduled receiving appointment. Closed on arrival: `SKIP` leaves the door pending (it fails at 18:00, $45/package); `ATTEMPT` knocks. Half of dock doors refuse any late truck; the rest accept one up to a hidden 15-60 minutes past the window. Inside that grace the door is served; past it, it is **refused**: $45/package plus a $45 refusal fee |
+| `DOCK` | a scheduled receiving appointment. Closed on arrival: `SKIP` fails the door at once as undelivered ($45/package) and the truck moves on; `ATTEMPT` knocks. Half of dock doors refuse any late truck; the rest accept one up to a hidden 15-60 minutes past the window. Inside that grace the door is served; past it, it is **refused**: $45/package plus a $45 refusal fee |
 | `PROMISED` | a slot the customer was quoted. Delivered anyway, **$4/package premium forfeited** |
 
 | District | Commercial | `DOCK` rate / width | `PROMISED` rate | Windowed share of packages | `DOCK` / `PROMISED` packages per truck-day |
@@ -344,7 +344,9 @@ A successful load raises `LOADED`. A truck that has delivered or written off eve
 
 First-price sealed-bid **reverse** auction: each bid is the price the player will accept, lowest ask wins, and the winner is paid their own ask, as `ask / packages` per package delivered. Bids above the reserve are discarded, and only each player's lowest bid per lot counts. Ties break at random from the episode seed. The bid book (every bid at or under reserve, per lot) is published for the following driving day; the award list stays up until the next `CONTRACTS`.
 
-Players may bid on any number of lots and declare `max_lots` alongside. The engine awards the lowest bids, then trims each player back to their constraints, keeping their best-margin wins (ask over the engine's expected cost for the lot, which is not published) and releasing the rest to the next-lowest bidder, repeating until stable.
+Players may bid on any number of lots and declare `max_lots` alongside. The engine awards the lowest bids, then trims each player back to their constraints, keeping their best-margin wins (ask over the lot's expected cost: the pair's `E[cost]` from Base prices times the lot's `truck_days`) and releasing the rest to the next-lowest bidder, repeating until stable.
+
+Bids beyond a player's limits carry no penalty. A player who bids on more lots than they can run keeps the best-margin feasible set of whatever they win, so extra bids act as backups for lots lost to lower asks.
 
 **`max_lots` is denominated in truck-days, not lots.** It defaults to 1.00 per truck and is capped at 3.00 per truck, counting only trucks that can run tomorrow: arrived, not `DISABLED`, with a driver. A player's wins in one night must also satisfy:
 
@@ -375,6 +377,7 @@ An account's first lot runs the morning after the award, like a spot lot. A held
 | Delivered by the deadline (16:00) | payout (`ask / packages`) per package |
 | Delivered inside a `PROMISED` window | payout **plus $4/package** |
 | Delivered after the deadline | payout minus $6/package |
+| `DOCK` window closed, `on_missed_window: SKIP` | payout forfeited, $45/package |
 | `DOCK` window closed, `on_missed_window: ATTEMPT`, past the door's grace | **refused** -- $45/package plus $45 |
 | `abandon`, block 0 only | payout forfeited, $15 per parcel-unit |
 | Undelivered at 18:00, on a truck or still at the warehouse | payout forfeited, $45/package |
@@ -424,7 +427,7 @@ The routing unit is the segment. Doors cluster onto segments and within a segmen
 |---|---|
 | `load` | lot ids to load, in order, before the route continues (see Loading) |
 | `route` | ordered targets: a segment id, an address id, `{"seg": id, "only": "windowed" \| "free"}`, or `{"via": node}` |
-| `on_missed_window` | on reaching a `DOCK` door whose window has closed: `SKIP` (default, door stays pending) or `ATTEMPT` (served if inside the door's hidden grace, refused otherwise) |
+| `on_missed_window` | on reaching a `DOCK` door whose window has closed: `SKIP` (default, the door fails at once as undelivered) or `ATTEMPT` (served if inside the door's hidden grace, refused otherwise) |
 | `wait_cap` | maximum minutes to idle for a window to open; a door further off is skipped for now. Default 20 |
 | `then` | when the route empties: `RETURN` (default) drives to the warehouse the truck last loaded at once the truck is empty; any other value waits |
 | `hold` | `true`: the truck does not move this block |

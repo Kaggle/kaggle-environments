@@ -1212,3 +1212,43 @@ def test_lot_left_at_the_dock_fails_at_the_close():
     assert {e["lot"] for e in failed} == set(p["lots"]) and all(e["truck"] == "" for e in failed)
     assert sum(e["packages"] for e in failed) == packages == p["results"][-1]["failed"]
     assert sum(e["cost"] for e in failed) == pytest.approx(FAIL_PENALTY * packages)
+
+
+def test_skipped_dock_door_fails_at_once_and_leaves_the_truck():
+    env = _loaded_env()
+    p = env.kargo["players"][0]
+    truck, lot = p["trucks"]["T3"], next(iter(p["lots"].values()))
+    _at_dock(env, truck, lot)
+    door = p["manifest"]["addresses"][lot["_addrs"][0]]
+    door["window"], door["window_kind"] = [0.0, 1.0], "DOCK"
+    _drive(env, {"T3": {"load": [lot["id"]], "route": [door["id"]], "on_missed_window": "SKIP"}})
+    failed = [e for e in _my_events(env, "UNDELIVERED") if e["address"] == door["id"]]
+    assert len(failed) == 1 and failed[0]["minute"] < 120
+    assert door["id"] not in truck["carrying"]
+
+
+def test_markets_do_not_depend_on_other_players_actions():
+    """One player abandoning a door must not reshuffle later nights' markets."""
+    from kaggle_environments.envs.kargo.kargo import agents
+
+    greedy = agents["greedy"]
+
+    def abandoner(obs, config):
+        act = greedy(obs, config)
+        if obs["phase"] == "DRIVING" and obs["day"] == 0 and obs["block"] == 0 and obs["private"]["addresses"]:
+            act = {**act, "abandon": [obs["private"]["addresses"][0]["id"]]}
+        return act
+
+    def boards(second):
+        env = make("kargo", configuration={**SHORT, "episodeSteps": 81})
+        env.run([greedy, second])
+        out = []
+        for st in env.steps:
+            o = st[0]["observation"]
+            if o["phase"] == "CAPEX":
+                m = o["market"]
+                fresh = sorted((x["warehouse"], x["district"], x["packages"]) for x in m["listings"] if x["retry"] == 0)
+                out.append((o["day"], str(m["used"]), str(m["candidates"]), fresh))
+        return out
+
+    assert boards(greedy) == boards(abandoner)
