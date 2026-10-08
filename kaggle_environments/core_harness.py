@@ -43,6 +43,9 @@ from litellm.exceptions import (
 
 litellm.drop_params = True
 
+# Cap on output tokens (reasoning + visible content) per LLM call.
+_MAX_OUTPUT_TOKENS = 65536
+
 _RETRYABLE_TRANSPORT_EXCEPTIONS: tuple[type[BaseException], ...] = (
     httpx.TimeoutException,
     httpx.ConnectError,
@@ -628,6 +631,7 @@ def _call_llm(
                 model=model_name,
                 messages=[{"role": "user", "content": prompt}],
                 timeout=per_attempt_timeout,
+                max_tokens=_MAX_OUTPUT_TOKENS,
                 stream=True,
                 stream_options={"include_usage": True},
                 **litellm_kwargs,

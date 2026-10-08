@@ -665,6 +665,8 @@ class CoreHarnessTest(absltest.TestCase):
         _, kwargs = mock_call.call_args
         self.assertTrue(kwargs.get("stream"))
         self.assertEqual(kwargs.get("stream_options"), {"include_usage": True})
+        # Output tokens are capped on every call.
+        self.assertEqual(kwargs.get("max_tokens"), 65536)
         # The streamed call still produces full usage details.
         cd = result["call_details"][0]
         self.assertEqual(cd["response"], "move_1")
