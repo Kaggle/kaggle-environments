@@ -410,15 +410,21 @@ function paintFeed(refs: CityRefs, view: View): void {
   // run), so listing them would bury every event that costs money. The feed
   // shows the exceptions and counts the rest.
   const delivered = view.events.filter((e) => e.kind === 'DELIVER');
-  const notable = view.events.filter((e) => e.kind !== 'DELIVER');
+  const loaded = view.events.filter((e) => e.kind === 'LOADED');
+  const notable = view.events.filter((e) => e.kind !== 'DELIVER' && e.kind !== 'LOADED');
   const lateCount = delivered.filter((e) => e.late).length;
 
   const summary =
-    delivered.length > 0
+    (loaded.length > 0
+      ? `<span class="feed-item"><span class="dot dot-pending dot-key"></span>${loaded.length} lot${
+          loaded.length === 1 ? '' : 's'
+        } loaded</span>`
+      : '') +
+    (delivered.length > 0
       ? `<span class="feed-item"><span class="dot dot-delivered dot-key"></span>${delivered.length} delivered${
           lateCount ? `, ${lateCount} late` : ''
         }</span>`
-      : '';
+      : '');
   const items = notable
     .slice(0, 12)
     .map((e) => {
@@ -432,7 +438,9 @@ function paintFeed(refs: CityRefs, view: View): void {
           ? `${e.truck} due for service`
           : e.kind === 'RAN_DRY'
             ? `${e.truck} out of fuel`
-            : `${e.packages ?? 0} pkg ${e.kind.toLowerCase()} (${money(e.cost ?? 0)})`;
+            : e.kind === 'LOAD_REFUSED'
+              ? `${e.truck} could not load ${e.lot ?? ''} (${(e.reason ?? '').toLowerCase().replace('_', ' ')})`
+              : `${e.packages ?? 0} pkg ${e.kind.toLowerCase()}${e.truck ? '' : ' at the dock'} (${money(e.cost ?? 0)})`;
       return `<span class="feed-item">${chip}<b style="color:${PLAYER_INK[e.player]}">${esc(who)}</b> ${esc(what)} <em>${clockLabel(e.minute)}</em></span>`;
     })
     .join('');

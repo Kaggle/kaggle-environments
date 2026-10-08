@@ -141,7 +141,7 @@
     "remainingOverageTime": 120
   },
   "action": {
-    "description": "Phase-dependent object. DRIVING: {\"trucks\": {id: {route, on_late, on_missed_window, wait_cap, then, hold}}, \"abandon\": [lot, segment or door ids, block 0 only]}. CAPEX: {\"fleet\": [[op, arg]], \"fuel\": [[op, truck]], \"stage\": {truck: warehouse}}. LABOR: {\"labor\": [[op, ...args]]}. CONTRACTS: {\"bids\": [[lot, ask]], \"standing_bids\": [[account, rate, term]], \"max_lots\": number}.",
+    "description": "Phase-dependent object. DRIVING: {\"trucks\": {id: {load, route, on_missed_window, wait_cap, then, hold}}, \"abandon\": [lot, segment or door ids, block 0 only]}. CAPEX: {\"fleet\": [[op, arg]], \"fuel\": [[op, truck]], \"stage\": {truck: warehouse}}. LABOR: {\"labor\": [[op, ...args]]}. CONTRACTS: {\"bids\": [[lot, ask]], \"standing_bids\": [[account, rate, term]], \"max_lots\": number}.",
     "type": "object",
     "default": {}
   },

@@ -64,6 +64,8 @@ export interface Truck {
   driver: string | null;
   staged: string | null;
   carrying: string[];
+  /** Lots on board. */
+  lots?: string[];
   route: unknown[];
   /** The block's path, for animation. Absent on replays from before it existed. */
   trail?: Crumb[];
@@ -80,7 +82,7 @@ export interface Segment {
 
 /** Emitted by the engine per step, per player. See dispatch._event. */
 export interface KargoEvent {
-  kind: 'DELIVER' | 'REFUSED' | 'UNDELIVERED' | 'ABANDONED' | 'SERVICE_DUE' | 'RAN_DRY';
+  kind: 'DELIVER' | 'REFUSED' | 'UNDELIVERED' | 'ABANDONED' | 'SERVICE_DUE' | 'RAN_DRY' | 'LOADED' | 'LOAD_REFUSED';
   player: number;
   truck: string;
   node: number;
@@ -92,6 +94,8 @@ export interface KargoEvent {
   late?: boolean;
   premium?: boolean;
   cost?: number;
+  lot?: string;
+  reason?: string;
 }
 
 export interface PublicPlayer {

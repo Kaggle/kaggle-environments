@@ -186,7 +186,9 @@ const LABOR_TEXT: Record<string, (r: any) => string> = {
   HIRE: (r) => `hired ${r.name} as ${r.driver}`,
   FIRE: (r) => `fired ${r.driver}`,
   QUIT: (r) => `${r.driver} quit`,
-  POACH_ACCEPTED: (r) => `poached ${r.driver} from seat ${r.from + 1}`,
+  POACH_ACCEPTED: (r) => `${r.driver} gave notice to seat ${r.from + 1}, joins day ${r.departs + 1}`,
+  POACH_MATCHED: (r) => `kept ${r.driver} by matching the offer`,
+  POACH_TRANSFER: (r) => `${r.driver} joined from seat ${r.from + 1} as ${r.new_id}`,
   POACH_REFUSED: (r) => `${r.driver} turned down the offer`,
   OUTBID: () => `outbid on a poach`,
 };
@@ -198,8 +200,8 @@ function laborOutcome(view: View): string {
   return `<ul class="nlist">${log
     .map((r) => {
       // Which seat a row belongs to is named differently per op: `player` for
-      // hire/fire/outbid, `to` for an accepted poach, `employer` for a refused
-      // one. Only QUIT names no seat -- it is the driver's decision, and the
+      // hire/fire/outbid, `to` for an accepted poach or transfer, `employer`
+      // for a refused or matched one. Only QUIT names no seat -- it is the driver's decision, and the
       // driver id already carries the seat it was leaving.
       const seat = r.player ?? r.to ?? r.employer;
       const who = seat != null ? seatChip(view, seat) : '';

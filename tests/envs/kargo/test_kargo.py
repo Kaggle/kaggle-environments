@@ -19,8 +19,9 @@ from kaggle_environments.envs.kargo.constants import (
     DISTRICTS,
     EDGE_KM,
     EPISODE_STEPS,
-    FILL_CEILING,
+    FAIL_PENALTY,
     INDEX_RANGE,
+    LOAD_MINUTES,
     ROAD_CLASSES,
     SERVICE_INTERVAL_KM,
     SHIFT_MINUTES,
@@ -45,7 +46,7 @@ from kaggle_environments.envs.kargo.freight import (
     solve_reserve,
     solve_truck_day,
 )
-from kaggle_environments.envs.kargo.kargo import phase_of
+from kaggle_environments.envs.kargo.kargo import greedy_agent, phase_of
 from kaggle_environments.envs.kargo.market import accrue, net_worth
 from kaggle_environments.envs.kargo.shipper import Shipper
 
@@ -203,7 +204,7 @@ def test_event_tallies_match_the_day_report():
             row["late"] += n if e.get("late") else 0
         elif e["kind"] == "REFUSED":
             row["refused"] += n
-        else:
+        elif e["kind"] in ("UNDELIVERED", "ABANDONED"):
             row["failed"] += n
 
     reports = {}
@@ -529,20 +530,15 @@ def _run(agents=("greedy", "greedy"), **cfg):
     return env
 
 
-def test_one_truck_serves_one_territory():
-    """No van loads at two docks -- the pair is a hard constraint."""
-    env = _run()
-    for player in env.kargo["players"]:
-        for truck in player["trucks"].values():
-            lots = [player["lots"][lid] for lid in truck.get("lots", []) if lid in player["lots"]]
-            assert len({(x["warehouse"], x["district"]) for x in lots}) <= 1
-
-
-def test_trucks_stay_under_the_fill_ceiling():
-    env = _run()
-    for player in env.kargo["players"]:
-        for truck in player["trucks"].values():
-            assert truck.get("fill", 0.0) <= FILL_CEILING + 1e-6
+def test_freight_on_board_is_one_territory():
+    env = make("kargo", configuration=SHORT)
+    env.reset(2)
+    while not env.done:
+        env.step([greedy_agent(s.observation) for s in env.state])
+        for player in env.kargo["players"]:
+            for truck in player["trucks"].values():
+                lots = {player["manifest"]["addresses"][a]["lot"] for a in truck["carrying"]}
+                assert len({(player["lots"][x]["warehouse"], player["lots"][x]["district"]) for x in lots}) <= 1
 
 
 def test_trucks_stay_within_capacity():
@@ -575,14 +571,13 @@ def test_greedy_delivers_most_of_what_it_wins():
 
 
 def test_greedy_beats_idle():
-    """Greedy beats idle on a majority of seeds and on mean margin."""
+    """Greedy beats idle over a full episode on every seed."""
     margins = []
-    for seed in range(1, 17):
-        env = _run(agents=("greedy", "idle"), days=5, episodeSteps=41, seed=seed)
+    for seed in range(1, 5):
+        env = _run(agents=("greedy", "idle"), episodeSteps=481, seed=seed)
         greedy, idle = (s.reward for s in env.steps[-1])
         margins.append(greedy - idle)
-    assert sum(m > 0 for m in margins) >= 12, margins
-    assert sum(margins) / len(margins) > 500, margins
+    assert all(m > 5000 for m in margins), margins
 
 
 def test_deliveries_land_before_the_deadline_mostly():
@@ -778,9 +773,10 @@ def test_truck_working_through_the_close_is_paid():
     w = env.kargo
     for a in w["players"][0]["manifest"]["addresses"].values():
         a["service"] *= 6
+    env.step([greedy(s.observation) for s in env.state])
     busy = [t for t in w["players"][0]["trucks"].values() if t["carrying"]]
     assert busy
-    for _ in range(BLOCKS_PER_DAY):
+    for _ in range(BLOCKS_PER_DAY - 1):
         env.step([greedy(s.observation) for s in env.state])
     assert all(t["worked"] > SHIFT_MINUTES for t in busy)
 
@@ -867,6 +863,7 @@ def test_route_and_lists_are_capped():
 
 def test_unreachable_via_is_dropped_not_retried():
     env = _loaded_env()
+    env.step([greedy_agent(env.state[0].observation), {}])
     truck = next(t for t in env.kargo["players"][0]["trucks"].values() if t["carrying"])
     w = env.kargo
     # Cut the target off: close every edge touching node 0.
@@ -952,3 +949,266 @@ def test_some_docks_take_a_late_truck(board, city):
             if a["window_kind"] == "DOCK"
         ]
     assert graces and 0.3 < sum(1 for g in graces if g > 0) / len(graces) < 0.7
+
+
+# --- City clock, replay, assignment, close -----------------------------------
+
+
+def test_incidents_run_on_the_city_clock_without_trucks():
+    accidents = closures = days = 0
+    moved = False
+    for seed in range(10):
+        c = City(random.Random(seed))
+        rng = random.Random(seed + 1)
+        for day in range(30):
+            c.reset_day(day, rng)
+            accidents += sum(e["kind"] == "ACCIDENT" for e in c.incident_log)
+            closures += sum(e["kind"] == "CLOSURE" for e in c.incident_log)
+            moved |= any(c.noise_path[-1])
+            days += 1
+    assert accidents > 0 and moved
+    assert 0.15 < closures / days < 0.35
+
+
+def test_city_does_not_depend_on_who_asked_first():
+    def city():
+        c = City(random.Random(1))
+        c.reset_day(3, random.Random(2))
+        return c
+
+    quiet, busy = city(), city()
+    for minute in range(0, 600, 7):
+        busy.route(0, 399, minute)
+        busy.edge_time(minute % len(busy.edges), minute)
+    for minute in (0, 240, 480):
+        assert quiet.congestion_report(minute) == busy.congestion_report(minute)
+        assert quiet.incident_report(minute) == busy.incident_report(minute)
+
+
+def test_route_does_not_see_incidents_before_they_happen():
+    c = City(random.Random(1))
+    c.reset_day(0, random.Random(2))
+    c.closures[5] = (300, 400, "EMERGENCY")
+    assert c.edge_time(5, 350, known=200) is not None
+    assert c.edge_time(5, 350) is None
+
+
+def test_failed_agent_keeps_its_status():
+    def broken(obs):
+        raise RuntimeError("boom")
+
+    env = make("kargo", configuration=SHORT)
+    env.run([broken, "idle"])
+    assert env.state[0].status == "ERROR"
+    assert env.state[1].status == "DONE"
+
+
+def test_replay_keeps_the_sanitised_action():
+    from kaggle_environments.envs.kargo.actions import MAX_BIDS
+
+    env = make("kargo", configuration=SHORT)
+    env.reset(2)
+    env.step([{}, {}])
+    env.step([{}, {}])
+    env.step([{"bids": [["lot_0", 1.0]] * 5000, "junk": "x" * 10000}, {}])
+    stored = env.steps[-1][0].action
+    assert len(stored["bids"]) <= MAX_BIDS and "junk" not in stored
+
+
+def test_rental_stays_ordered_to_its_owner_until_it_arrives():
+    env = make("kargo", configuration={**SHORT, "episodeSteps": 41})
+    env.reset(2)
+    env.step([{"fleet": [["RENT", "VAN"]]}, {}])
+    w = env.kargo
+    rental = next(t for t in w["players"][0]["trucks"].values() if t["ownership"] == "RENTED")
+    while w["day"] < rental["arrives"] - 1 or env.state[0].observation["phase"] != "CAPEX":
+        env.step([{}, {}])
+        mine = next(t for t in env.state[0].observation["private"]["trucks"] if t["id"] == rental["id"])
+        if env.state[0].observation["day"] < rental["arrives"]:
+            assert mine["status"] == "ORDERED"
+
+
+def test_last_frame_is_the_close_not_a_new_night():
+    env = make("kargo", configuration=SHORT)
+    env.run(["idle", "idle"])
+    obs = env.state[0].observation
+    assert obs["phase"] == "DRIVING" and obs["block"] == BLOCKS_PER_DAY
+    assert obs["day"] == (SHORT["episodeSteps"] - 1) // STEPS_PER_DAY - 1
+    assert not obs["market"]["listings"] and not obs["market"]["candidates"] and not obs["market"]["used"]
+
+
+def test_driver_on_a_grounded_truck_draws_a_retainer():
+    from kaggle_environments.envs.kargo.constants import RETAINER_SHARE
+
+    env = make("kargo", configuration=SHORT)
+    env.reset(2)
+    env.step([{}, {}])
+    env.step([{}, {}])
+    w = env.kargo
+    truck = w["players"][0]["trucks"]["T1"]
+    truck["status"] = "DISABLED"
+    wage = w["players"][0]["drivers"][truck["driver"]]["wage"]
+    for _ in range(1 + BLOCKS_PER_DAY):
+        env.step([{}, {}])
+    retainers = [amt for pid, amt, why in w["charges"] if pid == 0 and why == "RETAINER"]
+    assert retainers == [pytest.approx(wage * RETAINER_SHARE)]
+
+
+def test_used_truck_wear_is_not_its_odometer():
+    rng = random.Random(3)
+    kms = {round(make_truck("U", "VAN", rng, odometer=123456)["km_since_service"], 3) for _ in range(20)}
+    assert len(kms) > 1 and all(0 <= k < SERVICE_INTERVAL_KM for k in kms)
+    assert make_truck("N", "VAN", rng)["km_since_service"] == 0.0
+
+
+def test_city_does_not_depend_on_player_actions():
+    """Same seed, different agents: same weather, construction and incidents."""
+
+    def city_days(agents):
+        env = make("kargo", configuration=SHORT)
+        seen = []
+        env.reset(len(agents))
+        while not env.done:
+            obs = env.state[0].observation
+            if obs["phase"] == "DRIVING":
+                traffic = obs["traffic"]
+                seen.append(
+                    (obs["day"], obs["block"], traffic["weather"], traffic["forecast"], str(traffic["incidents"]))
+                )
+            env.step([a(env.state[i].observation, env.configuration) for i, a in enumerate(agents)])
+        return seen
+
+    from kaggle_environments.envs.kargo.kargo import agents
+
+    idle = city_days([agents["idle"], agents["idle"]])
+    busy = city_days([agents["greedy"], agents["random"]])
+    assert idle and idle == busy
+
+
+def test_ordered_rental_is_not_on_the_map():
+    env = make("kargo", configuration=SHORT)
+    env.reset(2)
+    env.step([{"fleet": [["RENT", "VAN"]]}, {}])
+    rental = next(t for t in env.kargo["players"][0]["trucks"].values() if t["status"] == "ORDERED")
+    while env.state[0].observation["day"] < rental["arrives"] and not env.done:
+        assert rental["status"] != "ORDERED" or rental["node"] is None
+        env.step([{}, {}])
+
+
+# --- Loading -----------------------------------------------------------------
+
+
+def _my_events(env, kind, pid=0):
+    return [e for e in env.state[pid].observation["private"]["events"] if e["kind"] == kind]
+
+
+def _at_dock(env, truck, lot):
+    """Park `truck` at `lot`'s warehouse."""
+    truck["node"] = env.kargo["city"].warehouse_of[lot["warehouse"]]
+
+
+def _drive(env, plans):
+    env.step([{"trucks": plans}, {}])
+
+
+def test_load_at_the_dock_takes_45_minutes():
+    env = _loaded_env()
+    p = env.kargo["players"][0]
+    truck, lot = p["trucks"]["T3"], next(iter(p["lots"].values()))
+    _at_dock(env, truck, lot)
+    _drive(env, {"T3": {"load": [lot["id"]]}})
+    (loaded,) = _my_events(env, "LOADED")
+    assert loaded["lot"] == lot["id"] and loaded["minute"] == pytest.approx(LOAD_MINUTES)
+    assert set(lot["_addrs"]) <= truck["carrying"]
+    seen = next(x for x in env.state[0].observation["private"]["lots"] if x["id"] == lot["id"])
+    assert seen["status"] == "ON_TRUCK" and seen["truck"] == "T3"
+
+
+def test_load_elsewhere_drives_to_the_warehouse_first():
+    env = _loaded_env()
+    w = env.kargo
+    p = w["players"][0]
+    truck, lot = p["trucks"]["T3"], next(iter(p["lots"].values()))
+    origin = w["city"].warehouse_of[lot["warehouse"]]
+    truck["node"] = next(n for n in w["city"].warehouse_of.values() if n != origin)
+    fuel, odometer = truck["fuel"], truck["odometer"]
+    _drive(env, {"T3": {"load": [lot["id"]]}})
+    (loaded,) = _my_events(env, "LOADED")
+    assert loaded["minute"] > LOAD_MINUTES and truck["fuel"] < fuel and truck["odometer"] > odometer
+    assert not any(reason == "REPOSITION" for _pid, _amount, reason in w["charges"])
+
+
+def test_load_of_a_second_territory_is_refused():
+    env = _loaded_env()
+    p = env.kargo["players"][0]
+    lots = list(p["lots"].values())
+    a = lots[0]
+    b = next(x for x in lots if (x["warehouse"], x["district"]) != (a["warehouse"], a["district"]))
+    _at_dock(env, p["trucks"]["T3"], a)
+    _drive(env, {"T3": {"load": [a["id"], b["id"]]}})
+    (refused,) = _my_events(env, "LOAD_REFUSED")
+    assert refused["lot"] == b["id"] and refused["reason"] == "PAIR"
+
+
+def test_load_over_the_deck_is_refused():
+    env = _loaded_env()
+    p = env.kargo["players"][0]
+    lot = next(iter(p["lots"].values()))
+    for aid in lot["_addrs"]:
+        p["manifest"]["addresses"][aid]["units"] = 1000.0
+    _at_dock(env, p["trucks"]["T3"], lot)
+    _drive(env, {"T3": {"load": [lot["id"]]}})
+    (refused,) = _my_events(env, "LOAD_REFUSED")
+    assert refused["reason"] == "CAPACITY" and not p["trucks"]["T3"]["carrying"]
+
+
+def test_load_finishing_after_16_00_is_refused():
+    env = _loaded_env()
+    p = env.kargo["players"][0]
+    lot = next(iter(p["lots"].values()))
+    for _ in range(BLOCKS_PER_DAY - 1):
+        _drive(env, {})
+    _at_dock(env, p["trucks"]["T3"], lot)
+    _drive(env, {"T3": {"load": [lot["id"]]}})
+    (refused,) = _my_events(env, "LOAD_REFUSED")
+    assert refused["reason"] == "TOO_LATE"
+
+
+def test_load_without_a_driver_is_refused():
+    env = _loaded_env()
+    p = env.kargo["players"][0]
+    lot = next(iter(p["lots"].values()))
+    p["trucks"]["T3"]["driver"] = None
+    _drive(env, {"T3": {"load": [lot["id"]]}})
+    (refused,) = _my_events(env, "LOAD_REFUSED")
+    assert refused["reason"] == "NO_DRIVER"
+
+
+def test_truck_can_run_two_territories_in_one_day():
+    env = _loaded_env()
+    w = env.kargo
+    p = w["players"][0]
+    lots = list(p["lots"].values())
+    a = lots[0]
+    b = next(x for x in lots if (x["warehouse"], x["district"]) != (a["warehouse"], a["district"]))
+    segs = sorted({p["manifest"]["addresses"][aid]["segment"] for aid in a["_addrs"]})
+    for aid in a["_addrs"]:
+        p["manifest"]["addresses"][aid]["window"] = None
+    _at_dock(env, p["trucks"]["T3"], a)
+    env.step([{"abandon": segs[1:], "trucks": {"T3": {"load": [a["id"]], "route": segs[:1]}}}, {}])
+    assert not p["trucks"]["T3"]["carrying"] and a.get("delivered", 0) > 0
+    _drive(env, {"T3": {"load": [b["id"]]}})
+    (loaded,) = _my_events(env, "LOADED")
+    assert loaded["lot"] == b["id"] and set(b["_addrs"]) <= p["trucks"]["T3"]["carrying"]
+
+
+def test_lot_left_at_the_dock_fails_at_the_close():
+    env = _loaded_env()
+    p = env.kargo["players"][0]
+    packages = sum(lot["packages"] for lot in p["lots"].values())
+    for _ in range(BLOCKS_PER_DAY):
+        _drive(env, {})
+    failed = _my_events(env, "UNDELIVERED")
+    assert {e["lot"] for e in failed} == set(p["lots"]) and all(e["truck"] == "" for e in failed)
+    assert sum(e["packages"] for e in failed) == packages == p["results"][-1]["failed"]
+    assert sum(e["cost"] for e in failed) == pytest.approx(FAIL_PENALTY * packages)

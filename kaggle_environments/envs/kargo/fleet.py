@@ -107,6 +107,7 @@ def make_driver(did, rng, wage=None, quality=None):
         "tenure": 0,
         "overtime_minutes": 0.0,
         "notice": False,
+        "departs": None,  # {"to", "offer", "day"} while serving notice after a poach
         "truck": None,
     }
 
@@ -147,7 +148,7 @@ def make_truck(tid, vtype, rng, ownership="OWNED", age_days=0, odometer=0.0, bas
         "ownership": ownership,  # OWNED | FINANCED | RENTED
         "age_days": age_days,
         "odometer": odometer,
-        "km_since_service": odometer % SERVICE_INTERVAL_KM,
+        "km_since_service": rng.uniform(0.0, SERVICE_INTERVAL_KM) if odometer else 0.0,
         "status": "IDLE",  # IDLE | ACTIVE | DISABLED | ORDERED
         "fuel": float(spec["tank"]),
         "principal": 0.0,
@@ -168,8 +169,7 @@ def make_truck(tid, vtype, rng, ownership="OWNED", age_days=0, odometer=0.0, bas
         "anchor": None,
         "pos": (0.0, 0.0),
         "last_t": 0.0,
-        "pair": None,
-        "fill": 0.0,
+        "load": [],
         "lots": [],
         "revisited": {},
     }

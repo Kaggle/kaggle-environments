@@ -14,11 +14,13 @@ from .constants import (
     MAX_DRIVERS,
     MAX_FLEET,
     OVERHEAD_COST_DAY,
+    POACH_NOTICE_DAYS,
     RENTAL_LEAD_DAYS,
     RENTAL_MIN_DAYS,
     RENTAL_POOL_BASE,
     RESTLESS_ON_REFUSED_OFFER,
     SELL_HAIRCUT,
+    SEVERANCE_DAYS,
     STANDING_BREAK_FEE_LOT_DAYS,
     STARTING_WAGE,
     USED_DISCOUNT,
@@ -254,17 +256,21 @@ def post_candidates(rng, day):
 
 
 def resolve_labor(players, actions, world, rng):
-    """Wages, firings and assignments settle first; then hires and poaches,
-    each resolved across all players at once.
+    """Wages, firings and assignments settle first; then notices, hires and
+    poaches, each resolved across all players at once.
 
     Each candidate goes to the highest offer that clears their reservation,
-    ties broken at random.
+    ties broken at random. An accepted poach serves notice: the driver works
+    `POACH_NOTICE_DAYS` more days for their employer, who keeps them by
+    raising their wage to the offer.
     """
+    day = world["day"]
     log = []
     poaches = []
     offers = {}  # candidate id -> {pid: best wage offered}
     for pid, player in enumerate(players):
         act = actions[pid] if isinstance(actions[pid], dict) else {}
+        targeted = set()
         for entry in _list(act.get("labor")):
             op = entry[0]
             if op == "HIRE" and len(entry) >= 3:
@@ -275,19 +281,30 @@ def resolve_labor(players, actions, world, rng):
                 if driver:
                     driver["wage"] = max(WAGE_FLOOR, float(entry[2]))
             elif op == "FIRE" and len(entry) >= 2:
-                _fire(player, entry[1], pid, log)
+                _fire(players, pid, entry[1], log)
             elif op == "POACH" and len(entry) >= 4:
-                poaches.append((pid, int(entry[1]), entry[2], float(entry[3])))
+                # One attempt per rival per night.
+                target = int(entry[1])
+                if target != pid and target not in targeted:
+                    targeted.add(target)
+                    poaches.append((pid, target, entry[2], float(entry[3])))
             elif op == "ASSIGN" and len(entry) >= 3:
                 _assign(player, entry[1], entry[2])
+    log.extend(_resolve_notices(players, day))
     for cand in list(world["candidates"]):
         bids = sorted(((w, pid) for pid, w in offers.get(cand["id"], {}).items()), key=lambda b: (-b[0], rng.random()))
         for wage, pid in bids:
-            if wage >= cand["reservation"] and len(players[pid]["drivers"]) < MAX_DRIVERS:
+            if wage >= cand["reservation"] and _headcount(players, pid) < MAX_DRIVERS:
                 _hire(players[pid], cand, wage, world, pid, log)
                 break
-    log.extend(_resolve_poaches(players, poaches, rng))
+    log.extend(_resolve_poaches(players, poaches, rng, day))
     return log
+
+
+def _headcount(players, pid):
+    """Roster plus drivers serving notice to join it."""
+    incoming = sum(1 for p in players for d in p["drivers"].values() if d.get("departs") and d["departs"]["to"] == pid)
+    return len(players[pid]["drivers"]) + incoming
 
 
 def _hire(player, cand, wage, world, pid, log):
@@ -300,14 +317,24 @@ def _hire(player, cand, wage, world, pid, log):
     log.append({"player": pid, "op": "HIRE", "driver": cand["id"], "name": cand["name"]})
 
 
-def _fire(player, did, pid, log):
+def _fire(players, pid, did, log):
+    """Severance is charged unless the driver is serving notice, who leaves for the bidder at once."""
+    player = players[pid]
     driver = player["drivers"].pop(did, None)
     if driver is None:
         return
+    _unseat(player, did)
+    if driver.get("departs"):
+        log.append(_transfer(players, pid, driver))
+        return
+    player["cash"] -= driver["wage"] * SEVERANCE_DAYS
+    log.append({"player": pid, "op": "FIRE", "driver": did})
+
+
+def _unseat(player, did):
     for truck in player["trucks"].values():
         if truck.get("driver") == did:
             truck["driver"] = None
-    log.append({"player": pid, "op": "FIRE", "driver": did})
 
 
 def _assign(player, did, tid):
@@ -324,7 +351,39 @@ def _assign(player, did, tid):
     driver["truck"] = tid
 
 
-def _resolve_poaches(players, poaches, rng):
+def _resolve_notices(players, day):
+    """A notice matched by the employer is withdrawn; a served one moves the driver."""
+    log = []
+    for pid, player in enumerate(players):
+        for did, driver in list(player["drivers"].items()):
+            departs = driver.get("departs")
+            if not departs:
+                continue
+            if driver["wage"] >= departs["offer"]:
+                driver["departs"] = None
+                log.append({"op": "POACH_MATCHED", "employer": pid, "driver": did})
+            elif day >= departs["day"]:
+                del player["drivers"][did]
+                _unseat(player, did)
+                log.append(_transfer(players, pid, driver))
+    return log
+
+
+def _transfer(players, src, driver):
+    bidder, offer = driver["departs"]["to"], driver["departs"]["offer"]
+    new = players[bidder]
+    new["driver_seq"] = new.get("driver_seq", 0) + 1
+    old = driver["id"]
+    driver["id"] = f"D{bidder}_{new['driver_seq']}"
+    driver["wage"] = offer
+    driver["tenure"] = 0
+    driver["truck"] = None
+    driver["departs"] = None
+    new["drivers"][driver["id"]] = driver
+    return {"op": "POACH_TRANSFER", "from": src, "to": bidder, "driver": old, "new_id": driver["id"]}
+
+
+def _resolve_poaches(players, poaches, rng, day):
     """Only the highest offer per driver is considered."""
     log = []
     by_driver = {}
@@ -333,28 +392,18 @@ def _resolve_poaches(players, poaches, rng):
     for (target, did), bids in by_driver.items():
         if not 0 <= target < len(players):
             continue
-        employer = players[target]
-        driver = employer["drivers"].get(did)
-        if driver is None:
+        driver = players[target]["drivers"].get(did)
+        if driver is None or driver.get("departs"):
             continue
-        bids = [b for b in bids if len(players[b[1]]["drivers"]) < MAX_DRIVERS]
+        bids = [b for b in bids if _headcount(players, b[1]) < MAX_DRIVERS]
         if not bids:
             continue
         bids.sort(key=lambda b: (-b[0], rng.random()))
         offer, bidder = bids[0]
         if poach_accepts(driver, offer, rng):
-            employer["drivers"].pop(did, None)
-            for truck in employer["trucks"].values():
-                if truck.get("driver") == did:
-                    truck["driver"] = None
-            new = players[bidder]
-            new["driver_seq"] = new.get("driver_seq", 0) + 1
-            driver["id"] = f"D{bidder}_{new['driver_seq']}"
-            driver["wage"] = offer
-            driver["tenure"] = 0
-            driver["truck"] = None
-            new["drivers"][driver["id"]] = driver
-            log.append({"op": "POACH_ACCEPTED", "from": target, "to": bidder, "driver": driver["id"]})
+            departs = day + POACH_NOTICE_DAYS
+            driver["departs"] = {"to": bidder, "offer": offer, "day": departs}
+            log.append({"op": "POACH_ACCEPTED", "from": target, "to": bidder, "driver": did, "departs": departs})
         else:
             driver["restlessness"] += RESTLESS_ON_REFUSED_OFFER
             log.append({"op": "POACH_REFUSED", "employer": target, "driver": did})
@@ -374,7 +423,7 @@ def resolve_auction(players, actions, world, rng):
     to the next-lowest bidder. Iterate to a fixed point.
     """
     listings = {lot["id"]: lot for lot in world["listings"] + world["accounts"]}
-    bids = {}
+    bids = {}  # lot id -> {pid: lowest ask}
     caps = {}
     fleets = {}
     decks = {}
@@ -387,28 +436,40 @@ def resolve_auction(players, actions, world, rng):
         # Every deck, largest first: each territory needs its own truck.
         decks[pid] = sorted((VEHICLES[t["type"]]["capacity"] for t in live), reverse=True)
         for entry in _list(act.get("bids")):
-            if len(entry) < 2 or entry[0] not in listings:
+            if len(entry) < 2 or entry[0] not in listings or listings[entry[0]]["kind"] == "STANDING":
                 continue
-            bids.setdefault(entry[0], []).append((float(entry[1]), pid))
+            _bid(bids, entry[0], pid, float(entry[1]))
         for entry in _list(act.get("standing_bids")):
-            if len(entry) < 3 or entry[0] not in listings:
+            if len(entry) < 3 or entry[0] not in listings or listings[entry[0]]["kind"] != "STANDING":
                 continue
             term = int(entry[2])
             if term not in listings[entry[0]].get("term_options", []):
                 continue
-            bids.setdefault(entry[0], []).append((float(entry[1]), pid))
-            terms[(entry[0], pid)] = term
+            if _bid(bids, entry[0], pid, float(entry[1])):
+                terms[(entry[0], pid)] = term
 
     ranked = {}
     for lot_id, entries in bids.items():
         reserve = listings[lot_id]["reserve"]
-        keep = [(ask, pid) for ask, pid in entries if ask <= reserve]
+        keep = [(ask, pid) for pid, ask in entries.items() if ask <= reserve]
         keep.sort(key=lambda b: (b[0], rng.random()))
         if keep:
             ranked[lot_id] = keep
 
+    # Tomorrow's lots from accounts already held count against the same limits.
+    held = {}
+    for pid, player in enumerate(players):
+        load = {}
+        for acct in player["standing"]:
+            if acct["remaining"] > 0:
+                pair = (acct["warehouse"], acct["district"])
+                td, units = load.get(pair, (0.0, 0.0))
+                load[pair] = (td + acct["truck_days"], units + acct["parcel_units"])
+        held[pid] = load
+
+    # Every pass that trims advances a head, so this ends within one pass per bid.
     awards, head = {}, dict.fromkeys(ranked, 0)
-    for _ in range(12):
+    while True:
         awards = {}
         for lot_id, keep in ranked.items():
             if head[lot_id] < len(keep):
@@ -418,8 +479,8 @@ def resolve_auction(players, actions, world, rng):
         for pid in range(len(players)):
             mine = [(lid, ask) for lid, (p, ask) in awards.items() if p == pid]
             mine.sort(key=lambda x: -_margin(listings[x[0]], x[1]))
-            used = 0.0
-            territory = {}
+            territory = dict(held[pid])
+            used = sum(td for td, _u in territory.values())
             for lid, _ask in mine:
                 listing = listings[lid]
                 size = listing["truck_days"]
@@ -450,7 +511,7 @@ def resolve_auction(players, actions, world, rng):
         listing = listings[lot_id]
         player = players[pid]
         if listing["kind"] == "STANDING":
-            term = terms.get((lot_id, pid), listing["term_options"][0])
+            term = terms[(lot_id, pid)]
             acct = {
                 "id": lot_id,
                 "player": pid,
@@ -460,6 +521,7 @@ def resolve_auction(players, actions, world, rng):
                 "term": term,
                 "remaining": term,
                 "truck_days": listing["truck_days"],
+                "parcel_units": listing["parcel_units"],
             }
             player["standing"].append(acct)
             world["public_standing"].append(dict(acct))
@@ -473,6 +535,15 @@ def resolve_auction(players, actions, world, rng):
         )
     world["bid_book"] = [{"lot": lid, "bids": [[round(a, 2), p] for a, p in e]} for lid, e in ranked.items()]
     return log
+
+
+def _bid(bids, lot_id, pid, ask):
+    """Record a player's ask, keeping their lowest per lot. True if it is now their bid."""
+    mine = bids.setdefault(lot_id, {})
+    if pid in mine and mine[pid] <= ask:
+        return False
+    mine[pid] = ask
+    return True
 
 
 def _decks_fit(loads, decks):

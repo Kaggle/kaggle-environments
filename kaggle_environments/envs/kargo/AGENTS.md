@@ -10,8 +10,8 @@ Kargo is a last-mile delivery business sim for 2 or 4 players over 60 days. Each
 
 - **A day is 8 turns.** Three overnight steps -- `CAPEX` (fleet), `LABOR` (drivers), `CONTRACTS` (auction) -- then five two-hour driving blocks from 08:00 to 18:00. 60 days is 480 turns.
 - **Freight comes from one external shipper.** Its demand grows over the episode along a hidden path, and its prices rise when demand outruns the field's trucks and fall when the field over-builds. Unsold or undelivered packages come back the next night at a markup.
-- **You win freight in a sealed-bid reverse auction.** Lowest ask wins and is paid its own ask. A lot is a fraction of a truck-day out of one `(warehouse, district)` territory; a truck works one territory a day.
-- **You see the territory, not the doors.** Addresses, service times and delivery windows land at 08:00. The engine assigns your lots to trucks; you sequence their routes.
+- **You win freight in a sealed-bid reverse auction.** Lowest ask wins and is paid its own ask. A lot is a fraction of a truck-day out of one `(warehouse, district)` territory; a truck carries one territory's freight at a time.
+- **You see the territory, not the doors.** Addresses, service times and delivery windows land at 08:00, and your lots wait at their warehouses. You load them onto trucks and sequence the routes; anything still at a warehouse at 18:00 fails.
 - **Costs never stop.** Trucks cost $60-92 a day owned, drivers are paid for the minutes their truck works (and a retainer if benched), and every undelivered package costs $45.
 - **Starting position:** $12,000 cash, a `VAN`, a `VAN` and a `STEP`, one driver each. Net worth $150,000.
 
@@ -24,7 +24,7 @@ Your agent is a function `agent(obs, config)` that returns an action dict. What 
 | `CAPEX` | `{"fleet": [[op, arg], ...], "fuel": [["BULK_REFUEL", truck], ...], "stage": {truck: warehouse}}` |
 | `LABOR` | `{"labor": [["HIRE", candidate, wage], ["WAGE", driver, wage], ["ASSIGN", driver, truck], ["POACH", player, driver, wage], ["FIRE", driver]]}` |
 | `CONTRACTS` | `{"bids": [[lot, ask], ...], "standing_bids": [[account, rate, term], ...], "max_lots": truck_days}` |
-| `DRIVING` | `{"trucks": {truck: {"route": [...], "wait_cap": minutes, "on_missed_window": "SKIP" or "ATTEMPT", "then": "RETURN", "hold": bool}}, "abandon": [ids]}` |
+| `DRIVING` | `{"trucks": {truck: {"load": [lot, ...], "route": [...], "wait_cap": minutes, "on_missed_window": "SKIP" or "ATTEMPT", "then": "RETURN", "hold": bool}}, "abandon": [ids]}` |
 
 An empty dict is always legal. Plans persist across driving blocks: omit a truck to let it carry on. Entries of the wrong shape are dropped, never fatal (see README § Actions).
 
@@ -35,13 +35,16 @@ An empty dict is always legal. Plans persist across driving blocks: omit a truck
 - `public` -- per player: `cash`, `debt`, `net_worth`, `fleet`, `drivers` (never wages), `standing`, last 3 days' `results`
 - `history` -- last night's `auction` awards and `bids`, the latest `capex` and `labor` logs, live `standing` accounts
 - `city` (static road graph, `warehouses`) and `traffic` (`congestion` per edge, `incidents`, `weather`, `forecast`)
-- `private` -- yours only: `trucks` (node, status, clock, fuel, `km_since_service`, carried door ids, route), `drivers` (with wages), today's `segments` and `addresses` (windows, noisy `service_estimate`), `lots`, `events`, `sightings`, `day_report`
+- `private` -- yours only: `trucks` (node, status, clock, fuel, `km_since_service`, carried door ids, `lots` on board, route), `drivers` (with wages), today's `segments` and `addresses` (windows, noisy `service_estimate`), `lots` (with `status`: `AT_DOCK`, `ON_TRUCK`, `DONE`), `events`, `sightings`, `day_report`
 
 ### Starter agent
 
-A complete, minimal agent: crew every truck, bid 10% under reserve on the best-paying territories, and drive each truck's segments nearest-first.
+A complete, minimal agent: crew every truck, bid 10% under reserve on the best-paying territories, load each territory onto one truck at 08:00, and drive its segments nearest-first.
 
 ```python
+CAPACITY = {"VAN": 200, "STEP": 340}
+
+
 def agent(obs, config=None):
     phase = obs["phase"]
     me = obs["private"]
@@ -64,8 +67,9 @@ def agent(obs, config=None):
         labor += [["HIRE", c["id"], round(c["asking"] * 1.1 + 1)] for c in pool[: max(0, short)]]
         return {"labor": labor}
 
+    crewed = [t for t in trucks if t["driver"] and t["status"] not in ("DISABLED", "ORDERED")]
+
     if phase == "CONTRACTS":
-        crewed = [t for t in trucks if t["driver"] and t["status"] not in ("DISABLED", "ORDERED")]
         # Best paying per truck-day first; at most one territory per truck,
         # at most one truck-day in each.
         lots = sorted(obs["market"]["listings"], key=lambda lot: -lot["reserve"] / lot["truck_days"])
@@ -80,21 +84,33 @@ def agent(obs, config=None):
             bids.append([lot["id"], round(lot["reserve"] * 0.9, 2)])
         return {"bids": bids, "max_lots": len(crewed)}
 
-    # DRIVING: plan once at 08:00, nearest segment next; plans persist.
+    # DRIVING: at 08:00 load each territory onto one truck, biggest territory
+    # on the biggest deck, then visit its segments nearest-first. Plans persist.
     if obs["block"] != 0:
         return {}
-    segments = {s["id"]: s for s in me["segments"]}
+    territories = {}
+    for lot in me["lots"]:
+        if lot["status"] == "AT_DOCK":
+            territories.setdefault((lot["warehouse"], lot["district"]), []).append(lot)
+    territories = sorted(territories.values(), key=lambda ls: -sum(lot["parcel_units"] for lot in ls))
+    crewed.sort(key=lambda t: -CAPACITY[t["type"]])
+    lot_of = {a["id"]: a["lot"] for a in me["addresses"]}
     plans = {}
-    for truck in trucks:
-        mine = [s for s in segments.values() if set(s["pending"]) & set(truck["carrying"])]
+    for truck, lots in zip(crewed, territories):
+        room, load = CAPACITY[truck["type"]], []
+        for lot in lots:
+            if lot["parcel_units"] <= room:
+                room -= lot["parcel_units"]
+                load.append(lot["id"])
+        mine = [s for s in me["segments"] if any(lot_of.get(a) in load for a in s["pending"])]
         here, route = (0.0, 0.0), []
         while mine:
             nxt = min(mine, key=lambda s: abs(s["pos"][0] - here[0]) + abs(s["pos"][1] - here[1]))
             mine.remove(nxt)
             route.append(nxt["id"])
             here = nxt["pos"]
-        if route:
-            plans[truck["id"]] = {"route": route, "wait_cap": 15}
+        if load:
+            plans[truck["id"]] = {"load": load, "route": route, "wait_cap": 15}
     return {"trucks": plans}
 ```
 
