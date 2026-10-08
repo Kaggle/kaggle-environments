@@ -388,6 +388,32 @@ class PtrsReadingsConfig(BaseModel):
     noise_multipliers: list[float]
     # Normalisation cap for sample count in observation
     max_sample_obs: int
+    # Per-episode redraw of the hidden true PTRS. The asset files ship with the
+    # package, so their ptrs can't be the truth. In logit space:
+    # true = mean + sd * (rho * z + sqrt(1 - rho²) * eps), z = file value
+    # standardised per phase. rho = 1 keeps the file value; 0 ignores it.
+    true_ptrs_rho: float = 1.0
+    # Per-phase (Phase 1..3) logit mean / sd of the true-PTRS population.
+    true_ptrs_logit_mean: list[float] = []
+    true_ptrs_logit_sd: list[float] = []
+
+    @model_validator(mode="after")
+    def validate_true_ptrs_resampling(self) -> "PtrsReadingsConfig":
+        """Resampling needs a mean and positive sd for every non-approval phase."""
+        if not 0.0 <= self.true_ptrs_rho <= 1.0:
+            raise ValueError(
+                f"true_ptrs_rho must be in [0, 1], got {self.true_ptrs_rho}"
+            )
+        if self.true_ptrs_rho < 1.0 and (
+            len(self.true_ptrs_logit_mean) < 3
+            or len(self.true_ptrs_logit_sd) < 3
+            or min(self.true_ptrs_logit_sd) <= 0.0
+        ):
+            raise ValueError(
+                "true_ptrs_rho < 1 needs 3 true_ptrs_logit_mean and 3 positive "
+                "true_ptrs_logit_sd values"
+            )
+        return self
 
     def reading_base_cost(self, trial_cost_remaining: float) -> float:
         """

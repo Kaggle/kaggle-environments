@@ -1,5 +1,6 @@
 import copy
 import logging
+import math
 import random
 import uuid
 import warnings
@@ -9,6 +10,8 @@ from typing import Literal, Optional
 
 import numpy as np
 import upath
+from scipy.special import expit
+from scipy.special import logit as logit_fn
 from scipy.stats import beta as beta_dist
 
 from pyxis_portfolio_challenge.config import (
@@ -26,7 +29,7 @@ from pyxis_portfolio_challenge.game.trial import (
     TrialState,
     trials_json_to_trials_sequence,
 )
-from pyxis_portfolio_challenge.rng import get_game_rng
+from pyxis_portfolio_challenge.rng import get_game_rng, get_game_seed
 
 logger = logging.getLogger(__name__)
 
@@ -256,6 +259,28 @@ def apply_uncertain_ptrs_to_trial_chain(
         )
 
 
+def resample_true_ptrs(asset: "DrugAsset", cfg: PtrsReadingsConfig) -> None:
+    """
+    Redraw each pending trial's PTRS for this episode, before it becomes the truth.
+
+    The asset files ship publicly, so an agent could look an asset up by its
+    revenue and costs and read the file PTRS. Draws are keyed on the hidden
+    episode seed and the asset id, so they are reproducible per seed and leave
+    the game RNG stream untouched.
+    """
+    rho = cfg.true_ptrs_rho
+    if rho >= 1.0:
+        return
+    rng = random.Random(f"true_ptrs:{get_game_seed()}:{asset.id}")
+    for trial in asset.pending_trial_chain:
+        mean = cfg.true_ptrs_logit_mean[trial.phase.integer]
+        sd = cfg.true_ptrs_logit_sd[trial.phase.integer]
+        z = (float(logit_fn(trial.ptrs)) - mean) / sd if rho > 0.0 else 0.0
+        eps = rng.gauss(0.0, 1.0)
+        x = mean + sd * (rho * z + math.sqrt(1 - rho * rho) * eps)
+        trial.ptrs = float(expit(x))
+
+
 def apply_ptrs_readings_to_trial_chain(
     asset: "DrugAsset",
     ptrs_readings_config: PtrsReadingsConfig,
@@ -270,6 +295,8 @@ def apply_ptrs_readings_to_trial_chain(
     """
     chain = asset.pending_trial_chain  # excludes APPROVAL
     cfg = ptrs_readings_config
+
+    resample_true_ptrs(asset, cfg)
 
     # Store true PTRS on every pending trial in the chain
     for trial in chain:

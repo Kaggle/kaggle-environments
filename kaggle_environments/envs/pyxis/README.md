@@ -23,7 +23,7 @@ You can play against an AI opponent at [gsk.ai/pyxis-portfolio-challenge](https:
 - Approval takes 1-3 steps, succeeds 85-95% of the time, and costs a £50M filing fee
 - On-market assets earn revenue until patent expiry
 - Investing starts an Idle asset's next phase. Idle assets cost nothing
-- PTRS is hidden. Each asset arrives with one free noisy reading, and the observation shows that estimate; trial outcomes roll against the true value. More readings can be bought (see [PTRS Readings](#ptrs-readings))
+- PTRS is hidden. Each asset arrives with one free noisy reading, and the observation shows that estimate; trial outcomes roll against the true value. The true value is redrawn each episode, so the bundled asset files don't reveal it. More readings can be bought (see [PTRS Readings](#ptrs-readings))
 
 ## Shared Market
 

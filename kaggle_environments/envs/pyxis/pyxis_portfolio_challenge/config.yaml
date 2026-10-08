@@ -283,6 +283,12 @@ ptrs_readings:
   sigma_ep: null                   # episode-level noise; null falls back to sigma_logit_base
   noise_multipliers: [1.0, 1.5, 2.0]   # phase distances 0, 1, 2
   max_sample_obs: 20
+  # True PTRS is redrawn each episode (keyed on the hidden seed) from the
+  # per-phase logit population of the evaluation pool, so the shipped asset
+  # files reveal nothing. 0 = ignore the file value, 1 = use it as the truth.
+  true_ptrs_rho: 0.0
+  true_ptrs_logit_mean: [0.881, -0.195, 0.800]   # Phase 1, 2, 3
+  true_ptrs_logit_sd: [0.262, 0.176, 0.244]
 
 # Interim trial observations feature - noisy signals during trials enable early stopping
 interim_trial_observations:

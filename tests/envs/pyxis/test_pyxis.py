@@ -182,6 +182,36 @@ def test_pyxis_trial_outcome_rolls_against_true_ptrs():
     assert trial(observed=1.0, true=None).success()
 
 
+def test_pyxis_true_ptrs_not_in_asset_files():
+    """The shipped asset files must not reveal the true PTRS; redraws repeat per seed."""
+    import glob
+    import json
+    import os
+
+    from kaggle_environments.envs.pyxis import pyxis
+
+    file_ptrs = {}
+    for f in glob.glob(os.path.join(pyxis._DIR, "rl-environment-assets", "*", "*", "*", "*.json")):
+        a = json.load(open(f))
+        file_ptrs[a["name"]] = [a["trials"][p]["ptrs"] for p in ("phase_1", "phase_2", "phase_3")]
+
+    def truths(seed):
+        env = make("pyxis", configuration={"seed": seed, "episodeSteps": 2})
+        env.reset()
+        game = pyxis._LIVE.pop(env.id)["env"].multi_agent_game
+        assets = [a for gs in game.agent_states.values() for a in gs.assets.values()]
+        assets += game.shared_market.current_bd_assets
+        return {
+            (str(a.id), t.phase.integer): (a.name.removeprefix("BD-"), t._true_ptrs)
+            for a in assets
+            for t in a.pending_trial_chain
+        }
+
+    first = truths(7)
+    assert first and first == truths(7)
+    assert not any(file_ptrs[name][phase] == true for (_, phase), (name, true) in first.items())
+
+
 def test_pyxis_brand_equity_only_on_market():
     """Brand equity is masked, and so forfeits, on drugs not yet launched."""
     from kaggle_environments.envs.pyxis import pyxis
