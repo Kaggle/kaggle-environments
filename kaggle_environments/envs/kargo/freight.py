@@ -8,16 +8,25 @@ import math
 
 from .constants import (
     ARTERIAL_KMH,
+    BULK_DOCK_SHARE,
+    BULK_DOCK_STARTS,
+    BULK_DOCK_WIDTH,
+    BULK_MINUTES_PER_UNIT,
+    BULK_STOP_MINUTES,
+    BULK_UNITS_PER_PACKAGE,
     DEADLINE_MINUTES,
     DISTRICTS,
     DOCK_GRACE_MINUTES,
     DOCK_GRACE_SHARE,
     FAIL_PENALTY,
     FIXED_COST_DAY,
+    FUEL_PRICE_BULK,
     GRID_DETOUR,
     LATE_PENALTY,
     LOAD_MINUTES,
+    LOCAL_SPEED_KMH,
     OVERHEAD_COST_DAY,
+    PARK_MINUTES,
     PROMISED_PREMIUM,
     PROMISED_WIDTH,
     ROUTE_SLACK,
@@ -162,6 +171,31 @@ def solve_reserve(district, truck_day, deadhead_minutes):
     return max(1.0, cost + TARGET_NET_PER_TRUCK_DAY - premium)
 
 
+def solve_bulk(packages, stops, deadhead_minutes, area):
+    """Truck-days, `E[cost]` and base price of one bulk lot on a `BOX`.
+
+    Load, deadhead both ways, the dock stops and the drive between them. The
+    base price nets $220 per truck-day after the `BOX`'s own costs.
+    """
+    units = packages * BULK_UNITS_PER_PACKAGE
+    drive_km = _tour_km(stops, area) * ROUTE_SLACK
+    unload = stops * BULK_STOP_MINUTES + units * BULK_MINUTES_PER_UNIT
+    local = drive_km * GRID_DETOUR / LOCAL_SPEED_KMH * 60.0 + stops * PARK_MINUTES
+    minutes = LOAD_MINUTES + 2 * deadhead_minutes + unload + local
+    truck_days = minutes / SHIFT_MINUTES
+    straight = min(minutes, SHIFT_MINUTES)
+    overtime = max(0.0, minutes - SHIFT_MINUTES)
+    wages = straight * WAGE_PER_MINUTE + overtime * WAGE_PER_MINUTE * 1.5
+    box, van = VEHICLES["BOX"], VEHICLES["VAN"]
+    km = drive_km * GRID_DETOUR + 2 * deadhead_minutes / 60.0 * ARTERIAL_KMH
+    fuel = 2 * deadhead_minutes * box["fuel_per_min"] * FUEL_PRICE_BULK
+    maintenance = km * box["service_cost"] / SERVICE_INTERVAL_KM
+    fails = packages * 0.025 * FAIL_PENALTY
+    fixed = (box["own_day"] + OVERHEAD_COST_DAY + box["depreciation_day"] - van["depreciation_day"]) * truck_days
+    cost = wages + fuel + maintenance + fails + fixed
+    return truck_days, cost, cost + TARGET_NET_PER_TRUCK_DAY * truck_days
+
+
 class LotBoard:
     """Per-territory lot sizes and base prices, solved against the drawn map.
 
@@ -189,6 +223,12 @@ class LotBoard:
                 self.costs[(wid, district)] = self.reserves[(wid, district)] - TARGET_NET_PER_TRUCK_DAY
         self._next_lot = 0
         self._next_account = 0
+        self._next_bulk = 0
+
+    def bulk_terms(self, wid, district, packages, stops):
+        """`(truck_days, cost, base price)` of a bulk lot on this pair."""
+        pair = (wid, district)
+        return solve_bulk(packages, stops, self.deadheads[pair], self.truck_days[pair]["area"])
 
     def _anchor(self, wnode, district, rng):
         """Anchor drawn from the six district nodes nearest the dock."""
@@ -230,7 +270,37 @@ class LotBoard:
             "reserve": round(reserve, 2),
             "kind": "SPOT",
             "retry": 0,
+            "bulk": False,
             "_cost": round(self.costs[(wid, district)] * fraction, 2),
+        }
+
+    def _bulk_listing(self, wid, district, packages, stops, reserve, rng):
+        truck_days, cost, _base = self.bulk_terms(wid, district, packages, stops)
+        dock_stops = sum(1 for _ in range(stops) if rng.random() < BULK_DOCK_SHARE)
+        lot_id = f"bulk_{self._next_bulk}"
+        self._next_bulk += 1
+        return {
+            "id": lot_id,
+            "warehouse": wid,
+            "district": district,
+            "packages": packages,
+            "stops": stops,
+            "truck_days": round(truck_days, 3),
+            "anchor": self.anchors[(wid, district)],
+            "area": round(self.truck_days[(wid, district)]["area"], 4),
+            "parcel_units": round(packages * BULK_UNITS_PER_PACKAGE, 1),
+            "deadline": DEADLINE_MINUTES,
+            "payout_per_package": round(reserve / packages, 2),
+            "late_penalty": LATE_PENALTY,
+            "fail_penalty": FAIL_PENALTY,
+            "dock_packages": int(round(packages * dock_stops / stops)),
+            "promised_packages": 0,
+            "reserve": round(reserve, 2),
+            "kind": "SPOT",
+            "retry": 0,
+            "bulk": True,
+            "_cost": round(cost, 2),
+            "_dock_stops": dock_stops,
         }
 
 
@@ -293,6 +363,46 @@ def draw_manifest(lot, city, rng):
         segments.append({"id": seg_id, "node": anchor, "pos": pos, "addresses": doors, "district": district})
     if remaining_pkgs > 0 and addresses:
         addresses[-1]["packages"] += remaining_pkgs
+    return {"segments": segments, "addresses": addresses}
+
+
+def draw_bulk_manifest(lot, city, rng):
+    """A bulk lot's dock stops: one door per block face, unloading by the unit."""
+    district = lot["district"]
+    stops = max(1, min(lot["stops"], lot["packages"]))
+    anchor = lot.get("anchor", (city.district_nodes[district] or [0])[0])
+    side = math.sqrt(max(lot.get("area", 0.0), 1e-4))
+    shares = [rng.uniform(0.5, 1.5) for _ in range(stops)]
+    counts = [max(1, int(lot["packages"] * x / sum(shares))) for x in shares]
+    counts[-1] += lot["packages"] - sum(counts)
+    docks = set(rng.sample(range(stops), min(stops, lot.get("_dock_stops", 0))))
+    segments, addresses = [], []
+    for s, pkgs in enumerate(counts):
+        seg_id = f"{lot['id']}_seg_{s}"
+        kind, window = None, None
+        if s in docks:
+            kind = "DOCK"
+            start = rng.randrange(0, BULK_DOCK_STARTS // WINDOW_GRANULARITY + 1) * WINDOW_GRANULARITY
+            window = [start, start + BULK_DOCK_WIDTH]
+        minutes = BULK_STOP_MINUTES + pkgs * BULK_UNITS_PER_PACKAGE * BULK_MINUTES_PER_UNIT
+        addr = {
+            "id": f"{lot['id']}_a_{s}",
+            "segment": seg_id,
+            "node": anchor,
+            "t": 0.5,
+            "packages": pkgs,
+            "units": BULK_UNITS_PER_PACKAGE,
+            "service": round(minutes * rng.uniform(0.8, 1.2), 2),
+            "window": window,
+            "window_kind": kind,
+            "lot": lot["id"],
+        }
+        if kind == "DOCK":
+            late_ok = rng.random() < DOCK_GRACE_SHARE
+            addr["_grace"] = round(rng.uniform(*DOCK_GRACE_MINUTES), 1) if late_ok else 0.0
+        pos = [round(rng.uniform(0, side), 4), round(rng.uniform(0, side), 4)]
+        addresses.append(addr)
+        segments.append({"id": seg_id, "node": anchor, "pos": pos, "addresses": [addr["id"]], "district": district})
     return {"segments": segments, "addresses": addresses}
 
 

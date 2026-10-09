@@ -285,7 +285,7 @@ function lotBoard(view: View): string {
               ? '<span class="muted">no capacity</span>'
               : '<span class="muted">over reserve</span>';
       return `<tr>
-        <td>${esc(l.id)}${l.kind === 'STANDING' ? ' <span class="tag">standing</span>' : ''}</td>
+        <td>${esc(l.id)}${l.kind === 'STANDING' ? ' <span class="tag">standing</span>' : ''}${l.bulk ? ' <span class="tag bulk">bulk</span>' : ''}</td>
         <td>${esc(l.district.replace(/_/g, ' ').toLowerCase())} <em>${esc(l.warehouse)}</em></td>
         <td class="num">${l.packages}</td>
         <td class="num">${l.truck_days.toFixed(2)}</td>

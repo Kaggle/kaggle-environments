@@ -5,10 +5,10 @@ import incident_accident from './assets/sprites/incident_accident.png';
 import incident_closure from './assets/sprites/incident_closure.png';
 import incident_construction from './assets/sprites/incident_construction.png';
 import incident_unreported from './assets/sprites/incident_unreported.png';
-import step_p1 from './assets/sprites/step_p1.png';
-import step_p2 from './assets/sprites/step_p2.png';
-import step_p3 from './assets/sprites/step_p3.png';
-import step_p4 from './assets/sprites/step_p4.png';
+import boxtruck_p1 from './assets/sprites/boxtruck_p1.png';
+import boxtruck_p2 from './assets/sprites/boxtruck_p2.png';
+import boxtruck_p3 from './assets/sprites/boxtruck_p3.png';
+import boxtruck_p4 from './assets/sprites/boxtruck_p4.png';
 import stop_kerb from './assets/sprites/stop_kerb.png';
 import truck_disabled from './assets/sprites/truck_disabled.png';
 import truck_ordered from './assets/sprites/truck_ordered.png';
@@ -30,10 +30,10 @@ const SPRITE_URLS: Record<string, string> = {
   incident_closure,
   incident_construction,
   incident_unreported,
-  step_p1,
-  step_p2,
-  step_p3,
-  step_p4,
+  boxtruck_p1,
+  boxtruck_p2,
+  boxtruck_p3,
+  boxtruck_p4,
   stop_kerb,
   truck_disabled,
   truck_ordered,
@@ -56,7 +56,7 @@ export function spriteSrc(name: string): string {
  * past that wraps rather than resolving to a missing file and drawing nothing:
  * a wrong-coloured truck is a smaller lie than an invisible one. */
 export function truckSprite(type: string, player: number): string {
-  const kind = type === 'STEP' ? 'step' : 'van';
+  const kind = type === 'BOX' ? 'boxtruck' : 'van';
   return spriteSrc(`${kind}_p${(player % 4) + 1}`);
 }
 

@@ -6,7 +6,7 @@ A last-mile delivery business sim for 2 or 4 players. Players bid nightly for a 
 
 Each night players bid in a sealed-bid reverse auction for delivery lots. A listing gives the origin warehouse, destination district and territory, package count and penalties, but not the addresses, their service times, or their delivery windows. Those arrive at 08:00 with the manifest. Each day players load their lots onto trucks, route the trucks, and may abandon freight.
 
-All freight comes from one external shipper whose demand grows over the episode along an undisclosed path. Its prices rise when demand exceeds the field's capacity and fall when capacity exceeds demand.
+All freight comes from one external shipper whose demand grows over the episode along an undisclosed path. Its prices rise when demand exceeds the field's capacity and fall when capacity exceeds demand. Bulk freight, which only a `BOX` can carry, runs on its own demand path and price index.
 
 The episode is **60 days**. Each day opens with 3 overnight steps and then runs 5 driving blocks, for **480 turns** after the initial state. Score is net worth at the end.
 
@@ -195,9 +195,9 @@ A listing's `dock_packages` and `promised_packages` are drawn per package (comme
 | Type | Capacity (parcel-units) | Buy | Rent/day | Own/day | Depreciation/day | Fuel (units per arterial min) | Tank | Service |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | `VAN` | 200 | $38,000 | $170 | $60 | $11 | 1.0 | 640 | $100 |
-| `STEP` | 340 | $62,000 | $270 | $92 | $18 | 1.6 | 1,000 | $140 |
+| `BOX` | 340 | $62,000 | $270 | $92 | $18 | 1.6 | 1,000 | $140 |
 
-A lot is 0.15-0.70 of a truck-day, and the freight on a truck at any moment is from one `(warehouse, district)` pair. A full truck-day on any pair is at most ~196 parcel-units (`INDUSTRIAL` bulk is 1.5 units a package, `SUBURBS_N/S` 1.3, `MIDTOWN` 1.1).
+A parcel lot is 0.15-0.70 of a truck-day, and the freight on a truck at any moment is from one `(warehouse, district)` pair. A full parcel truck-day on any pair is at most ~196 parcel-units (`INDUSTRIAL` parcels are 1.5 units a package, `SUBURBS_N/S` 1.3, `MIDTOWN` 1.1), so parcel freight fits a `VAN`. A bulk lot is 220-330 parcel-units and fits only a `BOX` (see Bulk freight).
 
 **Own, finance, or rent.**
 
@@ -297,10 +297,50 @@ index   = exp(market + deviation), clamped to 0.5-3.0
 
 The base price is the pair's solved price (see Base prices).
 
-- **Market level.** Each night it moves toward `elasticity x ln(demand / (supply x throughput))` at `speed`, plus noise. `supply` comes from the public roster: per player, trucks that have arrived and are not grounded, capped by the number of drivers. Hidden draws: throughput 0.30-0.42, elasticity 0.50-0.90, speed 0.15-0.35.
+- **Market level.** Each night it moves toward `elasticity x ln(demand / (supply x throughput))` at `speed`, plus noise. `supply` comes from the public roster: per player, trucks that have arrived and are not grounded, capped by the number of drivers; summed over the field, less `min(BOX supply, truck-days of tonight's bulk listings)` (see Bulk freight). Hidden draws: throughput 0.30-0.42, elasticity 0.50-0.90, speed 0.15-0.35.
 - **Territory deviation.** Rises with the share of the pair's last-posted packages that went unserved (rate 0.08-0.16). Falls when several carriers bid under its reserve while the market as a whole had slack (rate 0.15-0.35). Each night it is pulled 10-30% back toward zero, and it is capped at ±0.5.
 
 **Retries.** A package that goes unsold (no award) or undelivered (failed, refused, abandoned, or never loaded) is posted again the next night. It comes back as a `SPOT` lot of the remaining packages, with `retry` counting up and the reserve marked up 6-18% per retry. Each fresh lot carries a hidden patience of 1 to 2-5 retries. Past it, the packages are lost and the pair's demand weight drops 4-10%. An unsold standing account comes back the same way.
+
+### Bulk freight
+
+Bulk lots are palletised freight from a warehouse to `INDUSTRIAL`, `MIDTOWN` and `DOWNTOWN` territories, on the same `(warehouse, district)` pairs and anchors as parcels. A listing is flagged `bulk: true` and goes through the same auction under the same per-player limits. Bulk is spot only; it never posts as a standing account.
+
+| | Bulk lot |
+|---|---|
+| Size | 55-82 packages at 4 parcel-units each: 220-328 units |
+| Truck | **a bulk lot needs a `BOX`**, whatever its size. In the auction, a territory holding a bulk lot must be matched to one of the player's `BOX` decks; `load` onto a `VAN` is refused (`NOT_BOX`) |
+| Stops | 2-6, one door per block face, drawn inside the pair's territory |
+| Unloading | 12 min per stop plus 0.45 min per parcel-unit, x U(0.8, 1.2) true, x the driver's service multiplier |
+| Windows | about 60% of stops carry a 180-minute `DOCK` appointment opening on the half hour between 08:00 and 12:00, with the usual hidden grace; no `PROMISED` windows |
+| `truck_days` | load, deadhead both ways, unloading and the drive between stops, over 480 minutes: 0.37-0.75 |
+
+**Demand.** Fresh `BOX` truck-days posted per night, on its own hidden path:
+
+```
+bulk demand = starting BOX trucks in the field x trend(day) x weekday x exp(noise)
+```
+
+| Factor | Draw |
+|---|---|
+| `lo`, `hi` | 0.40-0.60 and 1.00-1.60 `BOX` truck-days per starting `BOX` |
+| `mid`, `k` | 30-65% of the way through the episode; 0.10-0.25 per day |
+| weekday | Mon-Sun around 1.15, 1.15, 1.10, 1.10, 1.15, 0.60, 0.30, jittered ±10% |
+| noise | AR(1), ρ 0.60, σ 0.10 |
+
+Lots land on pairs drawn by a demand weight per pair: `INDUSTRIAL` 60%, `MIDTOWN` 25%, `DOWNTOWN` 15% of demand, spread per pair. At most 40 bulk listings a night; retries take places first.
+
+**Price.**
+
+```
+reserve = bulk base price x bulk index x (1 + markup)^retry x U(0.96, 1.04)
+bulk index = exp(market + deviation), clamped to 0.5-2.0
+```
+
+- **Market level.** Moves toward `elasticity x ln(bulk demand / (BOX supply x throughput))` at `speed`, plus noise. `BOX supply` is, per player, `BOX` trucks that have arrived and are not grounded, capped by the number of drivers. Hidden draws: throughput 0.45-0.65, elasticity 0.60-1.00, speed 0.25-0.45.
+- **Territory deviation.** As for parcels, but it rises faster with the unserved share (rate 0.20-0.35).
+
+**Retries.** Unserved or undelivered bulk comes back like parcels, with a hidden patience of 5-8 retries and a markup of 3-7% per retry. A retry carries only the packages still undelivered, so a partly delivered lot can come back under 220 units; it is still a bulk lot and still needs a `BOX`.
 
 ### Where a truck starts the day
 
@@ -327,6 +367,7 @@ A load is refused, with a private `LOAD_REFUSED` event giving the reason, if:
 |---|---|
 | `NO_DRIVER` | the truck has no driver |
 | `NOT_AT_DOCK` | the lot is not waiting at its warehouse (unknown, already loaded, or written off) |
+| `NOT_BOX` | the lot is bulk and the truck is not a `BOX` |
 | `PAIR` | the truck carries freight from a different `(warehouse, district)` pair |
 | `CAPACITY` | the lot's parcel-units do not fit the deck space left |
 | `UNREACHABLE` | no open path reaches the warehouse |
@@ -336,7 +377,7 @@ A successful load raises `LOADED`. A truck that has delivered or written off eve
 
 ### What a lot listing discloses
 
-**Disclosed:** `id`, `kind` (`SPOT` / `STANDING`), `warehouse`, `district`, `anchor` node, `packages`, `stops`, `truck_days`, territory `area` (km²), `parcel_units`, `deadline` (480 = 16:00), `payout_per_package` at reserve, `late_penalty` ($6), `fail_penalty` ($45), `dock_packages`, `promised_packages`, `reserve`, `retry` (0 for fresh freight). Standing accounts add `term_options`.
+**Disclosed:** `id`, `kind` (`SPOT` / `STANDING`), `warehouse`, `district`, `anchor` node, `packages`, `stops`, `truck_days`, territory `area` (km²), `parcel_units`, `deadline` (480 = 16:00), `payout_per_package` at reserve, `late_penalty` ($6), `fail_penalty` ($45), `dock_packages`, `promised_packages`, `reserve`, `retry` (0 for fresh freight), `bulk`. Standing accounts add `term_options`.
 
 **Not disclosed:** the individual addresses, their positions, their service times, or when any window falls. Those arrive in the private manifest at 08:00. Each address's `service_estimate` is its true service time x U(0.7, 1.3), redrawn in every observation.
 
@@ -352,7 +393,7 @@ Bids beyond a player's limits carry no penalty. A player who bids on more lots t
 
 - at most 1.00 truck-day per `(warehouse, district)` pair
 - no more pairs than trucks
-- each pair's parcel-units fit a distinct truck's deck
+- each pair's parcel-units fit a distinct truck's deck, and a pair holding a bulk lot gets a `BOX`
 
 Tonight's standing-account wins count against these, and so do tomorrow's lots from accounts already held.
 
@@ -394,6 +435,7 @@ In block 0 (08:00-10:00) a top-level `abandon` list writes off held freight befo
 | `MIDTOWN` | 1.1 | $16.50 | $45 |
 | `SUBURBS_N/S` | 1.3 | $19.50 | $45 |
 | `INDUSTRIAL` | 1.5 | $22.50 | $45 |
+| bulk | 4.0 | $60.00 | $45 |
 
 There is no brokerage and no player-to-player resale.
 
@@ -444,7 +486,7 @@ Route mechanics:
 ### `CAPEX`
 
 ```json
-{ "fleet": [["BUY", "VAN"], ["FINANCE", "STEP"], ["BUY_USED", "used_3_0"],
+{ "fleet": [["BUY", "VAN"], ["FINANCE", "BOX"], ["BUY_USED", "used_3_0"],
             ["RENT", "VAN"], ["SELL", "T3"], ["RETURN_RENTAL", "T5"],
             ["SERVICE", "T1"], ["BREAK", "acct_1"]],
   "fuel":  [["BULK_REFUEL", "T1"]],
@@ -528,7 +570,7 @@ reward = cash + fleet book value - outstanding principal - credit-line debt
 
 Assigned at the final step, after day 59's 18:00 close; rewards are 0 before that.
 
-**Owned and financed trucks are marked at book value**, not at what a buyer would pay: purchase price (the new price, or the used listing's price) less depreciation per day owned ($11 `VAN`, $18 `STEP`), floored at 25% of new. Rented trucks are not assets and add nothing. The sale haircut applies only on `SELL`.
+**Owned and financed trucks are marked at book value**, not at what a buyer would pay: purchase price (the new price, or the used listing's price) less depreciation per day owned ($11 `VAN`, $18 `BOX`), floored at 25% of new. Rented trucks are not assets and add nothing. The sale haircut applies only on `SELL`.
 
 At the 18:00 close the engine settles, in order:
 
@@ -540,7 +582,7 @@ There is no bankruptcy elimination. The episode always runs its full 60 days. Pl
 
 ## Starting position
 
-$12,000 cash and 3 owned trucks -- `VAN`, `VAN`, `STEP` -- at `wh_0`, `wh_1`, `wh_2`. Each has a driver of middling quality at $240/day. Starting net worth is $150,000.
+$12,000 cash and 3 owned trucks -- `VAN`, `VAN`, `BOX` -- at `wh_0`, `wh_1`, `wh_2`. Each has a driver of middling quality at $240/day. Starting net worth is $150,000.
 
 The -$20,000 cash floor blocks `BUY` of either type on night 1. `FINANCE` of a `VAN` costs $7,600 down.
 
@@ -558,13 +600,21 @@ Each pair's base price is solved at init for a $220 net margin per full truck-da
 
 `E[cost]` is wages $217-232, fuel $2-4, fixed $60, overhead $55, maintenance accrual $4-8 (priced per km at the `VAN` service cost), and expected failures $58-200 (2.5% of packages at $45). `E[premium]` is the expected `PROMISED` window premium. Because the city is drawn per episode, these figures differ by episode.
 
+A bulk lot's base price is solved per lot for a $220 net margin per truck-day on a `BOX` at bulk index 1.0. Its `E[cost]` is wages for its minutes, fuel over the deadhead at the `BOX` rate, maintenance at the `BOX` service cost, expected failures (2.5% of packages at $45), and `(BOX own $92 + overhead $55 + $7 depreciation over a VAN) x truck_days`. At the median near-dock deadhead:
+
+| District | Units | Stops | `truck_days` | E[cost] | Base price | Payout/pkg |
+|---|---:|---:|---:|---:|---:|---:|
+| `INDUSTRIAL` | 220 / 276 / 328 | 2 / 4 / 6 | 0.38 / 0.49 / 0.60 | $225 / $286 / $343 | $309 / $394 / $475 | $5.62-5.79 |
+| `MIDTOWN` | 220 / 276 / 328 | 2 / 4 / 6 | 0.37 / 0.48 / 0.58 | $215 / $275 / $332 | $297 / $380 / $460 | $5.39-5.61 |
+| `DOWNTOWN` | 220 / 276 / 328 | 2 / 4 / 6 | 0.39 / 0.50 / 0.60 | $236 / $295 / $350 | $321 / $403 / $482 | $5.84-5.88 |
+
 ## Built-in agents
 
 | Agent | Behaviour |
 |---|---|
 | `idle` | returns `{}` every step |
-| `random` | bids on ~30% of spot lots at 0.80-1.00x reserve; each block, loads one random waiting lot onto each empty truck and sends it up to 12 of that lot's segments in random order |
-| `greedy` | bids at reserve across up to 2x its crewed trucks in pairs, within 1.00 truck-day per pair, its crewed trucks' total truck-days, and its decks. Each block, loads waiting lots onto empty, crewed trucks: territories by parcel-units, largest first, each onto a truck already given that pair, otherwise the smallest deck that holds the whole pair, then one at the warehouse, then the earliest clock, within 1.00 truck-day per truck. Routes segments bucketed by window close, nearest-neighbour within a bucket. Refuels below 300 units, services when due, and hires the best-résumé candidate at 1.10x ask when short of drivers |
+| `random` | bids on ~30% of parcel spot lots at 0.80-1.00x reserve; each block, loads one random waiting lot onto each empty truck and sends it up to 12 of that lot's segments in random order |
+| `greedy` | with a crewed `BOX`, bids every bulk lot at reserve. Its vans bid parcels at reserve across up to 2x its crewed vans in pairs, within 1.00 truck-day per pair, its crewed vans' total truck-days, and their decks. Each block, loads waiting lots onto empty, crewed trucks: territories by parcel-units, largest first, each onto a truck already given that pair, otherwise the smallest deck that holds the whole pair, then one at the warehouse, then the earliest clock, within 1.00 truck-day per truck. Routes segments bucketed by window close, nearest-neighbour within a bucket. Refuels below 300 units, services when due, and hires the best-résumé candidate at 1.10x ask when short of drivers |
 
 ## Configuration
 
@@ -574,7 +624,7 @@ Each pair's base price is solved at init for a $220 net margin per full truck-da
 | `agents` | 2 or 4 | shared city, separate fleets |
 | `truckPcu` | `low` | player-truck congestion weight: `low` 1, `medium` 3, `high` 8 |
 | `startingCash` | 12000 | |
-| `startingTrucks` | 3 | taken in order from `VAN`, `VAN`, `STEP`, repeating |
+| `startingTrucks` | 3 | taken in order from `VAN`, `VAN`, `BOX`, repeating |
 | `seed` | null | episode seed; scrubbed from the configuration and stored in `env.info['seed']` |
 | `actTimeout` | 3 | seconds per turn, plus a 120 s overage bank |
 | `runTimeout` | 9600 | seconds per episode |

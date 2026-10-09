@@ -199,7 +199,7 @@ VEHICLES = {
         "service_cost": 100,
         "tank": 640,
     },
-    "STEP": {
+    "BOX": {
         "capacity": 340,
         "buy": 62000,
         "rent_day": 270,
@@ -287,7 +287,7 @@ STANDING_SHARE = 1.0 / 3.0
 STARTING_CASH = 12000.0
 STARTING_TRUCKS = 3
 STARTING_VEHICLE = "VAN"
-STARTING_FLEET = ("VAN", "VAN", "STEP")
+STARTING_FLEET = ("VAN", "VAN", "BOX")
 MAX_FLEET = 20  # trucks per player, ordered rentals included
 SIGHTINGS_KEPT = 50
 ROUTE_SHOWN = 50  # route entries republished per truck per step
@@ -348,3 +348,38 @@ RETRY_MARKUP = (0.06, 0.18)
 PATIENCE_MAX = (2, 5)
 REPUTATION_HIT = (0.04, 0.10)
 MAX_LISTINGS = 160
+
+# --- Bulk freight (shipper.py) ----------------------------------------------
+#
+# Palletised freight that only a BOX deck holds, on its own demand path and
+# price index. Ranges are drawn once per episode and never published.
+
+BULK_DISTRICTS = {"INDUSTRIAL": 0.60, "MIDTOWN": 0.25, "DOWNTOWN": 0.15}  # share of bulk demand
+BULK_UNITS = (220, 330)  # parcel-units per lot
+BULK_STOPS = (2, 6)  # dock stops per lot
+BULK_UNITS_PER_PACKAGE = 4.0
+BULK_STOP_MINUTES = 12.0  # per stop, before unloading
+BULK_MINUTES_PER_UNIT = 0.45  # unloading
+BULK_DOCK_SHARE = 0.6  # stops with a receiving appointment
+BULK_DOCK_WIDTH = 180
+BULK_DOCK_STARTS = 240  # appointments open between 08:00 and 12:00
+BULK_MAX_LISTINGS = 40
+# Fresh bulk demand in BOX truck-days per starting BOX in the field.
+BULK_DEMAND_START = (0.40, 0.60)
+BULK_DEMAND_CEILING = (1.00, 1.60)
+BULK_DEMAND_MIDPOINT = (0.30, 0.65)
+BULK_DEMAND_STEEPNESS = (0.10, 0.25)
+BULK_DEMAND_WEEK = [1.15, 1.15, 1.10, 1.10, 1.15, 0.60, 0.30]
+BULK_DEMAND_AR1 = (0.60, 0.10)
+BULK_PAIR_WEIGHT_SPREAD = 0.6
+# Price: the bulk market level chases ELASTICITY x log(bulk demand / BOXes
+# that can roll x THROUGHPUT); each bulk territory deviates on its own
+# unserved share, faster than parcels.
+BULK_THROUGHPUT = (0.45, 0.65)
+BULK_ELASTICITY = (0.60, 1.00)
+BULK_SPEED = (0.25, 0.45)
+BULK_INDEX_UP = (0.20, 0.35)
+BULK_INDEX_RANGE = (0.5, 2.0)
+# Unserved bulk keeps coming back longer than parcels.
+BULK_RETRY_MARKUP = (0.03, 0.07)
+BULK_PATIENCE = (5, 8)
