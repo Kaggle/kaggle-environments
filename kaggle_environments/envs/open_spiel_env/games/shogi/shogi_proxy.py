@@ -142,6 +142,12 @@ class ShogiState(proxy.State):
             clone.apply_action(action)
         last_move = move_history[-1] if move_history else None
 
+        # Whether the side to move is in check. SFEN does not encode this and
+        # recomputing it needs full attack generation, so take the engine's
+        # own answer (``ShogiState::InCheck``, shogi.h:138) rather than
+        # re-deriving it downstream.
+        in_check = bool(self.__wrapped__.in_check())
+
         return {
             "board": parsed["board"],
             "current_player": _player_string(self.current_player()),
@@ -150,6 +156,7 @@ class ShogiState(proxy.State):
             "captured": parsed["captured"],
             "move_number": parsed["move_number"],
             "last_move": last_move,
+            "in_check": in_check,
             "move_history": move_history,
             "sfen": parsed["sfen"],
         }

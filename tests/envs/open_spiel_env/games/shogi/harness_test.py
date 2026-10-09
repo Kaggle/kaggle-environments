@@ -1,6 +1,7 @@
 """Tests for the Shogi LLM harness."""
 
 import json
+import random
 from unittest.mock import MagicMock, patch
 
 import pyspiel
@@ -109,6 +110,96 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response(response, self.legal)
         self.assertIsNone(result.legal_action)
         self.assertEqual(result.raw_action, "z9z9")
+
+
+class NotationToleranceTest(absltest.TestCase):
+    """Shogi promotion is OPTIONAL, so a from-to pair that touches the
+    promotion zone is usually in the legal set TWICE (``7c7b`` and
+    ``7c7b+``) as two different moves. The matcher must therefore never
+    let tolerance override an exactly-legal form -- but where the
+    requested form is not legal at all, the alternative is a forfeit.
+
+    Across the 1391-episode shogi-v2 archive (103,714 turns) this matcher
+    changed 0 of 103,374 already-correct parses and recovered 229 of 3,584
+    failures, 23 of them on turns that actually ended in a forfeit.
+    """
+
+    # Both forms of 7c7b are legal, as they are in most real positions.
+    both = ["7c7b", "7c7b+", "7g7f", "P*5e", "8h2b+"]
+
+    def test_exact_form_always_wins_when_both_legal(self):
+        # The load-bearing case: when both forms are legal each must map
+        # to ITSELF. If tolerance ran first it could silently promote a
+        # deliberate non-promotion (or vice versa) -- a real strategic
+        # difference, not a notation detail.
+        for move in ("7c7b", "7c7b+"):
+            result = parse_response(f'```json\n{{"move": "{move}"}}\n```', self.both)
+            self.assertEqual(result.legal_action, move)
+
+    def test_stray_promotion_suffix_recovered(self):
+        # 160 archive turns appended '+' to a move touching no promotion
+        # zone. Only "7g7f" is legal, so "7g7f+" is unambiguous.
+        result = parse_response('```json\n{"move": "7g7f+"}\n```', self.both)
+        self.assertEqual(result.legal_action, "7g7f")
+
+    def test_promoted_piece_prefix_echoed_as_suffix_recovered(self):
+        # 15 archive turns moved an ALREADY-promoted piece (rendered
+        # "+R" on the board) and copied that '+' onto the move. The
+        # board's '+' is a prefix meaning "already promoted"; the move's
+        # '+' is a suffix meaning "promote now".
+        legal = ["8b8a", "8b7b"]
+        result = parse_response('```json\n{"move": "8b8a+"}\n```', legal)
+        self.assertEqual(result.legal_action, "8b8a")
+
+    def test_omitted_compulsory_promotion_recovered(self):
+        # Compulsory promotion: only the '+' form is legal (a pawn on the
+        # opponent's back rank would otherwise have no move).
+        legal = ["1c1b+", "7g7f"]
+        result = parse_response('```json\n{"move": "1c1b"}\n```', legal)
+        self.assertEqual(result.legal_action, "1c1b+")
+
+    def test_san_style_piece_prefix_recovered(self):
+        # 47 archive turns wrote chess-style "S3i2h" instead of "3i2h".
+        legal = ["3i2h", "7g7f"]
+        result = parse_response('```json\n{"move": "S3i2h"}\n```', legal)
+        self.assertEqual(result.legal_action, "3i2h")
+
+    def test_decorative_punctuation_stripped(self):
+        result = parse_response('```json\n{"move": "7g-7f"}\n```', self.both)
+        self.assertEqual(result.legal_action, "7g7f")
+
+    def test_drop_is_not_mangled_by_piece_prefix_stripping(self):
+        # "P*5e" starts with a piece letter but must NOT have it stripped.
+        result = parse_response('```json\n{"move": "P*5e"}\n```', self.both)
+        self.assertEqual(result.legal_action, "P*5e")
+
+    def test_genuinely_illegal_move_still_rejected(self):
+        # Tolerance must not manufacture a move out of nothing: the
+        # rethink loop needs to see this failure.
+        result = parse_response('```json\n{"move": "9a9b"}\n```', self.both)
+        self.assertIsNone(result.legal_action)
+        self.assertEqual(result.raw_action, "9a9b")
+
+    def test_tolerance_never_overrides_an_exactly_legal_move(self):
+        # Property check over every legal move of a real position: each
+        # must round-trip to itself.
+        game = shogi_proxy.ShogiGame()
+        state = game.new_initial_state()
+        # This line opens the long diagonal, so Gote's bishop on 2b can
+        # reach 8h/7g either promoting or not -- both forms legal, which
+        # is the case that makes matcher ordering observable.
+        _apply_sequence(state, ["7g7f", "3c3d", "7f7e", "3d3e", "7e7d"])
+        pid = int(state.current_player())
+        legal = [state.action_to_string(pid, a) for a in state.legal_actions()]
+        promo_pairs = 0
+        for move in legal:
+            result = parse_response(f'```json\n{{"move": "{move}"}}\n```', legal)
+            self.assertEqual(result.legal_action, move)
+            if not move.endswith("+") and "*" not in move and move + "+" in legal:
+                promo_pairs += 1
+        # Guard the guard: this position must actually contain both-form
+        # pairs, or the assertion above proves nothing about ordering.
+        self.assertGreater(promo_pairs, 0)
 
 
 # ---------------------------------------------------------------------------
@@ -760,6 +851,201 @@ class DiagnoseIllegalMoveTest(absltest.TestCase):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [])
         self.assertNotIn("Reason:", prompt)
+
+
+def _reach_check(max_plies: int = 120) -> tuple[shogi_proxy.ShogiGame, shogi_proxy.ShogiState]:
+    """Play a deterministic line until the side to move is in check.
+
+    Uses a fixed seed and prefers checking moves so the search terminates
+    quickly; asserts rather than returning a non-check position, so a test
+    can never silently pass on a position it did not intend.
+    """
+    rng = random.Random(23)
+    game = shogi_proxy.ShogiGame()
+    for _ in range(500):
+        state = game.new_initial_state()
+        for _ in range(max_plies):
+            if state.is_terminal():
+                break
+            legal = state.legal_actions()
+            if not legal:
+                break
+            checking = []
+            for action in legal:
+                nxt = state.clone()
+                nxt.apply_action(action)
+                if not nxt.is_terminal() and nxt.__wrapped__.in_check():
+                    checking.append(action)
+            state.apply_action(rng.choice(checking or legal))
+            if not state.is_terminal() and state.__wrapped__.in_check():
+                return game, state
+    raise AssertionError("could not reach an in-check position")
+
+
+class InCheckDisclosureTest(absltest.TestCase):
+    """The prompt must tell the model when its king is under attack.
+
+    In the shogi-v2 archive, 822 of 3,402 illegal moves were geometrically
+    valid but rejected purely on king safety (603 while in check, 219 with a
+    pinned piece). In-check turns were 16.8% of all turns but produced 48.5%
+    of all forfeits, failing ~3x as often as safe turns.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.game, cls.state = _reach_check()
+
+    def _obs(self, player_id):
+        return _make_observation(self.state, self.game, player_id=player_id)
+
+    def test_state_dict_exposes_in_check(self):
+        parsed = json.loads(self.state.observation_string(0))
+        self.assertTrue(parsed["in_check"])
+        # And it must track the engine, not a re-derivation.
+        self.assertEqual(parsed["in_check"], self.state.__wrapped__.in_check())
+
+    def test_initial_position_is_not_in_check(self):
+        state = shogi_proxy.ShogiGame().new_initial_state()
+        self.assertFalse(json.loads(state.observation_string(0))["in_check"])
+
+    def test_prompt_warns_when_in_check(self):
+        prompt = generate_prompt(self._obs(int(self.state.current_player())), [])
+        self.assertIn("YOU ARE IN CHECK", prompt)
+        self.assertIn("MUST leave your king", prompt)
+
+    def test_warning_names_the_king_square(self):
+        pid = int(self.state.current_player())
+        prompt = generate_prompt(self._obs(pid), [])
+        board = json.loads(self.state.observation_string(0))["board"]
+        want = "K" if pid == 0 else "k"
+        square = next(
+            f"{'987654321'[c]}{'abcdefghi'[r]}"
+            for r, row in enumerate(board)
+            for c, cell in enumerate(row)
+            if cell == want
+        )
+        self.assertIn(f"Your king is on {square}", prompt)
+
+    def test_no_warning_when_king_is_safe(self):
+        state = shogi_proxy.ShogiGame().new_initial_state()
+        obs = _make_observation(state, shogi_proxy.ShogiGame(), player_id=0)
+        self.assertNotIn("IN CHECK", generate_prompt(obs, []))
+
+    def test_no_warning_for_the_player_not_to_move(self):
+        # `in_check` describes the side to move. Rendering the warning for
+        # the opponent would tell the wrong player their king is attacked.
+        other = 1 - int(self.state.current_player())
+        self.assertNotIn("YOU ARE IN CHECK", generate_prompt(self._obs(other), []))
+
+    def test_king_safety_rule_always_stated(self):
+        # The pin case needs a standing rule, not a per-turn warning:
+        # 219 archive failures moved a pinned piece while NOT in check.
+        state = shogi_proxy.ShogiGame().new_initial_state()
+        obs = _make_observation(state, shogi_proxy.ShogiGame(), player_id=0)
+        prompt = generate_prompt(obs, [])
+        self.assertIn("pinned piece", prompt)
+        self.assertIn("leaves your own king attacked", prompt)
+
+
+class PromotionOptionalityTest(absltest.TestCase):
+    """182 archive turns were rejected over a '+'-only difference, the
+    single largest notation failure. The prompt must say promotion is
+    optional and disambiguate the two meanings of '+'.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.game = shogi_proxy.ShogiGame()
+        self.state = self.game.new_initial_state()
+        self.prompt = generate_prompt(
+            _make_observation(self.state, self.game, player_id=0), []
+        )
+
+    def test_promotion_stated_as_optional(self):
+        self.assertIn("Promotion is OPTIONAL", self.prompt)
+
+    def test_both_forms_shown_as_distinct_moves(self):
+        self.assertIn("``7c7b``", self.prompt)
+        self.assertIn("``7c7b+``", self.prompt)
+
+    def test_prefix_versus_suffix_disambiguated(self):
+        self.assertIn("prefix", self.prompt)
+        self.assertIn("suffix", self.prompt)
+        self.assertIn("ALREADY promoted", self.prompt)
+
+    def test_drops_never_promote(self):
+        self.assertIn("Drops never promote", self.prompt)
+
+
+class DiagnoseKingSafetyAndGeometryTest(absltest.TestCase):
+    """_diagnose_illegal_move returned "" on 1,465 of 3,723 failed
+    attempts in the archive -- exactly the king-safety and bad-geometry
+    cases. With only one rethink before forfeit, a contentless retry is
+    close to a wasted one.
+    """
+
+    def test_unreachable_destination_lists_real_destinations(self):
+        game = shogi_proxy.ShogiGame()
+        state = game.new_initial_state()
+        obs = _make_observation(state, game, player_id=0)
+        # The rook on 2h cannot reach 5e, but it does have legal moves.
+        prompt = generate_prompt(
+            obs, [], previous_response="x", previous_action="2h5e"
+        )
+        self.assertIn("cannot legally move to 5e", prompt)
+        self.assertIn("legal destinations", prompt)
+
+    def test_in_check_move_that_ignores_the_check_is_explained(self):
+        game, state = _reach_check()
+        pid = int(state.current_player())
+        obs = _make_observation(state, game, player_id=pid)
+        legal = set(obs["legalActionStrings"])
+        board = json.loads(state.observation_string(0))["board"]
+        # Find an own-piece move that is NOT legal and whose source piece
+        # also has no legal move -- i.e. rejected for king safety only.
+        own_upper = pid == 0
+        candidate = None
+        for r, row in enumerate(board):
+            for c, cell in enumerate(row):
+                if cell == "." or cell[-1].isupper() != own_upper:
+                    continue
+                src = f"{'987654321'[c]}{'abcdefghi'[r]}"
+                if any(m[:2] == src for m in legal if "*" not in m):
+                    continue
+                for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                    rr, cc = r + dr, c + dc
+                    if not (0 <= rr < 9 and 0 <= cc < 9):
+                        continue
+                    dest = board[rr][cc]
+                    if dest != "." and dest[-1].isupper() == own_upper:
+                        continue
+                    move = f"{src}{'987654321'[cc]}{'abcdefghi'[rr]}"
+                    if move not in legal:
+                        candidate = move
+                        break
+                if candidate:
+                    break
+            if candidate:
+                break
+        self.assertIsNotNone(candidate, "no king-safety-only candidate found")
+        prompt = generate_prompt(
+            obs, [], previous_response="x", previous_action=candidate
+        )
+        self.assertIn("Reason:", prompt)
+        self.assertIn("check", prompt.lower())
+
+    def test_diagnosis_degrades_gracefully_without_legal_moves(self):
+        # Called with no legal-move list (the older 4-arg form), the
+        # geometry/king-safety branch must stay silent rather than guess.
+        from kaggle_environments.envs.open_spiel_env.games.shogi.harness import (
+            _diagnose_illegal_move,
+        )
+        board = [["."] * 9 for _ in range(9)]
+        board[8][4] = "K"
+        self.assertEqual(
+            _diagnose_illegal_move("5i5a", board, {"b": {}, "w": {}}, 0), ""
+        )
 
 
 class GoteRookPromotionRegressionTest(absltest.TestCase):
