@@ -20,6 +20,9 @@ from pyxis_portfolio_challenge.app.endpoint_datamodels import (
     game_state_to_response,
     indication_market_to_response,
 )
+from pyxis_portfolio_challenge.environment.market_mechanics import (
+    auction_reserve_price,
+)
 from pyxis_portfolio_challenge.game.asset import AssetState
 from pyxis_portfolio_challenge.game.multi_agent_game import MultiAgentGame
 from pyxis_portfolio_challenge.game.shared_market_state import (
@@ -63,6 +66,9 @@ class SharedMarketSnapshot(BaseModel):
     alerts: list[dict[str, Any]]  # serialized AlertResponse dicts
     indication_markets: list[dict[str, Any]]
     last_bd_acquisitions: dict[str, list[BDAcquisitionRecord]]
+    # Clinical-site auction reserve (GBP, £1M-rounded): the minimum winning bid
+    # for the site on offer. 0.0 when the feature/auction is off.
+    site_auction_reserve: float
 
 
 class StepRecord(BaseModel):
@@ -93,15 +99,9 @@ class PlaythroughConfig(BaseModel):
     bd_enabled: bool
     bd_max_bid: float
     reinvestment_percentage: float
-    investment_levels_enabled: bool
-    interim_observations_enabled: bool
-    distributional_ptrs_enabled: bool
-    ta_experience_enabled: bool
     congestion_exponent: float
     congestion_ramp_steps: int
     congestion_incumbent_penalty: float
-    rd_capacity_enabled: bool
-    rd_capacity_base: float
     marketing_enabled: bool
     clinical_sites_enabled: bool
     site_auction_enabled: bool
@@ -177,6 +177,7 @@ def _serialize_shared_market(
             reinvestment_percentage,
             ptrs_cfg=None,
             clone=None,
+            bd_reserve_fraction=shared_market.bd_reserve_fraction,
         ).model_dump(mode="json")
         for a in shared_market.current_bd_assets
     ]
@@ -253,6 +254,10 @@ def _serialize_shared_market(
         alerts=alerts,
         indication_markets=indication_markets,
         last_bd_acquisitions=last_bd_acquisitions,
+        site_auction_reserve=auction_reserve_price(
+            shared_market.site_auction_reserve_fraction,
+            shared_market.site_reserve_base_cost,
+        ),
     )
 
 
@@ -275,7 +280,6 @@ def capture_shared_market(game: MultiAgentGame) -> SharedMarketSnapshot:
 def capture_actions(
     raw_actions: dict[str, Any],
     asset_id_orders: dict[str, list[uuid.UUID | None]],
-    use_investment_levels: bool,
     pre_step_bd_assets: list[Any] | None = None,
     bd_bid_decoder: Callable[[Any], list[float]] | None = None,
     env=None,
@@ -329,16 +333,7 @@ def capture_actions(
                 continue
             if i < len(investments):
                 val = int(investments[i])
-                if use_investment_levels:
-                    level_map = {
-                        0: "none",
-                        1: "minimal",
-                        2: "standard",
-                        3: "accelerated",
-                        4: "stop",
-                    }
-                    investment_decisions[str(asset_id)] = level_map.get(val, "none")
-                elif val == 1:
+                if val == 1:
                     investment_decisions[str(asset_id)] = "invest"
                 elif val == 2:
                     # drop_action mode: MultiDiscrete([3]) with 2 == drop.
@@ -473,35 +468,6 @@ def build_playthrough_data(
     # Detect feature flags from first agent's state
     first_state = list(game.agent_states.values())[0]
 
-    investment_levels_enabled = (
-        hasattr(first_state, "_investment_levels_config")
-        and first_state._investment_levels_config is not None
-        and first_state._investment_levels_config.enabled
-    )
-    interim_observations_enabled = (
-        hasattr(first_state, "_interim_trial_observations_config")
-        and first_state._interim_trial_observations_config is not None
-        and first_state._interim_trial_observations_config.enabled
-    )
-    distributional_ptrs_enabled = (
-        hasattr(first_state, "_distributional_ptrs_config")
-        and first_state._distributional_ptrs_config is not None
-        and first_state._distributional_ptrs_config.enabled
-    )
-    ta_experience_enabled = (
-        hasattr(first_state, "_ta_experience_config")
-        and first_state._ta_experience_config is not None
-        and first_state._ta_experience_config.enabled
-    )
-    rd_capacity_enabled = (
-        hasattr(first_state, "_rd_capacity_config")
-        and first_state._rd_capacity_config is not None
-        and first_state._rd_capacity_config.enabled
-    )
-    rd_capacity_base = (
-        first_state._rd_capacity_config.base_capacity if rd_capacity_enabled else 0.0
-    )
-
     marketing_enabled = (
         env.marketing_config is not None and env.marketing_config.enabled
     )
@@ -525,15 +491,9 @@ def build_playthrough_data(
             bd_enabled=shared_market.bd_enabled,
             bd_max_bid=shared_market.bd_max_bid,
             reinvestment_percentage=first_state.reinvestment_percentage,
-            investment_levels_enabled=investment_levels_enabled,
-            interim_observations_enabled=interim_observations_enabled,
-            distributional_ptrs_enabled=distributional_ptrs_enabled,
-            ta_experience_enabled=ta_experience_enabled,
             congestion_exponent=shared_market.congestion_exponent,
             congestion_ramp_steps=shared_market.congestion_ramp_steps,
             congestion_incumbent_penalty=shared_market.congestion_incumbent_penalty,
-            rd_capacity_enabled=rd_capacity_enabled,
-            rd_capacity_base=rd_capacity_base,
             marketing_enabled=marketing_enabled,
             clinical_sites_enabled=env._sites_on,
             site_auction_enabled=env._site_auction_on,

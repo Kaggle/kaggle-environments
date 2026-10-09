@@ -256,6 +256,9 @@ class SharedMarketState(BaseModel):
     bd_leak_lambda_boost: float = 0.3
     bd_min_step: int = 5
     bd_max_bid: float = 10_000.0  # action-space cap in GBP millions
+    # Auction reserve as a fraction of a BD asset's ``cash_enpv``; sub-reserve
+    # top bids win nothing and the asset stays on the market. 0.0 = disabled.
+    bd_reserve_fraction: float = 0.0
     bd_phase_weights: list[float] = [0.2, 0.4, 0.4]
     bd_indication_activity_bias: float = 0.8
 
@@ -272,6 +275,11 @@ class SharedMarketState(BaseModel):
     site_auction_enabled: bool = False
     site_auction_interval_steps: int = 20
     site_auction_min_step: int = 0
+    # Auction reserve as a fraction of ``site_reserve_base_cost`` (the Fibonacci
+    # build-cost base). Sub-reserve top bids win no site. 0.0 = disabled.
+    site_auction_reserve_fraction: float = 0.0
+    # Value anchor for the site reserve (``purchase_base_cost``, GBP).
+    site_reserve_base_cost: float = 0.0
 
     # Current game time
     time: int = 0
@@ -292,6 +300,7 @@ class SharedMarketState(BaseModel):
         bd_leak_lambda_boost: float,
         bd_min_step: int,
         bd_max_bid: float,
+        bd_reserve_fraction: float,
         bd_phase_weights: list[float] | None,
         bd_indication_activity_bias: float,
         congestion_exponent: float,
@@ -304,6 +313,8 @@ class SharedMarketState(BaseModel):
         site_auction_enabled: bool = False,
         site_auction_interval_steps: int = 20,
         site_auction_min_step: int = 0,
+        site_auction_reserve_fraction: float = 0.0,
+        site_reserve_base_cost: float = 0.0,
     ) -> "SharedMarketState":
         """Initialize a new shared market state."""
         rng = get_game_rng()
@@ -341,6 +352,7 @@ class SharedMarketState(BaseModel):
             bd_leak_lambda_boost=bd_leak_lambda_boost,
             bd_min_step=bd_min_step,
             bd_max_bid=bd_max_bid,
+            bd_reserve_fraction=bd_reserve_fraction,
             bd_phase_weights=bd_phase_weights,
             bd_indication_activity_bias=bd_indication_activity_bias,
             bd_persist_steps=bd_persist_steps,
@@ -350,6 +362,8 @@ class SharedMarketState(BaseModel):
             site_auction_enabled=site_auction_enabled,
             site_auction_interval_steps=site_auction_interval_steps,
             site_auction_min_step=site_auction_min_step,
+            site_auction_reserve_fraction=site_auction_reserve_fraction,
+            site_reserve_base_cost=site_reserve_base_cost,
             congestion_exponent=congestion_exponent,
             congestion_ramp_steps=congestion_ramp_steps,
             congestion_incumbent_penalty=congestion_incumbent_penalty,

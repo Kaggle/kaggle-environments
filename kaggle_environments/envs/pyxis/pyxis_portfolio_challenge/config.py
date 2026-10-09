@@ -1,6 +1,6 @@
 import importlib
 import os
-from typing import Any, Literal
+from typing import Any
 
 import upath
 import yaml
@@ -37,93 +37,6 @@ def fibonacci_number(n: int) -> int:
     return a
 
 
-class InvestmentLevelParams(BaseModel):
-    """Parameters for a single investment level."""
-
-    cost_modifier: float
-    speed_modifier: float
-    success_modifier: float
-    capacity_cost: int
-    experience_modifier: float
-
-    class Config:  # noqa: D106
-        frozen = True
-        extra = "forbid"
-
-
-class CapacityConfig(BaseModel):
-    """Configuration for R&D capacity constraints."""
-
-    enabled: bool
-    base_capacity: float
-    overage_max_penalty: float  # Max penalty on success rates
-    overage_cost_max_penalty: float  # Max penalty on costs
-    overage_scaling: Literal["linear", "quadratic"]
-
-    class Config:  # noqa: D106
-        frozen = True
-        extra = "forbid"
-
-    def calculate_success_modifier(self, capacity_used: float) -> float:
-        """
-        Calculate the global success modifier based on capacity usage.
-
-        Returns 1.0 if under capacity, decreases linearly/quadratically as
-        capacity is exceeded.
-        """
-        if not self.enabled or capacity_used <= self.base_capacity:
-            return 1.0
-
-        overage = capacity_used - self.base_capacity
-        overage_ratio = overage / self.base_capacity
-
-        if self.overage_scaling == "quadratic":
-            penalty = overage_ratio**2 * self.overage_max_penalty
-        else:  # linear
-            penalty = overage_ratio * self.overage_max_penalty
-
-        penalty = min(penalty, self.overage_max_penalty)
-        return 1.0 - penalty
-
-    def calculate_cost_modifier(self, capacity_used: float) -> float:
-        """
-        Calculate the global cost modifier based on capacity usage.
-
-        Returns 1.0 if under capacity, increases linearly/quadratically as
-        capacity is exceeded (costs go UP when over capacity).
-        """
-        if not self.enabled or capacity_used <= self.base_capacity:
-            return 1.0
-
-        overage = capacity_used - self.base_capacity
-        overage_ratio = overage / self.base_capacity
-
-        if self.overage_scaling == "quadratic":
-            penalty = overage_ratio**2 * self.overage_cost_max_penalty
-        else:  # linear
-            penalty = overage_ratio * self.overage_cost_max_penalty
-
-        penalty = min(penalty, self.overage_cost_max_penalty)
-        return 1.0 + penalty  # Cost INCREASES when over capacity
-
-
-class InvestmentLevelsConfig(BaseModel):
-    """Configuration for investment levels feature."""
-
-    enabled: bool
-
-    # Investment level definitions
-    levels: dict[str, InvestmentLevelParams]
-
-    class Config:  # noqa: D106
-        frozen = True
-        extra = "forbid"
-
-    def get_level_params(self, level_name: str) -> InvestmentLevelParams:
-        """Get parameters for a given investment level name."""
-        return self.levels[level_name]
-
-
 class DropActionConfig(BaseModel):
     """
     Configuration for the standalone drop action.
@@ -132,8 +45,6 @@ class DropActionConfig(BaseModel):
       0 = NONE  (don't invest / continue as-is)
       1 = INVEST (start/continue at standard level; only valid for Idle)
       2 = DROP   (remove asset from portfolio entirely; valid for any state)
-
-    Independent of investment_levels — enabling both raises a ValueError.
 
     Drop fee = round(drop_price_fraction * cost_remaining / drop_price_rounding)
                * drop_price_rounding
@@ -217,6 +128,11 @@ class ClinicalSitesConfig(BaseModel):
     auction_min_step: int
     # Continuous bid cap (units matching bd_max_bid).
     site_max_bid: float
+    # Auction reserve price as a fraction of the site's value anchor
+    # (``purchase_base_cost``, the Fibonacci build-cost base). If the winning
+    # bid is below this reserve, no site is sold that round (nobody wins, no
+    # cash is charged). 0.0 disables the reserve.
+    auction_reserve_fraction: float
 
     @field_validator("starting_sites")
     @classmethod
@@ -230,6 +146,13 @@ class ClinicalSitesConfig(BaseModel):
     def _positive_step_counts(cls, v: int) -> int:
         if v < 1:
             raise ValueError("step-count fields must be >= 1")
+        return v
+
+    @field_validator("auction_reserve_fraction")
+    @classmethod
+    def _reserve_fraction_in_unit_range(cls, v: float) -> float:
+        if not (0.0 <= v <= 1.0):
+            raise ValueError("auction_reserve_fraction must be in [0.0, 1.0]")
         return v
 
     class Config:  # noqa: D106
@@ -254,114 +177,6 @@ class ClinicalSitesConfig(BaseModel):
         return raw
 
 
-class InterimTrialObservationsConfig(BaseModel):
-    """
-    Configuration for interim trial observations feature.
-
-    This feature enables the agent to observe noisy signals during trial
-    execution that become clearer over time, allowing informed early stopping.
-    """
-
-    enabled: bool
-
-    # Concentration parameter for Beta distribution (higher = less variance)
-    latent_quality_concentration: float
-
-    # Initial noise scale for interim signals (decreases as trial progresses)
-    initial_noise_scale: float
-
-    class Config:  # noqa: D106
-        frozen = True
-        extra = "forbid"
-
-
-class DistributionalPtrsConfig(BaseModel):
-    """
-    Configuration for distributional PTRS feature.
-
-    This feature makes PTRS a distribution rather than a point estimate,
-    introducing compound uncertainty via correlated TA quality modifiers.
-    This creates genuine RL advantage over heuristic-based agents.
-    """
-
-    enabled: bool
-
-    # Per-TA variance in quality modifier (hidden state sampled at episode start)
-    # Higher variance = more uncertainty about TA quality
-    ta_quality_variance: dict[str, float]
-
-    # Per-asset additional noise (independent of TA quality)
-    asset_noise_std: float
-
-    # Prior concentration for Beta belief representation
-    # Higher = tighter prior (more confident initial estimate)
-    prior_concentration: float
-
-    # Observation noise for Bayesian updates (how much trial outcomes vary)
-    observation_noise: float
-
-    class Config:  # noqa: D106
-        frozen = True
-        extra = "forbid"
-
-
-class TAExperienceConfig(BaseModel):
-    """
-    Configuration for TA experience system.
-
-    This is decoupled from PTRS uncertainty features and can be enabled
-    independently with either uncertain_ptrs, distributional_ptrs, or neither.
-    """
-
-    enabled: bool
-
-    # Experience needed to reach full knowledge in one TA
-    experience_to_full_knowledge: float
-
-    # Max expertise boost (PTRS bonus for specialists)
-    max_expertise_boost: float
-
-    # Experience needed to reach max boost
-    experience_to_max_boost: float
-
-    # Multiplicative decay per step (e.g., 0.98 = 2% decay)
-    experience_decay_rate: float
-
-    # Hard cap on total experience across all TAs (None = no cap)
-    max_total_experience: float | None
-
-    # Phase experience weights (how much experience gained per trial phase completion)
-    phase_experience_weights: dict[str, float]
-
-    # Asset arrival bias toward experienced TAs
-    asset_arrival_temperature: float
-
-    class Config:  # noqa: D106
-        frozen = True
-        extra = "forbid"
-
-
-class UncertainPtrsConfig(BaseModel):
-    """
-    Configuration for uncertain PTRS feature (point-based with noise).
-
-    Note: This is mutually exclusive with distributional_ptrs.
-    Use this for adding Gaussian noise to point estimates.
-    """
-
-    enabled: bool
-
-    # TA-specific base noise levels
-    ta_noise_config: dict[str, float]
-
-    # Phase noise multipliers (later phases are noisier)
-    phase_noise_multipliers: dict[str, float]
-
-    class Config:  # noqa: D106
-        frozen = True
-        extra = "forbid"
-
-
 class PtrsReadingsConfig(BaseModel):
     """
     Configuration for per-asset PTRS research readings feature.
@@ -372,7 +187,6 @@ class PtrsReadingsConfig(BaseModel):
     Multiple readings reduce flip probability but cannot analytically recover
     true PTRS. Phase noise scales by distance: next pending trial = 1×σ_base,
     one after = 1.5×, further phases use noise_multipliers[i].
-    Mutually exclusive with uncertain_ptrs, distributional_ptrs, ta_experience.
     """
 
     enabled: bool
@@ -383,8 +197,13 @@ class PtrsReadingsConfig(BaseModel):
     # Upper bound for MultiDiscrete; cash gates the real limit
     action_space_max_readings: int
     sigma_logit_base: float
-    # Episode-level noise; None falls back to sigma_logit_base (value, not toggle)
-    sigma_ep: float | None
+    # Episode-level truth spread (logit-normal sigma) around the file PTRS: the
+    # per-episode _true_ptrs is drawn as sigmoid(logit(file_ptrs) + N(0, sigma_ep^2)).
+    # Memorization bound: must equal sigma_logit_base so that knowing the file value
+    # is worth exactly one reading (both carry 1/sigma^2 precision). A smaller value
+    # makes the file-value lookup worth (sigma_logit_base/sigma_ep)^2 readings.
+    # Required (no None fallback).
+    sigma_ep: float
     noise_multipliers: list[float]
     # Normalisation cap for sample count in observation
     max_sample_obs: int
@@ -548,29 +367,6 @@ class ApprovalPhaseConfig(BaseModel):
         extra = "forbid"
 
 
-class PricingConfig(BaseModel):
-    """
-    Configuration for per-drug pricing action.
-
-    When enabled, agents can set price levels for on-market drugs.
-    Higher prices increase per-unit revenue but reduce market share
-    via demand elasticity. Lower prices capture more share.
-    """
-
-    enabled: bool
-    levels: list[
-        float
-    ]  # Revenue multipliers per price level (e.g. [0.60, 0.75, 1.00, 1.20, 1.40, 1.60])
-    default_level: (
-        int  # Index into levels for default/masked pricing (e.g. 2 = Standard 1.0x)
-    )
-    elasticity: float  # Demand elasticity: share ~ 1/price^elasticity
-
-    class Config:  # noqa: D106
-        frozen = True
-        extra = "forbid"
-
-
 class MultiAgentConfig(BaseModel):
     """Multi-agent specific configuration parameters."""
 
@@ -587,6 +383,11 @@ class MultiAgentConfig(BaseModel):
     # bid wins and pays its own bid. bd_max_bid is the action-space upper bound;
     # real affordability is gated by cash (an overbid can bankrupt the winner).
     bd_max_bid: float  # Action-space cap for a BD bid, in GBP millions
+    # Auction reserve price as a fraction of the BD asset's value anchor (its
+    # ``cash_enpv``). If the winning bid is below this reserve, no one wins the
+    # slot: the asset is not sold and stays on the market for its remaining
+    # persistence (``bd_persist_steps``). 0.0 disables the reserve.
+    bd_reserve_fraction: float
     bd_max_slots: int  # Max BD assets per step (start with 1)
     # Steps an unwon BD asset stays on market (1 = single-step behaviour)
     bd_persist_steps: int
@@ -627,6 +428,13 @@ class MultiAgentConfig(BaseModel):
     )
     # Fraction of full penalty applied to incumbent (0 = protected)
     congestion_incumbent_penalty: float
+
+    @field_validator("bd_reserve_fraction")
+    @classmethod
+    def _bd_reserve_fraction_in_unit_range(cls, v: float) -> float:
+        if not (0.0 <= v <= 1.0):
+            raise ValueError("bd_reserve_fraction must be in [0.0, 1.0]")
+        return v
 
     class Config:  # noqa: D106
         frozen = True
@@ -670,26 +478,11 @@ class Config(BaseModel):
     warmup_on_reset_steps: int
     warmup_on_reset_policy: str
 
-    # TA Experience system
-    ta_experience: TAExperienceConfig
-
-    # Uncertain PTRS feature configuration (mutually exclusive with distributional_ptrs)
-    uncertain_ptrs: UncertainPtrsConfig
-
-    # Investment levels feature configuration
-    investment_levels: InvestmentLevelsConfig
-
-    # Standalone drop action (independent of investment_levels)
+    # Standalone drop action
     drop_action: DropActionConfig
 
     # Clinical sites capacity feature (hard throughput cap; runaway-cash sink)
     clinical_sites: ClinicalSitesConfig
-
-    # Interim trial observations feature configuration
-    interim_trial_observations: InterimTrialObservationsConfig
-
-    # Distributional PTRS feature configuration (mutually exclusive with uncertain_ptrs)
-    distributional_ptrs: DistributionalPtrsConfig
 
     # Marketing spend feature (demand creation + brand equity)
     marketing: MarketingConfig
@@ -697,14 +490,8 @@ class Config(BaseModel):
     # Per-asset PTRS research readings feature
     ptrs_readings: PtrsReadingsConfig
 
-    # R&D capacity constraints (standalone, independent of investment levels)
-    rd_capacity: CapacityConfig
-
     # Approval phase configuration
     approval_phase: ApprovalPhaseConfig
-
-    # Per-drug pricing configuration
-    pricing: PricingConfig
 
     # Multi-agent environment configuration
     multi_agent: MultiAgentConfig
@@ -712,77 +499,6 @@ class Config(BaseModel):
     class Config:  # noqa: D106
         frozen = True
         extra = "forbid"
-
-    @field_validator("distributional_ptrs", mode="after")
-    @classmethod
-    def validate_ptrs_mutual_exclusivity(cls, v, info):
-        """Validate distributional_ptrs exclusivity."""
-        # Check mutual exclusivity with uncertain_ptrs
-        uncertain_ptrs = info.data["uncertain_ptrs"]
-        if v.enabled and uncertain_ptrs.enabled:
-            raise ValueError(
-                "uncertain_ptrs and distributional_ptrs are mutually exclusive. "
-                "Enable only one PTRS uncertainty feature at a time."
-            )
-
-        # Check mutual exclusivity with interim_trial_observations
-        interim_obs = info.data["interim_trial_observations"]
-        if v.enabled and interim_obs.enabled:
-            raise ValueError(
-                "interim_trial_observations and distributional_ptrs "
-                "are mutually exclusive. With distributional PTRS, "
-                "the distribution itself represents uncertainty - "
-                "no hidden 'true' PTRS for interim signals."
-            )
-        return v
-
-    @field_validator("ptrs_readings", mode="after")
-    @classmethod
-    def validate_ptrs_readings_exclusivity(cls, v, info):
-        """Validate ptrs_readings is mutually exclusive with other PTRS features."""
-        if not v.enabled:
-            return v
-        for field, label in [
-            ("uncertain_ptrs", "uncertain_ptrs"),
-            ("distributional_ptrs", "distributional_ptrs"),
-            ("ta_experience", "ta_experience"),
-        ]:
-            other = info.data[field]
-            if other.enabled:
-                raise ValueError(
-                    f"ptrs_readings and {label} are mutually exclusive. "
-                    "Enable only one PTRS uncertainty feature at a time."
-                )
-        return v
-
-    @model_validator(mode="after")
-    def validate_ta_experience_requires_ptrs_feature(self):
-        """Validate ta_experience requires a PTRS feature."""
-        ta_exp = self.ta_experience
-        if ta_exp.enabled:
-            has_ptrs_feature = (
-                self.uncertain_ptrs.enabled or self.distributional_ptrs.enabled
-            )
-            if not has_ptrs_feature:
-                raise ValueError(
-                    "ta_experience requires either uncertain_ptrs "
-                    "or distributional_ptrs to be enabled. "
-                    "The expertise boost and PTRS convergence "
-                    "mechanics only function with a PTRS "
-                    "uncertainty feature active."
-                )
-        return self
-
-    @model_validator(mode="after")
-    def validate_clinical_sites_vs_rd_capacity(self):
-        """Clinical sites and rd_capacity are both throughput caps; not both."""
-        sites = self.clinical_sites
-        if sites.enabled and self.rd_capacity.enabled:
-            raise ValueError(
-                "clinical_sites and rd_capacity are mutually exclusive. "
-                "Both cap trial throughput; enable at most one."
-            )
-        return self
 
     @model_validator(mode="after")
     def resolve_relative_paths(self):

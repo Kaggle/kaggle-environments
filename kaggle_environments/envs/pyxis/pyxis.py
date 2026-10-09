@@ -200,7 +200,6 @@ def _render_snapshot(game, known):
                     trial.phase.integer if trial else -1,
                     int(trial.time_remaining) if trial else 0,
                     round(float(trial.ptrs), 3) if trial else 0,
-                    int(asset.current_investment_level),
                     int(asset.time_on_market),
                     round(_ptrs_readings(trial, readings_cfg), 2),
                     # Every drug launches at a floor sized by its revenue, so the
@@ -233,8 +232,7 @@ def _render_snapshot(game, known):
             "droppedCount": len(gs.dropped_assets),
             "freeSites": int(gs.free_sites),
             # Next step's charge for running trials, due whether or not the agent
-            # acts; cash under this is bankruptcy. Investment levels and R&D
-            # capacity, the engine's only modifiers of it, are off.
+            # acts; cash under this is bankruptcy.
             "trialBurn": round(burn),
             # Everything the running trials still owe, across all steps.
             "committedCost": round(committed),

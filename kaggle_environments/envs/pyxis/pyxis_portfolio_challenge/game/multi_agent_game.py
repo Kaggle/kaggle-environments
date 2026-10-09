@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, PrivateAttr
 
 from pyxis_portfolio_challenge.game.asset import AssetState
 from pyxis_portfolio_challenge.game.asset_generators import JSONAssetGenerator
-from pyxis_portfolio_challenge.game.constants import InvestmentLevel
+from pyxis_portfolio_challenge.game.constants import InvestmentAction
 from pyxis_portfolio_challenge.game.game_state import _PACKAGE_CODE_HASH, GameState
 from pyxis_portfolio_challenge.game.shared_market_state import (
     THERAPEUTIC_AREAS,
@@ -56,7 +56,6 @@ class MultiAgentGame(BaseModel):
     disable_market_share_competition: bool
     bd_max_slots: int
     bd_persist_steps: int = 1
-    pricing_elasticity: float
 
     # Cached per-drug market shares from last step, keyed by agent.
     # Avoids recomputing in observation building.
@@ -86,12 +85,6 @@ class MultiAgentGame(BaseModel):
         disable_market_share_competition: bool,
         alert_history_length: int,
         reward_fn_config: dict,
-        distributional_ptrs_config,
-        ta_experience_config,
-        uncertain_ptrs_config,
-        investment_levels_config,
-        interim_trial_observations_config,
-        rd_capacity_config,
         drop_action_config,
         ptrs_readings_config,
         clinical_sites_config,
@@ -108,6 +101,7 @@ class MultiAgentGame(BaseModel):
         bd_leak_lambda_boost: float,
         bd_min_step: int,
         bd_max_bid: float,
+        bd_reserve_fraction: float,
         bd_phase_weights: list[float],
         bd_indication_activity_bias: float,
         bd_max_slots: int,
@@ -119,8 +113,6 @@ class MultiAgentGame(BaseModel):
         congestion_exponent: float,
         congestion_ramp_steps: int,
         congestion_incumbent_penalty: float,
-        # Pricing elasticity
-        pricing_elasticity: float,
         bd_persist_steps: int,
         dc_leak_min_agents: int,
     ) -> "MultiAgentGame":
@@ -160,12 +152,6 @@ class MultiAgentGame(BaseModel):
                 reinvestment_percentage=reinvestment_percentage,
                 seed=None,
                 assets_dir=assets_dir,
-                ta_experience_config=ta_experience_config,
-                uncertain_ptrs_config=uncertain_ptrs_config,
-                investment_levels_config=investment_levels_config,
-                interim_trial_observations_config=interim_trial_observations_config,
-                distributional_ptrs_config=distributional_ptrs_config,
-                rd_capacity_config=rd_capacity_config,
                 drop_action_config=drop_action_config,
                 ptrs_readings_config=ptrs_readings_config,
                 clinical_sites_config=clinical_sites_config,
@@ -195,6 +181,7 @@ class MultiAgentGame(BaseModel):
             bd_leak_lambda_boost=bd_leak_lambda_boost,
             bd_min_step=bd_min_step,
             bd_max_bid=bd_max_bid,
+            bd_reserve_fraction=bd_reserve_fraction,
             bd_phase_weights=bd_phase_weights,
             bd_indication_activity_bias=bd_indication_activity_bias,
             bd_persist_steps=bd_persist_steps,
@@ -216,6 +203,16 @@ class MultiAgentGame(BaseModel):
                 if clinical_sites_config is not None
                 else 0
             ),
+            site_auction_reserve_fraction=(
+                clinical_sites_config.auction_reserve_fraction
+                if clinical_sites_config is not None
+                else 0.0
+            ),
+            site_reserve_base_cost=(
+                clinical_sites_config.purchase_base_cost
+                if clinical_sites_config is not None
+                else 0.0
+            ),
             congestion_exponent=congestion_exponent,
             congestion_ramp_steps=congestion_ramp_steps,
             congestion_incumbent_penalty=congestion_incumbent_penalty,
@@ -223,13 +220,8 @@ class MultiAgentGame(BaseModel):
 
         # Create BD asset generator
         if bd_enabled and bd_assets_dir is not None:
-            ta_quality_modifiers = agent_states[agent_names[0]]._ta_quality_modifiers
             bd_generator = JSONAssetGenerator(
                 bd_assets_dir,
-                distributional_ptrs_config=distributional_ptrs_config,
-                ta_quality_modifiers=ta_quality_modifiers,
-                ta_experience_config=ta_experience_config,
-                uncertain_ptrs_config=uncertain_ptrs_config,
                 ptrs_readings_config=ptrs_readings_config,
                 indications_per_ta=indications_per_ta_dict,
                 indication_spread=indication_spread,
@@ -265,7 +257,6 @@ class MultiAgentGame(BaseModel):
             disable_market_share_competition=disable_market_share_competition,
             bd_max_slots=bd_max_slots,
             bd_persist_steps=bd_persist_steps,
-            pricing_elasticity=pricing_elasticity,
         )
         game._be_static_peak_revenue = be_static_peak_revenue
         return game
@@ -366,10 +357,9 @@ class MultiAgentGame(BaseModel):
         self,
         investor_actions: dict[
             str,
-            dict[uuid.UUID, InvestmentLevel | Literal["invest"] | None],
+            dict[uuid.UUID, InvestmentAction | Literal["invest"] | None],
         ],
         bd_bids: dict[str, list[float]] | None = None,
-        pricing_actions: dict[str, dict[uuid.UUID, float]] | None = None,
         research_actions: dict[str, dict[uuid.UUID, int]] | None = None,
         marketing_actions: dict[str, dict] | None = None,
         site_bids: dict[str, float] | None = None,
@@ -381,13 +371,10 @@ class MultiAgentGame(BaseModel):
 
         Args:
             investor_actions: Per-agent investment decisions.
-                {agent_id: {asset_uuid: InvestmentLevel}}
+                {agent_id: {asset_uuid: InvestmentAction}}
             bd_bids: Per-agent BD cash bids per slot.
                 {agent_id: [slot_0_cash, slot_1_cash, ...]}
                 Raw GBP amounts; <= 0 = pass. Highest bid wins, pays own bid.
-            pricing_actions: Per-agent pricing multipliers for on-market drugs.
-                {agent_id: {asset_uuid: price_multiplier}}
-                If None, all drugs use 1.0x pricing.
             research_actions: Per-agent PTRS reading counts to purchase this step.
                 {agent_id: {asset_uuid: num_readings}}
                 If None, no readings are taken.
@@ -408,6 +395,7 @@ class MultiAgentGame(BaseModel):
 
         """
         from pyxis_portfolio_challenge.environment.market_mechanics import (
+            auction_reserve_price,
             calculate_agent_market_shares,
             resolve_bd_bid,
             resolve_site_bid,
@@ -426,6 +414,12 @@ class MultiAgentGame(BaseModel):
             and new_shared_market.current_bd_assets
             and new_shared_market.bd_enabled
         ):
+            # Reserve basis: the asset's own eNPV under the shared reinvestment
+            # percentage (same value guidance agents see in the observation).
+            # All agents share one reinvestment_percentage, so any state works.
+            reinvestment_pct = next(
+                iter(new_agent_states.values())
+            ).reinvestment_percentage
             for slot_idx, bd_asset in enumerate(new_shared_market.current_bd_assets):
                 # Extract per-slot cash bids from each agent. Skip agents that
                 # have already ended (e.g. bankrupted by winning an earlier slot
@@ -438,10 +432,19 @@ class MultiAgentGame(BaseModel):
                     if slot_idx < len(agent_bid_list):
                         slot_bids[agent_id] = agent_bid_list[slot_idx]
 
+                # Reserve = fraction × asset eNPV (floored at 0 so cash-negative
+                # assets carry no reserve), rounded to the nearest £1M. Sub-reserve
+                # top bids win nothing and the asset stays on the market for its
+                # remaining persistence.
+                bd_reserve = auction_reserve_price(
+                    new_shared_market.bd_reserve_fraction,
+                    bd_asset.cash_enpv(reinvestment_pct),
+                )
                 winner, price = resolve_bd_bid(
                     bids=slot_bids,
                     asset=bd_asset,
                     rng=get_game_rng(),
+                    reserve=bd_reserve,
                 )
 
                 if winner is not None:
@@ -497,28 +500,14 @@ class MultiAgentGame(BaseModel):
                                 else ("bankrupt" if new_cash < 0 else None)
                             )
                         ),
-                        ta_experience=dict(state.ta_experience),
-                        capacity_used=state.capacity_used,
-                        capacity_base=state.capacity_base,
-                        ta_quality_estimates=dict(state.ta_quality_estimates),
-                        ta_quality_confidences=dict(state.ta_quality_confidences),
                         operational_sites=state.operational_sites,
                         sites_in_development=list(state.sites_in_development),
                     )
                     ns = new_agent_states[winner]
                     ns._asset_generator = state._asset_generator
-                    ns._ta_experience_config = state._ta_experience_config
-                    ns._uncertain_ptrs_config = state._uncertain_ptrs_config
-                    ns._investment_levels_config = state._investment_levels_config
-                    ns._interim_trial_observations_config = (
-                        state._interim_trial_observations_config
-                    )
-                    ns._distributional_ptrs_config = state._distributional_ptrs_config
-                    ns._rd_capacity_config = state._rd_capacity_config
                     ns._drop_action_config = state._drop_action_config
                     ns._ptrs_readings_config = state._ptrs_readings_config
                     ns._clinical_sites_config = state._clinical_sites_config
-                    ns._ta_quality_modifiers = state._ta_quality_modifiers.copy()
                     ns._marketing_config = state._marketing_config
                     ns._brand_scores = dict(state._brand_scores)
                     ns._brand_score_floors = dict(state._brand_score_floors)
@@ -544,7 +533,16 @@ class MultiAgentGame(BaseModel):
                 if agent_id in new_agent_states
                 and not new_agent_states[agent_id].game_ended
             }
-            winner, price = resolve_site_bid(live_bids, get_game_rng())
+            # Reserve = fraction × site build-cost base (the cost of the first
+            # site upgrade bought through the normal route), rounded to the
+            # nearest £1M. Sub-reserve top bids win no site this round.
+            site_reserve = auction_reserve_price(
+                new_shared_market.site_auction_reserve_fraction,
+                new_shared_market.site_reserve_base_cost,
+            )
+            winner, price = resolve_site_bid(
+                live_bids, get_game_rng(), reserve=site_reserve
+            )
             if winner is not None:
                 new_agent_states[winner] = new_agent_states[
                     winner
@@ -565,14 +563,6 @@ class MultiAgentGame(BaseModel):
             _PHASE_INDEX[TrialPhase.APPROVAL] = 3
 
         all_market_shares: dict[str, dict] = {}
-
-        # Merge all agents' pricing multipliers into a single dict for market share calc
-        all_pricing_multipliers: dict[uuid.UUID, float] | None = None
-        if pricing_actions is not None:
-            all_pricing_multipliers = {}
-            for agent_pricing in pricing_actions.values():
-                if agent_pricing:
-                    all_pricing_multipliers.update(agent_pricing)
 
         step_num = self.time + 1
         active = [a for a in self.active_agents if not new_agent_states[a].game_ended]
@@ -629,8 +619,6 @@ class MultiAgentGame(BaseModel):
                     new_shared_market,
                     new_agent_states,
                     self.time,
-                    all_pricing_multipliers=all_pricing_multipliers,
-                    pricing_elasticity=self.pricing_elasticity,
                     brand_scores=all_brand_scores
                     if marketing_config is not None
                     else None,
@@ -641,11 +629,8 @@ class MultiAgentGame(BaseModel):
                 )
                 all_market_shares[agent] = market_shares or {}
 
-            # Get this agent's actions and pricing multipliers
+            # Get this agent's actions
             actions = investor_actions.get(agent, {})
-            agent_pricing = None
-            if pricing_actions is not None:
-                agent_pricing = pricing_actions.get(agent)
 
             # Build demand_multipliers for this agent's on-market drugs from the
             # pre-step snapshot
@@ -734,7 +719,6 @@ class MultiAgentGame(BaseModel):
             new_state = new_agent_states[agent].step(
                 actions,
                 market_shares=market_shares,
-                pricing_multipliers=agent_pricing,
                 research_actions=agent_research,
                 demand_multipliers=agent_demand_multipliers,
                 brand_equity_actions=agent_brand_equity,
@@ -886,8 +870,6 @@ class MultiAgentGame(BaseModel):
                         new_shared_market,
                         new_agent_states,
                         self.time + 1,
-                        all_pricing_multipliers=all_pricing_multipliers,
-                        pricing_elasticity=self.pricing_elasticity,
                         brand_scores=post_step_brand_scores
                         if marketing_config is not None
                         else None,
@@ -917,7 +899,6 @@ class MultiAgentGame(BaseModel):
             dc_leak_min_agents=self.dc_leak_min_agents,
             disable_market_share_competition=self.disable_market_share_competition,
             bd_max_slots=self.bd_max_slots,
-            pricing_elasticity=self.pricing_elasticity,
         )
         new_game._cached_market_shares = post_step_shares
         new_game._display_names = self._display_names

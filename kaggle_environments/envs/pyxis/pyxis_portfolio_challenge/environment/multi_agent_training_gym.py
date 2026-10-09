@@ -14,19 +14,13 @@ from pettingzoo import ParallelEnv
 from pyxis_portfolio_challenge.config import (
     ApprovalPhaseConfig,
     ClinicalSitesConfig,
-    DistributionalPtrsConfig,
-    InterimTrialObservationsConfig,
-    InvestmentLevelsConfig,
     MarketingConfig,
-    PricingConfig,
     PtrsReadingsConfig,
-    TAExperienceConfig,
-    UncertainPtrsConfig,
 )
 from pyxis_portfolio_challenge.environment.obs_layout import TA_INDEX, ObsLayout
 from pyxis_portfolio_challenge.environment.reward import Reward
 from pyxis_portfolio_challenge.game.asset import AssetState
-from pyxis_portfolio_challenge.game.constants import InvestmentLevel
+from pyxis_portfolio_challenge.game.constants import InvestmentAction
 from pyxis_portfolio_challenge.game.game_state import GameState
 from pyxis_portfolio_challenge.game.multi_agent_game import MultiAgentGame
 from pyxis_portfolio_challenge.game.shared_market_state import (
@@ -99,6 +93,7 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
         bd_leak_lambda_boost: float,
         bd_min_step: int,
         bd_max_bid: float,
+        bd_reserve_fraction: float,
         bd_max_slots: int,
         bd_phase_weights: list[float],
         bd_indication_activity_bias: float,
@@ -120,16 +115,8 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
         mask_negative_enpv_assets: bool,
         # Feature configs
         flatten_obs: bool,
-        distributional_ptrs_config: DistributionalPtrsConfig,
-        ta_experience_config: TAExperienceConfig,
-        uncertain_ptrs_config: UncertainPtrsConfig,
-        investment_levels_config: InvestmentLevelsConfig,
-        interim_trial_observations_config: InterimTrialObservationsConfig,
-        rd_capacity_config,
         drop_action_config,
         approval_phase_config: ApprovalPhaseConfig,
-        # Pricing configuration
-        pricing_config: PricingConfig,
         # Multi-agent reward type
         reward_type: str,
         reward_scale: float,
@@ -172,6 +159,7 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
         self.bd_leak_lambda_boost = bd_leak_lambda_boost
         self.bd_min_step = bd_min_step
         self.bd_max_bid = bd_max_bid
+        self.bd_reserve_fraction = bd_reserve_fraction
         self.bd_max_slots = bd_max_slots
         self.bd_persist_steps = bd_persist_steps
         self.bd_phase_weights = bd_phase_weights
@@ -198,12 +186,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
         self.render_mode = render_mode
 
         # Feature configs
-        self.distributional_ptrs_config = distributional_ptrs_config
-        self.ta_experience_config = ta_experience_config
-        self.uncertain_ptrs_config = uncertain_ptrs_config
-        self.investment_levels_config = investment_levels_config
-        self.interim_trial_observations_config = interim_trial_observations_config
-        self.rd_capacity_config = rd_capacity_config
         self.drop_action_config = drop_action_config
         self.marketing_config = marketing_config
         self.ptrs_readings_config = ptrs_readings_config
@@ -212,16 +194,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
         self._indication_features = (
             6 if (marketing_config.enabled) else 5
         )
-
-        if (
-            self.investment_levels_config.enabled
-            and self.drop_action_config.enabled
-        ):
-            raise ValueError(
-                "investment_levels and drop_action are mutually exclusive "
-                "— enable at most one."
-            )
-        self.pricing_config = pricing_config
 
         # Reward
         self._reward_fn = reward_fn
@@ -253,17 +225,9 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
         self.multi_agent_game: Optional[MultiAgentGame] = None
         self._asset_id_orders: dict[str, list] = {}
         self._indications_per_ta: int = 0  # Set on reset
-        # Per-agent pricing multipliers (asset_id -> multiplier), updated each step
-        self._current_pricing: dict[str, dict[str, float]] = {}
 
         # Build observation layout from feature configs
         self._layout = ObsLayout.from_config(
-            ta_experience_config=ta_experience_config,
-            rd_capacity_config=rd_capacity_config,
-            distributional_ptrs_config=distributional_ptrs_config,
-            uncertain_ptrs_config=uncertain_ptrs_config,
-            interim_trial_observations_config=interim_trial_observations_config,
-            pricing_config=pricing_config,
             marketing_config=marketing_config,
             ptrs_readings_config=ptrs_readings_config,
             clinical_sites_config=clinical_sites_config,
@@ -344,19 +308,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
             "time_remaining": gym.spaces.Box(low=0, high=int(1e9), shape=(), dtype=int),
             "ptrs": gym.spaces.Box(low=0, high=1, shape=(), dtype=float),
         }
-        if L.distributional_ptrs_enabled:
-            trial_fields["ptrs_expected"] = gym.spaces.Box(
-                low=0, high=1, shape=(), dtype=float
-            )
-            trial_fields["ptrs_confidence"] = gym.spaces.Box(
-                low=0, high=1, shape=(), dtype=float
-            )
-            trial_fields["ptrs_range_low"] = gym.spaces.Box(
-                low=0, high=1, shape=(), dtype=float
-            )
-            trial_fields["ptrs_range_high"] = gym.spaces.Box(
-                low=0, high=1, shape=(), dtype=float
-            )
         trial_space = gym.spaces.Dict(trial_fields)
 
         # Asset space
@@ -389,17 +340,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
             "ta_index": gym.spaces.Discrete(3),
             "indication": gym.spaces.Discrete(self.max_indications_per_ta),
         }
-        if L.interim_obs_enabled:
-            asset_fields["interim_signal"] = gym.spaces.Box(
-                low=0, high=1, shape=(), dtype=float
-            )
-            asset_fields["trial_progress"] = gym.spaces.Box(
-                low=0, high=1, shape=(), dtype=float
-            )
-        if L.pricing_enabled:
-            asset_fields["price_multiplier"] = gym.spaces.Box(
-                low=0, high=float("inf"), shape=(), dtype=float
-            )
         asset_space = gym.spaces.Dict(asset_fields)
 
         # BD slot space
@@ -491,11 +431,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
             }),
             "alerts": gym.spaces.Tuple([alert_space] * self.max_alerts),
         }
-        if L.ta_experience_enabled:
-            obs_fields["ta_experience"] = gym.spaces.Dict({
-                ta: gym.spaces.Box(low=0, high=float("inf"), shape=(), dtype=float)
-                for ta in THERAPEUTIC_AREAS
-            })
 
         if L.clinical_sites_enabled:
             obs_fields["clinical_sites"] = gym.spaces.Dict({
@@ -531,8 +466,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
             heads.append("site_bid")
         if self._site_priority_on:
             heads.append("site_priority")
-        if self.pricing_config.enabled:
-            heads.append("pricing")
         if self.marketing_config.enabled:
             heads.append("demand_creation")
             heads.append("brand_equity")
@@ -550,9 +483,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
         nbd = self.bd_max_slots
         nind = self.max_indications_per_ta * len(THERAPEUTIC_AREAS)
         nptrs = m + nbd
-        default_level = (
-            self.pricing_config.default_level if self.pricing_config.enabled else 0
-        )
         builders = {
             "investments": lambda: np.zeros(m, dtype=np.int64),
             "bd_bids": lambda: np.zeros(nbd, dtype=np.float32),
@@ -560,7 +490,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
             "upgrade": lambda: 0,
             "site_bid": lambda: np.array([0.0], dtype=np.float32),
             "site_priority": lambda: np.zeros(m, dtype=np.float32),
-            "pricing": lambda: np.full(m, default_level, dtype=np.int64),
             "demand_creation": lambda: np.zeros(nind, dtype=np.int64),
             "brand_equity": lambda: np.zeros(m, dtype=np.int64),
         }
@@ -571,8 +500,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
         """
         Return action space for an agent.
 
-        When investment_levels is enabled, investments use MultiDiscrete with
-        6 choices per asset (NONE/MINIMAL/STANDARD/ACCELERATED/STOP/DROP).
         When drop_action is enabled, investments use MultiDiscrete([3]*N)
         (do nothing / invest / drop).
         Otherwise, investments use MultiBinary (invest or not).
@@ -582,17 +509,7 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
         The highest bid wins and pays its own bid; there is no affordability
         mask, so an overbid can bankrupt the winner.
         """
-        use_levels = (
-            self.investment_levels_config.enabled
-        )
-        use_drop = (
-            self.drop_action_config.enabled
-        )
-        if use_levels:
-            inv_space = gym.spaces.MultiDiscrete(
-                [len(InvestmentLevel)] * self.max_num_assets
-            )
-        elif use_drop:
+        if self.drop_action_config.enabled:
             inv_space = gym.spaces.MultiDiscrete([3] * self.max_num_assets)
         else:
             inv_space = gym.spaces.MultiBinary(self.max_num_assets)
@@ -632,11 +549,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
                 shape=(self.max_num_assets,),
                 dtype=np.float32,
             )
-        if self.pricing_config.enabled:
-            num_price_levels = len(self.pricing_config.levels)
-            spaces["pricing"] = gym.spaces.MultiDiscrete(
-                [num_price_levels] * self.max_num_assets
-            )
         if self.marketing_config.enabled:
             num_ind_slots = self.max_indications_per_ta * len(THERAPEUTIC_AREAS)
             spaces["demand_creation"] = gym.spaces.MultiDiscrete([2] * num_ind_slots)
@@ -653,35 +565,44 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
         """
         Return action masks for an agent.
 
-        When investment_levels is enabled, returns per-asset masks with shape
-        (max_num_assets, num_levels) matching MultiDiscrete action space:
-            0: NONE - always valid
-            1: MINIMAL - valid for investable Idle assets
-            2: STANDARD - valid for investable Idle assets
-            3: ACCELERATED - valid for investable Idle assets
-            4: STOP - valid for InDevelopment assets only
-
-        When investment_levels is disabled, returns binary mask (max_num_assets,)
-        matching MultiBinary action space.
+        When drop_action is enabled, returns per-asset ternary masks
+        [can_do_nothing, can_invest, can_drop] matching MultiDiscrete([3]*N).
+        Otherwise, returns a binary mask (max_num_assets,) matching MultiBinary.
 
         BD bids are a continuous Box and are NOT masked (an overbid is allowed
         and can bankrupt the winner), so no "bd_bids" entry is returned.
         """
         game_state = self.multi_agent_game.agent_states[agent]
         asset_order = self._asset_id_orders[agent]
-        use_levels = (
-            self.investment_levels_config.enabled
-        )
 
-        if use_levels:
-            num_levels = len(InvestmentLevel)
+        if self.drop_action_config.enabled:
             investment_mask = []
             for i in range(self.max_num_assets):
                 asset_id = asset_order[i] if i < len(asset_order) else None
                 if asset_id is None or asset_id not in game_state.assets:
-                    # Padding slot: only NONE valid
-                    mask = [True] + [False] * (num_levels - 1)
+                    investment_mask.append([True, False, False])
+                    continue
+
+                asset = game_state.assets[asset_id]
+                can_drop = True
+                if self.mask_first_order_assets:
+                    if game_state.cash - self._drop_fee(asset) < 0:
+                        can_drop = False
+
+                if asset.state == AssetState.Idle:
+                    can_invest = True
+                    if self.mask_first_order_assets:
+                        if game_state.cash - asset.cost_to_invest_this_step < 0:
+                            can_invest = False
+                    if self.mask_negative_enpv_assets and asset.enpv < 0:
+                        can_invest = False
+                    investment_mask.append([True, can_invest, can_drop])
                 else:
+                    investment_mask.append([True, False, can_drop])
+        else:
+            investment_mask = np.zeros(self.max_num_assets, dtype=np.int8)
+            for i, asset_id in enumerate(asset_order):
+                if asset_id is not None and asset_id in game_state.assets:
                     asset = game_state.assets[asset_id]
                     if asset.state == AssetState.Idle:
                         can_invest = True
@@ -692,60 +613,7 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
                             if asset.enpv < 0:
                                 can_invest = False
                         if can_invest:
-                            # NONE + all investment levels, no STOP
-                            mask = [True, True, True, True, False]
-                        else:
-                            mask = [True] + [False] * (num_levels - 1)
-                    elif asset.state == AssetState.InDevelopment:
-                        # Can change level or STOP
-                        mask = [True, True, True, True, True]
-                    else:
-                        # OnMarket, Failed, Expired: only NONE
-                        mask = [True] + [False] * (num_levels - 1)
-                investment_mask.append(mask)
-        else:
-            use_drop = (
-                self.drop_action_config.enabled
-            )
-            if use_drop:
-                investment_mask = []
-                for i in range(self.max_num_assets):
-                    asset_id = asset_order[i] if i < len(asset_order) else None
-                    if asset_id is None or asset_id not in game_state.assets:
-                        investment_mask.append([True, False, False])
-                        continue
-
-                    asset = game_state.assets[asset_id]
-                    can_drop = True
-                    if self.mask_first_order_assets:
-                        if game_state.cash - self._drop_fee(asset) < 0:
-                            can_drop = False
-
-                    if asset.state == AssetState.Idle:
-                        can_invest = True
-                        if self.mask_first_order_assets:
-                            if game_state.cash - asset.cost_to_invest_this_step < 0:
-                                can_invest = False
-                        if self.mask_negative_enpv_assets and asset.enpv < 0:
-                            can_invest = False
-                        investment_mask.append([True, can_invest, can_drop])
-                    else:
-                        investment_mask.append([True, False, can_drop])
-            else:
-                investment_mask = np.zeros(self.max_num_assets, dtype=np.int8)
-                for i, asset_id in enumerate(asset_order):
-                    if asset_id is not None and asset_id in game_state.assets:
-                        asset = game_state.assets[asset_id]
-                        if asset.state == AssetState.Idle:
-                            can_invest = True
-                            if self.mask_first_order_assets:
-                                if game_state.cash - asset.cost_to_invest_this_step < 0:
-                                    can_invest = False
-                            if self.mask_negative_enpv_assets:
-                                if asset.enpv < 0:
-                                    can_invest = False
-                            if can_invest:
-                                investment_mask[i] = 1
+                            investment_mask[i] = 1
 
         # BD bids are continuous (Box) and unmasked — no per-slot mask.
         result = {
@@ -805,25 +673,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
                 ptrs_research_mask.append(slot_mask)
             result["ptrs_research"] = ptrs_research_mask
 
-        # Pricing masks: only on-market assets can have non-default pricing
-        if self.pricing_config.enabled:
-            num_price_levels = len(self.pricing_config.levels)
-            default_level = self.pricing_config.default_level
-            pricing_mask = []
-            for i in range(self.max_num_assets):
-                asset_id = asset_order[i] if i < len(asset_order) else None
-                if asset_id is not None and asset_id in game_state.assets:
-                    asset = game_state.assets[asset_id]
-                    if asset.state == AssetState.OnMarket:
-                        # All price levels valid for on-market drugs
-                        pricing_mask.append([True] * num_price_levels)
-                        continue
-                # Not on market or empty slot: only default level valid
-                mask = [False] * num_price_levels
-                mask[default_level] = True
-                pricing_mask.append(mask)
-            result["pricing"] = pricing_mask
-
         # Marketing masks
         if self.marketing_config.enabled:
             num_ind_slots = self.max_indications_per_ta * len(THERAPEUTIC_AREAS)
@@ -879,12 +728,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
             disable_market_share_competition=self.disable_market_share_competition,
             alert_history_length=self.alert_history_length,
             reward_fn_config={},
-            distributional_ptrs_config=self.distributional_ptrs_config,
-            ta_experience_config=self.ta_experience_config,
-            uncertain_ptrs_config=self.uncertain_ptrs_config,
-            investment_levels_config=self.investment_levels_config,
-            interim_trial_observations_config=self.interim_trial_observations_config,
-            rd_capacity_config=self.rd_capacity_config,
             drop_action_config=self.drop_action_config,
             ptrs_readings_config=self.ptrs_readings_config,
             clinical_sites_config=self.clinical_sites_config,
@@ -901,6 +744,7 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
             bd_leak_lambda_boost=self.bd_leak_lambda_boost,
             bd_min_step=self.bd_min_step,
             bd_max_bid=self.bd_max_bid,
+            bd_reserve_fraction=self.bd_reserve_fraction,
             bd_phase_weights=self.bd_phase_weights,
             bd_indication_activity_bias=self.bd_indication_activity_bias,
             bd_max_slots=self.bd_max_slots,
@@ -914,8 +758,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
             congestion_exponent=self.congestion_exponent,
             congestion_ramp_steps=self.congestion_ramp_steps,
             congestion_incumbent_penalty=self.congestion_incumbent_penalty,
-            # Pricing elasticity
-            pricing_elasticity=self.pricing_config.elasticity,
         )
 
         # Initialize asset ordering for observations
@@ -952,7 +794,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
         parsed = self._parse_actions(actions)
         investments = parsed["investments"]
         bd_bids = parsed["bd_bids"]
-        pricing_levels = parsed["pricing"]
         upgrade_actions = parsed["upgrade"]
         site_bid_cash = parsed["site_bid"]
         site_priority_arrays = parsed["site_priority"]
@@ -978,12 +819,7 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
                         )
 
         # Convert investment arrays to GameState-compatible action dicts
-        use_levels = (
-            self.investment_levels_config.enabled
-        )
-        use_drop = (
-            self.drop_action_config.enabled
-        )
+        use_drop = self.drop_action_config.enabled
         investor_actions = {}
         for agent in self.agents:
             agent_actions = {}
@@ -993,42 +829,15 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
             for i, invest in enumerate(agent_investments):
                 if i < len(asset_order) and asset_order[i] is not None:
                     asset_id = asset_order[i]
-                    if use_levels:
-                        level = InvestmentLevel.from_int(int(invest))
-                        if level != InvestmentLevel.NONE:
-                            agent_actions[asset_id] = level
-                    elif use_drop:
+                    if use_drop:
                         if invest == 1:
                             agent_actions[asset_id] = "invest"
                         elif invest == 2:
                             agent_actions[asset_id] = "drop"
                     else:
                         if invest:
-                            agent_actions[asset_id] = InvestmentLevel.STANDARD
+                            agent_actions[asset_id] = InvestmentAction.INVEST
             investor_actions[agent] = agent_actions
-
-        # Convert pricing level indices to per-drug multipliers
-        pricing_actions: dict[str, dict] | None = None
-        if self.pricing_config.enabled:
-            levels_list = self.pricing_config.levels
-            pricing_actions = {}
-            for agent in self.agents:
-                agent_pricing: dict = {}
-                asset_order = self._asset_id_orders[agent]
-                agent_pricing_levels = pricing_levels[agent]
-                for i, level_idx in enumerate(agent_pricing_levels):
-                    if i < len(asset_order) and asset_order[i] is not None:
-                        asset_id = asset_order[i]
-                        mult = levels_list[int(level_idx)]
-                        if mult != 1.0:
-                            agent_pricing[asset_id] = mult
-                pricing_actions[agent] = agent_pricing
-
-        # Store pricing for observation building
-        if pricing_actions is not None:
-            self._current_pricing = pricing_actions
-        else:
-            self._current_pricing = {}
 
         # Decode marketing actions into per-agent dicts
         marketing_actions: dict[str, dict] | None = None
@@ -1112,7 +921,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
         self.multi_agent_game = pre_step_game.step(
             investor_actions=investor_actions,
             bd_bids=bd_bids if has_bids else None,
-            pricing_actions=pricing_actions,
             research_actions=research_actions,
             marketing_actions=marketing_actions,
             site_bids=site_bids if has_site_bids else None,
@@ -1219,20 +1027,15 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
         so a feature can never silently become a no-op by omission.
 
         BD bids are cash amounts in GBP millions (0 = pass).
-        Pricing is integer level indices into pricing_config.levels.
         """
         investments = {}
         bd_bids = {}
-        pricing = {}
         demand_creation = {}
         brand_equity = {}
         ptrs_research = {}
         upgrade = {}
         site_bid = {}
         site_priority = {}
-        default_level = (
-            self.pricing_config.default_level if self.pricing_config.enabled else 0
-        )
         num_ind_slots = self.max_indications_per_ta * len(THERAPEUTIC_AREAS)
         num_ptrs_research_slots = self.max_num_assets + self.bd_max_slots
         required = self.enabled_action_heads()
@@ -1265,12 +1068,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
 
             investments[agent] = np.asarray(action["investments"], dtype=np.int64)
             bd_bids[agent] = self._decode_bd_bids(action["bd_bids"])
-            if self.pricing_config.enabled:
-                pricing[agent] = np.asarray(action["pricing"], dtype=np.int64)
-            else:
-                pricing[agent] = np.full(
-                    self.max_num_assets, default_level, dtype=np.int64
-                )
             if "demand_creation" in required_set:
                 demand_creation[agent] = np.asarray(
                     action["demand_creation"], dtype=np.int64
@@ -1308,7 +1105,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
         return {
             "investments": investments,
             "bd_bids": bd_bids,
-            "pricing": pricing,
             "demand_creation": demand_creation,
             "brand_equity": brand_equity,
             "ptrs_research": ptrs_research,
@@ -1383,24 +1179,14 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
         asset_total = L.asset_total_features
         asset_scalar = L.asset_scalar_features
         trial_feat = L.trial_features
-        dist_on = L.distributional_ptrs_enabled
-        interim_on = L.interim_obs_enabled
-        off_interim = L.offset_interim_signal
-        off_progress = L.offset_trial_progress
         off_ta_idx = L.offset_ta_index
         off_indication = L.offset_indication
-        off_pricing = L.offset_pricing
 
         # Global features
         pos = 0
         obs[pos] = game_state.cash
         obs[pos + 1] = self.multi_agent_game.time
         pos = 2
-
-        if L.ta_experience_enabled:
-            for i, ta in enumerate(THERAPEUTIC_AREAS):
-                obs[pos + i] = game_state.ta_experience.get(ta, 0.0)
-            pos += L.num_ta_exp_features
 
         # Clinical-site globals (appended after all other global blocks).
         if L.clinical_sites_enabled:
@@ -1421,11 +1207,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
 
             if asset_id is None or asset_id not in game_state.assets:
                 obs[asset_offset + 9] = AssetState.Expired.integer
-                if dist_on:
-                    trial_off = asset_offset + asset_scalar
-                    for _ in TrialPhase:
-                        obs[trial_off + 4] = 1.0  # ptrs_confidence
-                        trial_off += trial_feat
                 continue
 
             asset = game_state.assets[asset_id]
@@ -1454,16 +1235,8 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
             obs[asset_offset + 8] = asset.eroi
             obs[asset_offset + 9] = asset.state.integer
 
-            if interim_on:
-                obs[asset_offset + off_interim] = asset.interim_signal
-                obs[asset_offset + off_progress] = asset.trial_progress
-
             obs[asset_offset + off_ta_idx] = TA_INDEX.get(asset.therapeutic_area, 0)
             obs[asset_offset + off_indication] = asset.indication
-
-            if L.pricing_enabled:
-                agent_pricing = self._current_pricing.get(agent, {})
-                obs[asset_offset + off_pricing] = agent_pricing.get(asset_id, 1.0)
 
             if L.marketing_enabled:
                 obs[asset_offset + L.offset_brand_score] = game_state._brand_scores.get(
@@ -1485,11 +1258,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
                         obs[trial_off + 2] = trial.ptrs_sample_mean
                     else:
                         obs[trial_off + 2] = trial.ptrs
-                    if dist_on:
-                        obs[trial_off + 3] = trial.ptrs_expected
-                        obs[trial_off + 4] = trial.ptrs_confidence
-                        obs[trial_off + 5] = trial.ptrs_range_low
-                        obs[trial_off + 6] = trial.ptrs_range_high
                     if ptrs_readings_on and off_ptrs_count >= 0:
                         equiv_n = (
                             trial.ptrs_total_precision
@@ -1500,9 +1268,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
                             / ptrs_readings_cfg.max_sample_obs
                         )
                     trial = trial.next_trial_on_success
-                else:
-                    if dist_on:
-                        obs[trial_off + 4] = 1.0  # ptrs_confidence default
                 trial_off += trial_feat
 
         offset += self.max_num_assets * asset_total
@@ -1640,11 +1405,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
         """Generate padding asset observation for empty slots."""
         L = self._layout
         trial_pad = {"cost_remaining": 0.0, "time_remaining": 0, "ptrs": 0.0}
-        if L.distributional_ptrs_enabled:
-            trial_pad["ptrs_expected"] = 0.0
-            trial_pad["ptrs_confidence"] = 1.0
-            trial_pad["ptrs_range_low"] = 0.0
-            trial_pad["ptrs_range_high"] = 0.0
         if L.offset_ptrs_count >= 0:
             trial_pad["ptrs_equiv_n_norm"] = 0.0
 
@@ -1663,11 +1423,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
             "ta_index": 0,
             "indication": 0,
         }
-        if L.interim_obs_enabled:
-            obs["interim_signal"] = 0.0
-            obs["trial_progress"] = 0.0
-        if L.pricing_enabled:
-            obs["price_multiplier"] = 1.0
         if L.marketing_enabled:
             obs["brand_score"] = 0.0
         return obs
@@ -1723,8 +1478,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
     def _get_observation_dict(self, agent: str) -> dict:
         """Build dict-based observation for an agent."""
         L = self._layout
-        dist_on = L.distributional_ptrs_enabled
-        interim_on = L.interim_obs_enabled
         game_state = self.multi_agent_game.agent_states[agent]
         shared_market = self.multi_agent_game.shared_market
         ptrs_readings_cfg = self.ptrs_readings_config
@@ -1736,10 +1489,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
             cost,
             time_rem,
             ptrs,
-            ptrs_exp,
-            ptrs_conf,
-            ptrs_lo,
-            ptrs_hi,
             ptrs_equiv_n_norm=0.0,
         ):
             t = {
@@ -1747,11 +1496,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
                 "time_remaining": time_rem,
                 "ptrs": ptrs,
             }
-            if dist_on:
-                t["ptrs_expected"] = ptrs_exp
-                t["ptrs_confidence"] = ptrs_conf
-                t["ptrs_range_low"] = ptrs_lo
-                t["ptrs_range_high"] = ptrs_hi
             if ptrs_readings_on:
                 t["ptrs_equiv_n_norm"] = ptrs_equiv_n_norm
             return t
@@ -1781,16 +1525,12 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
                             trial.cost_remaining,
                             trial.time_remaining,
                             ptrs_val,
-                            trial.ptrs_expected,
-                            trial.ptrs_confidence,
-                            trial.ptrs_range_low,
-                            trial.ptrs_range_high,
                             ptrs_equiv_n_norm=equiv_n_norm,
                         )
                     )
                     trial = trial.next_trial_on_success
                 else:
-                    trials_list.append(_make_trial_obs(0.0, 0, 0.0, 0.0, 1.0, 0.0, 0.0))
+                    trials_list.append(_make_trial_obs(0.0, 0, 0.0))
 
             if asset.state == AssetState.OnMarket:
                 pending = 0
@@ -1818,12 +1558,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
                 "ta_index": TA_INDEX.get(asset.therapeutic_area, 0),
                 "indication": asset.indication,
             }
-            if interim_on:
-                obs["interim_signal"] = asset.interim_signal
-                obs["trial_progress"] = asset.trial_progress
-            if L.pricing_enabled:
-                agent_pricing = self._current_pricing.get(agent, {})
-                obs["price_multiplier"] = agent_pricing.get(asset_id, 1.0)
             if L.marketing_enabled:
                 obs["brand_score"] = game_state._brand_scores.get(asset_id, 0.0)
             return obs
@@ -1994,11 +1728,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
             "alerts": tuple(alert_obs),
         }
 
-        if L.ta_experience_enabled:
-            result["ta_experience"] = {
-                ta: game_state.ta_experience.get(ta, 0.0) for ta in THERAPEUTIC_AREAS
-            }
-
         if L.clinical_sites_enabled:
             result["clinical_sites"] = {
                 "operational_sites": float(game_state.operational_sites),
@@ -2037,12 +1766,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
         obs[pos + 1] = dict_obs["time"][0]
         pos = 2
 
-        if L.ta_experience_enabled:
-            ta_exp = dict_obs.get("ta_experience", {})
-            for i, ta in enumerate(THERAPEUTIC_AREAS):
-                obs[pos + i] = ta_exp.get(ta, 0.0)
-            pos += L.num_ta_exp_features
-
         if L.clinical_sites_enabled:
             sites_d = dict_obs.get("clinical_sites", {})
             site_off = L.offset_clinical_sites
@@ -2069,19 +1792,8 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
             obs[offset + 8] = asset_d["eroi"]
             obs[offset + 9] = asset_d["state"]
 
-            if L.interim_obs_enabled:
-                obs[offset + L.offset_interim_signal] = asset_d.get(
-                    "interim_signal", 0.0
-                )
-                obs[offset + L.offset_trial_progress] = asset_d.get(
-                    "trial_progress", 0.0
-                )
-
             obs[offset + L.offset_ta_index] = asset_d.get("ta_index", 0)
             obs[offset + L.offset_indication] = asset_d.get("indication", 0)
-
-            if L.pricing_enabled:
-                obs[offset + L.offset_pricing] = asset_d.get("price_multiplier", 1.0)
 
             if L.marketing_enabled:
                 obs[offset + L.offset_brand_score] = asset_d.get("brand_score", 0.0)
@@ -2093,11 +1805,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
                 obs[trial_off] = trial["cost_remaining"]
                 obs[trial_off + 1] = trial["time_remaining"]
                 obs[trial_off + 2] = trial["ptrs"]
-                if L.distributional_ptrs_enabled:
-                    obs[trial_off + 3] = trial.get("ptrs_expected", trial["ptrs"])
-                    obs[trial_off + 4] = trial.get("ptrs_confidence", 1.0)
-                    obs[trial_off + 5] = trial.get("ptrs_range_low", trial["ptrs"])
-                    obs[trial_off + 6] = trial.get("ptrs_range_high", trial["ptrs"])
                 if off_ptrs_count >= 0:
                     obs[trial_off + off_ptrs_count] = trial["ptrs_equiv_n_norm"]
                 trial_off += trial_feat
@@ -2175,7 +1882,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
 
         """
         L = self._layout
-        dist_on = L.distributional_ptrs_enabled
         pos = 0
 
         cash = float(flat_obs[pos])
@@ -2186,12 +1892,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
             "cash": np.array([cash], dtype=np.float32),
             "time": np.array([time_val], dtype=np.float32),
         }
-
-        if L.ta_experience_enabled:
-            result["ta_experience"] = {
-                ta: float(flat_obs[pos + i]) for i, ta in enumerate(THERAPEUTIC_AREAS)
-            }
-            pos += L.num_ta_exp_features
 
         offset = L.global_features
         asset_total = L.asset_total_features
@@ -2209,11 +1909,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
                     "time_remaining": int(flat_obs[trial_off + 1]),
                     "ptrs": float(flat_obs[trial_off + 2]),
                 }
-                if dist_on:
-                    t["ptrs_expected"] = float(flat_obs[trial_off + 3])
-                    t["ptrs_confidence"] = float(flat_obs[trial_off + 4])
-                    t["ptrs_range_low"] = float(flat_obs[trial_off + 5])
-                    t["ptrs_range_high"] = float(flat_obs[trial_off + 6])
                 trials.append(t)
                 trial_off += trial_feat
 
@@ -2232,15 +1927,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
                 "indication": int(flat_obs[offset + L.offset_indication]),
                 "trials": tuple(trials),
             }
-            if L.interim_obs_enabled:
-                asset_d["interim_signal"] = float(
-                    flat_obs[offset + L.offset_interim_signal]
-                )
-                asset_d["trial_progress"] = float(
-                    flat_obs[offset + L.offset_trial_progress]
-                )
-            if L.pricing_enabled:
-                asset_d["price_multiplier"] = float(flat_obs[offset + L.offset_pricing])
             if L.marketing_enabled:
                 asset_d["brand_score"] = float(flat_obs[offset + L.offset_brand_score])
             assets.append(asset_d)
@@ -2331,8 +2017,6 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
             "time": self.multi_agent_game.time,
             "num_assets": len(game_state.assets),
             "bankrupt": game_state.bankrupt,
-            "ta_experience": dict(game_state.ta_experience),
-            "capacity_ratio": game_state.capacity_ratio,
             "indication_names": dict(shared_market.indication_name_map),
             "indications_per_ta": shared_market.indications_per_ta,
         }

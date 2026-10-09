@@ -22,11 +22,7 @@ def get_agent(name: str, **kwargs) -> object:
     elif name == "MultiAgentKnapsack":
         if "agent_name" not in kwargs:
             raise ValueError("agent_name must be provided for MultiAgentKnapsack.")
-        agent = MultiAgentKnapsackAgent(
-            agent_name=kwargs["agent_name"],
-            capacity=kwargs.get("capacity", 12),
-            enable_bd_bidding=kwargs.get("enable_bd_bidding", True),
-        )
+        agent = MultiAgentKnapsackAgent(agent_name=kwargs["agent_name"])
     elif name == "MultiAgentRandom":
         if "agent_name" not in kwargs:
             raise ValueError("agent_name must be provided for MultiAgentRandom.")

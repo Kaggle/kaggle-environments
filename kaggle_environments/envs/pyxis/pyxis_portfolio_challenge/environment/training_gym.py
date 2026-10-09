@@ -11,13 +11,8 @@ import upath
 from pyxis_portfolio_challenge.config import (
     ApprovalPhaseConfig,
     ClinicalSitesConfig,
-    DistributionalPtrsConfig,
-    InterimTrialObservationsConfig,
-    InvestmentLevelsConfig,
     MarketingConfig,
     PtrsReadingsConfig,
-    TAExperienceConfig,
-    UncertainPtrsConfig,
 )
 from pyxis_portfolio_challenge.environment.metrics import (
     EvaluationMetric,
@@ -27,7 +22,6 @@ from pyxis_portfolio_challenge.environment.metrics import (
 from pyxis_portfolio_challenge.environment.obs_layout import (
     NUM_TRIAL_PHASES,
     TA_INDEX,
-    TA_ORDER,
     ObsLayout,
 )
 from pyxis_portfolio_challenge.environment.reward import (
@@ -35,7 +29,6 @@ from pyxis_portfolio_challenge.environment.reward import (
 )
 from pyxis_portfolio_challenge.game.asset import AssetState
 from pyxis_portfolio_challenge.game.asset_generators import JSONAssetGenerator
-from pyxis_portfolio_challenge.game.constants import InvestmentLevel
 from pyxis_portfolio_challenge.game.game_state import GameState
 from pyxis_portfolio_challenge.game.trial import TrialPhase, TrialState
 
@@ -60,12 +53,6 @@ class InvestmentGameEnv(gym.Env):
         mask_first_order_assets: bool,
         mask_negative_enpv_assets: bool,
         flatten_obs: bool,
-        distributional_ptrs_config: Optional[DistributionalPtrsConfig],
-        ta_experience_config: Optional[TAExperienceConfig],
-        uncertain_ptrs_config: Optional[UncertainPtrsConfig],
-        investment_levels_config: Optional[InvestmentLevelsConfig],
-        interim_trial_observations_config: Optional[InterimTrialObservationsConfig],
-        rd_capacity_config,
         drop_action_config,
         marketing_config: MarketingConfig,
         clinical_sites_config: ClinicalSitesConfig,
@@ -120,18 +107,6 @@ class InvestmentGameEnv(gym.Env):
             Multiplier for cash risk reserve based on ongoing development costs.
             Reserve = sum(ongoing_costs) * multiplier. If None (default), no
             reserve is enforced (all cash available for investment).
-        distributional_ptrs_config: Optional[DistributionalPtrsConfig]
-            Configuration for distributional PTRS feature. If None, feature disabled.
-        ta_experience_config: Optional[TAExperienceConfig]
-            Configuration for TA experience feature.
-        uncertain_ptrs_config: Optional[UncertainPtrsConfig]
-            Configuration for uncertain PTRS feature.
-        investment_levels_config: Optional[InvestmentLevelsConfig]
-            Configuration for investment levels feature.
-        interim_trial_observations_config:
-            Configuration for interim trial observations.
-        rd_capacity_config:
-            Configuration for R&D capacity constraint feature.
         drop_action_config:
             Configuration for the standalone drop action feature.
         marketing_config: MarketingConfig
@@ -163,13 +138,7 @@ class InvestmentGameEnv(gym.Env):
         self.metrics = metrics or []
         self.flatten_obs = flatten_obs
         self.initial_game_state = initial_game_state
-        self.ta_experience_config = ta_experience_config
-        self.uncertain_ptrs_config = uncertain_ptrs_config
-        self.investment_levels_config = investment_levels_config
-        self.interim_trial_observations_config = interim_trial_observations_config
-        self.rd_capacity_config = rd_capacity_config
         self.drop_action_config = drop_action_config
-        self.distributional_ptrs_config = distributional_ptrs_config
         self.marketing_config = marketing_config
         self.clinical_sites_config = clinical_sites_config
         self.ptrs_readings_config = ptrs_readings_config
@@ -195,15 +164,6 @@ class InvestmentGameEnv(gym.Env):
                 "Disable them in the config to use the single-agent env."
             )
 
-        if (
-            self.investment_levels_config.enabled
-            and self.drop_action_config.enabled
-        ):
-            raise ValueError(
-                "investment_levels and drop_action are mutually exclusive "
-                "— enable at most one."
-            )
-
         # Initialise now but will be overwritten in reset()
         if initial_game_state is not None:
             self.game_state = initial_game_state
@@ -219,12 +179,6 @@ class InvestmentGameEnv(gym.Env):
                 reinvestment_percentage=reinvestment_percentage,
                 seed=42,
                 assets_dir=assets_dir,
-                ta_experience_config=ta_experience_config,
-                uncertain_ptrs_config=uncertain_ptrs_config,
-                investment_levels_config=investment_levels_config,
-                interim_trial_observations_config=interim_trial_observations_config,  # noqa: E501
-                distributional_ptrs_config=distributional_ptrs_config,
-                rd_capacity_config=rd_capacity_config,
                 drop_action_config=drop_action_config,
                 marketing_config=marketing_config,
                 clinical_sites_config=clinical_sites_config,
@@ -239,11 +193,9 @@ class InvestmentGameEnv(gym.Env):
         self._asset_id_order = [0] * max_num_assets  # Will be set in reset()
 
         self._layout = ObsLayout.from_config(
-            ta_experience_config=ta_experience_config,
-            rd_capacity_config=rd_capacity_config,
-            distributional_ptrs_config=distributional_ptrs_config,
-            uncertain_ptrs_config=uncertain_ptrs_config,
-            interim_trial_observations_config=interim_trial_observations_config,
+            marketing_config=marketing_config,
+            ptrs_readings_config=ptrs_readings_config,
+            clinical_sites_config=clinical_sites_config,
         )
 
         self._setup_gym_spaces()
@@ -263,25 +215,16 @@ class InvestmentGameEnv(gym.Env):
         This also creates the helper dictionary _phase_to_observation that converts a
         phase name to its corresponding observation index.
 
-        The action space is MultiDiscrete when investment_levels is enabled (4 choices
-        per asset: NONE=0, MINIMAL=1, STANDARD=2, ACCELERATED=3), otherwise MultiBinary
-        for backward compatibility.
+        The action space is MultiDiscrete(3) when the drop action is enabled
+        (0=do nothing, 1=invest, 2=drop), otherwise MultiBinary.
         For the observation space, Dict spaces are used for the assets and for the
         trials of a given asset (unless flatten_obs is True).
         """
         logger.debug("Setting up gym observation spaces. .")
 
-        # Action space: MultiDiscrete(6) for investment levels, MultiDiscrete(3)
-        # for drop action, or MultiBinary for the default binary case.
-        if (
-            self.investment_levels_config.enabled
-        ):
-            self.action_space = gym.spaces.MultiDiscrete(
-                [len(InvestmentLevel)] * self.max_num_assets
-            )
-        elif (
-            self.drop_action_config.enabled
-        ):
+        # Action space: MultiDiscrete(3) for drop action, or MultiBinary for the
+        # default binary case.
+        if self.drop_action_config.enabled:
             # Ternary: 0=do nothing, 1=invest, 2=drop
             self.action_space = gym.spaces.MultiDiscrete([3] * self.max_num_assets)
         else:
@@ -309,19 +252,6 @@ class InvestmentGameEnv(gym.Env):
                 ),
                 "ptrs": gym.spaces.Box(low=0, high=1, shape=(), dtype=float),
             }
-            if L.distributional_ptrs_enabled:
-                trial_fields["ptrs_expected"] = gym.spaces.Box(
-                    low=0, high=1, shape=(), dtype=float
-                )
-                trial_fields["ptrs_confidence"] = gym.spaces.Box(
-                    low=0, high=1, shape=(), dtype=float
-                )
-                trial_fields["ptrs_range_low"] = gym.spaces.Box(
-                    low=0, high=1, shape=(), dtype=float
-                )
-                trial_fields["ptrs_range_high"] = gym.spaces.Box(
-                    low=0, high=1, shape=(), dtype=float
-                )
             trial_space = gym.spaces.Dict(trial_fields)
 
             asset_fields = {
@@ -354,13 +284,6 @@ class InvestmentGameEnv(gym.Env):
                 "state": gym.spaces.Discrete(len(AssetState)),
                 "ta_index": gym.spaces.Discrete(3),
             }
-            if L.interim_obs_enabled:
-                asset_fields["interim_signal"] = gym.spaces.Box(
-                    low=0, high=1, shape=(), dtype=float
-                )
-                asset_fields["trial_progress"] = gym.spaces.Box(
-                    low=0, high=1, shape=(), dtype=float
-                )
             asset_space = gym.spaces.Dict(asset_fields)
 
             obs_fields = {
@@ -369,35 +292,6 @@ class InvestmentGameEnv(gym.Env):
                 ),
                 "assets": gym.spaces.Tuple([asset_space] * self.max_num_assets),
             }
-            if L.ta_experience_enabled:
-                obs_fields["ta_experience"] = gym.spaces.Dict({
-                    ta: gym.spaces.Box(low=0, high=float("inf"), shape=(), dtype=float)
-                    for ta in TA_ORDER
-                })
-            if L.capacity_enabled:
-                obs_fields["capacity"] = gym.spaces.Dict({
-                    "capacity_ratio": gym.spaces.Box(
-                        low=0, high=float("inf"), shape=(), dtype=float
-                    ),
-                    "capacity_headroom": gym.spaces.Box(
-                        low=-float("inf"), high=float("inf"), shape=(), dtype=float
-                    ),
-                    "success_modifier": gym.spaces.Box(
-                        low=0, high=1, shape=(), dtype=float
-                    ),
-                })
-            if L.ta_quality_enabled:
-                obs_fields["ta_quality"] = gym.spaces.Dict({
-                    ta: gym.spaces.Dict({
-                        "estimate": gym.spaces.Box(
-                            low=-1, high=1, shape=(), dtype=float
-                        ),
-                        "confidence": gym.spaces.Box(
-                            low=0, high=1, shape=(), dtype=float
-                        ),
-                    })
-                    for ta in TA_ORDER
-                })
             self.observation_space = gym.spaces.Dict(obs_fields)
 
         self._phase_to_observation = {
@@ -407,13 +301,7 @@ class InvestmentGameEnv(gym.Env):
     @property
     def _padding_asset_obs(self):
         """Generate padding asset observation with all zero/empty values."""
-        L = self._layout
         trial_pad = {"cost_remaining": 0.0, "time_remaining": 0, "ptrs": 0.0}
-        if L.distributional_ptrs_enabled:
-            trial_pad["ptrs_expected"] = 0.0
-            trial_pad["ptrs_confidence"] = 1.0
-            trial_pad["ptrs_range_low"] = 0.0
-            trial_pad["ptrs_range_high"] = 0.0
 
         obs = {
             "max_revenue": 0.0,
@@ -429,9 +317,6 @@ class InvestmentGameEnv(gym.Env):
             "state": AssetState.Expired.integer,
             "ta_index": 0,
         }
-        if L.interim_obs_enabled:
-            obs["interim_signal"] = 0.0
-            obs["trial_progress"] = 0.0
         return obs
 
     def _get_obs(self) -> Union[dict[str, Union[np.ndarray, tuple]], np.ndarray]:
@@ -459,15 +344,13 @@ class InvestmentGameEnv(gym.Env):
         """
         Get flattened observation as a single numpy array.
 
-        Layout (conditional on enabled features):
-        [cash, [ta_exp*3], [capacity*3], [ta_quality*6], asset_0..., asset_1..., ...]
+        Layout:
+        [cash, asset_0..., asset_1..., ...]
 
-        Each asset: [10 base scalars, [interim_signal, trial_progress],
-                     ta_index, trial_phase_0..., trial_phase_1..., ...]
+        Each asset: [10 base scalars, ta_index,
+                     trial_phase_0..., trial_phase_1..., ...]
 
-        Each trial phase: [cost_remaining, time_remaining, ptrs,
-                          [ptrs_expected, ptrs_confidence,
-                           ptrs_range_low, ptrs_range_high]]
+        Each trial phase: [cost_remaining, time_remaining, ptrs]
 
         Returns
         -------
@@ -482,35 +365,12 @@ class InvestmentGameEnv(gym.Env):
         asset_total = L.asset_total_features
         asset_scalar = L.asset_scalar_features
         trial_feat = L.trial_features
-        dist_on = L.distributional_ptrs_enabled
-        interim_on = L.interim_obs_enabled
-        off_interim = L.offset_interim_signal
-        off_progress = L.offset_trial_progress
         off_ta_idx = L.offset_ta_index
 
         # Global features
         pos = 0
         obs[pos] = self.game_state.cash
         pos += 1
-
-        if L.ta_experience_enabled:
-            for i, ta in enumerate(TA_ORDER):
-                obs[pos + i] = self.game_state.ta_experience.get(ta, 0.0)
-            pos += L.num_ta_exp_features
-
-        if L.capacity_enabled:
-            obs[pos] = self.game_state.capacity_ratio
-            obs[pos + 1] = self.game_state.capacity_headroom
-            obs[pos + 2] = self.game_state.success_modifier
-            pos += L.num_capacity_features
-
-        if L.ta_quality_enabled:
-            for i, ta in enumerate(TA_ORDER):
-                obs[pos + 2 * i] = self.game_state.ta_quality_estimates.get(ta, 0.0)
-                obs[pos + 2 * i + 1] = self.game_state.ta_quality_confidences.get(
-                    ta, 1.0
-                )
-            pos += L.num_ta_quality_features
 
         # Asset features
         offset = L.global_features
@@ -522,11 +382,6 @@ class InvestmentGameEnv(gym.Env):
             if asset_id == 0:
                 obs[offset : offset + asset_total] = 0.0
                 obs[offset + 9] = expired_state
-                if dist_on:
-                    trial_offset = offset + asset_scalar
-                    for _ in TrialPhase:
-                        obs[trial_offset + 4] = 1.0  # ptrs_confidence
-                        trial_offset += trial_feat
             else:
                 asset = assets[asset_id]
                 obs[offset] = asset.max_revenue
@@ -547,10 +402,6 @@ class InvestmentGameEnv(gym.Env):
                 obs[offset + 8] = asset.eroi
                 obs[offset + 9] = asset.state.integer
 
-                if interim_on:
-                    obs[offset + off_interim] = asset.interim_signal
-                    obs[offset + off_progress] = asset.trial_progress
-
                 obs[offset + off_ta_idx] = TA_INDEX.get(asset.therapeutic_area, 0)
 
                 # Trial features
@@ -563,32 +414,17 @@ class InvestmentGameEnv(gym.Env):
                         obs[trial_offset] = 0.0
                         obs[trial_offset + 1] = 0
                         obs[trial_offset + 2] = 0.0
-                        if dist_on:
-                            obs[trial_offset + 3] = 0.0
-                            obs[trial_offset + 4] = 1.0
-                            obs[trial_offset + 5] = 0.0
-                            obs[trial_offset + 6] = 0.0
                     elif _trial and _trial.phase == phase:
                         if _trial.state == TrialState.PHASE_FAILED:
                             failure_detected = True
                         obs[trial_offset] = _trial.cost_remaining
                         obs[trial_offset + 1] = _trial.time_remaining
                         obs[trial_offset + 2] = _trial.ptrs
-                        if dist_on:
-                            obs[trial_offset + 3] = _trial.ptrs_expected
-                            obs[trial_offset + 4] = _trial.ptrs_confidence
-                            obs[trial_offset + 5] = _trial.ptrs_range_low
-                            obs[trial_offset + 6] = _trial.ptrs_range_high
                         _trial = _trial.next_trial_on_success
                     else:
                         obs[trial_offset] = 0.0
                         obs[trial_offset + 1] = 0
                         obs[trial_offset + 2] = 1.0
-                        if dist_on:
-                            obs[trial_offset + 3] = 1.0
-                            obs[trial_offset + 4] = 1.0
-                            obs[trial_offset + 5] = 1.0
-                            obs[trial_offset + 6] = 1.0
                     trial_offset += trial_feat
 
             offset += asset_total
@@ -605,20 +441,8 @@ class InvestmentGameEnv(gym.Env):
             The current observation from the environment.
 
         """
-        L = self._layout
-        dist_on = L.distributional_ptrs_enabled
-        interim_on = L.interim_obs_enabled
-
-        def _make_trial_obs(
-            cost, time_rem, ptrs, ptrs_exp, ptrs_conf, ptrs_lo, ptrs_hi
-        ):
-            t = {"cost_remaining": cost, "time_remaining": time_rem, "ptrs": ptrs}
-            if dist_on:
-                t["ptrs_expected"] = ptrs_exp
-                t["ptrs_confidence"] = ptrs_conf
-                t["ptrs_range_low"] = ptrs_lo
-                t["ptrs_range_high"] = ptrs_hi
-            return t
+        def _make_trial_obs(cost, time_rem, ptrs):
+            return {"cost_remaining": cost, "time_remaining": time_rem, "ptrs": ptrs}
 
         def _get_asset_obs(asset):
             _trial = asset.trial
@@ -627,9 +451,7 @@ class InvestmentGameEnv(gym.Env):
             failure_detected = False
             for phase in TrialPhase:
                 if failure_detected:
-                    trials_obs_list.append(
-                        _make_trial_obs(0.0, 0, 0.0, 0.0, 1.0, 0.0, 0.0)
-                    )
+                    trials_obs_list.append(_make_trial_obs(0.0, 0, 0.0))
                     continue
 
                 if _trial and _trial.phase == phase:
@@ -640,17 +462,11 @@ class InvestmentGameEnv(gym.Env):
                             _trial.cost_remaining,
                             _trial.time_remaining,
                             _trial.ptrs,
-                            _trial.ptrs_expected,
-                            _trial.ptrs_confidence,
-                            _trial.ptrs_range_low,
-                            _trial.ptrs_range_high,
                         )
                     )
                     _trial = _trial.next_trial_on_success
                 else:
-                    trials_obs_list.append(
-                        _make_trial_obs(0.0, 0, 1.0, 1.0, 1.0, 1.0, 1.0)
-                    )
+                    trials_obs_list.append(_make_trial_obs(0.0, 0, 1.0))
 
             if asset.state == AssetState.OnMarket:
                 pending_trial_phase = 0
@@ -673,9 +489,6 @@ class InvestmentGameEnv(gym.Env):
                 "state": asset.state.integer,
                 "ta_index": TA_INDEX.get(asset.therapeutic_area, 0),
             }
-            if interim_on:
-                obs["interim_signal"] = asset.interim_signal
-                obs["trial_progress"] = asset.trial_progress
             return obs
 
         asset_obs = []
@@ -690,25 +503,6 @@ class InvestmentGameEnv(gym.Env):
             "cash": np.array([self.game_state.cash], dtype=np.float32),
             "assets": tuple(asset_obs),
         }
-
-        if L.ta_experience_enabled:
-            result["ta_experience"] = {
-                ta: self.game_state.ta_experience.get(ta, 0.0) for ta in TA_ORDER
-            }
-        if L.capacity_enabled:
-            result["capacity"] = {
-                "capacity_ratio": self.game_state.capacity_ratio,
-                "capacity_headroom": self.game_state.capacity_headroom,
-                "success_modifier": self.game_state.success_modifier,
-            }
-        if L.ta_quality_enabled:
-            result["ta_quality"] = {
-                ta: {
-                    "estimate": self.game_state.ta_quality_estimates.get(ta, 0.0),
-                    "confidence": self.game_state.ta_quality_confidences.get(ta, 1.0),
-                }
-                for ta in TA_ORDER
-            }
 
         return result
 
@@ -726,8 +520,6 @@ class InvestmentGameEnv(gym.Env):
         info.)
 
         For MultiBinary (legacy): each asset has [can_not_invest, can_invest]
-        For MultiDiscrete (investment levels): each asset has
-            [can_NONE, can_MINIMAL, can_STANDARD, can_ACCELERATED, can_STOP]
         For MultiDiscrete (drop action): each asset has
             [can_do_nothing, can_invest, can_drop]
 
@@ -739,16 +531,7 @@ class InvestmentGameEnv(gym.Env):
             A list of action masks for the current observation.
 
         """
-        use_investment_levels = (
-            self.investment_levels_config.enabled
-        )
-        use_drop_action = (
-            self.drop_action_config.enabled
-        )
-
-        if use_investment_levels:
-            return self._action_masks_investment_levels()
-        elif use_drop_action:
+        if self.drop_action_config.enabled:
             return self._action_masks_ternary()
         return self._action_masks_binary()
 
@@ -820,47 +603,6 @@ class InvestmentGameEnv(gym.Env):
         if self.drop_action_config is None or asset.trial is None:
             return 0.0
         return self.drop_action_config.calculate_drop_fee(asset.trial.cost_remaining)
-
-    def _action_masks_investment_levels(self) -> list[list[bool]]:
-        """
-        Return action masks for MultiDiscrete action space (investment levels).
-
-        Action indices:
-            0: NONE - don't invest / keep current level
-            1: MINIMAL - slow and cheap development
-            2: STANDARD - normal development
-            3: ACCELERATED - fast and expensive development
-            4: STOP - stop development early (in-development assets only)
-        """
-        action_mask = []
-        for asset_id in self._asset_id_order:
-            if asset_id == 0:
-                # Padding: only NONE valid
-                action_mask.append([True, False, False, False, False])
-            else:
-                asset = self.game_state.assets[asset_id]
-                if asset.state == AssetState.Idle:
-                    can_invest = True
-
-                    # Check eNPV threshold
-                    if self.mask_negative_enpv_assets and asset.enpv < 0:
-                        can_invest = False
-
-                    if can_invest:
-                        # All levels valid for idle assets, but not STOP
-                        action_mask.append([True, True, True, True, False])
-                    else:
-                        # Only NONE valid
-                        action_mask.append([True, False, False, False, False])
-                elif asset.state == AssetState.InDevelopment:
-                    # Can change investment level (all levels valid)
-                    # Can also STOP to abandon development early
-                    action_mask.append([True, True, True, True, True])
-                else:
-                    # OnMarket, Failed, Expired: only NONE valid
-                    action_mask.append([True, False, False, False, False])
-
-        return action_mask
 
     def _create_shuffled_asset_order(self):
         """Create a shuffled order of asset IDs."""
@@ -975,14 +717,6 @@ class InvestmentGameEnv(gym.Env):
                     seed=seed,
                     **{
                         "assets_dir": self.assets_dir,
-                        "ta_experience_config": self.ta_experience_config,
-                        "uncertain_ptrs_config": self.uncertain_ptrs_config,
-                        "investment_levels_config": self.investment_levels_config,
-                        "interim_trial_observations_config": (
-                            self.interim_trial_observations_config
-                        ),
-                        "distributional_ptrs_config": self.distributional_ptrs_config,
-                        "rd_capacity_config": self.rd_capacity_config,
                         "drop_action_config": self.drop_action_config,
                         "marketing_config": self.marketing_config,
                         "clinical_sites_config": self.clinical_sites_config,
@@ -1011,19 +745,13 @@ class InvestmentGameEnv(gym.Env):
 
     def _action_to_investment_decision(
         self, action
-    ) -> dict[uuid.UUID, Union[InvestmentLevel, Literal["invest"], None]]:
+    ) -> dict[uuid.UUID, Literal["invest", "drop"]]:
         """
         Convert the action vector to investment decisions.
 
         For MultiBinary (legacy):
-            If the action is 1, use "invest" (backward compatible).
+            If the action is 1, use "invest".
             If the action is 0, exclude from dictionary.
-
-        For MultiDiscrete (investment levels):
-            Action 0 = NONE (exclude from dictionary)
-            Action 1 = MINIMAL
-            Action 2 = STANDARD
-            Action 3 = ACCELERATED
 
         For MultiDiscrete (drop action):
             Action 0 = do nothing (exclude from dictionary)
@@ -1043,23 +771,14 @@ class InvestmentGameEnv(gym.Env):
             A dictionary mapping asset_ids to investment decisions.
 
         """
-        use_investment_levels = (
-            self.investment_levels_config.enabled
-        )
-        use_drop_action = (
-            self.drop_action_config.enabled
-        )
+        use_drop_action = self.drop_action_config.enabled
 
         investment_decisions = {}
         for asset_id, act in zip(self._asset_id_order, action):
             if asset_id == 0:
                 continue
 
-            if use_investment_levels:
-                level = InvestmentLevel.from_int(int(act))
-                if level != InvestmentLevel.NONE:
-                    investment_decisions[asset_id] = level
-            elif use_drop_action:
+            if use_drop_action:
                 if act == 1:
                     investment_decisions[asset_id] = "invest"
                 elif act == 2:
@@ -1224,27 +943,6 @@ class InvestmentGameEnv(gym.Env):
         obs[pos] = dict_obs["cash"][0]
         pos += 1
 
-        if L.ta_experience_enabled:
-            ta_experience = dict_obs.get("ta_experience", {})
-            for i, ta in enumerate(TA_ORDER):
-                obs[pos + i] = ta_experience.get(ta, 0.0)
-            pos += L.num_ta_exp_features
-
-        if L.capacity_enabled:
-            capacity = dict_obs.get("capacity", {})
-            obs[pos] = capacity.get("capacity_ratio", 0.0)
-            obs[pos + 1] = capacity.get("capacity_headroom", 1.0)
-            obs[pos + 2] = capacity.get("success_modifier", 1.0)
-            pos += L.num_capacity_features
-
-        if L.ta_quality_enabled:
-            ta_quality = dict_obs.get("ta_quality", {})
-            for i, ta in enumerate(TA_ORDER):
-                ta_data = ta_quality.get(ta, {"estimate": 0.0, "confidence": 1.0})
-                obs[pos + 2 * i] = ta_data.get("estimate", 0.0)
-                obs[pos + 2 * i + 1] = ta_data.get("confidence", 1.0)
-            pos += L.num_ta_quality_features
-
         offset = L.global_features
         for asset_obs_d in dict_obs["assets"]:
             obs[offset] = asset_obs_d["max_revenue"]
@@ -1258,14 +956,6 @@ class InvestmentGameEnv(gym.Env):
             obs[offset + 8] = asset_obs_d["eroi"]
             obs[offset + 9] = asset_obs_d["state"]
 
-            if L.interim_obs_enabled:
-                obs[offset + L.offset_interim_signal] = asset_obs_d.get(
-                    "interim_signal", 0.0
-                )
-                obs[offset + L.offset_trial_progress] = asset_obs_d.get(
-                    "trial_progress", 0.0
-                )
-
             obs[offset + L.offset_ta_index] = asset_obs_d.get("ta_index", 0)
 
             trial_offset = offset + L.asset_scalar_features
@@ -1273,11 +963,6 @@ class InvestmentGameEnv(gym.Env):
                 obs[trial_offset] = trial["cost_remaining"]
                 obs[trial_offset + 1] = trial["time_remaining"]
                 obs[trial_offset + 2] = trial["ptrs"]
-                if L.distributional_ptrs_enabled:
-                    obs[trial_offset + 3] = trial.get("ptrs_expected", trial["ptrs"])
-                    obs[trial_offset + 4] = trial.get("ptrs_confidence", 1.0)
-                    obs[trial_offset + 5] = trial.get("ptrs_range_low", trial["ptrs"])
-                    obs[trial_offset + 6] = trial.get("ptrs_range_high", trial["ptrs"])
                 trial_offset += L.trial_features
 
             offset += L.asset_total_features
@@ -1309,20 +994,6 @@ class InvestmentGameEnv(gym.Env):
         result = {"cash": np.array([flat_obs[pos]], dtype=np.float32), "assets": []}
         pos += 1
 
-        if L.ta_experience_enabled:
-            result["ta_experience"] = {
-                ta: float(flat_obs[pos + i]) for i, ta in enumerate(TA_ORDER)
-            }
-            pos += L.num_ta_exp_features
-
-        if L.capacity_enabled:
-            result["capacity"] = {
-                "capacity_ratio": float(flat_obs[pos]),
-                "capacity_headroom": float(flat_obs[pos + 1]),
-                "success_modifier": float(flat_obs[pos + 2]),
-            }
-            pos += L.num_capacity_features
-
         offset = L.global_features
         for _ in range(num_assets):
             trials = []
@@ -1349,13 +1020,6 @@ class InvestmentGameEnv(gym.Env):
                 "ta_index": int(flat_obs[offset + L.offset_ta_index]),
                 "trials": tuple(trials),
             }
-            if L.interim_obs_enabled:
-                asset_obs_d["interim_signal"] = float(
-                    flat_obs[offset + L.offset_interim_signal]
-                )
-                asset_obs_d["trial_progress"] = float(
-                    flat_obs[offset + L.offset_trial_progress]
-                )
             result["assets"].append(asset_obs_d)
             offset += L.asset_total_features
 

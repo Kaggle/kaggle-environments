@@ -20,11 +20,30 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Auction reserves are quantised to this granularity so the headline number is
+# human-readable (a clean "£125M" rather than "£124,732,801").
+RESERVE_ROUNDING = 1_000_000
+
+
+def auction_reserve_price(fraction: float, value_anchor: float) -> float:
+    """Reserve price for an auction.
+
+    ``fraction × value_anchor``, floored at 0 (so a negative anchor such as a
+    cash-negative asset's eNPV carries no reserve) and rounded to the nearest
+    ``RESERVE_ROUNDING`` (£1M) for a readable headline number. This is the single
+    source of truth for the reserve, shared by the live auction resolution and
+    the HTTP layer that surfaces the number to human players.
+    """
+    reserve = max(0.0, fraction * value_anchor)
+    return round(reserve / RESERVE_ROUNDING) * RESERVE_ROUNDING
+
 
 def resolve_bd_bid(
     bids: dict[str, float],
     asset: DrugAsset,
     rng: random.Random,
+    *,
+    reserve: float,
 ) -> tuple[str | None, float]:
     """
     Resolve a single BD asset auction (first-price sealed-bid).
@@ -36,13 +55,19 @@ def resolve_bd_bid(
     The shared asset's ``cash_enpv`` is still exposed in the observation as
     value guidance, but it no longer parameterises pricing.
 
+    A reserve price gates the sale: if the highest bid is below ``reserve``, the
+    asset is not sold (``(None, 0.0)``) and stays on the market for whatever
+    persistence it has left. Pass ``reserve=0.0`` to disable.
+
     Args:
         bids: Dict mapping agent_id -> cash bid in GBP (``<= 0`` = pass).
         asset: The BD asset being auctioned.
         rng: Random number generator for tie-breaking.
+        reserve: Minimum winning bid (GBP). Bids below this win nothing.
 
     Returns:
-        Tuple of (winner_agent_id, price_paid) or (None, 0.0) if no bids.
+        Tuple of (winner_agent_id, price_paid) or (None, 0.0) if no bids clear
+        the reserve.
 
     """
     active_bids: list[tuple[str, float]] = [
@@ -61,6 +86,13 @@ def resolve_bd_bid(
         rng.shuffle(top_bidders)
 
     winner_agent, winner_price = top_bidders[0]
+    if winner_price < reserve:
+        # No bid met the reserve: the asset is withdrawn (stays on market).
+        logger.debug(
+            f"BD Auction: {asset.name} unsold — top bid ${winner_price:,.0f} "
+            f"below reserve ${reserve:,.0f}"
+        )
+        return None, 0.0
     logger.debug(
         f"BD Auction: {winner_agent} wins {asset.name} (bid ${winner_price:,.0f})"
     )
@@ -70,6 +102,8 @@ def resolve_bd_bid(
 def resolve_site_bid(
     bids: dict[str, float],
     rng: random.Random,
+    *,
+    reserve: float,
 ) -> tuple[str | None, float]:
     """
     Resolve a single clinical-site auction. Highest cash bid wins.
@@ -78,12 +112,17 @@ def resolve_site_bid(
     are treated as passes. Ties are broken by ``rng.shuffle`` (like the BD
     auction). No affordability mask — an overbid may bankrupt the winner.
 
+    A reserve price gates the sale: if the highest bid is below ``reserve``, no
+    site is sold (``(None, 0.0)``). Pass ``reserve=0.0`` to disable.
+
     Args:
         bids: Dict mapping agent_id -> cash bid (£).
         rng: Random number generator for tie-breaking.
+        reserve: Minimum winning bid (£). Bids below this win no site.
 
     Returns:
-        Tuple of (winner_agent_id, price_paid) or (None, 0.0) if no bids.
+        Tuple of (winner_agent_id, price_paid) or (None, 0.0) if no bids clear
+        the reserve.
 
     """
     active_bids = [(agent_id, bid) for agent_id, bid in bids.items() if bid > 0]
@@ -96,6 +135,13 @@ def resolve_site_bid(
         rng.shuffle(top_bidders)
 
     winner_agent, winner_price = top_bidders[0]
+    if winner_price < reserve:
+        # No bid met the reserve: no site is sold this round.
+        logger.debug(
+            f"Site Auction: unsold — top bid ${winner_price:,.0f} "
+            f"below reserve ${reserve:,.0f}"
+        )
+        return None, 0.0
     logger.debug(
         f"Site Auction: {winner_agent} wins a clinical site "
         f"(price ${winner_price:,.0f})"
@@ -109,8 +155,6 @@ def calculate_per_drug_indication_shares(
     shared_market: SharedMarketState,
     agent_portfolios: dict[str, GameState],
     current_time: int,
-    pricing_multipliers: dict[uuid.UUID, float] | None = None,
-    pricing_elasticity: float = 1.0,
     brand_scores: dict[uuid.UUID, float] | None = None,
     brand_floors: dict[uuid.UUID, float] | None = None,
     marketing_config: "MarketingConfig | None" = None,
@@ -149,11 +193,6 @@ def calculate_per_drug_indication_shares(
                 and asset.state == AssetState.OnMarket
             ):
                 tenure_bonus = 1.0 + asset.time_on_market * 0.05
-                # demand elasticity: quality = max_rev * (1/price^elast) * tenure
-                price_mult = 1.0
-                if pricing_multipliers is not None:
-                    price_mult = pricing_multipliers.get(asset.id, 1.0)
-                price_quality = 1.0 / (price_mult**pricing_elasticity)
                 brand_mult = 1.0
                 if brand_scores is not None and marketing_config is not None:
                     score = brand_scores.get(asset.id, 0.0)
@@ -171,7 +210,7 @@ def calculate_per_drug_indication_shares(
                         1.0 - floor
                     ) * score
                 drug_qualities[asset.id] = (
-                    asset.max_revenue * price_quality * tenure_bonus * brand_mult
+                    asset.max_revenue * tenure_bonus * brand_mult
                 )
 
     if not drug_qualities:
@@ -228,8 +267,6 @@ def calculate_per_drug_ta_shares(
     shared_market: SharedMarketState,
     agent_portfolios: dict[str, GameState],
     current_time: int,
-    pricing_multipliers: dict[uuid.UUID, float] | None = None,
-    pricing_elasticity: float = 1.0,
     brand_scores: dict[uuid.UUID, float] | None = None,
     brand_floors: dict[uuid.UUID, float] | None = None,
     marketing_config: "MarketingConfig | None" = None,
@@ -258,10 +295,6 @@ def calculate_per_drug_ta_shares(
                 and asset.state == AssetState.OnMarket
             ):
                 tenure_bonus = 1.0 + asset.time_on_market * 0.05
-                price_mult = 1.0
-                if pricing_multipliers is not None:
-                    price_mult = pricing_multipliers.get(asset.id, 1.0)
-                price_quality = 1.0 / (price_mult**pricing_elasticity)
                 brand_mult = 1.0
                 if brand_scores is not None and marketing_config is not None:
                     score = brand_scores.get(asset.id, 0.0)
@@ -279,7 +312,7 @@ def calculate_per_drug_ta_shares(
                         1.0 - floor
                     ) * score
                 drug_qualities[asset.id] = (
-                    asset.max_revenue * price_quality * tenure_bonus * brand_mult
+                    asset.max_revenue * tenure_bonus * brand_mult
                 )
 
     if not drug_qualities:
@@ -331,8 +364,6 @@ def calculate_agent_market_shares(
     shared_market: SharedMarketState,
     agent_portfolios: dict[str, GameState],
     current_time: int,
-    all_pricing_multipliers: dict[uuid.UUID, float] | None = None,
-    pricing_elasticity: float = 1.0,
     brand_scores: dict[uuid.UUID, float] | None = None,
     brand_floors: dict[uuid.UUID, float] | None = None,
     marketing_config: "MarketingConfig | None" = None,
@@ -349,9 +380,6 @@ def calculate_agent_market_shares(
         shared_market: Shared market state containing indication markets and TA info.
         agent_portfolios: Dict mapping agent_id -> GameState for all agents.
         current_time: Current simulation time step.
-        all_pricing_multipliers: Merged pricing multipliers from ALL agents'
-            on-market drugs (asset_id -> price_mult). Used in quality formula.
-        pricing_elasticity: Demand elasticity for price-share tradeoff.
         brand_scores: Per-drug brand-equity contribution (asset_id -> value),
             already reduced to max(0, brand_score - floor). If None, no
             brand-equity effect is applied.
@@ -378,8 +406,6 @@ def calculate_agent_market_shares(
                 shared_market,
                 agent_portfolios,
                 current_time,
-                pricing_multipliers=all_pricing_multipliers,
-                pricing_elasticity=pricing_elasticity,
                 brand_scores=brand_scores,
                 brand_floors=brand_floors,
                 marketing_config=marketing_config,
@@ -394,8 +420,6 @@ def calculate_agent_market_shares(
                 shared_market,
                 agent_portfolios,
                 current_time,
-                pricing_multipliers=all_pricing_multipliers,
-                pricing_elasticity=pricing_elasticity,
                 brand_scores=brand_scores,
                 brand_floors=brand_floors,
                 marketing_config=marketing_config,
