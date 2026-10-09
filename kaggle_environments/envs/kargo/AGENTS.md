@@ -10,10 +10,11 @@ Kargo is a last-mile delivery business sim for 2 or 4 players over 60 days. Each
 
 - **A day is 8 turns.** Three overnight steps -- `CAPEX` (fleet), `LABOR` (drivers), `CONTRACTS` (auction) -- then five two-hour driving blocks from 08:00 to 18:00. 60 days is 480 turns.
 - **Freight comes from one external shipper.** Its demand grows over the episode along a hidden path, and its prices rise when demand outruns the field's trucks and fall when the field over-builds. Unsold or undelivered packages come back the next night at a markup.
+- **Bulk freight needs a `BOX`.** Listings flagged `bulk` are 220-330 parcel-units of pallets at a few dock stops: only a `BOX` deck (340) holds one. Bulk has its own demand and price index, priced against the field's `BOX` trucks.
 - **You win freight in a sealed-bid reverse auction.** Lowest ask wins and is paid its own ask. A lot is a fraction of a truck-day out of one `(warehouse, district)` territory; a truck carries one territory's freight at a time.
 - **You see the territory, not the doors.** Addresses, service times and delivery windows land at 08:00, and your lots wait at their warehouses. You load them onto trucks and sequence the routes; anything still at a warehouse at 18:00 fails.
 - **Costs never stop.** Trucks cost $60-92 a day owned, drivers are paid for the minutes their truck works (and a retainer if benched), and every undelivered package costs $45.
-- **Starting position:** $12,000 cash, a `VAN`, a `VAN` and a `STEP`, one driver each. Net worth $150,000.
+- **Starting position:** $12,000 cash, a `VAN`, a `VAN` and a `BOX`, one driver each. Net worth $150,000.
 
 ## Your Agent
 
@@ -31,7 +32,7 @@ An empty dict is always legal. Plans persist across driving blocks: omit a truck
 **Observation fields** you will use most:
 
 - `phase`, `day` (0-based; day 0 is a Monday), `block` (0-4), `minute` (since 08:00), `player` (your index)
-- `market` -- tonight's `listings` and standing `accounts` (each with `warehouse`, `district`, `anchor`, `packages`, `truck_days`, `parcel_units`, `reserve`, `retry`, window counts), `used` trucks, `rentals`, labor `candidates` (id, name, résumé, asking wage), `service_interval_km`
+- `market` -- tonight's `listings` and standing `accounts` (each with `warehouse`, `district`, `anchor`, `packages`, `truck_days`, `parcel_units`, `reserve`, `retry`, `bulk`, window counts), `used` trucks, `rentals`, labor `candidates` (id, name, résumé, asking wage), `service_interval_km`
 - `public` -- per player: `cash`, `debt`, `net_worth`, `fleet`, `drivers` (never wages), `standing`, last 3 days' `results`
 - `history` -- last night's `auction` awards and `bids`, the latest `capex` and `labor` logs, live `standing` accounts
 - `city` (static road graph, `warehouses`) and `traffic` (`congestion` per edge, `incidents`, `weather`, `forecast`)
@@ -42,7 +43,7 @@ An empty dict is always legal. Plans persist across driving blocks: omit a truck
 A complete, minimal agent: crew every truck, bid 10% under reserve on the best-paying territories, load each territory onto one truck at 08:00, and drive its segments nearest-first.
 
 ```python
-CAPACITY = {"VAN": 200, "STEP": 340}
+CAPACITY = {"VAN": 200, "BOX": 340}
 
 
 def agent(obs, config=None):
@@ -71,10 +72,15 @@ def agent(obs, config=None):
 
     if phase == "CONTRACTS":
         # Best paying per truck-day first; at most one territory per truck,
-        # at most one truck-day in each.
+        # at most one truck-day in each, and one bulk lot per BOX.
         lots = sorted(obs["market"]["listings"], key=lambda lot: -lot["reserve"] / lot["truck_days"])
+        boxes = sum(t["type"] == "BOX" for t in crewed)
         bids, load = [], {}
         for lot in lots:
+            if lot["bulk"]:
+                if boxes == 0:
+                    continue
+                boxes -= 1
             pair = (lot["warehouse"], lot["district"])
             if pair not in load and len(load) >= len(crewed):
                 continue

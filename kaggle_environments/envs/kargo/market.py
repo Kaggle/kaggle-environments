@@ -434,7 +434,7 @@ def resolve_auction(players, actions, world, rng):
         caps[pid] = _cap(act, len(live))
         fleets[pid] = len(live)
         # Every deck, largest first: each territory needs its own truck.
-        decks[pid] = sorted((VEHICLES[t["type"]]["capacity"] for t in live), reverse=True)
+        decks[pid] = sorted(((VEHICLES[t["type"]]["capacity"], t["type"] == "BOX") for t in live), reverse=True)
         for entry in _list(act.get("bids")):
             if len(entry) < 2 or entry[0] not in listings or listings[entry[0]]["kind"] == "STANDING":
                 continue
@@ -463,8 +463,8 @@ def resolve_auction(players, actions, world, rng):
         for acct in player["standing"]:
             if acct["remaining"] > 0:
                 pair = (acct["warehouse"], acct["district"])
-                td, units = load.get(pair, (0.0, 0.0))
-                load[pair] = (td + acct["truck_days"], units + acct["parcel_units"])
+                td, units, _box = load.get(pair, (0.0, 0.0, False))
+                load[pair] = (td + acct["truck_days"], units + acct["parcel_units"], False)
         held[pid] = load
 
     # Every pass that trims advances a head, so this ends within one pass per bid.
@@ -480,26 +480,26 @@ def resolve_auction(players, actions, world, rng):
             mine = [(lid, ask) for lid, (p, ask) in awards.items() if p == pid]
             mine.sort(key=lambda x: -_margin(listings[x[0]], x[1]))
             territory = dict(held[pid])
-            used = sum(td for td, _u in territory.values())
+            used = sum(v[0] for v in territory.values())
             for lid, _ask in mine:
                 listing = listings[lid]
                 size = listing["truck_days"]
                 # Total work fits the fleet's truck-days, each territory fits
                 # one truck, and the territories together fit the fleet's decks.
                 pair = (listing["warehouse"], listing["district"])
-                opened = territory.get(pair, (0.0, 0.0))
+                opened = territory.get(pair, (0.0, 0.0, False))
                 pairs_used = len(territory) + (0 if pair in territory else 1)
-                units = opened[1] + listing["parcel_units"]
+                entry = (opened[0] + size, opened[1] + listing["parcel_units"], opened[2] or bool(listing.get("bulk")))
                 trial = dict(territory)
-                trial[pair] = (opened[0] + size, units)
+                trial[pair] = entry
                 if (
                     used + size <= caps[pid] + 1e-9
                     and opened[0] + size <= FILL_CEILING + 1e-9
                     and pairs_used <= fleets[pid]
-                    and _decks_fit([u for _td, u in trial.values()], decks[pid])
+                    and _decks_fit([(u, box) for _td, u, box in trial.values()], decks[pid])
                 ):
                     used += size
-                    territory[pair] = (opened[0] + size, units)
+                    territory[pair] = entry
                 else:
                     head[lid] += 1
                     over = True
@@ -549,11 +549,19 @@ def _bid(bids, lot_id, pid, ask):
 def _decks_fit(loads, decks):
     """Can each territory's freight get a truck of its own?
 
-    With both sides sorted descending, the greedy match is exact.
+    `loads` are `(units, needs_box)`, `decks` are `(capacity, is_box)`. A
+    territory holding a bulk lot takes a `BOX`; the rest share what is left.
+    Every deck of one type is the same size, so matching sorted lists is exact.
     """
     if len(loads) > len(decks):
         return False
-    return all(load <= deck + 1e-9 for load, deck in zip(sorted(loads, reverse=True), decks))
+    boxed = sorted((u for u, box in loads if box), reverse=True)
+    boxes = sorted((c for c, box in decks if box), reverse=True)
+    if len(boxed) > len(boxes) or any(u > c + 1e-9 for u, c in zip(boxed, boxes)):
+        return False
+    rest = sorted((u for u, box in loads if not box), reverse=True)
+    pool = sorted(boxes[len(boxed) :] + [c for c, box in decks if not box], reverse=True)
+    return all(u <= c + 1e-9 for u, c in zip(rest, pool))
 
 
 def _runnable(player, day):
