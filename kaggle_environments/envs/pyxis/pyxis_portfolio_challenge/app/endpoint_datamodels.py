@@ -4,6 +4,9 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel
 
+from pyxis_portfolio_challenge.environment.market_mechanics import (
+    auction_reserve_price,
+)
 from pyxis_portfolio_challenge.game.asset import AssetState, DrugAsset
 from pyxis_portfolio_challenge.game.game_state import GameState
 from pyxis_portfolio_challenge.game.multi_agent_game import MultiAgentGame
@@ -231,6 +234,10 @@ class BDAssetResponse(BaseModel):
     ptrs: float
     enpv: float
     cash_enpv: float  # cash-adjusted eNPV; a fair-value anchor for a cash bid
+    # Auction reserve price (GBP): the minimum winning bid for this asset, rounded
+    # to the nearest £1M. A bid below this wins nothing and the asset stays on the
+    # market. Equals bd_reserve_fraction × cash_enpv (floored at 0); 0.0 disables.
+    reserve_price: float
     # PTRS readings (ptrs_readings feature): diligence on a BD candidate is private
     # to each bidder, held on a per-agent clone. These reflect *this* player's
     # clone when they have commissioned readings, else the untouched shared asset:
@@ -304,6 +311,11 @@ class MultiAgentGameStateResponse(BaseModel):
     # for auction this step. False when the feature or auction is off. The bid
     # is capped by the player's cash in the UI (mirrors the BD bid input).
     site_auction_active: bool
+    # Clinical-site auction reserve price (GBP), rounded to the nearest £1M: the
+    # minimum winning bid for the site on offer. A bid below this wins no site.
+    # Equals auction_reserve_fraction × purchase_base_cost (the cost of the first
+    # site upgrade via the normal route); 0.0 when the feature/auction is off.
+    site_auction_reserve: float
     alerts: list[AlertResponse]
     indication_markets: list[IndicationMarketResponse]
     opponents: list[OpponentSummaryResponse]
@@ -339,6 +351,7 @@ def bd_asset_to_response(
     *,
     ptrs_cfg,
     clone,
+    bd_reserve_fraction: float,
 ) -> BDAssetResponse:
     """
     Convert a DrugAsset (BD candidate) to its response format.
@@ -379,6 +392,9 @@ def bd_asset_to_response(
         ptrs=diligence_trial.ptrs if diligence_trial else 0.0,
         enpv=asset.enpv,
         cash_enpv=asset.cash_enpv(reinvestment_percentage),
+        reserve_price=auction_reserve_price(
+            bd_reserve_fraction, asset.cash_enpv(reinvestment_percentage)
+        ),
         ptrs_sample_count=(
             diligence_trial.ptrs_sample_count if diligence_trial else 0
         ),
@@ -537,9 +553,17 @@ def multi_agent_game_to_response(
             player_state.reinvestment_percentage,
             ptrs_cfg=ptrs_cfg,
             clone=player_state._bd_asset_clones.get(str(asset.id)),
+            bd_reserve_fraction=game.shared_market.bd_reserve_fraction,
         )
         for asset in game.shared_market.current_bd_assets
     ]
+
+    # Clinical-site auction reserve (rounded to £1M) — the minimum winning bid
+    # for the site on offer; 0.0 when the fraction/base is unset (feature off).
+    site_auction_reserve = auction_reserve_price(
+        game.shared_market.site_auction_reserve_fraction,
+        game.shared_market.site_reserve_base_cost,
+    )
 
     alert_responses = [
         alert_to_response(alert, ind_name_map, name_map)
@@ -624,6 +648,7 @@ def multi_agent_game_to_response(
         bd_assets=bd_assets_response,
         bd_enabled=game.shared_market.bd_enabled,
         site_auction_active=game.shared_market.site_auction_available(),
+        site_auction_reserve=site_auction_reserve,
         alerts=alert_responses,
         indication_markets=indication_market_responses,
         opponents=opponent_responses,

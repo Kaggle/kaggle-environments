@@ -20,6 +20,9 @@ from pyxis_portfolio_challenge.app.endpoint_datamodels import (
     game_state_to_response,
     indication_market_to_response,
 )
+from pyxis_portfolio_challenge.environment.market_mechanics import (
+    auction_reserve_price,
+)
 from pyxis_portfolio_challenge.game.asset import AssetState
 from pyxis_portfolio_challenge.game.multi_agent_game import MultiAgentGame
 from pyxis_portfolio_challenge.game.shared_market_state import (
@@ -63,6 +66,9 @@ class SharedMarketSnapshot(BaseModel):
     alerts: list[dict[str, Any]]  # serialized AlertResponse dicts
     indication_markets: list[dict[str, Any]]
     last_bd_acquisitions: dict[str, list[BDAcquisitionRecord]]
+    # Clinical-site auction reserve (GBP, £1M-rounded): the minimum winning bid
+    # for the site on offer. 0.0 when the feature/auction is off.
+    site_auction_reserve: float
 
 
 class StepRecord(BaseModel):
@@ -171,6 +177,7 @@ def _serialize_shared_market(
             reinvestment_percentage,
             ptrs_cfg=None,
             clone=None,
+            bd_reserve_fraction=shared_market.bd_reserve_fraction,
         ).model_dump(mode="json")
         for a in shared_market.current_bd_assets
     ]
@@ -247,6 +254,10 @@ def _serialize_shared_market(
         alerts=alerts,
         indication_markets=indication_markets,
         last_bd_acquisitions=last_bd_acquisitions,
+        site_auction_reserve=auction_reserve_price(
+            shared_market.site_auction_reserve_fraction,
+            shared_market.site_reserve_base_cost,
+        ),
     )
 
 

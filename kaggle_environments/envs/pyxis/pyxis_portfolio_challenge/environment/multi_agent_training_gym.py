@@ -93,6 +93,7 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
         bd_leak_lambda_boost: float,
         bd_min_step: int,
         bd_max_bid: float,
+        bd_reserve_fraction: float,
         bd_max_slots: int,
         bd_phase_weights: list[float],
         bd_indication_activity_bias: float,
@@ -158,6 +159,7 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
         self.bd_leak_lambda_boost = bd_leak_lambda_boost
         self.bd_min_step = bd_min_step
         self.bd_max_bid = bd_max_bid
+        self.bd_reserve_fraction = bd_reserve_fraction
         self.bd_max_slots = bd_max_slots
         self.bd_persist_steps = bd_persist_steps
         self.bd_phase_weights = bd_phase_weights
@@ -742,6 +744,7 @@ class MultiAgentInvestmentGameEnv(ParallelEnv):
             bd_leak_lambda_boost=self.bd_leak_lambda_boost,
             bd_min_step=self.bd_min_step,
             bd_max_bid=self.bd_max_bid,
+            bd_reserve_fraction=self.bd_reserve_fraction,
             bd_phase_weights=self.bd_phase_weights,
             bd_indication_activity_bias=self.bd_indication_activity_bias,
             bd_max_slots=self.bd_max_slots,

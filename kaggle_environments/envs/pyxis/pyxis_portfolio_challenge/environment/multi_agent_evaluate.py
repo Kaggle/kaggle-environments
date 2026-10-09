@@ -164,6 +164,7 @@ def evaluate_multi_agent(
                         env.reinvestment_percentage,
                         ptrs_cfg=None,
                         clone=None,
+                        bd_reserve_fraction=env.multi_agent_game.shared_market.bd_reserve_fraction,
                     )
                     for a in env.multi_agent_game.shared_market.current_bd_assets
                 ]

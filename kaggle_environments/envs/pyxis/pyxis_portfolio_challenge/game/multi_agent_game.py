@@ -101,6 +101,7 @@ class MultiAgentGame(BaseModel):
         bd_leak_lambda_boost: float,
         bd_min_step: int,
         bd_max_bid: float,
+        bd_reserve_fraction: float,
         bd_phase_weights: list[float],
         bd_indication_activity_bias: float,
         bd_max_slots: int,
@@ -180,6 +181,7 @@ class MultiAgentGame(BaseModel):
             bd_leak_lambda_boost=bd_leak_lambda_boost,
             bd_min_step=bd_min_step,
             bd_max_bid=bd_max_bid,
+            bd_reserve_fraction=bd_reserve_fraction,
             bd_phase_weights=bd_phase_weights,
             bd_indication_activity_bias=bd_indication_activity_bias,
             bd_persist_steps=bd_persist_steps,
@@ -200,6 +202,16 @@ class MultiAgentGame(BaseModel):
                 clinical_sites_config.auction_min_step
                 if clinical_sites_config is not None
                 else 0
+            ),
+            site_auction_reserve_fraction=(
+                clinical_sites_config.auction_reserve_fraction
+                if clinical_sites_config is not None
+                else 0.0
+            ),
+            site_reserve_base_cost=(
+                clinical_sites_config.purchase_base_cost
+                if clinical_sites_config is not None
+                else 0.0
             ),
             congestion_exponent=congestion_exponent,
             congestion_ramp_steps=congestion_ramp_steps,
@@ -383,6 +395,7 @@ class MultiAgentGame(BaseModel):
 
         """
         from pyxis_portfolio_challenge.environment.market_mechanics import (
+            auction_reserve_price,
             calculate_agent_market_shares,
             resolve_bd_bid,
             resolve_site_bid,
@@ -401,6 +414,12 @@ class MultiAgentGame(BaseModel):
             and new_shared_market.current_bd_assets
             and new_shared_market.bd_enabled
         ):
+            # Reserve basis: the asset's own eNPV under the shared reinvestment
+            # percentage (same value guidance agents see in the observation).
+            # All agents share one reinvestment_percentage, so any state works.
+            reinvestment_pct = next(
+                iter(new_agent_states.values())
+            ).reinvestment_percentage
             for slot_idx, bd_asset in enumerate(new_shared_market.current_bd_assets):
                 # Extract per-slot cash bids from each agent. Skip agents that
                 # have already ended (e.g. bankrupted by winning an earlier slot
@@ -413,10 +432,19 @@ class MultiAgentGame(BaseModel):
                     if slot_idx < len(agent_bid_list):
                         slot_bids[agent_id] = agent_bid_list[slot_idx]
 
+                # Reserve = fraction × asset eNPV (floored at 0 so cash-negative
+                # assets carry no reserve), rounded to the nearest £1M. Sub-reserve
+                # top bids win nothing and the asset stays on the market for its
+                # remaining persistence.
+                bd_reserve = auction_reserve_price(
+                    new_shared_market.bd_reserve_fraction,
+                    bd_asset.cash_enpv(reinvestment_pct),
+                )
                 winner, price = resolve_bd_bid(
                     bids=slot_bids,
                     asset=bd_asset,
                     rng=get_game_rng(),
+                    reserve=bd_reserve,
                 )
 
                 if winner is not None:
@@ -505,7 +533,16 @@ class MultiAgentGame(BaseModel):
                 if agent_id in new_agent_states
                 and not new_agent_states[agent_id].game_ended
             }
-            winner, price = resolve_site_bid(live_bids, get_game_rng())
+            # Reserve = fraction × site build-cost base (the cost of the first
+            # site upgrade bought through the normal route), rounded to the
+            # nearest £1M. Sub-reserve top bids win no site this round.
+            site_reserve = auction_reserve_price(
+                new_shared_market.site_auction_reserve_fraction,
+                new_shared_market.site_reserve_base_cost,
+            )
+            winner, price = resolve_site_bid(
+                live_bids, get_game_rng(), reserve=site_reserve
+            )
             if winner is not None:
                 new_agent_states[winner] = new_agent_states[
                     winner

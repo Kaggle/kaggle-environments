@@ -70,6 +70,7 @@ multi_agent:
   bd_leak_lambda_boost: 0.3          # Added λ per recent leak in any indication
   bd_min_step: 0                     # No BD before this step
   bd_max_bid: 100000                 # Continuous cash bid cap in £M (=£100B) (<=0=pass); cash gates real limit (overbid can bankrupt)
+  bd_reserve_fraction: 0.10          # Auction reserve = 0.10 × asset cash_enpv; sub-reserve bids win nothing (asset stays on market). 0 = disabled
   bd_max_slots: 3                    # Max BD assets per step
   bd_persist_steps: 3               # Steps an unwon BD asset persists (1 = old single-step behaviour)
   bd_phase_weights: [0.2, 0.4, 0.4]  # Phase 1/2/3 sampling weights for BD assets
@@ -171,6 +172,7 @@ clinical_sites:
   auction_interval_steps: 20       # a site is auctioned every 20 steps (= years)
   auction_min_step: 10             # first auction at step 10, then every 20 (10, 30, 50, ...)
   site_max_bid: 100000             # continuous bid cap (matches bd_max_bid) units of millions
+  auction_reserve_fraction: 0.25   # Auction reserve = 0.25 × purchase_base_cost (cost of first site upgrade); sub-reserve bids win no site. 0 = disabled
 
 # Per-asset PTRS research readings feature
 # Agents pay Fibonacci-scaled costs for stochastic logit-normal PTRS samples.

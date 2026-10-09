@@ -115,6 +115,7 @@ def _build_multi_agent_env_kwargs(
         bd_leak_lambda_boost=ma.bd_leak_lambda_boost,
         bd_min_step=ma.bd_min_step,
         bd_max_bid=ma.bd_max_bid,
+        bd_reserve_fraction=ma.bd_reserve_fraction,
         bd_max_slots=ma.bd_max_slots,
         bd_persist_steps=ma.bd_persist_steps,
         bd_phase_weights=list(ma.bd_phase_weights),

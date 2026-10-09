@@ -128,6 +128,11 @@ class ClinicalSitesConfig(BaseModel):
     auction_min_step: int
     # Continuous bid cap (units matching bd_max_bid).
     site_max_bid: float
+    # Auction reserve price as a fraction of the site's value anchor
+    # (``purchase_base_cost``, the Fibonacci build-cost base). If the winning
+    # bid is below this reserve, no site is sold that round (nobody wins, no
+    # cash is charged). 0.0 disables the reserve.
+    auction_reserve_fraction: float
 
     @field_validator("starting_sites")
     @classmethod
@@ -141,6 +146,13 @@ class ClinicalSitesConfig(BaseModel):
     def _positive_step_counts(cls, v: int) -> int:
         if v < 1:
             raise ValueError("step-count fields must be >= 1")
+        return v
+
+    @field_validator("auction_reserve_fraction")
+    @classmethod
+    def _reserve_fraction_in_unit_range(cls, v: float) -> float:
+        if not (0.0 <= v <= 1.0):
+            raise ValueError("auction_reserve_fraction must be in [0.0, 1.0]")
         return v
 
     class Config:  # noqa: D106
@@ -371,6 +383,11 @@ class MultiAgentConfig(BaseModel):
     # bid wins and pays its own bid. bd_max_bid is the action-space upper bound;
     # real affordability is gated by cash (an overbid can bankrupt the winner).
     bd_max_bid: float  # Action-space cap for a BD bid, in GBP millions
+    # Auction reserve price as a fraction of the BD asset's value anchor (its
+    # ``cash_enpv``). If the winning bid is below this reserve, no one wins the
+    # slot: the asset is not sold and stays on the market for its remaining
+    # persistence (``bd_persist_steps``). 0.0 disables the reserve.
+    bd_reserve_fraction: float
     bd_max_slots: int  # Max BD assets per step (start with 1)
     # Steps an unwon BD asset stays on market (1 = single-step behaviour)
     bd_persist_steps: int
@@ -411,6 +428,13 @@ class MultiAgentConfig(BaseModel):
     )
     # Fraction of full penalty applied to incumbent (0 = protected)
     congestion_incumbent_penalty: float
+
+    @field_validator("bd_reserve_fraction")
+    @classmethod
+    def _bd_reserve_fraction_in_unit_range(cls, v: float) -> float:
+        if not (0.0 <= v <= 1.0):
+            raise ValueError("bd_reserve_fraction must be in [0.0, 1.0]")
+        return v
 
     class Config:  # noqa: D106
         frozen = True
