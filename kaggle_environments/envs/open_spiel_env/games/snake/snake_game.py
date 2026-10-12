@@ -16,7 +16,7 @@ _FOOD_RESPAWN_INTERVAL = 10
 _GAME_TYPE = pyspiel.GameType(
     short_name="snake",
     long_name="Snake",
-    dynamics=pyspiel.GameType.Dynamics.SEQUENTIAL,
+    dynamics=pyspiel.GameType.Dynamics.SIMULTANEOUS,
     chance_mode=pyspiel.GameType.ChanceMode.DETERMINISTIC,
     information=pyspiel.GameType.Information.PERFECT_INFORMATION,
     utility=pyspiel.GameType.Utility.GENERAL_SUM,
@@ -61,9 +61,7 @@ class SnakeGame(pyspiel.Game):
         self.cols = params.get("columns", _NUM_COLS) if params else _NUM_COLS
         self._num_players = params.get("players", _NUM_PLAYERS) if params else _NUM_PLAYERS
         self.food_respawn_interval = (
-            params.get("food_respawn_interval", _FOOD_RESPAWN_INTERVAL)
-            if params
-            else _FOOD_RESPAWN_INTERVAL
+            params.get("food_respawn_interval", _FOOD_RESPAWN_INTERVAL) if params else _FOOD_RESPAWN_INTERVAL
         )
 
         # Update game info with dynamic player count
@@ -127,8 +125,6 @@ class SnakeState(pyspiel.State):
         self._steps = 0
         self._last_food_spawn_step = 0
         self._place_foods()
-        self._next_player = 0
-        self._move_buffer = [None] * self.num_players
         # Per-round log of applied actions (one inner list per simultaneous
         # round). Lets the harness expose opponent moves to each player; in
         # simultaneous-move snake this is otherwise invisible.
@@ -179,36 +175,33 @@ class SnakeState(pyspiel.State):
         """Returns id of the next player to move."""
         if self._is_terminal:
             return pyspiel.PlayerId.TERMINAL
-        return self._next_player
+        return pyspiel.PlayerId.SIMULTANEOUS
 
-    def _legal_actions(self, player=None):
-        """Returns a list of legal actions."""
-        del player
+    def _legal_actions(self, player):
+        """Returns a list of legal actions for the given player.
+
+        Dead players return an empty list, which the interpreter uses to
+        mark them INACTIVE at simultaneous nodes.
+        """
         if self._is_terminal:
             return []
-        # If player is dead, their only action is pass/nothing,
-        # but OpenSpiel doesn't have PASS for simultaneous easily wrapped in
-        # sequential.
-        # We'll just allow any action and ignore it if dead.
+        if 0 <= player < self.num_players and not self.is_alive[player]:
+            return []
         return [a.value for a in Action]
 
-    def _apply_action(self, action):
-        """Applies the specified action to the state."""
-        # Store move
-        self._move_buffer[self._next_player] = action
+    def _apply_actions(self, actions):
+        """Applies one action per player at a simultaneous node."""
+        # Dead players are passed pyspiel.INVALID_ACTION by the interpreter;
+        # normalize to None so downstream code doesn't have to special-case it.
+        move_buffer = [
+            actions[i] if (0 <= i < len(actions) and actions[i] != pyspiel.INVALID_ACTION) else None
+            for i in range(self.num_players)
+        ]
+        self._process_simultaneous_turn(move_buffer)
 
-        # Move to next player
-        self._next_player += 1
-
-        # If all players have moved, process the turn
-        if self._next_player >= self.num_players:
-            self._process_simultaneous_turn()
-            self._next_player = 0
-            self._move_buffer = [None] * self.num_players
-
-    def _process_simultaneous_turn(self):
+    def _process_simultaneous_turn(self, move_buffer):
         self._steps += 1
-        self._round_history.append(list(self._move_buffer))
+        self._round_history.append(list(move_buffer))
 
         # Calculate new heads
         new_heads = []
@@ -217,7 +210,7 @@ class SnakeState(pyspiel.State):
                 new_heads.append(None)
                 continue
 
-            action = self._move_buffer[i]
+            action = move_buffer[i]
             if not self.snakes[i]:
                 new_heads.append(None)
                 continue
@@ -342,9 +335,7 @@ class SnakeState(pyspiel.State):
         # turns have elapsed since the last spawn. Either trigger resets the
         # timer for the next spawn.
         if self.food_respawn_interval > 0:
-            interval_elapsed = (
-                self._steps - self._last_food_spawn_step >= self.food_respawn_interval
-            )
+            interval_elapsed = self._steps - self._last_food_spawn_step >= self.food_respawn_interval
             if not self.foods or interval_elapsed:
                 self._place_foods()
 
