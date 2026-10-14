@@ -230,12 +230,9 @@ class Shipper(_Index):
         """Tonight's listings: yesterday's backlog first, then fresh demand.
 
         `supply` is the field's trucks that can roll, off the public roster;
-        `bulk_supply` its `BOX` trucks. Parcels are priced against the trucks
-        left after tonight's bulk board takes its `BOX` truck-days. The board is
-        laid out before it is priced.
+        `bulk_supply` its `BOX` trucks. The board is laid out before it is priced.
         """
         bulk = self.bulk.post(board, day, bulk_supply)
-        supply -= min(bulk_supply, sum(lot["truck_days"] for lot in bulk))
         fresh = max(0.0, self.demand(day) - committed)
         plan = []  # (pair, packages, fraction, retry, patience, key)
 

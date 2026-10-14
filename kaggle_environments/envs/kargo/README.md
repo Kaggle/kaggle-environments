@@ -297,7 +297,7 @@ index   = exp(market + deviation), clamped to 0.5-3.0
 
 The base price is the pair's solved price (see Base prices).
 
-- **Market level.** Each night it moves toward `elasticity x ln(demand / (supply x throughput))` at `speed`, plus noise. `supply` comes from the public roster: per player, trucks that have arrived and are not grounded, capped by the number of drivers; summed over the field, less `min(BOX supply, truck-days of tonight's bulk listings)` (see Bulk freight). Hidden draws: throughput 0.30-0.42, elasticity 0.50-0.90, speed 0.15-0.35.
+- **Market level.** Each night it moves toward `elasticity x ln(demand / (supply x throughput))` at `speed`, plus noise. `supply` comes from the public roster: per player, trucks that have arrived and are not grounded, capped by the number of drivers; summed over the field. Hidden draws: throughput 0.30-0.42, elasticity 0.50-0.90, speed 0.15-0.35.
 - **Territory deviation.** Rises with the share of the pair's last-posted packages that went unserved (rate 0.08-0.16). Falls when several carriers bid under its reserve while the market as a whole had slack (rate 0.15-0.35). Each night it is pulled 10-30% back toward zero, and it is capped at ±0.5.
 
 **Retries.** A package that goes unsold (no award) or undelivered (failed, refused, abandoned, or never loaded) is posted again the next night. It comes back as a `SPOT` lot of the remaining packages, with `retry` counting up and the reserve marked up 6-18% per retry. Each fresh lot carries a hidden patience of 1 to 2-5 retries. Past it, the packages are lost and the pair's demand weight drops 4-10%. An unsold standing account comes back the same way.

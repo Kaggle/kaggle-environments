@@ -77,28 +77,33 @@ def agent(obs, config=None):
         boxes = sum(t["type"] == "BOX" for t in crewed)
         bids, load = [], {}
         for lot in lots:
-            if lot["bulk"]:
-                if boxes == 0:
-                    continue
-                boxes -= 1
+            if lot["bulk"] and boxes == 0:
+                continue
             pair = (lot["warehouse"], lot["district"])
             if pair not in load and len(load) >= len(crewed):
                 continue
             if load.get(pair, 0.0) + lot["truck_days"] > 1.0:
                 continue
+            if lot["bulk"]:
+                boxes -= 1
             load[pair] = load.get(pair, 0.0) + lot["truck_days"]
             bids.append([lot["id"], round(lot["reserve"] * 0.9, 2)])
         return {"bids": bids, "max_lots": len(crewed)}
 
-    # DRIVING: at 08:00 load each territory onto one truck, biggest territory
-    # on the biggest deck, then visit its segments nearest-first. Plans persist.
+    # DRIVING: at 08:00 load each territory onto one truck, bulk first, then
+    # biggest territory on the biggest deck; visit its segments nearest-first.
+    # Plans persist.
     if obs["block"] != 0:
         return {}
     territories = {}
     for lot in me["lots"]:
         if lot["status"] == "AT_DOCK":
             territories.setdefault((lot["warehouse"], lot["district"]), []).append(lot)
-    territories = sorted(territories.values(), key=lambda ls: -sum(lot["parcel_units"] for lot in ls))
+    # Only a BOX takes bulk, and a part-delivered bulk retry can be smaller than a parcel territory.
+    territories = sorted(
+        territories.values(),
+        key=lambda ls: (not any(lot["bulk"] for lot in ls), -sum(lot["parcel_units"] for lot in ls)),
+    )
     crewed.sort(key=lambda t: -CAPACITY[t["type"]])
     lot_of = {a["id"]: a["lot"] for a in me["addresses"]}
     plans = {}
