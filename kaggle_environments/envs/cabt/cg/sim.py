@@ -80,3 +80,4 @@ class Battle:
     result = [0, 0, 0]
     vis = []
     last_step = 0
+    time = 0

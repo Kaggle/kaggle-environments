@@ -123,6 +123,7 @@ def interpreter(state, env):
         Battle.result = [0, 0, 0]
         Battle.vis = []
         Battle.last_step = 0
+        Battle.time = state[0].observation.remainingOverageTime
         for i in range(2):
             state[i].status = "ACTIVE"
             o = state[i].observation
@@ -163,7 +164,10 @@ def interpreter(state, env):
             error = True
         else:
             try:
-                battle_select(state[select_player].action)
+                action = state[select_player].action
+                if not isinstance(action, list) and "action" in action:
+                    action = action["action"]
+                battle_select(action)
             except:
                 state[select_player].status = "INVALID"
                 error = True
@@ -215,6 +219,9 @@ def interpreter(state, env):
             round_finish(state, env)
             Battle.last_step = len(env.steps) - 1
             battle_start(Battle.decks[0], Battle.decks[1], count % 2 != 0)
+            for i in range(2):
+                state[i].observation.remainingOverageTime = Battle.time
+                env.state[i].observation.remainingOverageTime = Battle.time
             obs = Battle.obs
             s = obs["current"]
     index = s["yourIndex"]
