@@ -8,7 +8,7 @@
 export type Phase = 'CAPEX' | 'LABOR' | 'CONTRACTS' | 'DRIVING';
 export type Weather = 'CLEAR' | 'RAIN' | 'SNOW';
 export type RoadClass = 'ARTERIAL' | 'COLLECTOR' | 'LOCAL';
-export type VehicleType = 'VAN' | 'STEP';
+export type VehicleType = 'VAN' | 'BOX';
 export type TruckStatus = 'IDLE' | 'ACTIVE' | 'DISABLED' | 'ORDERED';
 
 /** The six outcomes a block face can be in. Rendered as a CSS dot, not art. */
@@ -151,6 +151,8 @@ export interface Listing {
   payout_per_package: number;
   dock_packages: number;
   promised_packages: number;
+  /** Palletised freight only a BOX holds. */
+  bulk?: boolean;
   /** Standing accounts only: the terms, in days, a bid may name. */
   term_options?: number[];
 }

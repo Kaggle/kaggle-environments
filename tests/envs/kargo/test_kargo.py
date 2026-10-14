@@ -480,7 +480,7 @@ def test_unserviced_truck_sits_out_the_next_day():
 
 
 def test_vehicle_ladder_is_monotone():
-    order = ["VAN", "STEP"]
+    order = ["VAN", "BOX"]
     for key in ("capacity", "buy", "rent_day", "fuel_per_min"):
         vals = [VEHICLES[v][key] for v in order]
         assert vals == sorted(vals), key

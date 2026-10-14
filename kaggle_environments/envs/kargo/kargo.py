@@ -36,7 +36,7 @@ from .constants import (
 )
 from .dispatch import abandon, advance_truck, dock_failures, end_of_day, lot_units, service_check
 from .fleet import make_driver, make_truck
-from .freight import LotBoard, draw_manifest, noisy_service_estimate
+from .freight import LotBoard, draw_bulk_manifest, draw_manifest, noisy_service_estimate
 from .market import (
     accrue,
     net_worth,
@@ -77,6 +77,7 @@ def _initialize(state, env):
 
     players = []
     fleet_size = 0
+    box_size = 0
     for pid in range(len(state)):
         player = {
             "cash": float(cfg.get("startingCash", 12000)),
@@ -101,6 +102,7 @@ def _initialize(state, env):
             player["truck_seq"] += 1
             tid = f"T{player['truck_seq']}"
             vehicle = STARTING_FLEET[index % len(STARTING_FLEET)] if STARTING_FLEET else STARTING_VEHICLE
+            box_size += vehicle == "BOX"
             truck = make_truck(tid, vehicle, rng)
             truck["player"] = pid
             truck["arrives"] = 0
@@ -135,7 +137,7 @@ def _initialize(state, env):
         "city": city,
         "board": board,
         # Its own stream, so the market's draws do not shift the city's.
-        "shipper": Shipper(random.Random(rng.getrandbits(64)), list(board.truck_days), fleet_size),
+        "shipper": Shipper(random.Random(rng.getrandbits(64)), list(board.truck_days), fleet_size, box_size),
         "stream_key": rng.getrandbits(64),
         "players": players,
         "listings": [],
@@ -190,16 +192,17 @@ def _open_night(world, day):
     committed = sum(a["truck_days"] for p in players for a in p["standing"])
     # What the shipper can see of the field: trucks that can roll, capped by
     # the drivers to crew them, off the public roster.
-    supply = sum(
-        min(
-            len(p["drivers"]),
-            len([t for t in p["trucks"].values() if t.get("arrives", 0) <= day and t["status"] != "DISABLED"]),
-        )
-        for p in players
+    rolling = [
+        [t for t in p["trucks"].values() if t.get("arrives", 0) <= day and t["status"] != "DISABLED"] for p in players
+    ]
+    supply = sum(min(len(p["drivers"]), len(trucks)) for p, trucks in zip(players, rolling))
+    bulk_supply = sum(
+        min(len(p["drivers"]), sum(t["type"] == "BOX" for t in trucks)) for p, trucks in zip(players, rolling)
     )
-    listings, accounts = world["shipper"].post(world["board"], day, committed, supply)
+    listings, accounts = world["shipper"].post(world["board"], day, committed, supply, bulk_supply)
     for lot in listings + accounts:
-        lot["manifest"] = draw_manifest(lot, world["city"], _stream(world, "manifest", lot["_key"]))
+        draw = draw_bulk_manifest if lot.get("bulk") else draw_manifest
+        lot["manifest"] = draw(lot, world["city"], _stream(world, "manifest", lot["_key"]))
     world["listings"] = listings
     world["accounts"] = accounts
     world["bid_book"] = []
@@ -769,6 +772,7 @@ def plan_loads(obs):
             "units": 0.0,
             "fill": 0.0,
             "cap": VEHICLES[t["type"]]["capacity"],
+            "box": t["type"] == "BOX",
         }
         for t in priv.get("trucks", [])
         if t["driver"] and t["status"] not in ("DISABLED", "ORDERED") and not t["carrying"] and not t.get("load")
@@ -791,6 +795,7 @@ def plan_loads(obs):
                 tid
                 for tid, s in state.items()
                 if s["pair"] in (None, pair)
+                and (s["box"] or not lot.get("bulk"))
                 and s["cap"] - s["units"] >= units
                 and s["fill"] + lot["truck_days"] <= FILL_CEILING
                 and s["clock"] + drive(s["node"], origin) + LOAD_MINUTES < SHIFT_MINUTES
@@ -836,7 +841,7 @@ def random_agent(obs, config=None):
     phase = obs.get("phase")
     priv = _my(obs)
     if phase == "CONTRACTS":
-        listings = obs.get("market", {}).get("listings", [])
+        listings = [lot for lot in obs.get("market", {}).get("listings", []) if not lot.get("bulk")]
         bids = [
             [lot["id"], round(lot["reserve"] * rng.uniform(0.80, 1.0), 2)] for lot in listings if rng.random() < 0.3
         ]
@@ -849,7 +854,9 @@ def random_agent(obs, config=None):
             if truck["carrying"] or truck.get("load") or not waiting:
                 continue
             lot = waiting.pop()
-            if lot["parcel_units"] <= VEHICLES[truck["type"]]["capacity"]:
+            if lot["parcel_units"] <= VEHICLES[truck["type"]]["capacity"] and (
+                truck["type"] == "BOX" or not lot["bulk"]
+            ):
                 segs = [s["id"] for s in segments_of(obs, [lot["id"]])]
                 rng.shuffle(segs)
                 trucks[truck["id"]] = {"load": [lot["id"]], "route": segs[:12], "then": "RETURN"}
@@ -889,16 +896,23 @@ def greedy_agent(obs, config=None):
         trucks = [t for t in trucks if t["driver"] and t["status"] not in ("DISABLED", "ORDERED")]
         listings = obs.get("market", {}).get("listings", [])
         listings = sorted(listings, key=lambda lot: -lot["reserve"] / max(lot["truck_days"], 0.01))
-        # Up to 2 pairs per truck, at most FILL_CEILING per pair, within decks
-        # and a total truck-day budget.
-        filled, bids = {}, []
-        decks = sorted((VEHICLES[t["type"]]["capacity"] for t in trucks), reverse=True)
+        boxes = [t for t in trucks if t["type"] == "BOX"]
+        vans = [t for t in trucks if t["type"] != "BOX"]
+        # Every `BOX` works bulk: bid the whole bulk board, and the auction keeps
+        # what the decks hold.
+        bids = [[lot["id"], lot["reserve"]] for lot in listings if boxes and lot.get("bulk")]
+        # Vans take parcels: up to 2 pairs per van, at most FILL_CEILING per
+        # pair, within decks and a total truck-day budget.
+        filled = {}
+        decks = sorted((VEHICLES[t["type"]]["capacity"] for t in vans), reverse=True)
         loaded = [0.0] * len(decks)
-        budget = len(trucks) * FILL_CEILING
+        budget = len(vans) * FILL_CEILING
         booked = 0.0
         for lot in listings:
+            if lot.get("bulk"):
+                continue
             pair = (lot["warehouse"], lot["district"])
-            if pair not in filled and len(filled) >= 2 * len(trucks):
+            if pair not in filled and len(filled) >= 2 * len(vans):
                 continue
             if filled.get(pair, 0.0) + lot["truck_days"] > FILL_CEILING:
                 continue

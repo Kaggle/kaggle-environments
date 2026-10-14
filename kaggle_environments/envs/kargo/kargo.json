@@ -56,7 +56,7 @@
       "minimum": 0
     },
     "startingTrucks": {
-      "description": "Owned trucks each player starts with, taken in order from VAN, VAN, STEP, each with a mid-tier driver.",
+      "description": "Owned trucks each player starts with, taken in order from VAN, VAN, BOX, each with a mid-tier driver.",
       "type": "integer",
       "default": 3,
       "minimum": 0

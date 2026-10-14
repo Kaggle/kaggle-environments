@@ -123,6 +123,8 @@ def _load_check(truck, player, lot, dock):
     """Why this lot cannot go on this truck, or None."""
     if lot is None or not dock:
         return "NOT_AT_DOCK"
+    if lot.get("bulk") and truck["type"] != "BOX":
+        return "NOT_BOX"
     pair = on_board_pair(truck, player)
     if pair is not None and pair != (lot["warehouse"], lot["district"]):
         return "PAIR"

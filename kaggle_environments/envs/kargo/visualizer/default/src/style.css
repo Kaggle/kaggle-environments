@@ -324,6 +324,12 @@
   letter-spacing: 0.05em;
 }
 
+.tag.bulk {
+  border-color: currentColor;
+  color: var(--ink);
+  font-weight: 600;
+}
+
 .muted {
   color: var(--muted);
 }
