@@ -64,25 +64,16 @@ def _make_knapsack_agent(agent_name: str):
     """
     Create a MultiAgentKnapsackAgent for competition use.
 
-    ``capacity=None``: the agent takes its concurrency limit from the
-    clinical-sites feature, capping concurrent trials at its operational-site
-    count and advancing only its highest-value assets within that limit.
-
-    BD bidding is disabled (``enable_bd_bidding=False``): the fixed
-    fraction-of-eNPV bid was calibrated for the retired discrete BD levels
-    and systematically overpays under the current continuous first-price
-    auction, bankrupting the agent. With BD off the knapsack is a strong,
-    positive-NCF reference driven purely by its portfolio investment policy.
+    The agent is a barebones investment-only knapsack: each step it picks the
+    highest-value set of new investments that fits its cash budget, using only
+    its own portfolio and the action masks. It does not inspect opponents, the
+    shared market, or bid in the BD auction.
     """
     from pyxis_portfolio_challenge.agents.multi_agent_knapsack import (
         MultiAgentKnapsackAgent,
     )
 
-    return MultiAgentKnapsackAgent(
-        agent_name=agent_name,
-        capacity=None,
-        enable_bd_bidding=False,
-    )
+    return MultiAgentKnapsackAgent(agent_name=agent_name)
 
 
 def _make_random_agent(agent_name: str):

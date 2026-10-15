@@ -17,9 +17,6 @@ export const ASSET_STATES = ['Idle', 'In Development', 'On Market', 'Failed', 'E
 /** `TrialPhase.integer` in `game/trial.py`. A `-1` phase means no trial. */
 export const TRIAL_PHASES = ['Phase 1', 'Phase 2', 'Phase 3', 'Approval'] as const;
 
-/** `InvestmentLevel` in `game/constants.py`. */
-export const INVESTMENT_LEVELS = ['none', 'minimal', 'standard', 'accelerated', 'stop'] as const;
-
 /** An asset's immutable identity, sent once on the step it first appears. */
 export type AssetMeta = [
   name: string,
@@ -38,7 +35,6 @@ export type AssetRow = [
   timeRemaining: number,
   /** Probability of technical and regulatory success. */
   ptrs: number,
-  investmentLevel: number,
   timeOnMarket: number,
   /** Readings `ptrs` rests on, precision-weighted: 1 is the free first one. */
   ptrsReadings: number,
@@ -141,7 +137,6 @@ export interface AssetView {
   phase: number;
   timeRemaining: number;
   ptrs: number;
-  investmentLevel: number;
   timeOnMarket: number;
   ptrsReadings: number;
   brandLift: number;

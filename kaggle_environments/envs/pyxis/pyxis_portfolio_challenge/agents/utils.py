@@ -3,96 +3,10 @@
 import uuid
 from typing import Literal, Optional
 
-from pyxis_portfolio_challenge.config import (
-    CapacityConfig,
-    DistributionalPtrsConfig,
-    InterimTrialObservationsConfig,
-    InvestmentLevelParams,
-    InvestmentLevelsConfig,
-    TAExperienceConfig,
-    UncertainPtrsConfig,
-    config,
-)
+from pyxis_portfolio_challenge.config import config
 from pyxis_portfolio_challenge.environment.reward import LegacyStaticNPVReward
 from pyxis_portfolio_challenge.environment.training_gym import InvestmentGameEnv
 from pyxis_portfolio_challenge.game.game_state import GameState
-
-_DISABLED_DISTRIBUTIONAL_PTRS = DistributionalPtrsConfig(
-    enabled=False,
-    ta_quality_variance={
-        "oncology": 0.08,
-        "respiratory and immunology": 0.05,
-        "vaccines and infectious disease": 0.03,
-    },
-    asset_noise_std=0.03,
-    prior_concentration=5.0,
-    observation_noise=0.1,
-)
-
-_DISABLED_TA_EXPERIENCE = TAExperienceConfig(
-    enabled=False,
-    experience_to_full_knowledge=30.0,
-    max_expertise_boost=0.05,
-    experience_to_max_boost=40.0,
-    experience_decay_rate=0.98,
-    max_total_experience=60.0,
-    phase_experience_weights={
-        "phase_1": 0.5,
-        "phase_2": 1.0,
-        "phase_3": 1.5,
-        "approval": 0.5,
-    },
-    asset_arrival_temperature=0.1,
-)
-
-_DISABLED_UNCERTAIN_PTRS = UncertainPtrsConfig(
-    enabled=False,
-    ta_noise_config={
-        "oncology": 0.12,
-        "respiratory and immunology": 0.10,
-        "vaccines and infectious disease": 0.08,
-    },
-    phase_noise_multipliers={
-        "phase_1": 1.5,
-        "phase_2": 1.0,
-        "phase_3": 0.75,
-        "approval": 0.5,
-    },
-)
-
-_DISABLED_INVESTMENT_LEVELS = InvestmentLevelsConfig(
-    enabled=False,
-    levels={
-        "none": InvestmentLevelParams(
-            cost_modifier=0.0,
-            speed_modifier=0.0,
-            success_modifier=1.0,
-            capacity_cost=0,
-            experience_modifier=0.0,
-        ),
-        "standard": InvestmentLevelParams(
-            cost_modifier=1.0,
-            speed_modifier=1.0,
-            success_modifier=1.0,
-            capacity_cost=2,
-            experience_modifier=1.0,
-        ),
-    },
-)
-
-_DISABLED_INTERIM_TRIAL_OBSERVATIONS = InterimTrialObservationsConfig(
-    enabled=False,
-    latent_quality_concentration=10.0,
-    initial_noise_scale=0.3,
-)
-
-_DISABLED_RD_CAPACITY = CapacityConfig(
-    enabled=False,
-    base_capacity=80.0,
-    overage_max_penalty=0.5,
-    overage_cost_max_penalty=0.5,
-    overage_scaling="linear",
-)
 
 # The single-agent InvestmentGameEnv cannot model the multi-agent-only features
 # (marketing, clinical sites, PTRS readings, approval phase) and raises if any is
@@ -162,17 +76,6 @@ def get_agent_investment_decisions(
         shuffle_order=False,  # Don't shuffle for consistent ordering
         mask_first_order_assets=False,
         mask_negative_enpv_assets=False,
-        distributional_ptrs_config=game_state._distributional_ptrs_config
-        or _DISABLED_DISTRIBUTIONAL_PTRS,
-        ta_experience_config=game_state._ta_experience_config
-        or _DISABLED_TA_EXPERIENCE,
-        uncertain_ptrs_config=game_state._uncertain_ptrs_config
-        or _DISABLED_UNCERTAIN_PTRS,
-        investment_levels_config=game_state._investment_levels_config
-        or _DISABLED_INVESTMENT_LEVELS,
-        interim_trial_observations_config=game_state._interim_trial_observations_config
-        or _DISABLED_INTERIM_TRIAL_OBSERVATIONS,
-        rd_capacity_config=game_state._rd_capacity_config or _DISABLED_RD_CAPACITY,
         drop_action_config=game_state._drop_action_config,
         # These four are multi-agent-only: the single-agent env rejects them when
         # enabled, so force them disabled unconditionally (a competition game_state

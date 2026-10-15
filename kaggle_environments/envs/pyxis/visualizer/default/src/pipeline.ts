@@ -177,8 +177,7 @@ function drawPlayerAssets(
       // Brand lift is a standing score on a selling drug, so draw it as an
       // arc outside the chip -- a wedge inside a 5px circle is invisible.
       // Pre-launch spend is accepted but reset to the floor at launch, so only
-      // an on-market lift moves share. That also keeps it off the accelerate
-      // ring below, which shares the radius but marks in-development assets.
+      // an on-market lift moves share.
       if (state === 'On Market' && asset.brandLift > 0) {
         const sweep = Math.PI * 2 * Math.min(1, asset.brandLift);
         ctx.beginPath();
@@ -187,14 +186,6 @@ function drawPlayerAssets(
         ctx.lineWidth = 2;
         ctx.stroke();
         ctx.lineWidth = 1;
-      }
-
-      // An accelerated asset gets a ring; it is the loudest thing a player does.
-      if (asset.investmentLevel >= 3) {
-        ctx.beginPath();
-        ctx.arc(cx, cy, r + 2.5, 0, Math.PI * 2);
-        ctx.strokeStyle = INK;
-        ctx.stroke();
       }
     });
   }

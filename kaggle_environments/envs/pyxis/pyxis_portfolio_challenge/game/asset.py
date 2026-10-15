@@ -14,10 +14,7 @@ from pydantic import (
     model_validator,
 )
 
-from pyxis_portfolio_challenge.game.constants import (
-    DISCOUNT_RATE,
-    InvestmentLevel,
-)
+from pyxis_portfolio_challenge.game.constants import DISCOUNT_RATE
 from pyxis_portfolio_challenge.game.trial import Trial, TrialPhase, TrialState
 
 logger = logging.getLogger(__name__)
@@ -132,7 +129,6 @@ class DrugAsset(BaseModel):
     trial: Trial
     state: AssetState
     time_on_market: int
-    current_investment_level: InvestmentLevel = InvestmentLevel.NONE
 
     def __eq__(self, other: "DrugAsset") -> bool:
         """Check equality of two DrugAsset objects."""
@@ -268,16 +264,8 @@ class DrugAsset(BaseModel):
         total_expected_revenue = sum(expected_revenues)
         return (total_expected_revenue - total_expected_cost) / total_expected_cost
 
-    def to_develop(self, enable_interim_observations: bool = False) -> "DrugAsset":
-        """
-        Set the asset to InDevelopment state if possible.
-
-        Parameters
-        ----------
-        enable_interim_observations : bool
-            If True, initialize latent quality for interim trial observations.
-
-        """
+    def to_develop(self) -> "DrugAsset":
+        """Set the asset to InDevelopment state if possible."""
         if self.state != AssetState.Idle:
             raise ValueError(
                 f"Cannot develop asset {self.name} as it is not Idle "
@@ -287,9 +275,7 @@ class DrugAsset(BaseModel):
         new_asset = self.model_copy(
             update={
                 "state": AssetState.InDevelopment,
-                "trial": self.trial.start_trial(
-                    enable_interim_observations=enable_interim_observations
-                ),
+                "trial": self.trial.start_trial(),
             }
         )
         return new_asset
@@ -370,41 +356,6 @@ class DrugAsset(BaseModel):
         return 0.0
 
     @property
-    def trial_progress(self) -> float:
-        """
-        Get the current trial progress as a fraction from 0.0 to 1.0.
-
-        Returns 0.0 if asset is not in development or interim observations
-        are not enabled.
-        """
-        if self.state != AssetState.InDevelopment:
-            return 0.0
-        return self.trial.progress
-
-    @property
-    def interim_signal(self) -> float:
-        """
-        Get a noisy observation of the trial's latent quality.
-
-        The signal becomes clearer as the trial progresses. Returns the
-        trial's PTRS if interim observations are not enabled.
-
-        Returns
-        -------
-        float
-            A value in [0, 1] indicating the estimated success probability.
-
-        """
-        if self.state != AssetState.InDevelopment:
-            return self.trial.ptrs
-        return self.trial.get_interim_signal()
-
-    @property
-    def interim_observations_enabled(self) -> bool:
-        """Check if interim observations are enabled for this asset's trial."""
-        return self.trial._interim_observations_enabled
-
-    @property
     def pending_trial_chain(self) -> list[Trial]:
         """Ordered list of non-approval, non-terminal trials from current position."""
         chain = []
@@ -449,60 +400,6 @@ class DrugAsset(BaseModel):
         for i, trial in enumerate(chain):
             trial.draw_and_accumulate(sigma_base * noise_multipliers[i], 1, rng)
 
-    def cost_this_step_with_modifier(self, cost_modifier: float) -> float:
-        """Get the cost incurred this step with investment level modifier."""
-        if self.state == AssetState.InDevelopment:
-            return self.trial.cost_this_step * cost_modifier
-        return 0.0
-
-    def cost_to_invest_with_modifier(self, cost_modifier: float) -> float:
-        """Get cost to invest this step with modifier (for idle assets)."""
-        if self.state == AssetState.InDevelopment:
-            raise ValueError(
-                "Asset is already InDevelopment, cannot invest again this step."
-            )
-        return self.trial.cost_this_step * cost_modifier
-
-    def to_develop_with_level(
-        self, level: InvestmentLevel, enable_interim_observations: bool = False
-    ) -> "DrugAsset":
-        """
-        Set the asset to InDevelopment state with specified investment level.
-
-        Parameters
-        ----------
-        level : InvestmentLevel
-            The investment level to use.
-        enable_interim_observations : bool
-            If True, initialize latent quality for interim trial observations.
-
-        """
-        if self.state != AssetState.Idle:
-            raise ValueError(
-                f"Cannot develop asset {self.name} as it is not Idle "
-                f"(current state: {self.state})."
-            )
-        new_asset = self.model_copy(
-            update={
-                "state": AssetState.InDevelopment,
-                "trial": self.trial.start_trial(
-                    enable_interim_observations=enable_interim_observations
-                ),
-                "current_investment_level": level,
-            }
-        )
-        return new_asset
-
-    def set_investment_level(self, level: InvestmentLevel) -> "DrugAsset":
-        """Change the investment level for an in-development asset."""
-        if self.state != AssetState.InDevelopment:
-            raise ValueError(
-                f"Cannot set investment level for asset {self.name} "
-                f"as it is not InDevelopment (current state: {self.state})."
-            )
-        new_asset = self.model_copy(update={"current_investment_level": level})
-        return new_asset
-
     def stop_development(self) -> "DrugAsset":
         """
         Stop development of the asset early (agent decides to abandon).
@@ -541,7 +438,6 @@ class DrugAsset(BaseModel):
             state=AssetState.Failed,
             time_on_market=0,
             trial=self.trial.stop_trial(),
-            current_investment_level=InvestmentLevel.NONE,
         )
         return new_asset
 
@@ -576,7 +472,6 @@ class DrugAsset(BaseModel):
                 if self.state == AssetState.InDevelopment
                 else self.trial
             ),
-            current_investment_level=InvestmentLevel.NONE,
         )
 
     def evolve(self) -> "DrugAsset":
@@ -643,97 +538,5 @@ class DrugAsset(BaseModel):
             state=new_state,
             time_on_market=new_time_on_market,
             trial=new_trial,
-            current_investment_level=InvestmentLevel.NONE,
-        )
-        return new_asset
-
-    def evolve_with_level(
-        self,
-        speed_modifier: float,
-        success_modifier: float,
-        global_success_modifier: float = 1.0,
-    ) -> "DrugAsset":
-        """
-        Evolve the asset by one time step with investment level modifiers.
-
-        Parameters
-        ----------
-        speed_modifier : float
-            Multiplier for trial progress speed.
-        success_modifier : float
-            Multiplier for success probability from investment level.
-        global_success_modifier : float
-            Additional success modifier from capacity overage.
-
-        Returns
-        -------
-        DrugAsset
-            The evolved asset.
-
-        """
-        new_time_on_market = 0
-        new_trial = self.trial
-        new_state = self.state
-        new_investment_level = self.current_investment_level
-
-        if new_state == AssetState.OnMarket:
-            new_time_on_market = self.time_on_market + 1
-            new_investment_level = InvestmentLevel.NONE
-
-        if new_state == AssetState.InDevelopment:
-            logger.debug(
-                f"Asset InDevelopment: {self.name}, level={new_investment_level}"
-            )
-            new_trial = self.trial.evolve_with_level(
-                speed_modifier=speed_modifier,
-                success_modifier=success_modifier,
-                global_success_modifier=global_success_modifier,
-            )
-
-            if new_trial.state == TrialState.PENDING:
-                logger.debug(
-                    f"Trial returned to pending, asset set to Idle: {self.name}"
-                )
-                new_state = AssetState.Idle
-                new_investment_level = InvestmentLevel.NONE
-            elif new_trial.state == TrialState.PHASE_FAILED:
-                logger.debug(f"Trial failed, asset set to Failed: {self.name}")
-                new_state = AssetState.Failed
-                new_investment_level = InvestmentLevel.NONE
-            elif new_trial.state == TrialState.PHASE_SUCCESS:
-                logger.debug(
-                    f"Final trial succeeded, asset set to OnMarket: {self.name}"
-                )
-                new_state = AssetState.OnMarket
-                new_investment_level = InvestmentLevel.NONE
-                # See evolve(): start at time_on_market = 1 so the first
-                # on-market step earns revenue instead of revenue_formula(0) = 0.
-                new_time_on_market = 1
-            elif new_trial.state == TrialState.IN_PROGRESS:
-                logger.debug(
-                    f"Trial in progress, asset stays InDevelopment: {self.name}"
-                )
-
-        new_time_until_patent_expiry = self.time_until_patent_expiry - 1
-        if new_time_until_patent_expiry < 1:
-            logger.debug(f"Asset Expired: {self.name}")
-            new_state = AssetState.Expired
-            new_investment_level = InvestmentLevel.NONE
-
-        new_asset = DrugAsset(
-            id=self.id,
-            name=self.name,
-            therapeutic_area=self.therapeutic_area,
-            indication=self.indication,
-            type=self.type,
-            description=self.description,
-            max_revenue=self.max_revenue,
-            raw_max_revenue=self.raw_max_revenue,
-            time_until_max_revenue=self.time_until_max_revenue,
-            time_until_patent_expiry=new_time_until_patent_expiry,
-            state=new_state,
-            time_on_market=new_time_on_market,
-            trial=new_trial,
-            current_investment_level=new_investment_level,
         )
         return new_asset

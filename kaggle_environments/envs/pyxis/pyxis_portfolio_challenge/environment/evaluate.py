@@ -75,7 +75,6 @@ def evaluate(
     mask_negative_enpv_assets=None,
     warmup_on_reset_steps=None,
     warmup_on_reset_policy=None,
-    distributional_ptrs_config=None,
 ) -> list[EvaluationMetric]:
     """
     Evaluate the given agent in the investment game environment.
@@ -90,7 +89,6 @@ def evaluate(
         mask_negative_enpv_assets (bool): Whether to mask negative eNPV assets.
         warmup_on_reset_steps (int): Number of warmup steps after each reset.
         warmup_on_reset_policy (str): Warmup policy ("do_nothing" or "random").
-        distributional_ptrs_config: Configuration for distributional PTRS feature.
 
     Returns:
         list[EvaluationMetric]: A list of evaluation metrics collected during
@@ -124,11 +122,6 @@ def evaluate(
         if warmup_on_reset_policy is not None
         else cfg.warmup_on_reset_policy
     )
-    distributional_ptrs_config = (
-        distributional_ptrs_config
-        if distributional_ptrs_config is not None
-        else cfg.distributional_ptrs
-    )
 
     env = InvestmentGameEnv(
         equilibrium_num_assets=cfg.equilibrium_num_assets,
@@ -145,12 +138,6 @@ def evaluate(
         metrics=metrics,
         mask_first_order_assets=mask_first_order_assets,
         mask_negative_enpv_assets=mask_negative_enpv_assets,
-        uncertain_ptrs_config=cfg.uncertain_ptrs,
-        investment_levels_config=cfg.investment_levels,
-        interim_trial_observations_config=cfg.interim_trial_observations,
-        distributional_ptrs_config=distributional_ptrs_config,
-        ta_experience_config=cfg.ta_experience,
-        rd_capacity_config=cfg.rd_capacity,
         drop_action_config=cfg.drop_action,
         marketing_config=cfg.marketing,
         clinical_sites_config=cfg.clinical_sites,

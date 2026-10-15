@@ -1,8 +1,8 @@
 {
-    "name": "Valtaris",
+    "name": "Aurora-X",
     "therapeutic_area": "vaccines and infectious disease",
     "type": "internal",
-    "description": "Valtaris is a recombinant protein-subunit vaccine that uses nanoparticle display to strengthen and prolong the protective immune response. Built on scalable bioprocessing, it is designed to deliver reliable immunogenicity and to support broad global supply.",
+    "description": "Aurora-X is a recombinant protein-subunit vaccine that uses nanoparticle display to strengthen and prolong the protective immune response. Built on scalable bioprocessing, it is designed to deliver reliable immunogenicity and to support broad global supply.",
     "max_revenue": 2000000000,
     "time_until_max_revenue": 5,
     "time_until_patent_expiry": 15,

@@ -18,11 +18,6 @@ def _clear_warmup_history(game_state) -> None:
         attr = getattr(game_state, attr_name, None)
         if isinstance(attr, list):
             attr.clear()
-    # Reset TA experience — expertise should be built during the actual episode
-    ta_exp = getattr(game_state, "ta_experience", None)
-    if ta_exp is not None:
-        for ta in ta_exp:
-            ta_exp[ta] = 0.0
 
 
 class WarmupOnResetWrapper(gym.Wrapper):

@@ -43,7 +43,7 @@ class MultiAgentDoNothingAgent:
         dict
             The env's canonical no-op action -- the do-nothing value for every
             enabled action head (investments, bd_bids, and any of ptrs_research,
-            upgrade, site_bid, site_priority, pricing, demand_creation,
+            upgrade, site_bid, site_priority, demand_creation,
             brand_equity that the current config enables).
 
         """

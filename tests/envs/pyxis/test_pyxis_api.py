@@ -108,7 +108,8 @@ def test_pyxis_site_auction_alert_renders():
     """A clinical-site deal carries no therapeutic area; the snapshot must cope."""
 
     def bidder(observation, configuration):
-        return {"site_bid": [50.0]}
+        # £200M clears the auction reserve (0.25 x £500M build cost = £125M).
+        return {"site_bid": [200.0]}
 
     env = make("pyxis", configuration={"seed": 5})
     env.run([bidder, "do_nothing"])
