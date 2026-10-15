@@ -59,8 +59,7 @@ function getIndex(replay: any): ReplayIndex {
 }
 
 function resolveAsset(row: AssetRow, assetMeta: Record<string, AssetMeta>): AssetView {
-  const [key, state, phase, timeRemaining, ptrs, timeOnMarket, ptrsReadings, brandLift, patentLeft] =
-    row;
+  const [key, state, phase, timeRemaining, ptrs, timeOnMarket, ptrsReadings, brandLift, patentLeft] = row;
   const [name, therapeuticArea, indication, isBusinessDevelopment, maxRevenue] = assetMeta[key] ?? ['?', 0, 0, 0, 0];
   return {
     key,
