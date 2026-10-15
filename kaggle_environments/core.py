@@ -101,9 +101,9 @@ def evaluate(
     if steps is None:
         steps = []
 
-    e = make(environment, configuration, steps=steps, debug=debug, state=state)
     rewards = [[] for i in range(num_episodes)]
     for i in range(num_episodes):
+        e = make(environment, configuration, steps=steps, debug=debug, state=state)
         last_state = e.run(agents)[-1]
         rewards[i] = [state.reward for state in last_state]
     return rewards

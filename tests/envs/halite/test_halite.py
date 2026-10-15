@@ -1,4 +1,6 @@
-from kaggle_environments import make
+import pytest
+
+from kaggle_environments import evaluate, make
 from kaggle_environments.envs.halite.halite import random_agent
 from kaggle_environments.envs.halite.helpers import Board, Point, ShipAction, ShipyardAction, board_agent
 
@@ -14,6 +16,33 @@ def test_halite_no_repeated_steps():
     env = make("halite", configuration={"episodeSteps": step_count}, debug=True)
     env.run([step_appender_agent])
     assert actual_steps == list(range(step_count - 1))
+
+
+@pytest.mark.parametrize("random_seed", [None, 0, 42])
+def test_evaluate_halite_starting_boards(monkeypatch, random_seed):
+    generated_seeds = [11, 22, 33]
+    seeds = iter(generated_seeds)
+    monkeypatch.setattr("kaggle_environments.envs.halite.halite.randrange", lambda stop: next(seeds))
+    configuration = {"episodeSteps": 2}
+    if random_seed is not None:
+        configuration["randomSeed"] = random_seed
+    original_configuration = configuration.copy()
+    starting_boards = []
+
+    def record_board(obs):
+        starting_boards.append(obs.halite)
+        return {}
+
+    rewards = evaluate("halite", [record_board], configuration=configuration, num_episodes=3)
+    expected_seeds = generated_seeds if random_seed is None else [random_seed] * 3
+    expected_boards = [
+        make("halite", configuration={**configuration, "randomSeed": seed}).state[0].observation.halite
+        for seed in expected_seeds
+    ]
+
+    assert starting_boards == expected_boards
+    assert len(rewards) == 3
+    assert configuration == original_configuration
 
 
 def test_halite_completes():
