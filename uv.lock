@@ -1316,7 +1316,7 @@ wheels = [
 
 [[package]]
 name = "kaggle-environments"
-version = "1.33.0"
+version = "1.33.1"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
