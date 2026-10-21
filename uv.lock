@@ -8,6 +8,12 @@ resolution-markers = [
     "python_full_version < '3.12'",
 ]
 
+[manifest]
+constraints = [
+    { name = "certifi", specifier = ">=2026.10.19" },
+    { name = "pip", specifier = ">=26.2.2" },
+]
+
 [[package]]
 name = "absl-py"
 version = "2.3.1"
