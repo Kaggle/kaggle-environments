@@ -52,7 +52,7 @@ dev = [
     "pytest",
     "PyYAML",
     "ruff",
-    "uv",
+    "uv>=0.13.4",  # GHSA-hq85-5cpj-mr62: drops compromised emSign root
 ]
 
 readme = ["README.md"]
@@ -95,6 +95,12 @@ exclude = [
 
 [tool.setuptools.dynamic]
 version = {attr = "kaggle_environments.__version__"}
+
+[tool.uv]
+constraint-dependencies = [
+    "certifi>=2026.10.19",  # GHSA-6q48-6c7w-9gw2: drops compromised emSign roots
+    "pip>=26.2.2",  # pip uses its own bundled certifi; 26.2.2 bundles 2026.10.19
+]
 
 [tool.ruff]
 target-version = "py311"
