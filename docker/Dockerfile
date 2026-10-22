@@ -2,7 +2,7 @@
 ARG BASE_IMAGE=gcr.io/kaggle-images/python:v163
 
 # ===== Base Stages =====
-FROM node:22-slim AS node_builder
+FROM node:22.23.4-slim AS node_builder
 FROM ${BASE_IMAGE} AS base
 
 COPY --from=node_builder /usr/local/ /usr/local/

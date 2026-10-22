@@ -24,7 +24,7 @@
 steps:
   # Step 1: Build dependencies (core and common) and the target visualizer
   - id: "build-visualizer"
-    name: "node:22"
+    name: "node:22.23.4"
     entrypoint: "bash"
     args:
       - "-c"
