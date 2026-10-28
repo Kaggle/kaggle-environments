@@ -5,6 +5,15 @@ ARG BASE_IMAGE=gcr.io/kaggle-images/python:v163
 FROM node:22.23.4-slim AS node_builder
 FROM ${BASE_IMAGE} AS base
 
+# Distrust the compromised emSign ECC Root CA - G3 (http://b/575927270). The CPU base is
+# Ubuntu jammy and the GPU base is noble; both are patched in 20260816ubuntu0.{22,24}.04.1.
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y --only-upgrade ca-certificates && \
+    rm -rf /var/lib/apt/lists/* && \
+    dpkg --compare-versions "$(dpkg-query -W -f='${Version}' ca-certificates)" ge 20260816ubuntu0
+# Make grpcio use the patched OS bundle instead of its compiled-in roots.
+ENV GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/etc/ssl/certs/ca-certificates.crt
+
 COPY --from=node_builder /usr/local/ /usr/local/
 # Confirm the installation was successful
 RUN node -v && npm -v
