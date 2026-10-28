@@ -14,6 +14,7 @@
 
 import json
 import random
+import traceback
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, Type
@@ -111,6 +112,10 @@ class Struct(dict):
     def __setattr__(self, attr: str, value: Any) -> None:
         self.__dict__[attr] = value
         self[attr] = value
+
+
+def format_traceback(exc: BaseException) -> str:
+    return "".join(traceback.format_exception(None, exc, exc.__traceback__))
 
 
 # Added benefit of cloning lists and dicts.
