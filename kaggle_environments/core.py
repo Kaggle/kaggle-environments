@@ -429,7 +429,7 @@ class Environment:
         interactives[env.id] = (env, trainer)
         env.render(mode="ipython", interactive=True, **kwargs)
 
-    def train(self, agents: list[str | Callable | Agent] | None = None) -> Any:
+    def train(self, agents: list[str | Callable | Agent | None] | None = None) -> Any:
         """
         Setup a lightweight training environment for a single agent.
         Note: This is designed to be a lightweight starting point which can
