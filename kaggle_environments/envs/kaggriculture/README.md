@@ -28,7 +28,11 @@ Crop "Time to Max Yield" is the age at which yield stops increasing under daily 
 - **Wheat** and **Carrot** only reach their listed Max Yield of 6 and 4 with fertilizer; watering alone peaks at 4 and 3.
 - **Tomato** and **Strawberry** are ongoing but *not* indefinite: production is capped at 4 scheduled yields (tomato at ages 8–11, strawberry at ages 10, 12, 14, 16), after which the plant decays into a weed.
 
-All plants must be watered every day. They will turn into weeds if they are not watered for two successive days. All animals must be fed every day using wheat. They will escape and be unrecoverable if they are not fed for two successive days. Wheat is also available to buy at the market and can be purchased at the current market price.
+All plants must be watered on the day they are planted; otherwise, they will turn into weeds at the end of that day. After that, plants will turn into weeds if they are not watered for two consecutive days. Skipping watering can reduce yield: non-recurring crops gain yield from watering during their yield-growth period, while recurring crops continue to produce their base yield but receive no fertilizer bonus on unwatered days.
+
+All animals must be fed wheat at least once every two days. Feeding is not required on the day they are placed, but that day counts as the first unfed day. Animals will escape and cannot be recovered if they are not fed for two consecutive days. Skipping feeding does not reduce their base yield, but care bonuses require feeding.
+
+Wheat is also available for purchase at the market at the current market price.
 
 ## Actions
 
