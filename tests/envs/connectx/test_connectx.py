@@ -259,6 +259,26 @@ def test_can_evaluate():
     assert (rewards[0][0] + rewards[0][1] == 0) and rewards[1][0] + rewards[1][1] == 0
 
 
+def test_evaluate_from_steps():
+    initial_env = make("connectx")
+    initial_env.step([0, None])
+    initial_env.step([None, 1])
+    starting_boards = []
+
+    def first_agent(obs):
+        if obs.step == 2:
+            starting_boards.append(obs.board)
+        return 2
+
+    def second_agent():
+        return 3
+
+    evaluate("connectx", [first_agent, second_agent], steps=initial_env.steps, num_episodes=3)
+
+    assert starting_boards == [initial_env.state[0].observation.board] * 3
+    assert len(initial_env.steps) == 3
+
+
 def test_max_log_length():
     def custom1():
         # Write 20X to stdtout, we should strip to 10

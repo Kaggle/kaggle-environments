@@ -240,6 +240,9 @@ print(steps)
 
 Evaluation is used to run an episode (environment + agents) multiple times and just return the rewards.
 
+Each episode starts with a fresh environment using the supplied configuration and steps.
+To repeat a starting layout, pass the environment's seed setting in `configuration`, such as `randomSeed` for Halite.
+
 ```python
 from kaggle_environments import evaluate
 
