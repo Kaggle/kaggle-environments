@@ -114,6 +114,7 @@ def test_can_mark_out_of_bounds():
                 "step": 1,
             },
             "reward": None,
+            "error": {"type": "INVALID", "message": "Invalid column: 10"},
         },
         {
             "action": 0,
@@ -138,6 +139,7 @@ def test_can_mark_a_full_column():
             "info": {},
             "observation": {"remainingOverageTime": 60, "board": board, "mark": 1, "step": 1},
             "reward": None,
+            "error": {"type": "INVALID", "message": "Invalid column: 1"},
         },
         {
             "action": 0,
