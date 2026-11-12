@@ -216,6 +216,10 @@ def interpreter(state, env):
             finish(state, env)
             return state
         else:
+            for i in range(2):
+                last = Battle.lib.GetLastState(Battle.battle_ptr, i)
+                Battle.last_observation[i] = json.loads(last.decode())
+            Battle.last_observation[s["yourIndex"]]["logs"] = Battle.obs["logs"]
             round_finish(state, env)
             Battle.last_step = len(env.steps) - 1
             battle_start(Battle.decks[0], Battle.decks[1], count % 2 != 0)
@@ -232,6 +236,8 @@ def interpreter(state, env):
     o["logs"] = obs["logs"]
     o["current"] = obs["current"]
     o["search_begin_input"] = obs["search_begin_input"]
+    o["pre_round_observation"] = Battle.last_observation[index]
+    Battle.last_observation[index] = None
     s["players"][0]["win"] = Battle.result[0]
     s["players"][1]["win"] = Battle.result[1]
     s["draw"] = Battle.result[2]
