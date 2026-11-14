@@ -775,6 +775,33 @@ class TestOrbitWars(unittest.TestCase):
         )
         self.assertIsNone(env.configuration.get("seed"))
 
+    def test_fleet_hitting_expiring_comet_resolves_combat(self):
+        # A fleet hitting an expiring comet must resolve combat before the comet
+        # is removed, ensuring ships are not discarded without combat resolution.
+        comet_pid = 10
+        planets = [[comet_pid, 1, 80.0, 50.0, 2.0, 10, 0]]
+        fleets = [[0, 0, 78.0, 50.0, 0.0, 99, 30]]
+        state = self._make_state(planets, fleets)
+        obs0 = state[0].observation
+        obs0.step = 10
+        obs0.angular_velocity = 0.0
+        obs0.comet_planet_ids = [comet_pid]
+        obs0.comets = [{
+            "path_index": 0,
+            "planet_ids": [comet_pid],
+            "paths": [[(80.0, 50.0)]],
+        }]
+        env = SimpleNamespace(
+            configuration=SimpleNamespace(shipSpeed=6, episodeSteps=500, cometSpeed=4),
+            done=False,
+        )
+
+        new_state = interpreter(state, env)
+        obs = new_state[0].observation
+        self.assertEqual(len(obs.fleets), 0)
+        self.assertEqual(len(obs.planets), 0)
+        self.assertNotIn(comet_pid, obs.comet_planet_ids)
+
 
 if __name__ == "__main__":
     unittest.main()

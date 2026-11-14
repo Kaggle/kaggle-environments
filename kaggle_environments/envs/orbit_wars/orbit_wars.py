@@ -601,22 +601,6 @@ def interpreter(state, env):
         if path is not None:
             planet[2], planet[3] = path[1]
 
-    # Remove expired comets immediately
-    if expired_comet_pids:
-        expired_set = set(expired_comet_pids)
-        obs0.planets = [p for p in obs0.planets if p[0] not in expired_set]
-        obs0.initial_planets = [
-            p for p in obs0.initial_planets if p[0] not in expired_set
-        ]
-        obs0.comet_planet_ids = [
-            pid for pid in obs0.comet_planet_ids if pid not in expired_set
-        ]
-        for group in obs0.comets:
-            group["planet_ids"] = [
-                pid for pid in group["planet_ids"] if pid not in expired_set
-            ]
-        obs0.comets = [g for g in obs0.comets if g["planet_ids"]]
-
     obs0.fleets = [f for f in obs0.fleets if f not in fleets_to_remove]
 
     # 5. Combat Resolution
@@ -659,6 +643,22 @@ def interpreter(state, env):
                 if planet[5] < 0:
                     planet[1] = survivor_owner
                     planet[5] = abs(planet[5])
+
+    # 6. Remove expired comets after combat resolution
+    if expired_comet_pids:
+        expired_set = set(expired_comet_pids)
+        obs0.planets = [p for p in obs0.planets if p[0] not in expired_set]
+        obs0.initial_planets = [
+            p for p in obs0.initial_planets if p[0] not in expired_set
+        ]
+        obs0.comet_planet_ids = [
+            pid for pid in obs0.comet_planet_ids if pid not in expired_set
+        ]
+        for group in obs0.comets:
+            group["planet_ids"] = [
+                pid for pid in group["planet_ids"] if pid not in expired_set
+            ]
+        obs0.comets = [g for g in obs0.comets if g["planet_ids"]]
 
     for i in range(1, num_agents):
         state[i].observation.planets = obs0.planets
