@@ -72,7 +72,7 @@ or ``c3xa3`` (capture moving from c3 onto an opponent piece at a3). Use
 '-' for a normal move and 'x' for a capture. Files are lowercase a-h;
 ranks are 1-8.
 
-Respond with your reasoning followed by your final move in a JSON block:
+Respond with a brief explanation of your move followed by your final move in a JSON block:
 
 ```json
 {{

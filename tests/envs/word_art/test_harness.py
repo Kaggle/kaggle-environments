@@ -554,23 +554,17 @@ class GeneratePromptTest(absltest.TestCase):
             self.assertIn(kw, squished)
         self.assertIn("visual element", squished)
 
-    def test_artist_prompt_requests_reasoning_before_art_tag(self):
-        # Memory contract: every prompt asks for reasoning BEFORE the answer.
-        # Now the answer is <art>...</art>; reasoning is prose above it.
-        # The instruction must explicitly ask the model to WRITE the
-        # reasoning out (not just "think" internally) so a reader can see
-        # the chain of thought in the response.
+    def test_artist_prompt_requests_explanation_before_art_tag(self):
+        # Memory contract: every prompt asks for prose BEFORE the answer.
+        # Now the answer is <art>...</art>; the explanation is prose above it.
         prompt = generate_prompt(_artist_obs(), [])
-        lower = prompt.lower()
-        squished = " ".join(lower.split())
-        self.assertIn("think step by step", squished)
-        # Parallel to the guesser prompt: "writing your reasoning as
-        # ordinary prose" is what makes the CoT observable.
-        self.assertIn("writing your reasoning as ordinary prose", squished)
-        # And the reasoning instruction must precede the concrete example.
-        instruct_pos = lower.find("<art>")
+        squished = " ".join(prompt.lower().split())
+        phrase = "write a brief explanation of your drawing as ordinary prose"
+        self.assertIn(phrase, squished)
+        # And the explanation instruction must precede the concrete example.
+        instruct_pos = squished.find("<art>")
         self.assertGreater(instruct_pos, 0)
-        self.assertLess(lower.find("think step by step"), instruct_pos)
+        self.assertLess(squished.find(phrase), instruct_pos)
 
     def test_artist_prompt_documents_art_tag_format(self):
         prompt = generate_prompt(_artist_obs(), [])
@@ -606,31 +600,21 @@ class GeneratePromptTest(absltest.TestCase):
         self.assertIn("all wrong", prompt)
         self.assertIn("attempt 2 of 3", prompt)
 
-    def test_guesser_prompt_requests_reasoning_before_json(self):
+    def test_guesser_prompt_requests_explanation_before_json(self):
         prompt = generate_prompt(_guesser_obs(), [])
         lower = prompt.lower()
-        # Any of several equivalent prose-reasoning phrases is fine; the
-        # invariant is that a WRITE-your-reasoning instruction PRECEDES
-        # the JSON example. The verb must be explicit ("write", "think
-        # step by step") so reasoning models produce observable
-        # chain-of-thought in the response, not just internal thinking.
-        reasoning_pos = min(
-            (lower.find(p) for p in (
-                "write your reasoning",
-                "writing your reasoning",
-                "think step by step",
-            ) if lower.find(p) >= 0),
-            default=-1,
-        )
-        self.assertGreater(reasoning_pos, 0, "guesser prompt must instruct the model to write reasoning before the JSON")
+        # The invariant is that a WRITE-an-explanation instruction PRECEDES
+        # the JSON example.
+        explain_pos = lower.find("write a brief explanation")
+        self.assertGreater(explain_pos, 0, "guesser prompt must instruct the model to write an explanation before the JSON")
         json_pos = prompt.find('{"guess"')
         self.assertGreater(json_pos, 0)
-        self.assertLess(reasoning_pos, json_pos)
+        self.assertLess(explain_pos, json_pos)
 
     def test_guesser_prompt_example_shows_json_format(self):
         prompt = generate_prompt(_guesser_obs(), [])
         # Example must include a minimal valid JSON showing only the
-        # required key -- reasoning is prose now, no "thinking" field.
+        # required key -- the explanation is prose now, no "thinking" field.
         self.assertIn('{"guess": "CAT"}', prompt)
 
     def test_history_block_renders_completed_rounds(self):

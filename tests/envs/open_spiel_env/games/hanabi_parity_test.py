@@ -195,12 +195,12 @@ class PromptFragmentParityTest(absltest.TestCase):
     def test_output_format_spec_phrased_identically(self):
         self._assert_in_both('```json\n{\n  "move": "<action>"\n}\n```\n\nFor example: `{"move": "(Play 0)"}`')
 
-    def test_reasoning_requested_before_json_in_both(self):
+    def test_explanation_requested_before_json_in_both(self):
         # Non-negotiable across every prompt variant: the model must be
-        # told to reason BEFORE it emits the JSON answer.
+        # told to explain its move BEFORE it emits the JSON answer.
         for prompt in (self.base, self.arena):
-            self.assertIn("Reason step by step", prompt)
-            self.assertLess(prompt.index("Reason step by step"), prompt.index('"move"'))
+            self.assertIn("Respond with a brief explanation", prompt)
+            self.assertLess(prompt.index("Respond with a brief explanation"), prompt.index('"move"'))
 
     def test_failure_warning_phrased_identically(self):
         self._assert_in_both(

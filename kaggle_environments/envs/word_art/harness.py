@@ -269,7 +269,7 @@ Last 500 characters of your previous response:
 
 Re-read the output format above and respond again. Wrap your drawing in a
 single <art>...</art> block; anything outside the block is treated as
-reasoning and ignored."""
+explanation and ignored."""
 
 
 RETHINK_ARTIST_EMPTY = """
@@ -298,7 +298,7 @@ Redraw it so no run of letters spells anything -- delete the offending
 text outright rather than disguising it (spacing it out, punctuating
 between the letters, reversing it, or stacking it down a column all trip
 the same checks). Re-read the two engine checks above, then respond again
-with reasoning followed by a single <art>...</art> block."""
+with a brief explanation followed by a single <art>...</art> block."""
 
 
 RETHINK_GUESSER_NO_ANSWER = """
@@ -495,14 +495,14 @@ The secret word you must depict is: '{target_word}'.
 Past rounds in this game so far:
 {history_text}
 
-Think step by step about how to depict the word visually, writing
-your reasoning as ordinary prose. Before you commit to a drawing,
+Work out how to depict the word visually, and write a brief
+explanation of your drawing as ordinary prose. Before you commit to a drawing,
 re-scan it once across each row and once down each column and delete
 any letter run that trips the checks above. Then end your response
 with your final drawing wrapped in a single <art>...</art> block. Everything
 inside the block is taken verbatim -- literal newlines are fine, no
 escaping, no markdown -- and everything outside is treated as
-reasoning and ignored. The example below shows the OUTPUT FORMAT, not
+explanation and ignored. The example below shows the OUTPUT FORMAT, not
 a template to imitate -- your drawing should depict your own word.
 
 I'll draw a snowflake using radial symmetry -- arms meeting at a
@@ -581,7 +581,7 @@ Past rounds in this game so far:
 Your teammate's drawing (monospace):
 {teammate_art if teammate_art else "(your teammate submitted nothing)"}
 
-Write your reasoning as prose about what the art depicts. Then end
+Write a brief explanation, as prose, of what the art depicts. Then end
 your response with a JSON object containing your final answer as a
 SINGLE WORD (no spaces, no punctuation, no articles). Example:
 

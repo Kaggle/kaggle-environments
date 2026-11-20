@@ -91,7 +91,7 @@ Your move history: {move_history}.
 
 It is your turn. Choose one of YOUR own pits that contains seeds.
 
-Respond with your reasoning followed by your chosen pit index in a JSON
+Respond with a brief explanation of your move followed by your chosen pit index in a JSON
 block:
 
 ```json

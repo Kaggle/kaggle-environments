@@ -71,7 +71,7 @@ If (and only if) you have no legal placement, submit the literal move
 
 It is your turn. Choose a legal move.
 
-Respond with your reasoning followed by your final move in a JSON block:
+Respond with a brief explanation of your move followed by your final move in a JSON block:
 
 ```json
 {{

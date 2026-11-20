@@ -67,7 +67,7 @@ Round {round_number} of at most {horizon}.
 
 Your turn. Choose one of: North, East, South, West, Stay.
 
-Respond with your reasoning, then end your response with JSON:
+Respond with a brief explanation of your move, then end your response with JSON:
 
 ```json
 {{"move": "<North|East|South|West|Stay>"}}

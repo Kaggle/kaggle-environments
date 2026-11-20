@@ -196,7 +196,7 @@ It is your turn. Think briefly about the position, then choose your move.
 Use the exact OpenSpiel action string (e.g. 'Draw upcard', 'Knock', '7h',
 'As2s3s').
 
-Respond with your reasoning followed by your final answer in a JSON block:
+Respond with a brief explanation of your move followed by your final answer in a JSON block:
 
 ```json
 {{

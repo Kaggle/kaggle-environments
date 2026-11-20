@@ -62,7 +62,7 @@ Your past bids:    {my_history}
 Choose your bid for this round (an integer at least {min_bid} and at
 most your current coin total).
 
-Respond with your reasoning followed by your final bid in a JSON block:
+Respond with a brief explanation of your move followed by your final bid in a JSON block:
 
 ```json
 {{

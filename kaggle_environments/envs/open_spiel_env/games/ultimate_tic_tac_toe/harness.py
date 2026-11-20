@@ -43,7 +43,7 @@ You are Player {player_id} ('{my_piece}'). Opponent is Player {opp_player_id} ('
 Moves played so far this game (both players, oldest first):
 {move_history}
 
-Respond with your reasoning, then end your response with your final move as JSON:
+Respond with a brief explanation of your move, then end your response with your final move as JSON:
 {json_format_example}
 """
 

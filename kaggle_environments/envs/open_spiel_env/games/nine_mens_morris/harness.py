@@ -254,8 +254,8 @@ Move number: {turn_number}
 Move history so far (both players, oldest first):
 {move_history_block}
 
-It is your turn. Choose a legal action and respond with your reasoning
-followed by your final answer in a JSON block. Use this concise notation
+It is your turn. Choose a legal action and respond with a brief explanation
+of your move followed by your final answer in a JSON block. Use this concise notation
 for the "move" value:
 
 - Placement (phase 1) or Capture (mill formed): a single point index

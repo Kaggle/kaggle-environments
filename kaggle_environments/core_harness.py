@@ -132,7 +132,10 @@ _TELEMETRY = get_telemetry_logger(__name__)
 # Reusable prompt templates that game harnesses can use to assemble prompts.
 # These mirror the GameArena ``NO_LEGAL_ACTIONS_RETHINK_APPENDED`` /
 # ``RETHINK_WITH_ENV_*`` templates and are the format the migrated chess 
-# harness was validated against.
+# harness was validated against. One deliberate divergence: the main prompt
+# asks for a brief explanation of the move rather than step-by-step reasoning,
+# because prompts that ask the model to output its reasoning trip Anthropic's
+# reasoning-extraction refusals on newer Claude models.
 
 # Main game prompt. Placeholders:
 #   game_short_name, notation, readable_state_str, move_history,
@@ -143,7 +146,7 @@ Let's play {game_short_name}. The current game state in {notation} is:
 The moves played so far are:
 {move_history}
 You are playing as player {player_name}.
-It is now your turn. Play your strongest move. The move MUST be legal. Reason step by step to come up with your move, then output your final answer in the format "Final Answer: X" where X is your chosen move in {move_notation}.
+It is now your turn. Play your strongest move. The move MUST be legal. Choose your move carefully, then give a brief explanation of it followed by your final answer in the format "Final Answer: X" where X is your chosen move in {move_notation}.
 {rethink_prompt}"""
 
 # Rethink suffix for an unparseable previous response. Placeholder: generation.

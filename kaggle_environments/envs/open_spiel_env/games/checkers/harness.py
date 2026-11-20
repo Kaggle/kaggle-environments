@@ -86,7 +86,7 @@ Kings may move and capture in any diagonal direction.
 It is your turn. Choose a legal move for one of your pieces, remembering
 that if any capture is available you MUST take a capture.
 
-Respond with your reasoning followed by your final move in a JSON block:
+Respond with a brief explanation of your move followed by your final move in a JSON block:
 
 ```json
 {{

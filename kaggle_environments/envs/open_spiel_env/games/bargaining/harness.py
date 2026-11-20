@@ -82,7 +82,7 @@ Offers used so far: {num_offers} of {max_turns}. Offers remaining
 You are Player {player_label}. It is your turn.
 {accept_help}
 
-Respond with your reasoning, then conclude with a JSON block of EITHER form:
+Respond with a brief explanation of your decision, then conclude with a JSON block of EITHER form:
 
 ```json
 {{"action": "offer", "keep": {{"book": <int>, "hat": <int>, "basketball": <int>}}}}
