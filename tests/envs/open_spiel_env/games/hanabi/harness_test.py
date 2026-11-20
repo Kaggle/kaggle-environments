@@ -669,11 +669,11 @@ class GeneratePromptTest(absltest.TestCase):
         listed = [label for label in obs["legalActionStrings"] if label in prompt]
         self.assertEqual(listed, ["(Play 0)"])
 
-    def test_prompt_requests_reasoning_before_json(self):
+    def test_prompt_requests_explanation_before_json(self):
         obs = _make_observation(self.state, self.game, player_id=0)
         prompt = generate_prompt(obs, [])
-        self.assertIn("Reason step by step", prompt)
-        self.assertLess(prompt.index("Reason step by step"), prompt.index('"move"'))
+        self.assertIn("Respond with a brief explanation", prompt)
+        self.assertLess(prompt.index("Respond with a brief explanation"), prompt.index('"move"'))
 
     def test_fireworks_report_next_playable_rank(self):
         play = _action_id(self.state, "(Play 0)")

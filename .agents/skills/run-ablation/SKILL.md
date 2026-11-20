@@ -147,16 +147,18 @@ Decoration is fair game (worked examples, flavor sentences, repeated reminders, 
 
 If you find yourself stripping any of these, stop — you're testing comprehension, not prompt design. The variant's poor performance can't be attributed to the prompt-design choice you wanted to ablate. **Audit each variant by reading it as a model with no prior game knowledge would.** Can you play correctly from this prompt alone? If not, restore the missing mechanics.
 
-### Hard rule: every prompt must ask for reasoning before JSON
+### Hard rule: every prompt must ask for an explanation before JSON
 
-Every variant's template — including the most aggressive `minimal` strip — must explicitly instruct the model to **output** its reasoning *before* outputting the final action JSON. The wording must make clear that the reasoning belongs in the response, not just in the model's head. Two safe phrasings:
+Every variant's template — including the most aggressive `minimal` strip — must explicitly instruct the model to **output** a brief explanation of its move *before* outputting the final action JSON. The wording must make clear that the explanation belongs in the response, not just in the model's head. Two safe phrasings:
 
-* baseline-style: `"Respond with your reasoning, then conclude with a JSON block of EITHER form:"`
-* terse-style: `"Respond with your reasoning, then end your response with JSON, one of:"`
+* baseline-style: `"Respond with a brief explanation of your decision, then conclude with a JSON block of EITHER form:"`
+* terse-style: `"Respond with a brief explanation of your decision, then end your response with JSON, one of:"`
 
-**Avoid weak verbs** like "Reason briefly through your move, then respond with JSON" — models often interpret this as "think about it internally, then output JSON" and skip writing reasoning into the response. The instruction must start with an output verb (`Respond`, `Write`, `Explain`, `Output`) applied to the reasoning, not just to the JSON.
+**Ask for an explanation, never for "your reasoning" / "thinking" / "thought process" / "chain of thought".** Newer Claude models (Fable 5.2, Opus 5.x, Sonnet 5.5) refuse prompts that ask them to include "the reasoning that led you to your move" (`stop_reason: refusal`, category `reasoning_extraction`), which voids the episode. `tests/harness_prompt_wording_test.py` scans every harness and `prompt_variants.py` for these phrasings and fails if they appear.
 
-This is non-negotiable. Models perform noticeably worse on these games when they skip writing out reasoning; the chain-of-thought is load-bearing, not a stylistic preference. When you propose new variants in Step 3, when you write the variant classes in this step, and when you review the final `prompt_variants.py` before running, *check that every template's final-output instruction puts an output verb on the reasoning, not just on the JSON*. If a variant's whole point is "strip everything", strip rules and helpers and examples — but keep the reason-first instruction.
+**Avoid weak verbs** like "Think briefly about your move, then respond with JSON" — models often interpret this as "think about it internally, then output JSON" and skip writing anything into the response. The instruction must start with an output verb (`Respond`, `Write`, `Explain`, `Output`) applied to the explanation, not just to the JSON.
+
+This is non-negotiable. Models perform noticeably worse on these games when they skip straight to JSON; the written explanation is load-bearing, not a stylistic preference. When you propose new variants in Step 3, when you write the variant classes in this step, and when you review the final `prompt_variants.py` before running, *check that every template's final-output instruction puts an output verb on the explanation, not just on the JSON*. If a variant's whole point is "strip everything", strip rules and helpers and examples — but keep the explain-first instruction.
 
 ## Step 5: Verify with `ablation check`
 
@@ -270,7 +272,7 @@ If every real variant has Σ|Δrank| at or below the null floor, the honest answ
 ## Common pitfalls
 
 * **Stripping mechanics, not decoration.** "Minimal" doesn't mean "remove everything." Variants must preserve private-vs-public splits, action semantics, reward computation, and terminal conditions. If a model couldn't play the game from the variant's prompt alone, you're not isolating a prompt-design effect — you're measuring comprehension failure. See the hard-rule subsection in Step 4.
-* **Omitting the reason-first instruction from a variant.** Every prompt (baseline + all variants, however terse) must ask the model to reason before outputting JSON. A variant that drops it is testing a confounded prompt — the lost performance from skipping reasoning will dominate whatever else you were trying to ablate. See the hard-rule subsection in Step 4.
+* **Omitting the explain-first instruction from a variant.** Every prompt (baseline + all variants, however terse) must ask the model for a brief explanation before outputting JSON (phrased as an explanation, not "reasoning" — see the hard rule). A variant that drops it is testing a confounded prompt — the lost performance from skipping the explanation will dominate whatever else you were trying to ablate. See the hard-rule subsection in Step 4.
 * **Forgetting `baseline` parity.** If the control arm isn't byte-identical to production, every comparison is contaminated. Run `ablation check` after every edit to `prompt_variants.py`, not just at the end.
 * **Skipping the `null` variant.** Without it, you have no calibrated noise floor and the permutation test has to estimate one by resampling (which overestimates noise at small N). The cost is one extra variant in the matrix — always include it.
 * **Reporting raw rank tables as findings.** The rank table in `summary.md` is *unweighted by significance*. A #1↔#2 swap looks dramatic but at N=10 it happens regularly from sampling noise. Always run `ablation_analysis.py` and lead with its p-values; the rank table is supporting evidence, not the headline.

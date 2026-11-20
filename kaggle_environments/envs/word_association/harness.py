@@ -307,9 +307,9 @@ def generate_prompt(
         prompt += "Here is the board state:\n"
         prompt += _build_cluemaster_board(observation) + "\n"
         prompt += (
-            "\nThink step-by-step about which unrevealed words you can "
-            "connect with a single-word clue. Provide your reasoning in a "
-            "'thinking' key.\n"
+            "\nConsider which unrevealed words you can connect with a "
+            "single-word clue. Provide a brief explanation of your clue in an "
+            "'explanation' key.\n"
         )
         prompt += (
             "VALIDITY RULES FOR CLUES (violating these does NOT end the "
@@ -341,7 +341,7 @@ def generate_prompt(
         )
         prompt += "You MUST format your response as valid JSON like this:\n"
         prompt += (
-            '{"thinking": "I see CAT and DOG, so ANIMAL connects 2 '
+            '{"explanation": "I see CAT and DOG, so ANIMAL connects 2 '
             'words...", "clue": "ANIMAL", "number": 2}\n'
         )
         prompt += (
@@ -378,8 +378,8 @@ def generate_prompt(
         prompt += "Here is the board state:\n"
         prompt += _build_guesser_board(observation) + "\n"
         prompt += (
-            "\nThink step-by-step about which unrevealed word matches the "
-            "clue best. Provide your reasoning in a 'thinking' key.\n"
+            "\nConsider which unrevealed word matches the clue best. Provide "
+            "a brief explanation of your guess in an 'explanation' key.\n"
         )
         prompt += (
             "Then provide the integer index of the ONE word you want to guess "
@@ -394,7 +394,7 @@ def generate_prompt(
         )
         prompt += "You MUST format your response as valid JSON like this:\n"
         prompt += (
-            '{"thinking": "The clue is ANIMAL. Cat is at index 4, so I will '
+            '{"explanation": "The clue is ANIMAL. Cat is at index 4, so I will '
             'guess 4...", "guess": 4}\n'
         )
         prompt += (
@@ -430,7 +430,9 @@ def parse_response(
     if parsed is None:
         return ParseResult(raw_action=None)
 
-    thinking = parsed.get("thinking")
+    # The prompt asks for an "explanation" key; "thinking" is the key older
+    # prompts asked for, still accepted so cached/replayed responses parse.
+    thinking = parsed.get("explanation", parsed.get("thinking"))
 
     # --- Cluemaster (free-form) ---
     if legal_action_strings is None:

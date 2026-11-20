@@ -270,6 +270,22 @@ class ParseResponseTest(absltest.TestCase):
         result = parse_response(response, legal)
         self.assertIsNone(result.legal_action)
 
+    # --- Explanation key ---
+
+    def test_explanation_key_becomes_thoughts(self):
+        response = '{"explanation": "CAT and DOG are animals", "clue": "ANIMAL", "number": 2}'
+        result = parse_response(response, None)
+        self.assertEqual(result.submission, {"clue": "ANIMAL", "number": 2})
+        self.assertEqual(result.thoughts, "CAT and DOG are animals")
+
+    def test_legacy_thinking_key_still_becomes_thoughts(self):
+        # Older prompts asked for a "thinking" key; keep accepting it.
+        legal = ["0: APPLE", "2: CAT"]
+        response = '{"thinking": "cat is an animal", "guess": 2}'
+        result = parse_response(response, legal)
+        self.assertEqual(result.legal_action, "2: CAT")
+        self.assertEqual(result.thoughts, "cat is an animal")
+
     def test_guesser_unparseable(self):
         legal = ["0: APPLE"]
         response = "I have no idea"
@@ -309,6 +325,12 @@ class GeneratePromptTest(absltest.TestCase):
         prompt = generate_prompt(obs, [])
         self.assertIn("0: APPLE", prompt)
         self.assertIn("24: ZEBRA", prompt)
+
+    def test_prompts_ask_for_explanation_key(self):
+        for obs in (_cluemaster_obs(), _guesser_obs()):
+            prompt = generate_prompt(obs, [])
+            self.assertIn("'explanation' key", prompt)
+            self.assertIn('{"explanation": ', prompt)
 
     def test_rethink_illegal_appended(self):
         # previous_action set → RETHINK_ILLEGAL, which quotes the action

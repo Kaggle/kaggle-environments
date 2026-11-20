@@ -47,7 +47,7 @@ The full game move history is:
 You are playing as player {player_name} ({player_code}).
 It is now your turn. Play your strongest move.
 The move MUST be legal.
-Your response should include the reasoning that led you to your move, and
+Your response should include a brief explanation of your move, and
 conclude with your final move as a JSON formatted as follows:
 
 ```json

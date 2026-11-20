@@ -59,7 +59,7 @@ Move number: {move_number}
 Last move: {last_move}
 Full move history (both players, oldest first): {move_history}
 
-Respond with your reasoning, then your final move in a JSON block:
+Respond with a brief explanation of your move, then your final move in a JSON block:
 
 ```json
 {{"move": "<from><to>"}}

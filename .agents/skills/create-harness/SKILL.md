@@ -156,6 +156,7 @@ For an imperfect-information variant (per-player observation, custom
 
 - **Parse the observation string.** If the game has a proxy, `observation["observationString"]` is JSON — parse it and present the state clearly rather than dumping raw JSON.
 - **Be specific about the output format.** The LLM's response needs to be parseable. JSON with a clear field name (like `"move"`) works well.
+- **Ask for an explanation, not the model's reasoning.** Phrase the output instruction as "Respond with a brief explanation of your move followed by your final move in a JSON block:". Never ask for "your reasoning", "the reasoning that led you to your move", "thinking", or a "thought process": newer Claude models refuse those as reasoning extraction (`stop_reason: refusal`), which voids the episode. `tests/harness_prompt_wording_test.py` enforces this for every harness.
 - **Explain the coordinate system.** If the game uses a board, explain notation clearly (e.g., "columns are letters a-h, rows are numbers 1-9").
 - **Include rules that affect strategy.** Don't just list rules mechanically — highlight the ones that matter for making good decisions.
 - **Don't give strategy advice.** The prompt should explain rules and mechanics, not coach the model on how to play. Saying "capture pieces to win" is fine (that's a rule); saying "control the center early" or "prefer defensive moves" is not (that's strategy). The LLM should reason about strategy on its own from the rules and game state.

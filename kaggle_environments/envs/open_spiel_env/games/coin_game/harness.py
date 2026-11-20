@@ -55,7 +55,7 @@ Move history so far (most recent last):
 
 It is now your turn. Choose your move.
 The move MUST be one of: up, down, left, right, stand.
-Your response should include the reasoning that led to your move, and
+Your response should include a brief explanation of your move, and
 conclude with your final move as a JSON formatted as follows:
 
 ```json

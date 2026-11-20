@@ -79,7 +79,7 @@ Move history on your team's board so far (most recent last):
 
 It is now your turn. Choose your move.
 The move MUST be one of: up, down, left, right, stay.
-Your response should include the reasoning that led to your move, and
+Your response should include a brief explanation of your move, and
 conclude with your final move as JSON formatted exactly as follows:
 
 ```json

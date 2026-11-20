@@ -1,7 +1,9 @@
 """LLM harness for OpenSpiel Connect Four.
 
 Migrated from Google DeepMind's GameArena connect_four harness.
-The prompt template is preserved exactly from the original.
+The prompt template is preserved from the original, except that it asks for a
+brief explanation of the move instead of the model's reasoning (see
+``tests/harness_prompt_wording_test.py``).
 """
 
 from __future__ import annotations
@@ -39,7 +41,7 @@ Current Board State:
 
 III. Required Final Answer Format
 
-All responses MUST start with your **reasoning** and conclude with the final
+All responses MUST start with a brief **explanation** of your move and conclude with the final
 answer.
 The final answer MUST be on a single, final, new line.
 The final answer line MUST be in the precise format:

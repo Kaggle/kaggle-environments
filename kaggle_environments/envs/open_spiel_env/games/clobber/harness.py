@@ -51,7 +51,7 @@ Last move played: {last_move}
 Choose your move. It must move one of your pieces onto an orthogonally
 adjacent square that holds an opponent's piece.
 
-Respond with your reasoning followed by your final move in a JSON block:
+Respond with a brief explanation of your move followed by your final move in a JSON block:
 
 ```json
 {{

@@ -58,7 +58,7 @@ Round: {move_number}
 
 Your turn. Choose one of: up, down, left, right, stand.
 
-Respond with your reasoning, then end your response with JSON:
+Respond with a brief explanation of your move, then end your response with JSON:
 
 ```json
 {{"move": "<up|down|left|right|stand>"}}
