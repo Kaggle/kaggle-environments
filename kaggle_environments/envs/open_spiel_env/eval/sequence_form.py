@@ -270,3 +270,146 @@ class SequenceFormGame:
     def exploitability(self, strategy_0: np.ndarray, strategy_1: np.ndarray) -> float:
         """Returns ``nash_conv / 2``, as OpenSpiel defines exploitability."""
         return self.nash_conv(strategy_0, strategy_1) / 2.0
+
+
+class _Builder:
+    """Collects information sets and leaves while a game tree is walked."""
+
+    def __init__(self):
+        self._keys = ([], [])
+        self._actions = ([], [])
+        self._parent = ([], [])
+        self._index = ({}, {})
+        self._first = ([], [])
+        self._n_seq = [1, 1]
+        self._leaves = {}
+
+    def info_set(self, player: int, key: Hashable, actions: Sequence[str], parent_seq: int) -> list[int]:
+        """Returns the sequence ids of an information set's actions, creating it on first visit."""
+        row = self._index[player].get(key)
+        if row is None:
+            row = len(self._keys[player])
+            self._index[player][key] = row
+            self._keys[player].append(key)
+            self._actions[player].append(tuple(actions))
+            self._parent[player].append(parent_seq)
+            self._first[player].append(self._n_seq[player])
+            self._n_seq[player] += len(actions)
+        elif self._actions[player][row] != tuple(actions) or self._parent[player][row] != parent_seq:
+            raise ValueError(f"Information set {key} of player {player} is inconsistent.")
+        return [self._first[player][row] + a for a in range(len(actions))]
+
+    def leaf(self, seq_0: int, seq_1: int, weighted_payoff: float) -> None:
+        """Adds a terminal payoff to player 0, already weighted by its chance probability."""
+        self._leaves[(seq_0, seq_1)] = self._leaves.get((seq_0, seq_1), 0.0) + weighted_payoff
+
+    def build(self, name: str) -> SequenceFormGame:
+        players = tuple(Treeplex(self._keys[p], self._actions[p], self._parent[p]) for p in (0, 1))
+        payoff = np.zeros((players[0].n_seq, players[1].n_seq))
+        for (seq_0, seq_1), value in self._leaves.items():
+            payoff[players[0].renumber[seq_0], players[1].renumber[seq_1]] += value
+        return SequenceFormGame(name, payoff, players)
+
+
+def kuhn_poker() -> SequenceFormGame:
+    """Builds Kuhn poker: 6 information sets per player.
+
+    Information-set keys are ``(card, history)`` with card 0, 1, 2 for J, Q, K
+    and history a string of the actions so far: ``"p"`` for pass (check or
+    fold) and ``"b"`` for bet (bet or call), as in OpenSpiel's ``kuhn_poker``.
+    Action names are ``("pass", "bet")`` at every information set.
+    """
+    builder = _Builder()
+    actions = ("pass", "bet")
+    for card_0 in range(3):
+        for card_1 in range(3):
+            if card_0 == card_1:
+                continue
+            chance = 1.0 / 6.0
+            showdown = 1.0 if card_0 > card_1 else -1.0
+            check_0, bet_0 = builder.info_set(0, (card_0, ""), actions, 0)
+            check_1, bet_1 = builder.info_set(1, (card_1, "p"), actions, 0)
+            builder.leaf(check_0, check_1, chance * showdown)
+            fold_0, call_0 = builder.info_set(0, (card_0, "pb"), actions, check_0)
+            builder.leaf(fold_0, bet_1, -chance)
+            builder.leaf(call_0, bet_1, 2.0 * chance * showdown)
+            fold_1, call_1 = builder.info_set(1, (card_1, "b"), actions, 0)
+            builder.leaf(bet_0, fold_1, chance)
+            builder.leaf(bet_0, call_1, 2.0 * chance * showdown)
+    return builder.build("kuhn_poker")
+
+
+_LEDUC_RAISE_SIZES = (2, 4)
+_LEDUC_MAX_RAISES = 2
+
+
+def leduc_poker(suits: bool = False) -> SequenceFormGame:
+    """Builds Leduc poker with the default parameters of OpenSpiel's ``leduc_poker``.
+
+    Information-set keys are ``(own card, public card, round-one betting,
+    round-two betting)``. Betting is a string over ``f`` (fold), ``c`` (call
+    or check) and ``r`` (raise). The public card is ``None`` in round one. A
+    card is its rank 0, 1, 2 (J, Q, K) by default, or ``(rank, suit)`` with
+    ``suits=True``.
+
+    Args:
+        suits: Key information sets by card identity, as OpenSpiel does,
+            instead of by rank. The game is the same either way.
+    """
+    deck = [(rank, suit) for rank in range(3) for suit in range(2)]
+    builder = _Builder()
+
+    def identity(card):
+        return card if suits else card[0]
+
+    def showdown(card_0, card_1, public):
+        if card_0[0] == public[0]:
+            return 1.0
+        if card_1[0] == public[0]:
+            return -1.0
+        return float(np.sign(card_0[0] - card_1[0]))
+
+    def play(cards, public, round_index, round_one, betting, contributions, n_raises, seqs, chance):
+        # Player 0 opens both rounds and the players alternate within a round.
+        player = len(betting) % 2
+        stakes = max(contributions)
+        actions = []
+        if contributions[player] < stakes:
+            actions.append("f")
+        actions.append("c")
+        if n_raises < _LEDUC_MAX_RAISES:
+            actions.append("r")
+        key = (
+            identity(cards[player]),
+            None if public is None else identity(public),
+            round_one,
+            betting,
+        )
+        action_seqs = builder.info_set(player, key, actions, seqs[player])
+        for action, seq in zip(actions, action_seqs):
+            next_seqs = (seq, seqs[1]) if player == 0 else (seqs[0], seq)
+            paid = list(contributions)
+            if action == "f":
+                loss = -contributions[0] if player == 0 else contributions[1]
+                builder.leaf(next_seqs[0], next_seqs[1], chance * loss)
+            elif action == "r":
+                paid[player] = stakes + _LEDUC_RAISE_SIZES[round_index]
+                play(cards, public, round_index, round_one, betting + "r", tuple(paid), n_raises + 1, next_seqs, chance)
+            else:
+                paid[player] = stakes
+                if not betting:
+                    # An opening check: the other player still has to act.
+                    play(cards, public, round_index, round_one, "c", tuple(paid), n_raises, next_seqs, chance)
+                elif round_index == 0:
+                    remaining = [card for card in deck if card not in cards]
+                    for card in remaining:
+                        play(cards, card, 1, betting + "c", "", tuple(paid), 0, next_seqs, chance / len(remaining))
+                else:
+                    builder.leaf(next_seqs[0], next_seqs[1], chance * showdown(cards[0], cards[1], public) * paid[0])
+
+    n_deals = len(deck) * (len(deck) - 1)
+    for card_0 in deck:
+        for card_1 in deck:
+            if card_0 != card_1:
+                play((card_0, card_1), None, 0, "", "", (1, 1), 0, (0, 0), 1.0 / n_deals)
+    return builder.build("leduc_poker_suits" if suits else "leduc_poker")
