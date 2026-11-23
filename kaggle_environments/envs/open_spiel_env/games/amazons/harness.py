@@ -218,7 +218,7 @@ Move history (last {history_max_turns} completed turns):
 It is your turn. Think briefly about the position, then choose your move.
 Use algebraic notation: column letter + row number, e.g. ``a1`` or ``j10``.
 
-Respond with your reasoning followed by your final answer in a JSON block:
+Respond with a brief explanation of your move followed by your final answer in a JSON block:
 
 ```json
 {{

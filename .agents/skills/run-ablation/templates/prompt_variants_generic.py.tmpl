@@ -43,12 +43,15 @@ _PAYLOAD_KEYS = ("action", "move")
 # TODO: paste your harness.py prompt template here unchanged.
 #
 # HARD RULE: every prompt template (baseline AND every variant) must
-# explicitly ask the model to reason BEFORE outputting the final JSON.
-# Something like "Respond with your reasoning, then conclude with a
+# explicitly ask the model for a brief explanation BEFORE outputting the
+# final JSON. Something like "Respond with a brief explanation of your
+# decision, then conclude with a
 # JSON block:" right above the JSON schema. Models perform noticeably
-# worse when they skip straight to JSON; reasoning is a load-bearing
-# part of the harness contract, not a stylistic nicety. If you strip
-# *anything* from baseline, keep the reasoning ask.
+# worse when they skip straight to JSON; the explanation is a
+# load-bearing part of the harness contract, not a stylistic nicety. If
+# you strip *anything* from baseline, keep the explanation ask. Never ask
+# for "your reasoning" / "thinking": newer Claude models refuse that as
+# reasoning extraction.
 _BASELINE_TEMPLATE = """\
 {TODO: copy from harness.py — must be byte-identical}
 """
@@ -142,7 +145,7 @@ class BaselineVariant:
 
 _COMPACT_TEMPLATE = """\
 {TODO: terser rewrite of the baseline template — same fields, less prose.
- KEEP the "reason first, then JSON" instruction; that is non-negotiable.}
+ KEEP the "explain first, then JSON" instruction; that is non-negotiable.}
 """
 
 

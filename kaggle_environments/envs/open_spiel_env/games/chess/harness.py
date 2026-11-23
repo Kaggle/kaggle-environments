@@ -1,7 +1,9 @@
 """LLM harness for OpenSpiel Chess.
 
 Migrated from the Google DeepMind GameArena chess harness. The prompts
-generated here are identical to those produced by ``game_arena.harness.games.chess``.
+generated here match those produced by ``game_arena.harness.games.chess``,
+except that the main prompt asks for a brief explanation of the move instead of
+step-by-step reasoning (see ``core_harness.BASIC_PROMPT_TEMPLATE``).
 
 The auto-generated ``main.py`` calls these three module-level functions:
 ``get_legal_moves``, ``generate_prompt``, ``parse_response``.

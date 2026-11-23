@@ -78,7 +78,7 @@ Moves you have played so far: {move_history}
 Action notation: ``<h|v> <row> <col>`` (e.g. ``h 0 1`` or ``v 2 0``). Only
 open edges (shown as ``.`` or ``:`` on the board) are legal.
 
-Respond with your reasoning followed by your final move in a JSON block:
+Respond with a brief explanation of your move followed by your final move in a JSON block:
 
 ```json
 {{

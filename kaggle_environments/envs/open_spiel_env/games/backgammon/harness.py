@@ -122,7 +122,7 @@ Examples (your own perspective in every case):
 
 Tradition is to list moves with the higher starting point first.
 
-Respond with your reasoning followed by your move in a JSON block:
+Respond with a brief explanation of your move followed by your move in a JSON block:
 
 ```json
 {{

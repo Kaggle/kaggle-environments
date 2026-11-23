@@ -70,7 +70,7 @@ History so far (most recent last):
 You are Player {player_label} (id {player_id}). It is your PROPOSAL turn.
 {accept_help}
 
-Respond with your reasoning, then conclude with a JSON block of EITHER
+Respond with a brief explanation of your decision, then conclude with a JSON block of EITHER
 form:
 
 ```json
@@ -101,7 +101,7 @@ Your most recent proposal (what you offered to keep): {last_proposal}
 History so far (most recent last):
 {history_str}
 
-Respond with your reasoning, then conclude with a JSON block:
+Respond with a brief explanation of your decision, then conclude with a JSON block:
 
 ```json
 {{"symbols": [<int>, <int>, ...]}}

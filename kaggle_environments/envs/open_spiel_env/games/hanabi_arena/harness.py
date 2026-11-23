@@ -120,9 +120,9 @@ Action notation -- your answer must be exactly one of these forms:
 Slots are numbered from 0. Colors are the single letters {color_list}. Hint \
 targets are written as an offset from your own seat: {offset_map}.
 
-It is your turn. Reason step by step about what your teammate knows, what your \
-own cards could be, and which action scores your team the most, then give your \
-final answer in a JSON block:
+It is your turn. Consider what your teammate knows, what your own cards could \
+be, and which action scores your team the most. Respond with a brief explanation \
+of your move, then give your final answer in a JSON block:
 
 ```json
 {{
@@ -154,7 +154,7 @@ RETHINK_UNDECIDED = """
 
 Your answer "{previous_action}" names more than one move, so it is not clear
 which one you chose. The "move" value must be a single action and nothing
-else -- put any comparison with the moves you rejected in your reasoning above
+else -- put any comparison with the moves you rejected in your explanation above
 the JSON, not inside it.
 
 (Keep using the same JSON output format as before -- only the move value needs to change.)

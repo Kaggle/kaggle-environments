@@ -3,7 +3,9 @@
 Migrated from Google DeepMind's GameArena poker harness. The prompts produced
 here are intended to be byte-identical to those produced by
 ``game_arena.harness.games.poker.poker_agents.RepeatedPokerRethinkAgent`` with
-``REPEATED_POKER`` template + ``RETHINK_REPEATED_POKER`` strategy.
+``REPEATED_POKER`` template + ``RETHINK_REPEATED_POKER`` strategy, except that
+the answer format asks for a brief explanation instead of the model's reasoning
+(see ``tests/harness_prompt_wording_test.py``).
 """
 
 from __future__ import annotations
@@ -57,7 +59,7 @@ Final Answer: <action> <size-if-bet-or-raise>
 
 III. Required Final Answer Format
 
-All responses MUST start with your reasoning and conclude with the final answer.
+All responses MUST start with a brief explanation of your action and conclude with the final answer.
 The final answer MUST be on a single, final, new line.
 The final answer line MUST be in the precise format:
 Final Answer: <action> <size-if-bet-or-raise>
@@ -387,9 +389,10 @@ def generate_prompt(
     previous_response: str | None = None,
     previous_action: str | None = None,
 ) -> str:
-    """Build the LLM prompt. Output is byte-identical to upstream's
+    """Build the LLM prompt. Output matches upstream's
     ``RepeatedPokerRethinkAgent`` + ``REPEATED_POKER`` template +
-    ``RETHINK_REPEATED_POKER`` strategy.
+    ``RETHINK_REPEATED_POKER`` strategy, apart from the explanation wording
+    noted in the module docstring.
     """
     del move_history, previous_action  # not used in repeated_poker prompts
     state = _deserialize_state(observation)

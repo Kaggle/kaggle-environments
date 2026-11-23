@@ -63,7 +63,7 @@ revealed opponent stone are not legal moves. Think about which cell most
 advances your connection across {connect_goal} (or which probe most reduces
 your uncertainty), then choose a move.
 
-Respond with your reasoning followed by your final move in a JSON block:
+Respond with a brief explanation of your move followed by your final move in a JSON block:
 
 ```json
 {{

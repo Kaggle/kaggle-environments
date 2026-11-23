@@ -450,7 +450,7 @@ Offers used so far: {num_offers} of {max_turns}. Offers remaining
 You are Player {player_label}. It is your turn.
 {accept_help}
 
-Respond with your reasoning, then conclude with a JSON block of EITHER form:
+Respond with a brief explanation of your decision, then conclude with a JSON block of EITHER form:
 
 ```json
 {{"action": "offer", "keep": {{"book": <int>, "hat": <int>, "basketball": <int>}}}}
@@ -559,7 +559,7 @@ History ({num_offers}/{max_turns} offers used):
 {history_str}
 {accept_help}
 
-Respond with your reasoning, then end your response with JSON:
+Respond with a brief explanation of your decision, then end your response with JSON:
 
 ```json
 {{"action": "offer", "keep": {{"book": <int>, "hat": <int>, "basketball": <int>}}}}
@@ -610,7 +610,7 @@ Each turn: OFFER = what YOU keep (opponent gets the complement). AGREE = accept 
 History:
 {history_str}
 
-Respond with your reasoning, then end your response with JSON, one of:
+Respond with a brief explanation of your decision, then end your response with JSON, one of:
 {{"action": "offer", "keep": {{"book": N, "hat": N, "basketball": N}}}}
 {{"action": "agree"}}
 """
@@ -663,7 +663,7 @@ Each turn: OFFER = what YOU keep (opponent gets the complement). AGREE = accept 
 History:
 {history_str}
 
-Respond with your reasoning, then end your response with JSON, one of:
+Respond with a brief explanation of your decision, then end your response with JSON, one of:
 {{"action": "offer", "keep": {{"book": N, "hat": N, "basketball": N}}}}
 {{"action": "agree"}}
 """
@@ -763,7 +763,7 @@ Offers used so far: {num_offers} of {max_turns}. Offers remaining
 You are Player {player_label}. It is your turn.
 {accept_help}
 
-Respond with your reasoning, then conclude with a JSON block of EITHER form:
+Respond with a brief explanation of your decision, then conclude with a JSON block of EITHER form:
 
 ```json
 {{"action": "offer", "keep": {{"a": <int>, "b": <int>, "c": <int>}}}}

@@ -78,7 +78,7 @@ Opponent is Player {opp_player_id} ('{opp_piece}').
 Moves played so far this game (both players, oldest first):
 {move_history}
 
-Choose your move now. Respond with your reasoning followed by your final move in a JSON block:
+Choose your move now. Respond with a brief explanation of your move followed by your final move in a JSON block:
 {json_format_example}
 
 Failure to output your final answer in the specified format, or selecting an illegal move, will result in a loss.
@@ -117,7 +117,7 @@ Opponent is Player {opp_player_id} ('{opp_piece}').
 Moves played so far this game (both players, oldest first):
 {move_history}
 
-Choose your move now. Respond with your reasoning followed by your final move in a JSON block:
+Choose your move now. Respond with a brief explanation of your move followed by your final move in a JSON block:
 {json_format_example}
 
 Failure to output your final answer in the specified format, or selecting an illegal move, will result in a loss.
@@ -146,7 +146,7 @@ You are Player {player_id} ('{my_piece}'). Opponent is Player {opp_player_id} ('
 Moves played so far this game (both players, oldest first):
 {move_history}
 
-Respond with your reasoning, then end your response with your final move as JSON:
+Respond with a brief explanation of your move, then end your response with your final move as JSON:
 {json_format_example}
 """
 
@@ -177,7 +177,7 @@ You are Player {player_id} ('{my_piece}'). Opponent is Player {opp_player_id} ('
 Moves played so far this game (both players, oldest first):
 {move_history}
 
-Respond with your reasoning, then end your response with your final move as JSON:
+Respond with a brief explanation of your move, then end your response with your final move as JSON:
 {json_format_example}
 """
 
@@ -203,7 +203,7 @@ You are Player {player_id} ('{my_piece}'). Opponent is Player {opp_player_id} ('
 Moves played so far this game (both players, oldest first):
 {move_history}
 
-Respond with your reasoning, then end your response with your final move as JSON:
+Respond with a brief explanation of your move, then end your response with your final move as JSON:
 {json_format_example}
 """
 

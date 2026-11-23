@@ -60,7 +60,7 @@ Recent rounds (most recent last; one line per simultaneous round):
 
 It is now your turn. Choose your move.
 The move MUST be one of: UP, DOWN, LEFT, RIGHT.
-Your response should include the reasoning that led you to your move,
+Your response should include a brief explanation of your move,
 and conclude with your final move as a JSON formatted as follows:
 
 ```json

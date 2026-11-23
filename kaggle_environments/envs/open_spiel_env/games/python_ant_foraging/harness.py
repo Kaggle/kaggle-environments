@@ -65,7 +65,7 @@ direction word (``stay``, ``up``, ``down``, ``left``, or ``right``) and
 the framework will pair it with your ant id.
 
 It is now your turn. Choose your move.
-Your response should include your reasoning, then conclude with your
+Your response should include a brief explanation of your move, then conclude with your
 final move as JSON formatted exactly as follows:
 
 ```json
