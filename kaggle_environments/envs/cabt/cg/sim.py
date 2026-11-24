@@ -43,6 +43,9 @@ def load_lib(lib_dir: str) -> ctypes.CDLL:
     if hasattr(lib, "BattleStartReverse"):
         lib.BattleStartReverse.restype = StartData
         lib.BattleStartReverse.argtypes = [ctypes.POINTER(ctypes.c_int)]
+        
+        lib.GetLastState.restype = ctypes.c_char_p
+        lib.GetLastState.argtypes = [ctypes.c_void_p, ctypes.c_int]
 
     lib.BattleFinish.argtypes = [ctypes.c_void_p]
 
@@ -81,3 +84,4 @@ class Battle:
     vis = []
     last_step = 0
     time = 0
+    last_observation = [None, None]
