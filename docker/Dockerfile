@@ -17,6 +17,7 @@ ENV GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/etc/ssl/certs/ca-certificates.crt
 COPY --from=node_builder /usr/local/ /usr/local/
 # Confirm the installation was successful
 RUN node -v && npm -v
+RUN npm install --global battlecast-engine@0.1.1
 
 WORKDIR /usr/src/app/kaggle_environments
 
