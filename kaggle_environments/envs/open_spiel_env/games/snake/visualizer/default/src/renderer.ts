@@ -127,7 +127,8 @@ export function renderer(options: RendererOptions<SnakeStep[]>) {
     .map((snake) => {
       const name = getPlayerName(replay, snake.player);
       const color = PLAYER_COLORS[snake.player % PLAYER_COLORS.length];
-      const isActive = !obs.is_terminal && obs.current_player === snake.player;
+      // Every alive snake acts every turn under simultaneous dynamics.
+      const isActive = !obs.is_terminal && snake.alive;
       const classes = ['snake-player-card', snake.alive ? 'alive' : 'dead', isActive ? 'active' : ''].join(' ');
       return `
         <div class="${classes}" style="color: ${color};">
@@ -151,12 +152,7 @@ export function renderer(options: RendererOptions<SnakeStep[]>) {
     }
     if (obs.game_over_reason) status += ` — ${obs.game_over_reason}`;
   } else {
-    const aname = getPlayerName(replay, obs.current_player);
-    const acolor = PLAYER_COLORS[obs.current_player % PLAYER_COLORS.length];
-    status = `Turn ${obs.turn} — acting: <span style="color: ${acolor}; font-weight: 700;">${aname}</span>`;
-    if (obs.pending_this_turn.length > 0) {
-      status += ` (pending: ${obs.pending_this_turn.join(', ')})`;
-    }
+    status = `Turn ${obs.turn} — simultaneous move`;
   }
   if (forfeitReason) {
     status += ` <span class="forfeit-reason">${escapeHtml(forfeitReason)}</span>`;

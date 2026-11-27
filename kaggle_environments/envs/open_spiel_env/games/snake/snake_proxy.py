@@ -1,9 +1,8 @@
 """Structured JSON observations for the custom Snake game.
 
 The Snake game (see ``snake_game.py``) is a multi-snake grid game with
-simultaneous-move semantics implemented sequentially: each turn cycles
-through players 0..N-1, buffering their actions, and on player N-1's
-move the buffered actions are applied together. Actions are
+simultaneous-move dynamics: every turn all snakes submit an action and
+the moves are applied together. Actions are
 ``0=UP, 1=DOWN, 2=LEFT, 3=RIGHT``.
 
 This proxy exposes the state as structured JSON so agents and the
@@ -30,6 +29,16 @@ _EMPTY_CHAR = "."
 
 class SnakeState(proxy.State):
     """Snake state proxy with JSON observations."""
+
+    def _apply_actions(self, actions: list[int]) -> None:
+        # Override for simultaneous-move games; the proxy base class only
+        # forwards the sequential _apply_action.
+        return self.__wrapped__.apply_actions(actions)
+
+    def _player_label(self, player: int) -> int | str:
+        if player < 0:
+            return pyspiel.PlayerId(player).name.lower()
+        return player
 
     def _board(self, snakes: list[list[list[int]]], is_alive: list[bool], foods: list[list[int]]) -> list[list[str]]:
         rows = self.__wrapped__.rows
@@ -61,9 +70,7 @@ class SnakeState(proxy.State):
         turn = int(getattr(wrapped, "_steps", 0))
         if food_respawn_interval > 0:
             last_spawn = int(getattr(wrapped, "_last_food_spawn_step", 0))
-            turns_until_respawn = max(
-                0, food_respawn_interval - (turn - last_spawn)
-            )
+            turns_until_respawn = max(0, food_respawn_interval - (turn - last_spawn))
         else:
             turns_until_respawn = None
 
@@ -83,17 +90,8 @@ class SnakeState(proxy.State):
             for i in range(wrapped.num_players)
         ]
 
-        # While players are buffering moves for the current turn (sequential
-        # implementation of simultaneous play), expose who is acting next and
-        # which players have already submitted this turn.
-        buffer = [a for a in getattr(wrapped, "_move_buffer", [])]
-        pending = [i for i, a in enumerate(buffer) if a is not None]
-
         round_history = [
-            [
-                _Action(a).name if a is not None and 0 <= a < len(_Action) else None
-                for a in round_moves
-            ]
+            [_Action(a).name if a is not None and 0 <= a < len(_Action) else None for a in round_moves]
             for round_moves in getattr(wrapped, "_round_history", [])
         ]
 
@@ -109,8 +107,7 @@ class SnakeState(proxy.State):
             "snakes": snake_objs,
             "scores": scores,
             "is_alive": is_alive,
-            "current_player": self.current_player(),
-            "pending_this_turn": pending,
+            "current_player": self._player_label(self.current_player()),
             "round_history": round_history,
             "turn": turn,
             "is_terminal": is_terminal,
